@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>decentralized.cloud — mark</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  three-d-stage:not(:defined) { visibility: hidden; }
+</style>
+</head>
+<body>
+<three-d-stage name="cloud-network" background="#000C26"></three-d-stage>
+<div id="wm" style="position:fixed;pointer-events:none;z-index:5"><img src="wordmark.svg" alt="decentralized.cloud" style="width:100%;display:block"></div>
+<script src="three-d-stage.js"></script>
+<script type="module">
+const stage = document.querySelector('three-d-stage');
+const { THREE } = await stage.ready;
+
+// Cloud silhouette: union of overlapping circles, flat-clamped bottom.
+const CIRCLES = [
+  { cx: -0.70, cy: -0.02, r: 0.36 },
+  { cx: -0.26, cy:  0.24, r: 0.46 },
+  { cx:  0.36, cy:  0.16, r: 0.60 },
+];
+const FLAT_Y = -0.30;
+const XMIN = -1.055, XMAX = 0.955;
+function topAt(x) {
+  let y = -Infinity;
+  for (const c of CIRCLES) {
+    const d = c.r * c.r - (x - c.cx) * (x - c.cx);
+    if (d > 0) y = Math.max(y, c.cy + Math.sqrt(d));
+  }
+  return y;
+}
+function bottomAt(x) {
+  let y = Infinity;
+  for (const c of CIRCLES) {
+    const d = c.r * c.r - (x - c.cx) * (x - c.cx);
+    if (d > 0) y = Math.min(y, c.cy - Math.sqrt(d));
+  }
+  return Math.max(y, FLAT_Y);
+}
+const N = 160;
+const shape = new THREE.Shape();
+for (let i = 0; i <= N; i++) {
+  const x = XMIN + (XMAX - XMIN) * (i / N);
+  const y = topAt(x);
+  if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+}
+for (let i = N; i >= 0; i--) {
+  const x = XMIN + (XMAX - XMIN) * (i / N);
+  shape.lineTo(x, bottomAt(x));
+}
+shape.closePath();
+
+// Point strictly inside the silhouette by `margin`.
+function insideInset(x, y, margin) {
+  if (y < FLAT_Y + margin) return false;
+  for (const c of CIRCLES) {
+    const d = Math.hypot(x - c.cx, y - c.cy);
+    if (d <= c.r - margin) return true;
+  }
+  return false;
+}
+
+// Grid cells across the whole cloud face — each is a real square hole cut
+// through the extrusion, so sinking blocks reveal a true cavity.
+const PITCH = 0.19, S = PITCH + 0.0006;
+const X0 = -0.93, Y0 = -0.18;
+const cells = [];
+for (let iy = 0; Y0 + iy * PITCH <= 0.66; iy++) {
+  for (let ix = 0; X0 + ix * PITCH <= 0.90; ix++) {
+    const x = X0 + ix * PITCH, y = Y0 + iy * PITCH;
+    if (insideInset(x, y, 0.14)) cells.push({ x, y, ix, iy });
+  }
+}
+// One union hole for the whole grid region (no webs between cells) —
+// trace the boundary of the occupied cells and cut it from the face.
+{
+  const occ = new Set(cells.map(c => c.ix + ',' + c.iy));
+  const adj = new Map();
+  const ck = (ix, iy) => ix + ',' + iy;
+  const link = (a, b) => {
+    if (!adj.has(a)) adj.set(a, []);
+    if (!adj.has(b)) adj.set(b, []);
+    adj.get(a).push(b); adj.get(b).push(a);
+  };
+  for (const c of cells) {
+    if (!occ.has(ck(c.ix, c.iy - 1))) link(ck(c.ix, c.iy), ck(c.ix + 1, c.iy));
+    if (!occ.has(ck(c.ix, c.iy + 1))) link(ck(c.ix, c.iy + 1), ck(c.ix + 1, c.iy + 1));
+    if (!occ.has(ck(c.ix - 1, c.iy))) link(ck(c.ix, c.iy), ck(c.ix, c.iy + 1));
+    if (!occ.has(ck(c.ix + 1, c.iy))) link(ck(c.ix + 1, c.iy), ck(c.ix + 1, c.iy + 1));
+  }
+  const world = k => {
+    const [ix, iy] = k.split(',').map(Number);
+    return [X0 + (ix - 0.5) * PITCH, Y0 + (iy - 0.5) * PITCH];
+  };
+  const start = adj.keys().next().value;
+  const loop = [start];
+  let prev = null, cur = start;
+  do {
+    const nbrs = adj.get(cur);
+    const nxt = nbrs.find(n => n !== prev) ?? nbrs[0];
+    prev = cur; cur = nxt;
+    loop.push(cur);
+  } while (cur !== start && loop.length < 500);
+  const p = new THREE.Path();
+  loop.forEach((k, i) => {
+    const [wx, wy] = world(k);
+    if (i === 0) p.moveTo(wx, wy); else p.lineTo(wx, wy);
+  });
+  p.closePath();
+  shape.holes.push(p);
+}
+
+const DEPTH = 0.34, BEVEL = 0;
+const cloudGeo = new THREE.ExtrudeGeometry(shape, {
+  depth: DEPTH,
+  bevelEnabled: false,
+  steps: 1,
+});
+cloudGeo.translate(0, 0, -DEPTH / 2);
+cloudGeo.computeVertexNormals();
+
+// Gradient: light sky-blue toward the top-left, deep blue bottom-right.
+// Brand gradient: indigo #3F3DFA (bottom-left) to cyan #41DBF9 (top-right)
+const cTop = new THREE.Color(0x41DBF9), cBot = new THREE.Color(0x3F3DFA);
+function gradColor(x, y) {
+  const ty = Math.min(1, Math.max(0, (y + 0.30) / 1.06));
+  const tx = Math.min(1, Math.max(0, (x + 1.055) / 2.01));
+  const t = 0.55 * ty + 0.45 * tx;
+  return cBot.clone().lerp(cTop, t);
+}
+function paintGradient(geo, ox, oy) {
+  const pos = geo.attributes.position, col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const c = gradColor(pos.getX(i) + ox, pos.getY(i) + oy);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+paintGradient(cloudGeo, 0, 0);
+
+// Flat matte look: no gloss, no metal. Gradient comes from vertex colors.
+const cloudMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, roughness: 0.9, metalness: 0, vertexColors: true,
+});
+cloudMat.name = 'cloud_blue';
+
+const wallMat = new THREE.MeshBasicMaterial({ color: 0x0E2250 });
+wallMat.name = 'cloud_interior';
+const group = new THREE.Group();
+group.name = 'cloud_blocks';
+const cloud = new THREE.Mesh(cloudGeo, [cloudMat, wallMat]);
+cloud.name = 'cloud';
+group.add(cloud);
+
+const FRONT_Z = DEPTH / 2 + BEVEL; // z of the flat front surface (0.20)
+const BLOCK_D = 0.14, SINK = 0.16;
+// Piston block: cloud-colored, flush with the face by default.
+const blockGeo = new THREE.BoxGeometry(S, S, BLOCK_D);
+const blocks = [];
+let bi = 0;
+for (const c of cells) {
+  const bm = cloudMat.clone();
+  bm.transparent = true;
+  const sideM = new THREE.MeshBasicMaterial({ color: 0x0E2250, transparent: true });
+  const m = new THREE.Mesh(blockGeo.clone(), [sideM, sideM, sideM, sideM, bm, bm]);
+  m.geometry.translate(c.x, c.y, 0); // bake XY so gradient matches the face
+  paintGradient(m.geometry, 0, 0);
+  m.geometry.translate(-c.x, -c.y, 0);
+  m.name = 'block_' + bi;
+  // blocks tile the opening edge-to-edge, fronts coplanar with the face
+  m.position.set(c.x, c.y, FRONT_Z - BLOCK_D / 2 + 0.0012);
+  m.userData.z0 = m.position.z;
+  // wave phase: distance from the grid's heart + a touch of noise
+  m.userData.phase = Math.hypot(c.x - 0.42, c.y - 0.2) * 5.5 + Math.sin(bi * 12.9898) * 0.6;
+  blocks.push(m);
+  group.add(m);
+  bi++;
+}
+
+// --- Network: same template + timing as the 2D animation, drawn in 3D ---
+const BLUE = 0x41DBF9;
+const U = 0.27, HW = 0.52, NZ = FRONT_Z + 0.04;
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+let seed = 23; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+// Even-weight triangulated mesh — no visual center, decentralization literal
+const NODES = [[-0.75,.06],[0.4,.04],[-0.2,.32],[0.78,.36],[-0.78,.58],[0.25,.62],[-0.3,.92],[0.7,.94]];
+const edges = [[0,1],[0,2],[1,2],[1,3],[2,3],[2,4],[2,5],[3,5],[4,5],[4,6],[5,6],[5,7],[6,7]];
+const tmpl = NODES.map(([u, v]) => ({ u, v, s: 0.072 }));
+// reveal cascades top-to-bottom, slightly delayed toward the edges
+tmpl.forEach(n => n.t0 = 0.15 + n.v * 0.35 + Math.abs(n.u) * 0.08);
+// fibers removed — the graph stays self-contained (no orphan strokes)
+
+function roundedSquare(s, r) {
+  const hh = s / 2, sh = new THREE.Shape();
+  sh.moveTo(-hh + r, -hh);
+  sh.lineTo(hh - r, -hh); sh.quadraticCurveTo(hh, -hh, hh, -hh + r);
+  sh.lineTo(hh, hh - r); sh.quadraticCurveTo(hh, hh, hh - r, hh);
+  sh.lineTo(-hh + r, hh); sh.quadraticCurveTo(-hh, hh, -hh, hh - r);
+  sh.lineTo(-hh, -hh + r); sh.quadraticCurveTo(-hh, -hh, -hh + r, -hh);
+  return new THREE.ShapeGeometry(sh);
+}
+const mkMat = () => new THREE.MeshBasicMaterial({ color: BLUE, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+const mkLine = (pts) => {
+  const g = new THREE.BufferGeometry().setFromPoints(pts);
+  return new THREE.Line(g, new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0, depthWrite: false }));
+};
+const nodeMeshes = tmpl.map((n, i) => {
+  const m = new THREE.Mesh(roundedSquare(n.s, 0.012), mkMat());
+  m.name = 'net_node_' + i;
+  m.position.z = NZ;
+  group.add(m);
+  return m;
+});
+const zero = () => [new THREE.Vector3(), new THREE.Vector3()];
+const edgeLines = edges.concat(tmpl.map((n, i) => n.sat ? [i, n.hub, true] : null).filter(Boolean))
+  .map(([a, b, thin], i) => {
+    const line = mkLine(zero());
+    line.name = 'net_edge_' + i;
+    group.add(line);
+    return { a, b, thin, line };
+  });
+
+
+stage.setObject(group);
+// Lockup layout: measure the cloud's projected size, place the wordmark to
+// its right at a fixed ratio, and center the whole lockup at every aspect.
+const CAMZ = 2.8, FOV = 45, WM_ASPECT = 415 / 84;
+function layoutLockup() {
+  const w = stage.clientWidth || 1, hpx = stage.clientHeight || 1;
+  const t2 = 2 * Math.tan(FOV * Math.PI / 360);
+  const gap = Math.max(20, 0.035 * w);
+  // world widths: mark 2.01, wordmark at the locked 2.65x ratio
+  const lockupWorldW = (XMAX - XMIN) + (1.15 / 2.65) * WM_ASPECT;
+  // scale from height, clamped so the WHOLE lockup fits the width (no crop);
+  // the mark and wordmark scale together, keeping proportions uniform
+  const pxPerWorld = Math.min(hpx / (t2 * CAMZ), (0.92 * w - gap) / lockupWorldW);
+  const camz = hpx / (t2 * pxPerWorld);
+  const cloudW = (XMAX - XMIN) * pxPerWorld;
+  const wmH = (1.15 * pxPerWorld) / 2.65, wmW = wmH * WM_ASPECT;
+  const total = cloudW + gap + wmW;
+  const leftPx = (w - total) / 2;
+  const targetX = XMIN - (leftPx - w / 2) / pxPerWorld;
+  stage._camera.position.set(targetX, 0.18, camz);
+  stage._controls.target.set(targetX, 0.18, 0);
+  stage._controls.update();
+  const wm = document.getElementById('wm');
+  wm.style.left = (leftPx + cloudW + gap) + 'px';
+  wm.style.width = wmW + 'px';
+  wm.style.top = '50%';
+  wm.style.transform = 'translateY(-50%)';
+}
+layoutLockup();
+window.addEventListener('resize', layoutLockup);
+// Flat graphic lighting: no shadows, no ground shadow
+stage._ground.visible = false;
+group.traverse(obj => { if (obj.isMesh) { obj.castShadow = false; obj.receiveShadow = false; } });
+stage._key.intensity = 1.6;
+
+// --- Hover: raycast onto the face plane; a column opens like the 2D piece.
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const facePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -FRONT_Z);
+const hit = new THREE.Vector3();
+let hovering = false, tx = 0.45; // default: right lobe open, as if hovered
+stage.addEventListener('pointermove', (e) => {
+  const r = stage.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, stage._camera);
+  hovering = !!raycaster.ray.intersectPlane(facePlane, hit) && insideInset(hit.x, hit.y, -0.15);
+  if (hovering) tx = Math.max(-0.52, Math.min(0.55, hit.x)); else tx = 0.45;
+});
+stage.addEventListener('pointerleave', () => { hovering = false; tx = 0.45; });
+
+const clock = new THREE.Clock();
+let o = 0, cx = 0;
+blocks.forEach(b => b.userData.k = 0);
+(function animate() {
+  const dt = Math.min(0.05, clock.getDelta());
+  o += (1 - o) * Math.min(1, dt * (hovering ? 5 : 2)); // always open; pointer moves the cut
+  cx += (tx - cx) * Math.min(1, dt * 9);
+  const ch = HW * easeOut(clamp01(o / 0.7));   // current cut half-width
+
+  // Blocks: sink inside the open column, flush outside it
+  const vis = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i], c = cells[i];
+    const target = o < 0.01 ? 0 : clamp01((ch - Math.abs(c.x - cx)) / 0.06);
+    const rate = 7 + (c.y + 0.30) * 9; // top rows lead: the cut cascades down
+    b.userData.k += (target - b.userData.k) * Math.min(1, dt * rate);
+    const k = b.userData.k;
+    b.position.z = b.userData.z0 - (k * k * (3 - 2 * k)) * SINK;
+    const fade = 1 - clamp01((k - 0.5) / 0.35);
+    b.material[0].opacity = fade;
+    b.material[4].opacity = fade;
+    b.visible = fade > 0.01;
+    if (k > 0.55) vis.push(c);
+  }
+
+  // Node states (same ramp as the 2D version)
+  const st = tmpl.map((n) => {
+    const x = cx + n.u * U, top = topAt(x), bot = bottomAt(x);
+    if (!isFinite(top) || top === -Infinity) return { x, y: 0, k: 0, settle: 0 };
+    const y = lerp(top - 0.08, bot + 0.07, n.v);
+    const q = clamp01((o - n.t0) / 0.3);
+    let k = q < .6 ? easeOut(q / .6) * 1.2 : lerp(1.2, 1, (q - .6) / .4);
+    k *= clamp01((ch - Math.abs(n.u * U) - 0.027) / 0.072);
+    return { x, y, k, settle: clamp01((o - n.t0 - 0.2) / 0.3) };
+  });
+  const tNow = performance.now() / 1000;
+  const gi = Math.floor(tNow / 3.4) % tmpl.length;
+  const gph = (tNow % 3.4) / 3.4;
+  st.forEach((s, i) => {
+    const m = nodeMeshes[i];
+    m.position.set(s.x, s.y, NZ);
+    const pulse = i === gi ? Math.exp(-Math.pow((gph - 0.5) * 5, 2)) : 0;
+    const sc = Math.max(0.0001, s.k) * (1 + 0.22 * pulse);
+    m.scale.set(sc, sc, 1);
+    m.material.opacity = s.k > 0 ? 1 : 0;
+  });
+
+  // Edges grow from A toward B as both settle
+  for (const E of edgeLines) {
+    const A = st[E.a], B = st[E.b], k = Math.min(A.settle || 0, B.settle || 0);
+    const on = A.k > 0 && B.k > 0 && k > 0;
+    E.line.material.opacity = on ? Math.min(A.k, B.k, 1) * (E.thin ? 0.8 : 1) : 0;
+    if (on) {
+      const p = E.line.geometry.attributes.position;
+      p.setXYZ(0, A.x, A.y, NZ - 0.005);
+      p.setXYZ(1, lerp(A.x, B.x, easeOut(k)), lerp(A.y, B.y, easeOut(k)), NZ - 0.005);
+      p.needsUpdate = true;
+    }
+  }
+
+  requestAnimationFrame(animate);
+})();
+</script>
+
+
+</body></html>

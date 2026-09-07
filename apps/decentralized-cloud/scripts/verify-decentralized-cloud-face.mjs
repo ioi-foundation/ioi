@@ -1032,7 +1032,9 @@ async function checkServer() {
     // to make, pointed at the other end of the change.
     // THE THREE-LOBE MARK JOINS THE RETIRED LIST — owner ruling, 2026-09-07: "this is
     // not the final mark". Its first lobe's path data is unique to that drawing.
-    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue", "mark-bits", "M 1.497 54.71C 0.67 61.602"]
+    // And the cloud I drew from the owner's hover prototype before the complete
+    // brand file arrived (2026-09-07): its first circle path is unique to it.
+    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue", "mark-bits", "M 1.497 54.71C 0.67 61.602", "M 0 200 A 66 66 0 1 0 132 200"]
       .filter((s) => shell.includes(s));
     if (/cx:\s*32\s*,\s*cy:\s*38\s*,\s*r:\s*17\b/.test(shell)) retired.push("the dissolving cloud's first lobe");
     ok("no retired mark is in any byte this server sends",

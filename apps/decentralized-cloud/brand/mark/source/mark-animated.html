@@ -1,187 +1,187 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>decentralized.cloud — the animated mark (SVG, no WebGL)</title>
-<!-- THE OWNER'S ANIMATED MARK, pure SVG DOM — geometry and timing verbatim from the
-     owner's file (brand/mark/source/mark-animated.html, 2026-09-06). Two changes,
-     both colour: the prototype blue is the brand gradient and the pulses ride in
-     identity white; the ground is substrate navy. Without script it degrades to the
-     closed cloud, and under reduced motion it holds the built network still. The
-     header's lockup is this same animation, drawn by src/components/AnimatedMark.jsx
-     from brand/mark/mark.mjs. -->
-<style>
-  :root { --bg: #000c26; }
-  html, body { margin: 0; height: 100%; background: var(--bg); }
-  body { display: flex; align-items: center; justify-content: center; }
-  svg { width: min(96vw, 900px); height: auto; max-width: 100%; display: block; }
-  .edge  { stroke: url(#g); stroke-width: 2.6; stroke-linecap: round; fill: none; }
-  .thin  { stroke-width: 1.8; }
-  .fiber { stroke: url(#g); stroke-width: 1.3; stroke-linecap: round; fill: none; opacity: .75; }
-  .node, .px { fill: url(#g); }
-  .pulse { fill: #ffffff; }
-</style>
-</head>
+<html><head><meta charset="utf-8"><title>decentralized.cloud — animated SVG mark (replica engine)</title>
+<style>html,body{margin:0;height:100%;overflow:hidden}body{background:#000C26}
+#wm{position:fixed;pointer-events:none}
+svg{position:fixed;inset:0;width:100%;height:100%}</style></head>
 <body>
-<svg viewBox="0 0 665 384" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cloud dissolving into scattered pixels that feed a network of connected squares, then swelling to reabsorb it">
-  <defs>
-    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="122" y1="332" x2="570" y2="64"><stop offset="0" stop-color="#3f3dfa"/><stop offset="1" stop-color="#41dbf9"/></linearGradient>
-    <clipPath id="cut"><rect id="cutRect" x="0" y="0" width="288" height="384"/></clipPath>
-  </defs>
-
-  <g clip-path="url(#cut)" fill="url(#g)">
-    <circle cx="188" cy="264" r="66"/>
-    <circle cx="268" cy="198" r="82"/>
-    <circle cx="338" cy="160" r="96"/>
-    <circle cx="488" cy="250" r="82"/>
-    <rect x="188" y="198" width="300" height="132"/>
-  </g>
-
-  <g id="pixels"></g>
-  <g id="fibers"></g>
-  <g id="edges"></g>
-  <g id="nodes"></g>
-  <g id="signals">
-    <circle class="pulse" r="2.8"><animateMotion dur="1.8s" repeatCount="indefinite" path="M392,118 L450,142 L456,212 L478,262"/></circle>
-    <circle class="pulse" r="2.8"><animateMotion dur="1.9s" begin=".7s" repeatCount="indefinite" path="M400,300 L452,312 L478,262 L456,212 L398,210"/></circle>
-    <circle class="pulse" r="2.8"><animateMotion dur="1.5s" begin="1.2s" repeatCount="indefinite" path="M398,210 L392,118 L450,142"/></circle>
-  </g>
-</svg>
-
+<svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="wm"><img src="wordmark.svg" alt="decentralized.cloud" style="width:100%;display:block"></div>
 <script>
-(function () {
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const NS = 'http://www.w3.org/2000/svg';
-  const $ = id => document.getElementById(id);
-  const EDGE_X = 288, FULL_X = 482;
-
-  const D = 11;
-  const T = { build: 0.2, buildDur: 1.4, live: 2.0, sweep: 6.0, sweepEnd: 8.3, recede: 9.3, recedeEnd: 10.5 };
-
-  const easeOut = x => 1 - Math.pow(1 - x, 3);
-  const easeInOut = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2;
-  const clamp01 = x => Math.max(0, Math.min(1, x));
-  const lerp = (a, b, t) => a + (b - a) * t;
-  let seed = 23;
-  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-
-  const inCloud = (x, y) => [[188,264,66],[268,198,82],[338,160,96],[488,250,82]].some(([cx,cy,r]) => (x-cx)**2 + (y-cy)**2 <= r*r)
-                          || (x >= 188 && x <= 488 && y >= 198 && y <= 330);
-
-  const nodes = [
-    { x: 392, y: 118, s: 24 }, { x: 450, y: 142, s: 24 }, { x: 398, y: 210, s: 26 }, { x: 456, y: 212, s: 24 },
-    { x: 400, y: 300, s: 24 }, { x: 452, y: 312, s: 24 }, { x: 478, y: 262, s: 24 },
-    { x: 360, y: 138, s: 11 }, { x: 362, y: 204, s: 11 }, { x: 358, y: 262, s: 11 }, { x: 362, y: 318, s: 11 },
-  ];
-  nodes.forEach(n => n.d = clamp01((n.x - 358) / (478 - 358)));
-  const edges = [
-    [7,0,true],[8,2,true],[9,2,true],[10,4,true],
-    [0,1],[0,2],[1,2],[1,3],[2,3],[2,4],[3,5],[4,5],[3,6],[5,6],
-  ];
-
-  const pixels = [];
-  for (let gx = 284; gx <= 372; gx += 8) {
-    const u = (gx - 284) / 88;
-    const keep = 1 - u * u * 0.98 - u * 0.15;
-    for (let gy = 60; gy <= 336; gy += 8) {
-      if (rnd() > keep) continue;
-      const s = Math.max(3, Math.round(lerp(8, 3.5, u) + (rnd() - .5) * 3));
-      const x = gx + (rnd() - .5) * 3, y = gy + (rnd() - .5) * 3;
-      if (!inCloud(x + s / 2, y + s / 2)) continue;
-      pixels.push({ x, y, s, d: u * 0.7 + rnd() * 0.3 });
+(function(){
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+var svg=document.getElementById('stage');
+// ---- hero constants (exact) ----
+var CIRCLES=[[-0.70,-0.02,0.36],[-0.26,0.24,0.46],[0.36,0.16,0.60]];
+var FLAT_Y=-0.30, XMIN=-1.055, XMAX=0.955;
+var DEPTH=0.34, FRONT_Z=DEPTH/2, BACK_Z=-DEPTH/2;
+var BLOCK_FRONT=FRONT_Z+0.0012, BLOCK_D=0.14, SINK=0.16;
+var PITCH=0.19, X0=-0.93, Y0=-0.18;
+var CAMZ=2.8, CAMY=0.18, FOV=45;
+var U=0.27, HW=0.52, DEF=0.45, NZ=FRONT_Z+0.04;
+var NODES=[[-0.75,.06],[0.4,.04],[-0.2,.32],[0.78,.36],[-0.78,.58],[0.25,.62],[-0.3,.92],[0.7,.94]];
+var EDGES=[[0,1],[0,2],[1,2],[1,3],[2,3],[2,4],[2,5],[3,5],[4,5],[4,6],[5,6],[5,7],[6,7]];
+// lit face gradient sampled from the WebGL hero render
+var GSTOPS=[[0,'rgb(49,56,187)'],[0.164,'rgb(49,82,187)'],[0.278,'rgb(50,100,187)'],[0.413,'rgb(50,116,187)'],[0.599,'rgb(50,136,187)'],[0.678,'rgb(50,140,187)'],[0.775,'rgb(51,151,187)'],[0.84,'rgb(51,156,186)'],[1,'rgb(51,156,186)']];
+var WALL='#0E2250', NODE_C='#41DBF9';
+function topAt(x){var y=-1e9;for(var i=0;i<3;i++){var d=CIRCLES[i][2]*CIRCLES[i][2]-(x-CIRCLES[i][0])*(x-CIRCLES[i][0]);if(d>0)y=Math.max(y,CIRCLES[i][1]+Math.sqrt(d));}return y;}
+function bottomAt(x){var y=1e9;for(var i=0;i<3;i++){var d=CIRCLES[i][2]*CIRCLES[i][2]-(x-CIRCLES[i][0])*(x-CIRCLES[i][0]);if(d>0)y=Math.min(y,CIRCLES[i][1]-Math.sqrt(d));}return Math.max(y,FLAT_Y);}
+function insideInset(x,y,m){if(y<FLAT_Y+m)return false;for(var i=0;i<3;i++){if(Math.hypot(x-CIRCLES[i][0],y-CIRCLES[i][1])<=CIRCLES[i][2]-m)return true;}return false;}
+function clamp01(x){return Math.max(0,Math.min(1,x))}
+function lerp(a,b,t){return a+(b-a)*t}
+function easeOut(x){return 1-Math.pow(1-x,3)}
+// ---- geometry: cells + union hole (exact port) ----
+var cells=[];
+for(var iy=0;Y0+iy*PITCH<=0.66;iy++)for(var ix=0;X0+ix*PITCH<=0.90;ix++){
+  var x=X0+ix*PITCH,y=Y0+iy*PITCH;
+  if(insideInset(x,y,0.14))cells.push({ix:ix,iy:iy,x:x,y:y});
+}
+var occ={};cells.forEach(function(c){occ[c.ix+','+c.iy]=1;});
+var adj={};
+function lk(a,b){(adj[a]=adj[a]||[]).push(b);(adj[b]=adj[b]||[]).push(a);}
+cells.forEach(function(c){
+  if(!occ[c.ix+','+(c.iy-1)])lk(c.ix+','+c.iy,(c.ix+1)+','+c.iy);
+  if(!occ[c.ix+','+(c.iy+1)])lk(c.ix+','+(c.iy+1),(c.ix+1)+','+(c.iy+1));
+  if(!occ[(c.ix-1)+','+c.iy])lk(c.ix+','+c.iy,c.ix+','+(c.iy+1));
+  if(!occ[(c.ix+1)+','+c.iy])lk((c.ix+1)+','+c.iy,(c.ix+1)+','+(c.iy+1));
+});
+var startK=Object.keys(adj)[0], loop=[startK], prevK=null, curK=startK;
+do{var nb=adj[curK];var nx=null;for(var i2=0;i2<nb.length;i2++)if(nb[i2]!==prevK){nx=nb[i2];break;}
+  if(nx===null)nx=nb[0];prevK=curK;curK=nx;loop.push(curK);}while(curK!==startK&&loop.length<500);
+var rim=loop.slice(0,-1).map(function(k){var p=k.split(',');return [X0+(p[0]-0.5)*PITCH, Y0+(p[1]-0.5)*PITCH];});
+var N=160, facePathD='';
+(function(){
+  var pts=[];
+  for(var i=0;i<=N;i++){var x=XMIN+(XMAX-XMIN)*(i/N);pts.push([x,topAt(x)]);}
+  for(var i=N;i>=0;i--){var x=XMIN+(XMAX-XMIN)*(i/N);pts.push([x,bottomAt(x)]);}
+  facePathD='M '+pts.map(function(p){return p[0].toFixed(4)+' '+p[1].toFixed(4)}).join(' L ')+' Z';
+  facePathD+=' M '+rim.map(function(p){return p[0].toFixed(4)+' '+p[1].toFixed(4)}).join(' L ')+' Z';
+})();
+// gradient endpoints in world coords for t = 0.55*(y+0.30)/1.06 + 0.45*(x+1.055)/2.01
+var g=[0.45/2.01, 0.55/1.06], g2=g[0]*g[0]+g[1]*g[1];
+var GP0=[-1.055,-0.30], GP1=[-1.055+g[0]/g2, -0.30+g[1]/g2];
+function el(name,attrs,parent){var e=document.createElementNS(NS,name);for(var k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e;}
+var defs=el('defs',{});
+var grad=el('linearGradient',{id:'gg',gradientUnits:'userSpaceOnUse',x1:GP0[0],y1:GP0[1],x2:GP1[0],y2:GP1[1]},defs);
+GSTOPS.forEach(function(s){el('stop',{offset:s[0],'stop-color':s[1]},grad);});
+// extrusion body: the face outline (with hole) swept through depth in slices —
+// yields outer silhouette walls AND hole interior walls, exactly like the 3D solid
+var SLICES=9;
+var sweepG=el('g',{});
+var sweepEls=[];
+for(var s1=0;s1<SLICES;s1++)sweepEls.push(el('path',{d:facePathD,fill:WALL,'fill-rule':'evenodd'},sweepG));
+var blockSidesG=el('g',{});   // block side sweeps (flush blocks form the cut's inner walls)
+var blockFrontsG=el('g',{});  // gradient front faces
+var faceG=el('g',{});
+el('path',{d:facePathD,fill:'url(#gg)','fill-rule':'evenodd'},faceG);
+var netG=el('g',{});
+var SIDE_SLICES=4;
+var blockEls=cells.map(function(c){
+  var sides=[];
+  for(var i=0;i<SIDE_SLICES;i++)sides.push(el('rect',{x:c.x-PITCH/2,y:c.y-PITCH/2,width:PITCH,height:PITCH,fill:WALL},blockSidesG));
+  var fr=el('rect',{x:c.x-PITCH/2-0.004,y:c.y-PITCH/2-0.004,width:PITCH+0.008,height:PITCH+0.008,fill:'url(#gg)'},blockFrontsG);
+  return {c:c,sides:sides,fr:fr,k:0};
+});
+var nEls=NODES.map(function(){return el('rect',{rx:0.012,fill:NODE_C,opacity:0},netG);});
+var eEls=EDGES.map(function(){return el('line',{stroke:NODE_C,'stroke-width':1,'vector-effect':'non-scaling-stroke',opacity:0},netG);});
+var tmpl=NODES.map(function(n){return{u:n[0],v:n[1],t0:0.15+n[1]*0.35+Math.abs(n[0])*0.08};});
+// ---- layout (exact port of the hero's layoutLockup + camera projection) ----
+var Wpx=1,Hpx=1,ppw=1,targetX=0,axisX=0,axisY=0,camz=CAMZ;
+function planeK(z){return ppw*camz/(camz-z);}
+function planeTransform(z){var k=planeK(z);return 'translate('+(axisX-targetX*k)+','+(axisY+CAMY*k)+') scale('+k+','+(-k)+')';}
+function layout(){
+  Wpx=window.innerWidth;Hpx=window.innerHeight;
+  svg.setAttribute('viewBox','0 0 '+Wpx+' '+Hpx);
+  var t2=2*Math.tan(FOV*Math.PI/360);
+  var gap=Math.max(20,0.035*Wpx);
+  var lockupWorldW=(XMAX-XMIN)+(1.15/2.65)*(415/84);
+  // scale from height, clamped so the whole lockup fits the width (no crop)
+  ppw=Math.min(Hpx/(t2*CAMZ),(0.92*Wpx-gap)/lockupWorldW);
+  camz=Hpx/(t2*ppw);
+  var cloudW=(XMAX-XMIN)*ppw;
+  var wmH=(1.15*ppw)/2.65, wmW=wmH*(415/84);
+  var total=cloudW+gap+wmW;
+  var leftPx=(Wpx-total)/2;
+  targetX=XMIN-(leftPx-Wpx/2)/ppw;
+  axisX=Wpx/2;axisY=Hpx/2;
+  var wm=document.getElementById('wm');
+  wm.style.left=(leftPx+cloudW+gap)+'px';
+  wm.style.width=wmW+'px';
+  wm.style.top='50%';
+  wm.style.transform='translateY(-50%)';
+  faceG.setAttribute('transform',planeTransform(FRONT_Z));
+  netG.setAttribute('transform',planeTransform(NZ));
+  for(var i=0;i<SLICES;i++){
+    var z=lerp(BACK_Z,FRONT_Z,i/(SLICES-1));
+    sweepEls[i].setAttribute('transform',planeTransform(z));
+  }
+}
+layout();
+window.addEventListener('resize',layout);
+// ---- interaction + animation (exact port) ----
+var hovering=false,tx=DEF,o=0,cx=DEF,last=0;
+document.addEventListener('pointermove',function(e){
+  var kf=planeK(FRONT_Z);
+  var wx=(e.clientX-axisX)/kf+targetX, wy=CAMY-(e.clientY-axisY)/kf;
+  hovering=insideInset(wx,wy,-0.15);
+  tx=hovering?Math.max(-0.52,Math.min(0.55,wx)):DEF;
+});
+document.addEventListener('pointerleave',function(){hovering=false;tx=DEF;});
+function frame(now){
+  var dt=Math.min(0.05,(now-last)/1000)||0;last=now;
+  o+=(1-o)*Math.min(1,dt*(hovering?5:2));
+  cx+=(tx-cx)*Math.min(1,dt*9);
+  var ch=HW*easeOut(clamp01(o/0.7));
+  for(var i=0;i<blockEls.length;i++){
+    var b=blockEls[i];
+    var target=o<0.01?0:clamp01((ch-Math.abs(b.c.x-cx))/0.06);
+    var rate=7+(b.c.y+0.30)*9;
+    b.k+=(target-b.k)*Math.min(1,dt*rate);
+    var k=b.k,s=k*k*(3-2*k);
+    var zf=BLOCK_FRONT-s*SINK;
+    var fade=1-clamp01((k-0.5)/0.35);
+    b.fr.setAttribute('transform',planeTransform(zf));
+    b.fr.setAttribute('opacity',fade.toFixed(3));
+    b.fr.style.display=fade>0.005?'':'none';
+    for(var j=0;j<SIDE_SLICES;j++){
+      var zs=zf-BLOCK_D*(j+1)/SIDE_SLICES;
+      b.sides[j].setAttribute('transform',planeTransform(zs));
+      b.sides[j].setAttribute('opacity',fade.toFixed(3));
+      b.sides[j].style.display=fade>0.005?'':'none';
     }
   }
-
-  const fibers = [];
-  nodes.slice(7).forEach((n, i) => {
-    for (let k = 0; k < 3; k++) {
-      const ex = 318 + rnd() * 22, ey = n.y + (k - 1) * 14 + (rnd() - .5) * 8;
-      if (!inCloud(ex, ey)) continue;
-      fibers.push({ sat: 7 + i, ex, ey, c1x: n.x - 14, c1y: n.y, c2x: ex + 16, c2y: ey });
-    }
+  var tNow=performance.now()/1000;
+  var gi=Math.floor(tNow/3.4)%tmpl.length, gph=(tNow%3.4)/3.4;
+  var st=tmpl.map(function(n){
+    var x=cx+n.u*U,top=topAt(x),bot=bottomAt(x);
+    if(top<-1e8)return{x:0,y:0,k:0,settle:0};
+    var y=lerp(top-0.08,bot+0.07,n.v);
+    var q=clamp01((o-n.t0)/0.3);
+    var kk=q<0.6?easeOut(q/0.6)*1.2:lerp(1.2,1,(q-0.6)/0.4);
+    kk*=clamp01((ch-Math.abs(n.u*U)-0.027)/0.072);
+    return{x:x,y:y,k:kk,settle:clamp01((o-n.t0-0.2)/0.3)};
   });
-
-  const nodeEls = nodes.map(() => { const r = document.createElementNS(NS,'rect'); r.setAttribute('class','node'); r.setAttribute('rx', 4); $('nodes').appendChild(r); return r; });
-  const edgeEls = edges.map(e => { const l = document.createElementNS(NS,'line'); l.setAttribute('class', e[2] ? 'edge thin' : 'edge'); $('edges').appendChild(l); return l; });
-  const pxEls = pixels.map(() => { const r = document.createElementNS(NS,'rect'); r.setAttribute('class','px'); r.setAttribute('rx', 1); $('pixels').appendChild(r); return r; });
-  const fiberEls = fibers.map(() => { const p = document.createElementNS(NS,'path'); p.setAttribute('class','fiber'); $('fibers').appendChild(p); return p; });
-  const cut = $('cutRect'), signals = $('signals');
-
-  function front(t) {
-    if (t < T.sweep) return EDGE_X;
-    if (t < T.sweepEnd) return lerp(EDGE_X, FULL_X, easeInOut((t - T.sweep) / (T.sweepEnd - T.sweep)));
-    if (t < T.recede) return FULL_X;
-    if (t < T.recedeEnd) return lerp(FULL_X, EDGE_X, easeInOut((t - T.recede) / (T.recedeEnd - T.recede)));
-    return EDGE_X;
-  }
-
-  function nodeState(n, t, fx) {
-    const t0 = T.build + 0.35 + n.d * T.buildDur;
-    let k = 0, x = n.x;
-    if (t >= t0 && t < T.sweep) {
-      const q = clamp01((t - t0) / 0.45);
-      k = q < .6 ? easeOut(q / .6) * 1.2 : lerp(1.2, 1, (q - .6) / .4);
-    } else if (t >= T.sweep && t < T.sweepEnd) {
-      const p = (fx - EDGE_X) / (FULL_X - EDGE_X);
-      x = n.x - p * (n.x - EDGE_X) * 0.45;
-      k = clamp01((x - fx) / 28);
-    }
-    return { x, y: n.y, k };
-  }
-  const settledSince = (n, t) => t - (T.build + 0.35 + n.d * T.buildDur + 0.25);
-
-  function frame(now) {
-    const t = ((now / 1000) % D + D) % D;
-    const fx = front(t);
-    cut.setAttribute('width', fx);
-
-    pixels.forEach((p, i) => {
-      let k = 0, dx = 0;
-      if (t < T.sweep) { const q = clamp01((t - T.build - p.d * 0.9) / 0.35); k = easeOut(q); dx = lerp(-10, 0, k); }
-      else if (t < T.sweepEnd) k = clamp01((p.x + p.s / 2 - fx) / 14);
-      else if (t >= T.recede) { const q = clamp01((t - T.recede - 0.25 - p.d * 0.8) / 0.35); k = easeOut(q); dx = lerp(-10, 0, k); k = Math.min(k, clamp01((p.x + p.s / 2 - fx) / 14)); }
-      const s = p.s * k, el = pxEls[i];
-      el.setAttribute('x', p.x + dx + (p.s - s) / 2); el.setAttribute('y', p.y + (p.s - s) / 2);
-      el.setAttribute('width', s); el.setAttribute('height', s);
-    });
-
-    const st = nodes.map(n => nodeState(n, t, fx));
-    nodes.forEach((n, i) => {
-      const { x, y, k } = st[i], s = n.s * k, el = nodeEls[i];
-      el.setAttribute('x', x - s / 2); el.setAttribute('y', y - s / 2);
-      el.setAttribute('width', s); el.setAttribute('height', s);
-    });
-
-    fibers.forEach((f, i) => {
-      const S = st[f.sat], el = fiberEls[i];
-      let k = 0;
-      if (t < T.sweep) k = easeOut(clamp01(settledSince(nodes[f.sat], t) / 0.5));
-      else if (t < T.sweepEnd) k = S.k > 0 && f.ex > fx ? 1 : 0;
-      const dxs = S.x - nodes[f.sat].x;
-      el.setAttribute('d', `M${S.x},${S.y} C${f.c1x + dxs},${f.c1y} ${f.c2x},${f.c2y} ${f.ex},${f.ey}`);
-      const len = el.getTotalLength();
-      el.setAttribute('stroke-dasharray', len); el.setAttribute('stroke-dashoffset', len * (1 - k));
-      el.style.opacity = k > 0 ? 0.75 * Math.min(S.k, 1) : 0;
-    });
-
-    edges.forEach(([a, b], i) => {
-      const A = st[a], B = st[b], el = edgeEls[i];
-      let k = 0;
-      if (t < T.sweep) k = easeOut(clamp01(Math.min(settledSince(nodes[a], t), settledSince(nodes[b], t)) / 0.5));
-      else if (t < T.sweepEnd) k = Math.min(A.k, B.k) > 0 ? 1 : 0;
-      const len = Math.hypot(B.x - A.x, B.y - A.y);
-      el.setAttribute('x1', A.x); el.setAttribute('y1', A.y); el.setAttribute('x2', B.x); el.setAttribute('y2', B.y);
-      el.setAttribute('stroke-dasharray', len); el.setAttribute('stroke-dashoffset', len * (1 - k));
-      el.style.opacity = k > 0 ? Math.min(A.k, B.k, 1) : 0;
-    });
-
-    signals.style.opacity = t >= T.live && t < T.sweep ? clamp01(Math.min((t - T.live) / 0.4, (T.sweep - t) / 0.3)) : 0;
-    if (!reduce) requestAnimationFrame(frame);
-  }
-
-  if (reduce) { frame(4000); signals.style.opacity = 0; } else requestAnimationFrame(frame);
+  st.forEach(function(s2,i){
+    var elN=nEls[i];
+    var pulse=i===gi?Math.exp(-Math.pow((gph-0.5)*5,2)):0;
+    var sz=0.072*Math.max(0.0001,s2.k)*(1+0.22*pulse);
+    elN.setAttribute('x',s2.x-sz/2);elN.setAttribute('y',s2.y-sz/2);
+    elN.setAttribute('width',sz);elN.setAttribute('height',sz);
+    elN.setAttribute('rx',sz*0.1667);
+    elN.setAttribute('opacity',s2.k>0?1:0);
+  });
+  EDGES.forEach(function(e2,i){
+    var A=st[e2[0]],B=st[e2[1]],k3=Math.min(A.settle,B.settle);
+    var on=A.k>0&&B.k>0&&k3>0;
+    var elE=eEls[i];
+    elE.setAttribute('opacity',on?(Math.min(A.k,B.k,1)*0.85).toFixed(3):0);
+    if(on){elE.setAttribute('x1',A.x);elE.setAttribute('y1',A.y);
+      elE.setAttribute('x2',lerp(A.x,B.x,easeOut(k3)));elE.setAttribute('y2',lerp(A.y,B.y,easeOut(k3)));}
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
 })();
 </script>
-</body>
-</html>
+
+</body></html>

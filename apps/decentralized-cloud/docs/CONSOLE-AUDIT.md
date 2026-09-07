@@ -184,6 +184,26 @@ turned it red before it was committed green.
 |---|---|---|
 | Spend | 6 9 7 8 3 – 7 7 → 8 9 7 8 5 7 7 7 | `004-spend/spend-1440.png`, `spend-390.png` |
 
+## Iteration 005 — the owner's complete identity (2026-09-07, owner-directed)
+
+The owner ruled that every asset I had generated leaves, and delivered the identity
+complete as `Brand Identity Standalone.html`. Its assets are decoded verbatim into
+`brand/mark/source/` and served byte-for-byte from `/brand/`; the header carries the
+owner's animated SVG mark (their replica engine, ported with its arithmetic kept),
+with their static `mark-dark.svg` under reduced motion. Nothing is redrawn.
+
+Captures: scratch `owner-header.png` (idle: the cut open at the owner's default
+position, network inside), `owner-header-hover.png` (the cut follows the pointer),
+`owner-header-reduced.png` (the static file), `owner-brand-page.png` (the owner's
+page: hero, animated SVG mark, both lockups, four mark variants, glyph at 96/48/32/16,
+colour system, usage rules). The WebGL hero loads three.js from unpkg and shows only
+the wordmark offline, which the page says.
+
+What the captures show at header size (42px): the cut and its network read as a
+dense dark block with cyan points; hover motion is visible; the static mark under
+reduced motion reads cleanly. Open: no blind reader has scored the owner's mark on
+the face; the header's compact 1.9× ratio against the owner's 2.65× rule stands.
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.

@@ -60,6 +60,14 @@
   --color-dc-mark-cyan: #41dbf9;
   --color-dc-substrate-navy: #000c26;
   --color-dc-interior-indigo: #0e2250;
+  /* The cut's bevel faces in the decentralized.cloud static mark, as the owner's
+     brand file paints them (2026-09-07): four steps of indigo that make the block
+     cut read as depth. Decorative fills on the mark only — never text, never a
+     control; contrast is not a claim they make. */
+  --color-dc-cut-face-lit: #2b4fb0;
+  --color-dc-cut-face-side: #23409a;
+  --color-dc-cut-face-shade: #1b2f72;
+  --color-dc-cut-face-deep: #101f4e;
 
   /* ---- Status ---- */
   --color-red-500: #fb2c36;

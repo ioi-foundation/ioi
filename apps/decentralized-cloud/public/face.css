@@ -96,15 +96,17 @@ a:hover { color: #3e7f5c; }
    under 6px. So the header wears the COMPACT setting — mark 1.9× the block, gap
    0.35em — and the brand page names it as the header's deviation. */
 .lockup { display: flex; align-items: center; gap: 0.35em; font-size: 36px; height: 1.9em; }
-.mark { display: block; flex-shrink: 0; width: 3.1761em; height: 1.9em; overflow: visible; }
+/* The owner's mark box is 210 × 125 (1.68:1); the animated stage is 420 × 250, the
+   same ratio, so the two occupy one box and swap under reduced motion without a
+   reflow. */
+.mark { display: block; flex-shrink: 0; width: 3.192em; height: 1.9em; overflow: visible; }
+.mark-static > svg { display: block; width: 100%; height: 100%; }
 /* THE ANIMATED MARK (owner ruling, 2026-09-07: the header carries the animated
    primary lockup). Its parts are painted in the mark's own gradient; these names
    exist so the pieces can be found and measured. Nothing here has a duration — the
    timing is the owner's, in mark.mjs, and the whole thing is replaced by the static
    mark under prefers-reduced-motion. */
-.mark-live { overflow: visible; }
-.mark-fibres { opacity: 0.75; }
-.mark-signals { pointer-events: none; }
+.mark-live { overflow: visible; touch-action: none; }
 .wordmark { display: block; flex-shrink: 0; width: 6.0904em; height: 1em; overflow: visible;
   font-family: var(--brand); font-weight: 400; }
 /* The two lines by name — sizes and positions are attributes from mark.mjs; only the

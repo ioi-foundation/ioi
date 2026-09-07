@@ -1,193 +1,107 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>decentralized.cloud — brand assets</title>
-  <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
-  <!-- THE BRAND ASSETS PAGE. Served at /brand/ from the same build as the face. Every
-       SVG on it is GENERATED from brand/mark/mark.mjs by brand/mark/build-assets.mjs —
-       the module the app's own lockup draws from — so what a reader downloads here is
-       what the header shows, by construction. Colours are the design-system tokens
-       named on each swatch. Nothing here is a claim about the product; it is the
-       identity and its rules. -->
-  <style>
-    @font-face { font-family: "ABC Diatype"; src: url("/fonts/ABCDiatype-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-    @font-face { font-family: "ABC Diatype"; src: url("/fonts/ABCDiatype-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
-    @font-face { font-family: "ABC Diatype Mono"; src: url("/fonts/ABCDiatypeSemi-Mono-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-    :root {
-      --navy: #000c26;            /* --color-dc-substrate-navy */
-      --interior: #0e2250;        /* --color-dc-interior-indigo */
-      --indigo: #3f3dfa;          /* --color-dc-mark-indigo */
-      --cyan: #41dbf9;            /* --color-dc-mark-cyan */
-      --paper: #ffffff;
-      --ink: #0a0e19;             /* --color-onyx-black */
-      --text: rgba(255, 255, 255, 0.85);
-      --soft: rgba(255, 255, 255, 0.6);
-      --caption: rgba(255, 255, 255, 0.5);
-      --rule: rgba(65, 219, 249, 0.14);
-      --sans: "ABC Diatype", ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif;
-      --mono: "ABC Diatype Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--navy); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
-    a { color: var(--cyan); }
-    a:hover { color: #7ce7fb; }
-    .page { max-width: 1200px; margin: 0 auto; padding: 64px clamp(24px, 6vw, 96px) 96px; display: flex; flex-direction: column; gap: 72px; }
-    header { display: flex; flex-direction: column; gap: 8px; }
-    .kicker { font-size: 12px; letter-spacing: 0.22em; color: var(--cyan); text-transform: uppercase; }
-    h1 { margin: 0; font-size: clamp(26px, 3.4vw, 40px); font-weight: 700; letter-spacing: -0.01em; color: #fff; }
-    .lede { font-size: 15px; color: var(--soft); max-width: 62ch; margin: 0; }
-    section { display: flex; flex-direction: column; gap: 16px; }
-    h2 { margin: 0; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--caption); font-weight: 400; }
-    h2 + h2, .stack > h2 { margin-top: 24px; }
-    .plate { border: 1px solid var(--rule); border-radius: 8px; padding: clamp(24px, 5vw, 72px); display: flex; justify-content: center; align-items: center; }
-    .plate.dark { background: var(--navy); }
-    .plate.light { background: var(--paper); border-color: transparent; }
-    .plate img { width: min(100%, 760px); display: block; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
-    figure { margin: 0; border-radius: 8px; padding: 28px; display: flex; flex-direction: column; gap: 14px; align-items: center; }
-    figure.dark { background: var(--navy); border: 1px solid var(--rule); }
-    figure.light { background: var(--paper); }
-    figure img { width: 100%; max-width: 220px; display: block; }
-    figcaption { font-size: 12px; color: var(--caption); text-align: center; }
-    figure.light figcaption { color: rgba(0, 12, 38, 0.6); }
-    figcaption a { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11px; }
-    .glyphs { background: var(--navy); border: 1px solid var(--rule); border-radius: 8px; padding: 40px; display: flex; align-items: flex-end; gap: 48px; flex-wrap: wrap; }
-    .glyphs .g { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-    .glyphs .g span { font-size: 11px; color: var(--caption); font-family: var(--mono); }
-    .glyphs p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--soft); max-width: 40ch; }
-    .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
-    .sw { border-radius: 8px; overflow: hidden; border: 1px solid var(--rule); }
-    .sw .chip { height: 88px; }
-    .sw .meta { padding: 12px 14px; background: #03122e; }
-    .sw .name { font-size: 13px; font-weight: 700; color: #fff; }
-    .sw .val { font-size: 12px; color: var(--caption); font-family: var(--mono); }
-    .sw .job { font-size: 12px; color: var(--caption); margin-top: 2px; }
-    .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; font-size: 13.5px; line-height: 1.65; color: rgba(255, 255, 255, 0.75); }
-    .rules div { border: 1px solid var(--rule); border-radius: 8px; padding: 20px 22px; }
-    .rules strong { color: #fff; }
-    .files { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
-    .files table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .files th, .files td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--rule); vertical-align: top; }
-    .files th { color: var(--caption); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; border-top: 0; }
-    .files td:first-child { font-family: var(--mono); white-space: nowrap; }
-    .files td:last-child { color: var(--soft); }
-    .note { font-size: 13px; color: var(--soft); margin: 0; }
-    .note code, .rules code { font-family: var(--mono); font-size: 12px; color: var(--text); }
-    @media (max-width: 700px) { .files { overflow-x: auto; } .files table { min-width: 560px; } .glyphs { gap: 28px; } }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decentralized.cloud — brand identity</title>
+<link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
+<!-- The owner's brand page (brand/mark/source/brand-page.html), verbatim in its text; the asset references point at the
+     same-named files served beside it, every one a byte-for-byte copy of the owner's source. The WebGL hero loads three.js
+     from unpkg through the owner's pinned import map, so it needs the network; the SVG animated mark does not. -->
+<style>
+  body { margin: 0; background: #000C26; }
+  a { color: #41DBF9; } a:hover { color: #7ce7fb; }
+</style>
 </head>
 <body>
-<div class="page">
-  <header>
-    <div class="kicker">Brand identity — v1</div>
-    <h1>decentralized.cloud</h1>
-    <p class="lede">Primary lockups, mark variants, the app icon, the reduction glyph, the colour system and usage rules. Every file on this page is generated from one geometry module — the same one the product's header draws from — so a downloaded asset and the served lockup cannot disagree.</p>
-    <p class="note">Wordmark set in IOI Display, the family face. Sources of record: <code>apps/decentralized-cloud/brand/mark/source/cloud-hover.html</code> and <code>brand-identity.dc.html</code> (the owner's files, 2026-09-06, confirmed 2026-09-07); geometry: <code>brand/mark/mark.mjs</code>. The mark is a cloud that opens into a network: the hover cloud is the hero treatment, and everything below is its static system.</p>
-  </header>
+<div style="min-height:100vh;background:#000C26;color:#F8FBFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;padding:64px clamp(24px,6vw,96px) 96px">
+  <div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:72px">
+    <header style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:12px;letter-spacing:0.22em;color:#41DBF9;text-transform:uppercase">Brand identity — v1</div>
+      <div style="font-size:clamp(26px,3.4vw,40px);font-weight:600;letter-spacing:-0.01em">decentralized.cloud</div>
+      <div style="font-size:14px;color:rgba(248,251,255,0.55);max-width:60ch">Primary lockups, mark variants, reduction glyph, color system, and usage rules. The animated mark (hover cloud) is the hero treatment; everything below is its static system.</div>
+    </header>
 
-  <section class="stack">
-    <h2>Hero — the hover cloud</h2>
-    <iframe src="/brand/hover.html" title="The hover cloud — move the pointer across it to open the network" style="display:block;width:100%;aspect-ratio:16/8;border:1px solid var(--rule);border-radius:8px;background:var(--navy)"></iframe>
-    <p class="note">The owner's cloud-hover.html, geometry and timing verbatim, in the brand gradient on substrate navy. Move the pointer across the cloud to relocate the opening. Web hero use only; it honours reduced motion by drawing the closed cloud once. <a href="/brand/hover.html">hover.html</a></p>
-    <h2>Animated mark — SVG (no WebGL)</h2>
-    <iframe src="/brand/mark-animated.html" title="The animated mark — the cloud dissolves into a network and reabsorbs it, on an eleven-second loop" style="display:block;width:100%;aspect-ratio:16/7;border:1px solid var(--rule);border-radius:8px;background:var(--navy)"></iframe>
-    <p class="note">The same geometry as the hero, rendered as pure SVG DOM — no canvas, no WebGL. This is the mark the console's header carries as the animated primary lockup (owner ruling, 2026-09-07), drawn there from the one geometry module; under reduced motion the header shows the static mark below. Without script this file degrades to the closed cloud. <a href="/brand/mark-animated.html">mark-animated.html</a></p>
-  </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Hero — animated mark</h2>
+      <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;overflow:hidden">
+        <iframe src="hero-3d.html" title="Animated decentralized.cloud mark" style="display:block;width:100%;aspect-ratio:16/7;border:0;background:#000C26"></iframe>
+      </div>
+      <div style="font-size:13px;color:rgba(248,251,255,0.55)">Live hover treatment — move the pointer across the cloud to relocate the opening. Web hero use only.</div>
+      <h2 style="margin:24px 0 0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Animated mark — SVG (no WebGL)</h2>
+      <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;overflow:hidden">
+        <iframe src="mark-animated.html" title="Animated SVG mark" style="display:block;width:100%;aspect-ratio:16/7;border:0;background:#000C26"></iframe>
+      </div>
+      <div style="font-size:13px;color:rgba(248,251,255,0.55)">Same geometry and timing as the hero, rendered as pure SVG DOM — no canvas or WebGL. Ships as an <a href="mark-animated.html">inline-SVG snippet</a> (copy the svg + script into any page); note most asset pipelines strip scripts from standalone .svg files, so inline embedding is the reliable route. Without script it degrades to the closed flush cloud.</div>
+    </section>
 
-  <section class="stack">
-    <h2>Primary lockup — dark</h2>
-    <div class="plate dark"><img src="/brand/lockup-dark.svg" alt="decentralized.cloud lockup: gradient cloud with a three-node network knocked out, beside the two-line wordmark, white on navy"></div>
-    <h2>Primary lockup — light</h2>
-    <div class="plate light"><img src="/brand/lockup-light.svg" alt="decentralized.cloud lockup, black wordmark on white"></div>
-    <p class="note">The owner's proportions: the mark's height is 2.65× the wordmark block (CLOUD's baseline to the top of DECENTRALIZED); the gap between mark and wordmark is 7.5% of the mark's width; the wordmark is centred on the mark's height. The dot before CLOUD carries the gradient and stands on the baseline, spaced as a sixth letter. The console's 56px header cannot hold that ratio legibly and wears a compact setting — mark 1.9× the block — named here as the one deviation.</p>
-  </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Primary lockup — dark</h2>
+      <div style="background:#000C26;border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:clamp(24px,5vw,72px);display:flex;justify-content:center">
+        <img src="lockup-dark.svg" alt="decentralized.cloud lockup, dark" style="width:min(100%,760px);display:block">
+      </div>
+      <h2 style="margin:24px 0 0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Primary lockup — light</h2>
+      <div style="background:#FFFFFF;border-radius:8px;padding:clamp(24px,5vw,72px);display:flex;justify-content:center">
+        <img src="lockup-light.svg" alt="decentralized.cloud lockup, light" style="width:min(100%,760px);display:block">
+      </div>
+    </section>
 
-  <section>
-    <h2>Mark variants</h2>
-    <div class="grid">
-      <figure class="dark"><img src="/brand/mark.svg" alt="Full-colour mark on dark"><figcaption>Full colour / dark <a href="/brand/mark.svg">mark.svg</a></figcaption></figure>
-      <figure class="light"><img src="/brand/mark.svg" alt="Full-colour mark on light"><figcaption>Full colour / light <a href="/brand/mark.svg">mark.svg</a></figcaption></figure>
-      <figure class="dark"><img src="/brand/mark-mono-white.svg" alt="Mono white mark"><figcaption>Mono / white <a href="/brand/mark-mono-white.svg">mark-mono-white.svg</a></figcaption></figure>
-      <figure class="light"><img src="/brand/mark-mono-navy.svg" alt="Mono navy mark"><figcaption>Mono / navy <a href="/brand/mark-mono-navy.svg">mark-mono-navy.svg</a></figcaption></figure>
-    </div>
-    <h2>Wordmark alone</h2>
-    <div class="grid">
-      <figure class="dark"><img src="/brand/wordmark-dark.svg" alt="Wordmark, white" style="max-width:360px"><figcaption>Wordmark / dark <a href="/brand/wordmark-dark.svg">wordmark-dark.svg</a></figcaption></figure>
-      <figure class="light"><img src="/brand/wordmark-light.svg" alt="Wordmark, black" style="max-width:360px"><figcaption>Wordmark / light <a href="/brand/wordmark-light.svg">wordmark-light.svg</a></figcaption></figure>
-    </div>
-  </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Mark variants</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+        <figure style="margin:0;background:#000C26;border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:14px;align-items:center">
+          <img src="mark-dark.svg" alt="Full-color mark on dark" style="width:100%;max-width:220px">
+          <figcaption style="font-size:12px;color:rgba(248,251,255,0.55)">Full color / dark</figcaption>
+        </figure>
+        <figure style="margin:0;background:#FFFFFF;border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:14px;align-items:center">
+          <img src="mark-light.svg" alt="Full-color mark on light" style="width:100%;max-width:220px">
+          <figcaption style="font-size:12px;color:rgba(0,12,38,0.6)">Full color / light</figcaption>
+        </figure>
+        <figure style="margin:0;background:#000C26;border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:14px;align-items:center">
+          <img src="mark-mono-white.svg" alt="Mono white mark" style="width:100%;max-width:220px">
+          <figcaption style="font-size:12px;color:rgba(248,251,255,0.55)">Mono / white</figcaption>
+        </figure>
+        <figure style="margin:0;background:#FFFFFF;border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:14px;align-items:center">
+          <img src="mark-mono-navy.svg" alt="Mono navy mark" style="width:100%;max-width:220px">
+          <figcaption style="font-size:12px;color:rgba(0,12,38,0.6)">Mono / navy</figcaption>
+        </figure>
+      </div>
+    </section>
 
-  <section>
-    <h2>App icon</h2>
-    <div class="grid">
-      <figure class="dark"><img src="/brand/app-icon.svg" alt="App icon: gradient mark on a white rounded tile" style="max-width:140px"><figcaption>White tile, corner radius 14% of the side; the mark's ink is 69% of the tile's width, centred. <a href="/brand/app-icon.svg">app-icon.svg</a></figcaption></figure>
-    </div>
-  </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Reduction glyph</h2>
+      <div style="background:#000C26;border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:40px;display:flex;align-items:flex-end;gap:48px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center"><img src="glyph.svg" width="96" height="96" alt="glyph 96"><span style="font-size:11px;color:rgba(248,251,255,0.5)">96</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center"><img src="glyph.svg" width="48" height="48" alt="glyph 48"><span style="font-size:11px;color:rgba(248,251,255,0.5)">48</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center"><img src="glyph.svg" width="32" height="32" alt="glyph 32"><span style="font-size:11px;color:rgba(248,251,255,0.5)">32</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center"><img src="glyph.svg" width="16" height="16" alt="glyph 16"><span style="font-size:11px;color:rgba(248,251,255,0.5)">16</span></div>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:rgba(248,251,255,0.55);max-width:38ch">The cloud silhouette with a three-node network knocked out — the cutout is true transparency, so the network takes the color of whatever sits behind it. Two shapes, one idea, legible to 16px. Use below 48px, favicons, and app badges.</p>
+      </div>
+    </section>
 
-  <section>
-    <h2>Reduction glyph</h2>
-    <div class="glyphs">
-      <div class="g"><img src="/brand/favicon.svg" width="96" height="96" alt="glyph at 96"><span>96</span></div>
-      <div class="g"><img src="/brand/favicon.svg" width="48" height="48" alt="glyph at 48"><span>48</span></div>
-      <div class="g"><img src="/brand/favicon.svg" width="32" height="32" alt="glyph at 32"><span>32</span></div>
-      <div class="g"><img src="/brand/favicon.svg" width="16" height="16" alt="glyph at 16"><span>16</span></div>
-      <div class="g"><img src="/brand/glyph-mono-white.svg" width="48" height="48" alt="mono white glyph"><span>mono</span></div>
-      <p>The cloud silhouette with the three-node network knocked out — the cutout is true transparency, so the network takes the colour of whatever sits behind it. Two shapes, one idea. The network holds to 32px. At 16px it is one to two device pixels and the glyph reads as the closed cloud; that is the honest floor. Files: <a href="/brand/favicon.svg">favicon.svg</a>, <a href="/brand/glyph-mono-white.svg">glyph-mono-white.svg</a>, <a href="/brand/glyph-mono-navy.svg">glyph-mono-navy.svg</a>.</p>
-    </div>
-  </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Color system</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px">
+        <div style="border-radius:8px;overflow:hidden;border:1px solid rgba(65,219,249,0.14)"><div style="height:88px;background:#000C26"></div><div style="padding:12px 14px;background:#03122e"><div style="font-size:13px;font-weight:600">Substrate navy</div><div style="font-size:12px;color:rgba(248,251,255,0.5)">#000C26 — space / background</div></div></div>
+        <div style="border-radius:8px;overflow:hidden;border:1px solid rgba(65,219,249,0.14)"><div style="height:88px;background:linear-gradient(45deg,#3F3DFA,#41DBF9)"></div><div style="padding:12px 14px;background:#03122e"><div style="font-size:13px;font-weight:600">Cloud gradient</div><div style="font-size:12px;color:rgba(248,251,255,0.5)">#3F3DFA → #41DBF9 — infrastructure</div></div></div>
+        <div style="border-radius:8px;overflow:hidden;border:1px solid rgba(65,219,249,0.14)"><div style="height:88px;background:#0E2250"></div><div style="padding:12px 14px;background:#03122e"><div style="font-size:13px;font-weight:600">Interior indigo</div><div style="font-size:12px;color:rgba(248,251,255,0.5)">#0E2250 — cutout structure</div></div></div>
+        <div style="border-radius:8px;overflow:hidden;border:1px solid rgba(65,219,249,0.14)"><div style="height:88px;background:#41DBF9"></div><div style="padding:12px 14px;background:#03122e"><div style="font-size:13px;font-weight:600">Network cyan</div><div style="font-size:12px;color:rgba(248,251,255,0.5)">#41DBF9 — active network</div></div></div>
+        <div style="border-radius:8px;overflow:hidden;border:1px solid rgba(65,219,249,0.14)"><div style="height:88px;background:#FFFFFF"></div><div style="padding:12px 14px;background:#03122e"><div style="font-size:13px;font-weight:600">Identity white</div><div style="font-size:12px;color:rgba(248,251,255,0.5)">#FFFFFF — wordmark</div></div></div>
+      </div>
+    </section>
 
-  <section>
-    <h2>Colour system</h2>
-    <div class="swatches">
-      <div class="sw"><div class="chip" style="background:#000C26"></div><div class="meta"><div class="name">Substrate navy</div><div class="val">#000C26 · --color-dc-substrate-navy</div><div class="job">ground / dark lockups</div></div></div>
-      <div class="sw"><div class="chip" style="background:linear-gradient(45deg,#3F3DFA,#41DBF9)"></div><div class="meta"><div class="name">Cloud gradient</div><div class="val">#3F3DFA → #41DBF9</div><div class="job">the mark and the dot, bottom-left to top-right</div></div></div>
-      <div class="sw"><div class="chip" style="background:#3F3DFA"></div><div class="meta"><div class="name">Mark indigo</div><div class="val">#3F3DFA · --color-dc-mark-indigo</div><div class="job">gradient start · 6.44:1 on white</div></div></div>
-      <div class="sw"><div class="chip" style="background:#41DBF9"></div><div class="meta"><div class="name">Mark cyan</div><div class="val">#41DBF9 · --color-dc-mark-cyan</div><div class="job">gradient end · 11.78:1 on navy, 1.65:1 on white — never text on light</div></div></div>
-      <div class="sw"><div class="chip" style="background:#0E2250"></div><div class="meta"><div class="name">Interior indigo</div><div class="val">#0E2250 · --color-dc-interior-indigo</div><div class="job">cutout structure in dimensional treatments</div></div></div>
-      <div class="sw"><div class="chip" style="background:#FFFFFF"></div><div class="meta"><div class="name">Identity white</div><div class="val">#FFFFFF · --color-white</div><div class="job">wordmark on dark · 19.43:1 on navy</div></div></div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Usage rules</h2>
-    <div class="rules">
-      <div><strong>Proportions.</strong> Mark height is 2.65× the wordmark block height. Gap between mark and wordmark is 7.5% of the mark's width. Inside the block: DECENTRALIZED cap 22.072, CLOUD cap 38, 7.116 between the lines; the dot 7.6 square, radius a quarter of its side, on the baseline. Never restyle these relationships.</div>
-      <div><strong>Clear space.</strong> Keep a margin of one node-square (the network node size at the used scale) × 4 on all sides of the lockup.</div>
-      <div><strong>Minimum sizes.</strong> Full lockup: 200px wide (block 24px). Mark alone: 48px wide. Below that, use the reduction glyph; below 32px expect the glyph's network to close.</div>
-      <div><strong>Colour discipline.</strong> Only the palette above. No added hues, no brighter cyan, no glow, blur or drop shadow on the flat marks. Mono variants for single-colour contexts (engraving, print, embroidery). Cyan is a mark colour, not a text colour on light grounds.</div>
-      <div><strong>The dot.</strong> The dot before CLOUD is a fixed brand device — it always carries the cloud gradient, never plain white or black, even in the mono lockups' wordmark.</div>
-      <div><strong>The wordmark.</strong> Set only in IOI Display, two lines, DECENTRALIZED over CLOUD with CLOUD tracked so every letter gap equals the dot's gap. Never re-set it in another face, never one line, never animate it. Drawn letters are not permitted (owner ruling, 2026-09-05).</div>
-      <div><strong>The gradient.</strong> One ramp across the whole cloud, bottom-left indigo to top-right cyan. Never per-shape, never reversed.</div>
-      <div><strong>Motion.</strong> The hover cloud above is the hero treatment for web, and the animated SVG mark is the lockup the site header carries. Static lockups everywhere else. Never animate the wordmark. Every animation stops under reduced motion.</div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Files</h2>
-    <div class="files">
-      <table>
-        <thead><tr><th>File</th><th>What it is</th><th>Use</th></tr></thead>
-        <tbody>
-          <tr><td><a href="/brand/lockup-dark.svg">lockup-dark.svg</a></td><td>Mark + two-line wordmark, white ink, gradient dot</td><td>On navy or any dark ground</td></tr>
-          <tr><td><a href="/brand/lockup-light.svg">lockup-light.svg</a></td><td>Mark + two-line wordmark, black ink, gradient dot</td><td>On white or pale grounds</td></tr>
-          <tr><td><a href="/brand/wordmark-dark.svg">wordmark-dark.svg</a></td><td>Wordmark and dot only, white</td><td>Where the mark is already present</td></tr>
-          <tr><td><a href="/brand/wordmark-light.svg">wordmark-light.svg</a></td><td>Wordmark and dot only, black</td><td>Where the mark is already present</td></tr>
-          <tr><td><a href="/brand/hover.html">hover.html</a></td><td>The hover cloud — the animated hero, the owner's geometry and timing</td><td>Web hero only</td></tr>
-          <tr><td><a href="/brand/mark-animated.html">mark-animated.html</a></td><td>The animated mark, pure SVG — the header's lockup</td><td>Web, where the mark moves</td></tr>
-          <tr><td><a href="/brand/mark.svg">mark.svg</a></td><td>The cloud with the network knocked out, gradient, transparent ground</td><td>48px and up, any ground</td></tr>
-          <tr><td><a href="/brand/mark-mono-white.svg">mark-mono-white.svg</a></td><td>The mark in one colour, white</td><td>Single-colour on dark</td></tr>
-          <tr><td><a href="/brand/mark-mono-navy.svg">mark-mono-navy.svg</a></td><td>The mark in one colour, navy</td><td>Single-colour on light</td></tr>
-          <tr><td><a href="/brand/app-icon.svg">app-icon.svg</a></td><td>White rounded tile with the gradient mark</td><td>App badges, launchers, store listings</td></tr>
-          <tr><td><a href="/brand/favicon.svg">favicon.svg</a></td><td>Reduction glyph, gradient, network knocked out</td><td>Favicons and anything under 48px</td></tr>
-          <tr><td><a href="/brand/glyph-mono-white.svg">glyph-mono-white.svg</a></td><td>Reduction glyph, white</td><td>Single-colour under 48px, dark</td></tr>
-          <tr><td><a href="/brand/glyph-mono-navy.svg">glyph-mono-navy.svg</a></td><td>Reduction glyph, navy</td><td>Single-colour under 48px, light</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="note">All SVGs are generated by <code>npm run brand:assets --workspace=decentralized-cloud</code>; <code>check:decentralized-cloud-brand-assets</code> fails if any file on disk drifts from the module.</p>
-  </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(248,251,255,0.5)">Usage rules</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;font-size:13.5px;line-height:1.65;color:rgba(248,251,255,0.75)">
+        <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:20px 22px"><strong style="color:#F8FBFF">Proportions.</strong> Mark height is 2.65× the wordmark block height. Gap between mark and wordmark is 7.5% of the mark's width. Never restyle these relationships.</div>
+        <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:20px 22px"><strong style="color:#F8FBFF">Clear space.</strong> Keep a margin of one node-square (the network node size at the used scale) × 4 on all sides of the lockup.</div>
+        <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:20px 22px"><strong style="color:#F8FBFF">Minimum sizes.</strong> Full lockup: 200px wide. Mark alone: 48px. Below that, use the reduction glyph.</div>
+        <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:20px 22px"><strong style="color:#F8FBFF">Color discipline.</strong> Only palette colors above. No added hues, no brighter cyan, no glow or blur effects. Mono variants for single-color contexts (engraving, print, embroidery).</div>
+        <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:20px 22px"><strong style="color:#F8FBFF">The dot.</strong> The gradient dot before CLOUD is a fixed brand device — it always carries the cloud gradient, never plain white.</div>
+        <div style="border:1px solid rgba(65,219,249,0.14);border-radius:8px;padding:20px 22px"><strong style="color:#F8FBFF">Motion.</strong> The <a href="hero-3d.html">animated mark</a> is the hero treatment for web. Static lockups everywhere else. Never animate the wordmark.</div>
+      </div>
+    </section>
+  </div>
 </div>
 </body>
 </html>

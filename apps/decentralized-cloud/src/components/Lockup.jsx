@@ -3,12 +3,13 @@ import AnimatedMark from "./AnimatedMark.jsx";
 
 // THE LOCKUP — the owner's animated primary lockup, from its one source.
 //
-// THE MARK is the cloud that opens into a network, and in the header it MOVES: the
-// owner ruled (2026-09-07) that the site header carries the animated version of the
-// primary lockup, and AnimatedMark.jsx is the owner's pure-SVG animation drawn from
-// brand/mark/mark.mjs — the module the asset builder and the face gate read too.
-// Under reduced motion it is the static cut mark. The three-lobe mark that preceded
-// it is asserted ABSENT from the served bytes.
+// THE MARK is the owner's cloud whose face opens into a network, and in the header
+// it MOVES: the owner ruled (2026-09-07) that the site header carries the animated
+// version of the primary lockup, and AnimatedMark.jsx is the owner's replica engine
+// drawn from brand/mark/mark.mjs — the module the asset check and the face gate read
+// too. Under reduced motion it is the owner's static mark-dark.svg, verbatim. The
+// three-lobe mark and the earlier cloud that preceded it are asserted ABSENT from
+// the served bytes.
 //
 // THE WORDMARK is set entirely in IOI Display, unaltered, as live text — the owner's
 // ruling of 2026-09-05 stands: one run per line, no drawn letters. Two lines,
@@ -29,7 +30,7 @@ const DotGradient = ({ id }) => (
 export default function Lockup() {
   return (
     <div className="lockup">
-      <AnimatedMark id="dc-mark-g" />
+      <AnimatedMark />
       {/* The accessible name is on the mark, once. The wordmark is aria-hidden: two
           text runs plus a drawn dot would be read as fragments. */}
       <svg className="wordmark" viewBox={WORDMARK_BOX} aria-hidden="true">

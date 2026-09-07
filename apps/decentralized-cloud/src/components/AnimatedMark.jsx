@@ -1,67 +1,33 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  MARK_BOX, MARK_PATHS, MARK_GRADIENT, MARK_WIDTH, MARK_HEIGHT, CUT_NODES, CUT_EDGES,
-  CUT_EDGE_WIDTH, CUT_NODE_RADIUS, ANIM, inCloud,
-} from "../../brand/mark/mark.mjs";
+import { ANIM, INTERIOR_INDIGO, MARK_CYAN } from "../../brand/mark/mark.mjs";
+import markSvg from "../../brand/mark/source/mark-dark.svg?raw";
 
-// THE ANIMATED MARK — the owner's "cloud to network", as pure SVG DOM.
+// THE ANIMATED MARK — the owner's "replica engine", pure SVG DOM, in the header.
 //
-// Ported from the owner's SVG animation with its geometry and timing taken from
-// brand/mark/mark.mjs (ANIM) rather than copied: the cloud is the same five paths the
-// static mark and the gate carry, clipped at a seam; right of the seam a pixel field
-// and a network of squares build, pulses ride the network while it is live, the seam
-// sweeps right as the cloud reabsorbs it, and it recedes. One loop is ANIM.duration
-// seconds. The owner ruled (2026-09-07) that the header carries this animated lockup.
+// Ported from brand/mark/source/mark-animated.html with its constants taken from
+// mark.mjs (ANIM) and its arithmetic kept: a cloud extruded 0.34 deep is projected
+// through a 45° camera in slices; a grid of blocks across its face sinks where the
+// cut is, revealing the interior walls; a network of eight cyan nodes builds inside
+// the cut and one node pulses at a time. The cut opens on load at the owner's default
+// position and follows the pointer across the cloud. Two adaptations only: the stage
+// is the mark's own box rather than the window, and the wordmark is not drawn here —
+// the header sets it as live text beside this.
 //
-// HONEST MOTION. This is brand motion, not a claim about data: it is the one
-// animation on the face that is not bound to a daemon timestamp, and it is confined
-// to the lockup. It stops entirely under prefers-reduced-motion — the static cut mark
-// stands instead — and it pauses while the tab is hidden.
+// HONEST MOTION. Brand motion, not a claim about data; confined to the lockup; paused
+// while the tab is hidden; and under prefers-reduced-motion the owner's static mark
+// (mark-dark.svg, verbatim) stands instead.
 
+const W = 420, H = 250;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const lerp = (a, b, t) => a + (b - a) * t;
 const easeOut = (x) => 1 - Math.pow(1 - x, 3);
-const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-
-// The field and the fibres are built once, from ANIM's seed, so the drawing is the
-// same on every load.
-function buildScene() {
-  let seed = ANIM.seed;
-  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-  const nodes = ANIM.nodes.map((n) => ({ ...n, d: clamp01((n.x - ANIM.buildFrom) / ANIM.buildSpan) }));
-  const pixels = [];
-  const P = ANIM.pixels;
-  for (let gx = P.x0; gx <= P.x1; gx += P.step) {
-    const u = (gx - P.x0) / P.span;
-    const keep = 1 - u * u * 0.98 - u * 0.15;
-    for (let gy = P.y0; gy <= P.y1; gy += P.step) {
-      if (rnd() > keep) continue;
-      const s = Math.max(3, Math.round(lerp(8, 3.5, u) + (rnd() - 0.5) * 3));
-      const x = gx + (rnd() - 0.5) * 3, y = gy + (rnd() - 0.5) * 3;
-      if (!inCloud(x + s / 2, y + s / 2)) continue;
-      pixels.push({ x, y, s, d: u * 0.7 + rnd() * 0.3 });
-    }
-  }
-  const F = ANIM.fibres;
-  const fibres = [];
-  nodes.slice(7).forEach((n, i) => {
-    for (let k = 0; k < 3; k++) {
-      const ex = F.x0 + rnd() * F.xSpread, ey = n.y + (k - 1) * F.dy + (rnd() - 0.5) * F.jitter;
-      if (!inCloud(ex, ey)) continue;
-      fibres.push({ sat: 7 + i, ex, ey, c1x: n.x - F.c1, c1y: n.y, c2x: ex + F.c2, c2y: ey });
-    }
-  });
-  return { nodes, pixels, fibres };
-}
 
 const reducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export default function AnimatedMark({ id = "dc-mark-g" }) {
+export default function AnimatedMark() {
   const [reduce, setReduce] = useState(reducedMotion);
   const ref = useRef(null);
-  const scene = useRef(null);
-  if (!scene.current) scene.current = buildScene();
 
   useEffect(() => {
     if (!window.matchMedia) return undefined;
@@ -75,159 +41,183 @@ export default function AnimatedMark({ id = "dc-mark-g" }) {
     if (reduce) return undefined;
     const svg = ref.current;
     if (!svg) return undefined;
-    const { nodes, pixels, fibres } = scene.current;
-    const T = ANIM.times, D = ANIM.duration;
-    const cut = svg.querySelector("[data-cut]");
-    const nodeEls = [...svg.querySelectorAll("[data-node]")];
-    const edgeEls = [...svg.querySelectorAll("[data-edge]")];
-    const pxEls = [...svg.querySelectorAll("[data-px]")];
-    const fibreEls = [...svg.querySelectorAll("[data-fibre]")];
-    const signals = svg.querySelector("[data-signals]");
+    const NS = "http://www.w3.org/2000/svg";
+    const A = ANIM;
+    const CIRCLES = A.circles, FLAT_Y = A.flatY, XMIN = A.xMin, XMAX = A.xMax;
+    const DEPTH = A.depth, FRONT_Z = DEPTH / 2, BACK_Z = -DEPTH / 2;
+    const BLOCK_FRONT = FRONT_Z + 0.0012, BLOCK_D = A.blockDepth, SINK = A.sink;
+    const PITCH = A.pitch, X0 = A.x0, Y0 = A.y0;
+    const CAMZ = A.camZ, CAMY = A.camY, FOV = A.fov;
+    const U = A.u, HW = A.halfWidth, DEF = A.defaultCut, NZ = FRONT_Z + A.nodeZOffset;
+    const NODES = A.nodes, EDGES = A.edges;
+    const WALL = INTERIOR_INDIGO, NODE_C = MARK_CYAN;
 
-    const front = (t) => {
-      if (t < T.sweep) return ANIM.seam;
-      if (t < T.sweepEnd) return lerp(ANIM.seam, ANIM.full, easeInOut((t - T.sweep) / (T.sweepEnd - T.sweep)));
-      if (t < T.recede) return ANIM.full;
-      if (t < T.recedeEnd) return lerp(ANIM.full, ANIM.seam, easeInOut((t - T.recede) / (T.recedeEnd - T.recede)));
-      return ANIM.seam;
+    const topAt = (x) => { let y = -1e9; for (const [cx, cy, r] of CIRCLES) { const d = r * r - (x - cx) * (x - cx); if (d > 0) y = Math.max(y, cy + Math.sqrt(d)); } return y; };
+    const bottomAt = (x) => { let y = 1e9; for (const [cx, cy, r] of CIRCLES) { const d = r * r - (x - cx) * (x - cx); if (d > 0) y = Math.min(y, cy - Math.sqrt(d)); } return Math.max(y, FLAT_Y); };
+    const insideInset = (x, y, m) => { if (y < FLAT_Y + m) return false; for (const [cx, cy, r] of CIRCLES) { if (Math.hypot(x - cx, y - cy) <= r - m) return true; } return false; };
+
+    // Cells and the union hole, the owner's exact port.
+    const cells = [];
+    for (let iy = 0; Y0 + iy * PITCH <= 0.66; iy++) for (let ix = 0; X0 + ix * PITCH <= 0.90; ix++) {
+      const x = X0 + ix * PITCH, y = Y0 + iy * PITCH;
+      if (insideInset(x, y, A.inset)) cells.push({ ix, iy, x, y });
+    }
+    const occ = {}; cells.forEach((c) => { occ[c.ix + "," + c.iy] = 1; });
+    const adj = {};
+    const lk = (a, b) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); };
+    cells.forEach((c) => {
+      if (!occ[c.ix + "," + (c.iy - 1)]) lk(c.ix + "," + c.iy, (c.ix + 1) + "," + c.iy);
+      if (!occ[c.ix + "," + (c.iy + 1)]) lk(c.ix + "," + (c.iy + 1), (c.ix + 1) + "," + (c.iy + 1));
+      if (!occ[(c.ix - 1) + "," + c.iy]) lk(c.ix + "," + c.iy, c.ix + "," + (c.iy + 1));
+      if (!occ[(c.ix + 1) + "," + c.iy]) lk((c.ix + 1) + "," + c.iy, (c.ix + 1) + "," + (c.iy + 1));
+    });
+    const startK = Object.keys(adj)[0], loop = [startK];
+    let prevK = null, curK = startK;
+    do {
+      const nb = adj[curK]; let nx = null;
+      for (let i = 0; i < nb.length; i++) if (nb[i] !== prevK) { nx = nb[i]; break; }
+      if (nx === null) nx = nb[0];
+      prevK = curK; curK = nx; loop.push(curK);
+    } while (curK !== startK && loop.length < 500);
+    const rim = loop.slice(0, -1).map((k) => { const p = k.split(","); return [X0 + (p[0] - 0.5) * PITCH, Y0 + (p[1] - 0.5) * PITCH]; });
+    const N = A.samples;
+    const pts = [];
+    for (let i = 0; i <= N; i++) { const x = XMIN + (XMAX - XMIN) * (i / N); pts.push([x, topAt(x)]); }
+    for (let i = N; i >= 0; i--) { const x = XMIN + (XMAX - XMIN) * (i / N); pts.push([x, bottomAt(x)]); }
+    let facePathD = "M " + pts.map((p) => p[0].toFixed(4) + " " + p[1].toFixed(4)).join(" L ") + " Z";
+    facePathD += " M " + rim.map((p) => p[0].toFixed(4) + " " + p[1].toFixed(4)).join(" L ") + " Z";
+
+    const g = [0.45 / 2.01, 0.55 / 1.06], g2 = g[0] * g[0] + g[1] * g[1];
+    const GP0 = [-1.055, -0.30], GP1 = [-1.055 + g[0] / g2, -0.30 + g[1] / g2];
+
+    svg.textContent = "";
+    const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+    const defs = el("defs", {});
+    const grad = el("linearGradient", { id: "dc-anim-gg", gradientUnits: "userSpaceOnUse", x1: GP0[0], y1: GP0[1], x2: GP1[0], y2: GP1[1] }, defs);
+    A.gradientStops.forEach((s) => { el("stop", { offset: s[0], "stop-color": s[1] }, grad); });
+    const SLICES = A.slices;
+    const sweepG = el("g", {});
+    const sweepEls = [];
+    for (let s1 = 0; s1 < SLICES; s1++) sweepEls.push(el("path", { d: facePathD, fill: WALL, "fill-rule": "evenodd" }, sweepG));
+    const blockSidesG = el("g", {});
+    const blockFrontsG = el("g", {});
+    const faceG = el("g", {});
+    el("path", { d: facePathD, fill: "url(#dc-anim-gg)", "fill-rule": "evenodd" }, faceG);
+    const netG = el("g", {});
+    const SIDE_SLICES = A.sideSlices;
+    const blockEls = cells.map((c) => {
+      const sides = [];
+      for (let i = 0; i < SIDE_SLICES; i++) sides.push(el("rect", { x: c.x - PITCH / 2, y: c.y - PITCH / 2, width: PITCH, height: PITCH, fill: WALL }, blockSidesG));
+      const fr = el("rect", { x: c.x - PITCH / 2 - 0.004, y: c.y - PITCH / 2 - 0.004, width: PITCH + 0.008, height: PITCH + 0.008, fill: "url(#dc-anim-gg)" }, blockFrontsG);
+      return { c, sides, fr, k: 0 };
+    });
+    const nEls = NODES.map(() => el("rect", { rx: 0.012, fill: NODE_C, opacity: 0 }, netG));
+    const eEls = EDGES.map(() => el("line", { stroke: NODE_C, "stroke-width": 1, "vector-effect": "non-scaling-stroke", opacity: 0 }, netG));
+    const tmpl = NODES.map((n) => ({ u: n[0], v: n[1], t0: 0.15 + n[1] * 0.35 + Math.abs(n[0]) * 0.08 }));
+
+    // Layout: the owner's projection, with the stage being this box and no wordmark
+    // beside the cloud (the header sets it separately).
+    let ppw = 1, targetX = 0, axisX = 0, axisY = 0, camz = CAMZ;
+    const planeK = (z) => ppw * camz / (camz - z);
+    const planeTransform = (z) => { const k = planeK(z); return "translate(" + (axisX - targetX * k) + "," + (axisY + CAMY * k) + ") scale(" + k + "," + (-k) + ")"; };
+    const layout = () => {
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      const t2 = 2 * Math.tan(FOV * Math.PI / 360);
+      ppw = Math.min(H / (t2 * CAMZ), (0.98 * W) / (XMAX - XMIN));
+      camz = H / (t2 * ppw);
+      const cloudW = (XMAX - XMIN) * ppw;
+      const leftPx = (W - cloudW) / 2;
+      targetX = XMIN - (leftPx - W / 2) / ppw;
+      axisX = W / 2; axisY = H / 2;
+      faceG.setAttribute("transform", planeTransform(FRONT_Z));
+      netG.setAttribute("transform", planeTransform(NZ));
+      for (let i = 0; i < SLICES; i++) sweepEls[i].setAttribute("transform", planeTransform(lerp(BACK_Z, FRONT_Z, i / (SLICES - 1))));
     };
-    const nodeState = (n, t, fx) => {
-      const t0 = T.build + 0.35 + n.d * T.buildDur;
-      let k = 0, x = n.x;
-      if (t >= t0 && t < T.sweep) {
-        const q = clamp01((t - t0) / 0.45);
-        k = q < 0.6 ? easeOut(q / 0.6) * 1.2 : lerp(1.2, 1, (q - 0.6) / 0.4);
-      } else if (t >= T.sweep && t < T.sweepEnd) {
-        const p = (fx - ANIM.seam) / (ANIM.full - ANIM.seam);
-        x = n.x - p * (n.x - ANIM.seam) * 0.45;
-        k = clamp01((x - fx) / 28);
-      }
-      return { x, y: n.y, k };
+    layout();
+
+    // Interaction: pointer positions mapped from the element's box into the stage.
+    let hovering = false, tx = DEF, o = 0, cx = DEF, last = 0;
+    const onMove = (e) => {
+      const b = svg.getBoundingClientRect();
+      const px = (e.clientX - b.left) / b.width * W, py = (e.clientY - b.top) / b.height * H;
+      const kf = planeK(FRONT_Z);
+      const wx = (px - axisX) / kf + targetX, wy = CAMY - (py - axisY) / kf;
+      hovering = insideInset(wx, wy, -0.15);
+      tx = hovering ? Math.max(-0.52, Math.min(0.55, wx)) : DEF;
     };
-    const settledSince = (n, t) => t - (T.build + 0.35 + n.d * T.buildDur + 0.25);
+    const onLeave = () => { hovering = false; tx = DEF; };
+    svg.addEventListener("pointermove", onMove);
+    svg.addEventListener("pointerleave", onLeave);
 
     let raf = 0;
     const frame = (now) => {
-      const t = (((now / 1000) % D) + D) % D;
-      const fx = front(t);
-      cut.setAttribute("width", fx);
-
-      pixels.forEach((p, i) => {
-        let k = 0, dx = 0;
-        if (t < T.sweep) { const q = clamp01((t - T.build - p.d * 0.9) / 0.35); k = easeOut(q); dx = lerp(-10, 0, k); }
-        else if (t < T.sweepEnd) k = clamp01((p.x + p.s / 2 - fx) / 14);
-        else if (t >= T.recede) { const q = clamp01((t - T.recede - 0.25 - p.d * 0.8) / 0.35); k = easeOut(q); dx = lerp(-10, 0, k); k = Math.min(k, clamp01((p.x + p.s / 2 - fx) / 14)); }
-        const s = p.s * k, el = pxEls[i];
-        el.setAttribute("x", p.x + dx + (p.s - s) / 2); el.setAttribute("y", p.y + (p.s - s) / 2);
-        el.setAttribute("width", s); el.setAttribute("height", s);
+      const dt = Math.min(0.05, (now - last) / 1000) || 0; last = now;
+      o += (1 - o) * Math.min(1, dt * (hovering ? 5 : 2));
+      cx += (tx - cx) * Math.min(1, dt * 9);
+      const ch = HW * easeOut(clamp01(o / 0.7));
+      for (const b of blockEls) {
+        const target = o < 0.01 ? 0 : clamp01((ch - Math.abs(b.c.x - cx)) / 0.06);
+        const rate = 7 + (b.c.y + 0.30) * 9;
+        b.k += (target - b.k) * Math.min(1, dt * rate);
+        const k = b.k, s = k * k * (3 - 2 * k);
+        const zf = BLOCK_FRONT - s * SINK;
+        const fade = 1 - clamp01((k - 0.5) / 0.35);
+        b.fr.setAttribute("transform", planeTransform(zf));
+        b.fr.setAttribute("opacity", fade.toFixed(3));
+        b.fr.style.display = fade > 0.005 ? "" : "none";
+        for (let j = 0; j < SIDE_SLICES; j++) {
+          const zs = zf - BLOCK_D * (j + 1) / SIDE_SLICES;
+          b.sides[j].setAttribute("transform", planeTransform(zs));
+          b.sides[j].setAttribute("opacity", fade.toFixed(3));
+          b.sides[j].style.display = fade > 0.005 ? "" : "none";
+        }
+      }
+      const tNow = now / 1000;
+      const gi = Math.floor(tNow / A.pulsePeriod) % tmpl.length, gph = (tNow % A.pulsePeriod) / A.pulsePeriod;
+      const st = tmpl.map((n) => {
+        const x = cx + n.u * U, top = topAt(x), bot = bottomAt(x);
+        if (top < -1e8) return { x: 0, y: 0, k: 0, settle: 0 };
+        const y = lerp(top - 0.08, bot + 0.07, n.v);
+        const q = clamp01((o - n.t0) / 0.3);
+        let kk = q < 0.6 ? easeOut(q / 0.6) * 1.2 : lerp(1.2, 1, (q - 0.6) / 0.4);
+        kk *= clamp01((ch - Math.abs(n.u * U) - 0.027) / 0.072);
+        return { x, y, k: kk, settle: clamp01((o - n.t0 - 0.2) / 0.3) };
       });
-
-      const st = nodes.map((n) => nodeState(n, t, fx));
-      nodes.forEach((n, i) => {
-        const { x, y, k } = st[i], s = n.s * k, el = nodeEls[i];
-        el.setAttribute("x", x - s / 2); el.setAttribute("y", y - s / 2);
-        el.setAttribute("width", s); el.setAttribute("height", s);
+      st.forEach((s2, i) => {
+        const elN = nEls[i];
+        const pulse = i === gi ? Math.exp(-Math.pow((gph - 0.5) * 5, 2)) : 0;
+        const sz = A.nodeSize * Math.max(0.0001, s2.k) * (1 + 0.22 * pulse);
+        elN.setAttribute("x", s2.x - sz / 2); elN.setAttribute("y", s2.y - sz / 2);
+        elN.setAttribute("width", sz); elN.setAttribute("height", sz);
+        elN.setAttribute("rx", sz * 0.1667);
+        elN.setAttribute("opacity", s2.k > 0 ? 1 : 0);
       });
-
-      fibres.forEach((f, i) => {
-        const S = st[f.sat], el = fibreEls[i];
-        let k = 0;
-        if (t < T.sweep) k = easeOut(clamp01(settledSince(nodes[f.sat], t) / 0.5));
-        else if (t < T.sweepEnd) k = S.k > 0 && f.ex > fx ? 1 : 0;
-        const dxs = S.x - nodes[f.sat].x;
-        el.setAttribute("d", `M ${S.x} ${S.y} C ${f.c1x + dxs} ${f.c1y} ${f.c2x} ${f.c2y} ${f.ex} ${f.ey}`);
-        const len = el.getTotalLength();
-        el.setAttribute("stroke-dasharray", len); el.setAttribute("stroke-dashoffset", len * (1 - k));
-        el.style.opacity = k > 0 ? 0.75 * Math.min(S.k, 1) : 0;
+      EDGES.forEach((e2, i) => {
+        const P = st[e2[0]], Q = st[e2[1]], k3 = Math.min(P.settle, Q.settle);
+        const on = P.k > 0 && Q.k > 0 && k3 > 0;
+        const elE = eEls[i];
+        elE.setAttribute("opacity", on ? (Math.min(P.k, Q.k, 1) * 0.85).toFixed(3) : 0);
+        if (on) { elE.setAttribute("x1", P.x); elE.setAttribute("y1", P.y); elE.setAttribute("x2", lerp(P.x, Q.x, easeOut(k3))); elE.setAttribute("y2", lerp(P.y, Q.y, easeOut(k3))); }
       });
-
-      ANIM.edges.forEach(([a, b], i) => {
-        const A = st[a], B = st[b], el = edgeEls[i];
-        let k = 0;
-        if (t < T.sweep) k = easeOut(clamp01(Math.min(settledSince(nodes[a], t), settledSince(nodes[b], t)) / 0.5));
-        else if (t < T.sweepEnd) k = Math.min(A.k, B.k) > 0 ? 1 : 0;
-        const len = Math.hypot(B.x - A.x, B.y - A.y);
-        el.setAttribute("x1", A.x); el.setAttribute("y1", A.y); el.setAttribute("x2", B.x); el.setAttribute("y2", B.y);
-        el.setAttribute("stroke-dasharray", len); el.setAttribute("stroke-dashoffset", len * (1 - k));
-        el.style.opacity = k > 0 ? Math.min(A.k, B.k, 1) : 0;
-      });
-
-      signals.style.opacity = t >= T.live && t < T.sweep ? clamp01(Math.min((t - T.live) / 0.4, (T.sweep - t) / 0.3)) : 0;
       raf = requestAnimationFrame(frame);
     };
-    // Paused while the tab is hidden: a brand loop nobody is looking at is cost.
-    const onVis = () => {
-      cancelAnimationFrame(raf);
-      if (document.visibilityState === "visible") raf = requestAnimationFrame(frame);
-    };
+    const onVis = () => { cancelAnimationFrame(raf); if (document.visibilityState === "visible") { last = 0; raf = requestAnimationFrame(frame); } };
     document.addEventListener("visibilitychange", onVis);
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); document.removeEventListener("visibilitychange", onVis); };
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onVis);
+      svg.removeEventListener("pointermove", onMove);
+      svg.removeEventListener("pointerleave", onLeave);
+    };
   }, [reduce]);
 
-  const gradient = (
-    <linearGradient id={id} gradientUnits="userSpaceOnUse"
-      x1={MARK_GRADIENT.x1} y1={MARK_GRADIENT.y1} x2={MARK_GRADIENT.x2} y2={MARK_GRADIENT.y2}>
-      <stop offset="0" stopColor={MARK_GRADIENT.from} />
-      <stop offset="1" stopColor={MARK_GRADIENT.to} />
-    </linearGradient>
-  );
-
-  // REDUCED MOTION: the static mark, the cloud with the network knocked out.
+  // REDUCED MOTION: the owner's static mark, the file verbatim.
   if (reduce) {
-    return (
-      <svg className="mark" viewBox={MARK_BOX} role="img" aria-label="decentralized.cloud">
-        <defs>
-          {gradient}
-          <mask id={`${id}-cut`} maskUnits="userSpaceOnUse" x="0" y="0" width={MARK_WIDTH} height={MARK_HEIGHT}>
-            <rect width={MARK_WIDTH} height={MARK_HEIGHT} fill="#fff" />
-            {CUT_EDGES.map(([a, b]) => (
-              <line key={`${a}-${b}`} x1={CUT_NODES[a].x} y1={CUT_NODES[a].y} x2={CUT_NODES[b].x} y2={CUT_NODES[b].y}
-                stroke="#000" strokeWidth={CUT_EDGE_WIDTH} />
-            ))}
-            {CUT_NODES.map((n, i) => (
-              <rect key={i} x={n.x - n.s / 2} y={n.y - n.s / 2} width={n.s} height={n.s} rx={CUT_NODE_RADIUS} fill="#000" />
-            ))}
-          </mask>
-        </defs>
-        <g fill={`url(#${id})`} mask={`url(#${id}-cut)`}>
-          {MARK_PATHS.map((d, i) => <path key={i} d={d} />)}
-        </g>
-      </svg>
-    );
+    return <span className="mark mark-static" role="img" aria-label="decentralized.cloud" dangerouslySetInnerHTML={{ __html: markSvg }} />;
   }
-
-  const { nodes, pixels, fibres } = scene.current;
-  const paint = `url(#${id})`;
   return (
-    <svg ref={ref} className="mark mark-live" viewBox={MARK_BOX} role="img"
-      aria-label="decentralized.cloud — a cloud dissolving into a network of connected squares, then reabsorbing it">
-      <defs>
-        {gradient}
-        <clipPath id={`${id}-seam`}><rect data-cut x="0" y="0" width={ANIM.seam} height={MARK_HEIGHT} /></clipPath>
-      </defs>
-      <g fill={paint} clipPath={`url(#${id}-seam)`}>
-        {MARK_PATHS.map((d, i) => <path key={i} d={d} />)}
-      </g>
-      <g fill={paint}>
-        {pixels.map((p, i) => <rect key={i} data-px="" rx="1" width="0" height="0" />)}
-      </g>
-      <g stroke={paint} fill="none" strokeWidth="1.3" strokeLinecap="round" className="mark-fibres">
-        {fibres.map((f, i) => <path key={i} data-fibre="" d="" />)}
-      </g>
-      <g stroke={paint} fill="none" strokeLinecap="round">
-        {ANIM.edges.map(([a, b, thin], i) => <line key={i} data-edge="" strokeWidth={thin ? 1.8 : 2.6} />)}
-      </g>
-      <g fill={paint}>
-        {nodes.map((n, i) => <rect key={i} data-node="" rx="4" width="0" height="0" />)}
-      </g>
-      <g data-signals="" fill={ANIM.pulse} className="mark-signals">
-        {ANIM.signals.map((s, i) => (
-          <circle key={i} r="2.8">
-            <animateMotion dur={`${s.dur}s`} begin={`${s.begin}s`} repeatCount="indefinite" path={s.path} />
-          </circle>
-        ))}
-      </g>
-    </svg>
+    <svg ref={ref} className="mark mark-live" viewBox={`0 0 ${W} ${H}`} role="img"
+      aria-label="decentralized.cloud — a cloud whose face opens into a network of connected nodes" />
   );
 }

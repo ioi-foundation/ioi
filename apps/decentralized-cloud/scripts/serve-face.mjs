@@ -145,12 +145,12 @@ const STATIC = new Map([
 // lowercase letters, digits and hyphens, and one of three types. Anything else is
 // not a brand asset and falls through to the allowlist refusal below, which is
 // where an unknown path belongs.
-const BRAND_TYPES = { svg: "image/svg+xml", html: "text/html; charset=utf-8", png: "image/png" };
+const BRAND_TYPES = { svg: "image/svg+xml", html: "text/html; charset=utf-8", png: "image/png", js: "text/javascript; charset=utf-8" };
 function brandAsset(pathname) {
   if (pathname === "/brand" || pathname === "/brand/") {
     return { file: "brand/index.html", type: BRAND_TYPES.html, from: DIST_DIR };
   }
-  const m = /^\/brand\/([a-z0-9-]+)\.(svg|html|png)$/.exec(pathname);
+  const m = /^\/brand\/([a-z0-9-]+)\.(svg|html|png|js)$/.exec(pathname);
   if (!m) return null;
   return { file: `brand/${m[1]}.${m[2]}`, type: BRAND_TYPES[m[2]], from: DIST_DIR };
 }
