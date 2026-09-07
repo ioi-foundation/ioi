@@ -1,0 +1,1 @@
+[M16Q] START quv_member_store_inspection: cargo test --locked -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl member_store_inspection_finds_only_verbatim_hashes -- --exact 

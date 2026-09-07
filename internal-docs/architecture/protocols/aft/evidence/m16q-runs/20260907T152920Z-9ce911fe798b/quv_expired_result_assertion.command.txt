@@ -1,0 +1,1 @@
+[M16Q] START quv_expired_result_assertion: cargo test --locked -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl quv_expired_result_requires_strict_admitted_height_and_unchanged_receipt -- --exact 

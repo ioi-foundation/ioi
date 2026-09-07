@@ -1,0 +1,1 @@
+[M16Q] START quv_operation_start_parser: cargo test --locked -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl quv_operation_start_parser_requires_exact_diagnostic_shape -- --exact 

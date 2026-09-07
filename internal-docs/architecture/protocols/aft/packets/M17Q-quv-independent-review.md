@@ -1,13 +1,17 @@
 # M17Q independent QUV review commission
 
-Status: R1 `REPAIR_REQUIRED`; R2 candidate in preparation (2026-09-06). The R2
-commission below becomes effective only when the annotated R2 tag named in
-"Immutable subject (R2)" exists and its clean full M16Q run is retained.
+Status: R1 `REPAIR_REQUIRED`; R2 candidate frozen 2026-09-07. The R2
+commission below is effective: the annotated R2 tag named in "Immutable
+subject (R2)" exists and its clean full M16Q run is retained at
+`../evidence/m16q-runs/20260907T152920Z-9ce911fe798b/` (63 phases PASS,
+7217 s, clean non-quick tree, commit `9ce911fe798b`).
 
 ## Immutable subject (R2)
 
-- Proposed annotated tag: `aft-quv-v0-m17q-candidate-r2-2026-09-06`
-  (created only after the clean full M16Q R2 run passes on the exact commit).
+- Annotated tag: `aft-quv-v0-m17q-candidate-r2-2026-09-07` (created by
+  `.github/scripts/freeze_aft_quv_candidate.sh` on the commit that adds the
+  retained run; tag object and peeled commit are recorded in the follow-up
+  manifest commit and in `M18Q-quv-public-admission.md`).
 - The reviewer records the resolved tag object and peeled commit before work.
 - Review only a clean disposable clone at the tag; do not read the
   commissioning checkout and do not accept uncommitted files.
@@ -44,6 +48,36 @@ commission below becomes effective only when the annotated R2 tag named in
 - R2 remediation evidence: `evidence/m17q-r2-*-2026-09-06/` (scoped, dirty-tree
   development evidence; only the clean M16Q run on the tagged commit is
   qualification evidence).
+- Successor-root adoption gate (2026-09-07, `f41ba3b41`):
+  `crates/validator/src/standard/orchestration/consensus.rs`
+  (`quv_successor_root_gate`, `QUV_RETIRED_SIGNER_REFUSAL`) applied in
+  `sync.rs` (apply loop, blocks-response and status-response entry),
+  `gossip.rs` (`handle_gossip_block`) and `lifecycle.rs` (startup against the
+  workload's durable executed projection); the corrected handoff evidence
+  checker `.github/scripts/check_aft_quv_handoff_evidence.py`
+  (fixture-terminated admission release excused only with a later `startup`
+  record and no later nonce event); the mandatory `quv_successor_root_gate`
+  runner phase. Evidence: `evidence/m17q-r2-retired-sync-2026-09-07/`
+  (includes the failed clean-run phase on the unrepaired tree as the
+  process-level removed-rule control).
+- PQ timeout drill scope (2026-09-07, `6ee42fd7f`): `crates/cli/tests/aft_e2e.rs`
+  (`test_aft_pq_four_validator_timeout_quorum_and_restart`): every embedded
+  scoped certificate must name its own block height; pre-baseline
+  bootstrap-window certificates are recorded; the scheduled-failure rule is
+  confined to the drill window. Evidence:
+  `evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/` (includes the
+  rejected clean-run phase on `f41ba3b41`).
+- Measured-cost fixture declarations (2026-09-07, `2080d09d6`, `199ee3884`):
+  `crates/cli/tests/aft_e2e_parts/quv_flood.rs` (`CONTINUATION` 11 s, 16 s
+  active service budget after release maxima 10.25/10.20/13.01 s) and
+  `crates/cli/tests/aft_e2e_parts/quv_readiness.rs` (`QUALIFIED_ENVELOPE_MS`
+  4500 after a 4210 ms valid reply on shared PQ lanes), with
+  `.github/scripts/check_aft_quv_readiness_evidence.py` pinned to 4500.
+  Evidence: `evidence/m17q-r2-flood-host-contention-2026-09-07/`,
+  `evidence/m17q-r2-readiness-reply-envelope-2026-09-07/` (each retains the
+  rejected clean-run phase and a quiet-host preflight). The reviewer should
+  judge whether these declarations are honest deployment costs and whether
+  the shared-lane reply wait deserves a finding.
 
 The reviewer must re-adjudicate every stable identifier `QUV-M17Q-001..013`
 explicitly (closed / repaired-but-unqualified / open), and may add new

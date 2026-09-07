@@ -1,0 +1,1 @@
+[M16Q] START readiness_observation_assertion: cargo test --locked -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl readiness_observation_requires_positive_wait_and_exact_nonce -- --exact 

@@ -702,3 +702,13 @@ declared envelope (replies waited about 3 s on the shared PQ peer lanes);
 the readiness profile now declares the same 4500 ms envelope as the flood
 profile (`evidence/m17q-r2-readiness-reply-envelope-2026-09-07/`) and the
 definitive clean run restarts from that commit on a quiet host.
+
+### Definitive clean R2 run retained (2026-09-07)
+
+`evidence/m16q-runs/20260907T152920Z-9ce911fe798b/` passed all 63 mandatory
+gates on `9ce911fe798b` (clean, non-quick, quiet host). The candidate is
+frozen as `aft-quv-v0-m17q-candidate-r2-2026-09-07`; the fresh independent
+M17Q review of that exact tag is the next gate. M18Q admission
+(`packets/M18Q-quv-public-admission.md`) stays NOT ADMITTED until that
+review reports no unresolved critical/high finding and the clean-checkout
+reproduction matches the retained run.

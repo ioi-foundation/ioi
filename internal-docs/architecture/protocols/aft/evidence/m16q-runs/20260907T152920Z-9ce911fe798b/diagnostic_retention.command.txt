@@ -1,0 +1,1 @@
+[M16Q] START diagnostic_retention: cargo test --locked -p ioi-cli --lib --features consensus-aft\,vm-wasm\,state-iavl orchestration_restart_retains_diagnostics_and_refuses_unwritable_sink 

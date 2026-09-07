@@ -1,0 +1,28 @@
+[
+  [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "--no-run",
+    "--message-format=json"
+  ],
+  [
+    "strace",
+    "-f",
+    "-y",
+    "-s",
+    "256",
+    "-e",
+    "trace=fsync,fallocate,ftruncate,rename,renameat2,openat,write,close",
+    "-o",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260907T152920Z-9ce911fe798b/quv-handoff-reservation/handoff.trace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/ioi_consensus-db277b1d9587ff30",
+    "--exact",
+    "aft::query_unanimity::tests::handoff_reserved_capacity_precedes_live_consumption_and_reuses_inode"
+  ]
+]

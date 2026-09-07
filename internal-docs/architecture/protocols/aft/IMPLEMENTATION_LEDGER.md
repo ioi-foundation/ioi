@@ -4186,3 +4186,32 @@ unchanged. Retained readiness maxima: 2075, 2217, 2524, 2731, 4210 ms.
 Evidence: `evidence/m17q-r2-readiness-reply-envelope-2026-09-07/`. Recorded
 for the reviewer as a transport cost (shared lane) rather than a closed item.
 Dispositions unchanged.
+
+### Definitive clean M16Q R2 run — PASS (2026-09-07)
+
+`evidence/m16q-runs/20260907T152920Z-9ce911fe798b/`: commit `9ce911fe798b`,
+clean non-quick tree, launched by the quiet-host gate at 15:29:19 UTC (load
+3.4 / 4.1 / 5.0; per-minute trace in
+`evidence/m16q-quv-qualification-host-load-2026-09-07.txt`), 63 phases PASS
+in 7217 s: complete formal corpus 2623 s; every QUV unit, mutation,
+reservation, syscall-ancestry and checker gate; process campaigns
+single-correct 661 s (62 budgeted releases, max 9.34 s), Byzantine flood
+634 s (58, max 10.80 s against the 16 s budget; reply maxima 2389 / 1572 /
+424 ms), status squat 196 s, consecutive readiness 269 s (reply maxima 1852 /
+1492 / 2093 ms against the 4500 ms envelope), disjoint handoff 328 s (max
+valid reply 786 ms) and overlap 289 s (689 ms), hash-async process 899 s, PQ
+timeout/restart drill 495 s, the new `quv_successor_root_gate` phase, and
+all evidence checkers. `result.txt`: `result=PASS`,
+`result_scope=selected_runner_gates`, `r2_admission=NOT_ESTABLISHED` (the
+runner never establishes admission; the fresh independent review does).
+
+Path to this run: four earlier clean attempts on this remediation each
+failed a different late phase and are retained as history with their
+repairs (`f41ba3b41` retired-process successor-root gate; `6ee42fd7f` PQ
+drill certificate rule; `2080d09d6` flood service budget 16 s; `199ee3884`
+readiness envelope 4500 ms). Disposition now: M16Q R2 qualification
+evidence exists on one immutable candidate; M15Q, M17Q and M18Q remain
+`REOPENED` / `REPAIR_REQUIRED` / `NOT_ADMITTED` until the fresh independent
+review of the exact tagged commit reports no unresolved critical/high
+finding. Next: freeze `aft-quv-v0-m17q-candidate-r2-2026-09-07`, commission
+the review, import its report byte-for-byte.
