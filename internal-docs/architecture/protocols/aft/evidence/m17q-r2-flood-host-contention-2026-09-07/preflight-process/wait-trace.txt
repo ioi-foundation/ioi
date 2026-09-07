@@ -1,0 +1,12 @@
+2026-09-07T11:26:03Z load1=3.52 load5=5.70 busy_procs=0 quiet=0
+2026-09-07T11:27:03Z load1=4.20 load5=5.45 busy_procs=0 quiet=1
+2026-09-07T11:28:03Z load1=3.13 load5=4.96 busy_procs=0 quiet=0
+2026-09-07T11:29:03Z load1=4.18 load5=4.91 busy_procs=0 quiet=1
+2026-09-07T11:30:03Z load1=6.85 load5=5.63 busy_procs=0 quiet=0
+2026-09-07T11:31:03Z load1=4.52 load5=5.15 busy_procs=0 quiet=0
+2026-09-07T11:32:03Z load1=5.04 load5=5.15 busy_procs=0 quiet=0
+2026-09-07T11:33:03Z load1=3.49 load5=4.71 busy_procs=0 quiet=0
+2026-09-07T11:34:03Z load1=2.63 load5=4.23 busy_procs=0 quiet=1
+2026-09-07T11:35:03Z load1=2.78 load5=3.97 busy_procs=0 quiet=2
+2026-09-07T11:36:03Z load1=2.34 load5=3.64 busy_procs=0 quiet=3
+2026-09-07T11:37:03Z load1=2.52 load5=3.46 busy_procs=0 quiet=4

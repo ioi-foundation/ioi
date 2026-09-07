@@ -80,6 +80,18 @@ rendering process), and the load trace during the run is retained beside it
 (`../m16q-runs/<run>/` is the runner's output; the gate's own trace is kept
 in the session record).
 
+## Preflight on the resized fixture (`preflight-process/`)
+
+The flood campaign ran standalone on `2080d09d6` after the host had been
+quiet for five minutes (`wait-trace.txt`; launch load 2.5 / 3.5 / 5.6). It
+passed (exit 0, 637.62 s) and the flood evidence checker passed
+(`flood-evidence-check.txt`). 63 budgeted operations were released with
+maximum 10.78 s and p90 8.03 s against the 16 s budget; flood-phase valid
+reply maxima 977, 3009 and 1122 ms against the 4500 ms envelope; recovery
+5284 ms against 120 000 ms. `load-trace.txt` shows the campaign's own load
+(1-minute average up to 19.8 on 24 cores while four validators and the
+fixture run), which is the ordinary cost of the campaign, not contention.
+
 ## What this does and does not establish
 
 It sizes one fixture budget from three campaigns' measurements and records
