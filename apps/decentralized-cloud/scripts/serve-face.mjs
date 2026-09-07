@@ -138,6 +138,23 @@ const STATIC = new Map([
   ["/fonts/ABCDiatypeSemi-Mono-Regular.woff2", { file: "fonts/ABCDiatypeSemi-Mono-Regular.woff2", type: "font/woff2", from: PUBLIC_DIR }],
 ]);
 
+// THE BRAND ASSETS PAGE AND ITS FILES, under /brand/. These are built into dist/brand
+// from public/brand by the vite copy step, alongside the fonts, so they are served
+// from the SAME build the shell is — a gate run sees the brand page of the build it is
+// testing, never a fresher one from disk. The names are bounded: one path segment of
+// lowercase letters, digits and hyphens, and one of three types. Anything else is
+// not a brand asset and falls through to the allowlist refusal below, which is
+// where an unknown path belongs.
+const BRAND_TYPES = { svg: "image/svg+xml", html: "text/html; charset=utf-8", png: "image/png" };
+function brandAsset(pathname) {
+  if (pathname === "/brand" || pathname === "/brand/") {
+    return { file: "brand/index.html", type: BRAND_TYPES.html, from: DIST_DIR };
+  }
+  const m = /^\/brand\/([a-z0-9-]+)\.(svg|html|png)$/.exec(pathname);
+  if (!m) return null;
+  return { file: `brand/${m[1]}.${m[2]}`, type: BRAND_TYPES[m[2]], from: DIST_DIR };
+}
+
 const json = (res, status, body) => {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -323,7 +340,7 @@ const server = createServer(async (req, res) => {
     return proxyRead(res, { daemon: read.daemon, query: read.route.query }, url);
   }
 
-  const asset = STATIC.get(url.pathname);
+  const asset = STATIC.get(url.pathname) || brandAsset(url.pathname);
   if (asset) return serveStatic(res, asset);
 
   json(res, 404, {

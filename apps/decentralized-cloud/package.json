@@ -13,6 +13,8 @@
     "check:decentralized-cloud-spend-fence": "node scripts/verify-spend-fence.mjs",
     "contact-sheet": "node scripts/contact-sheet.mjs",
     "check:workspace-builds": "node scripts/verify-workspace-builds.mjs",
+    "brand:assets": "node brand/mark/build-assets.mjs",
+    "check:decentralized-cloud-brand-assets": "node brand/mark/build-assets.mjs --check",
     "brand:build": "node brand/build-artboards.mjs",
     "brand:measure": "node brand/measure-artboards.mjs"
   },

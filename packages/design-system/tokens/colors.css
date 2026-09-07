@@ -48,6 +48,19 @@
   --color-family-mark-light: #41a8fa; /* midpoint of #4075fa -> #41dbf9 */
   --color-family-mark-deep: #4078fa;  /* midpoint of #3f4dfa -> #40a3f9, and of #3f3dfa -> #41bcf9 */
 
+  /* ---- decentralized.cloud identity (designer's mark, 2026-09-06) ----
+     One job each. The mark's gradient runs indigo -> cyan, bottom-left to top-right
+     on each lobe; the dot before CLOUD carries the same gradient. Navy is the brand's
+     own dark ground for the brand page and dark lockups; interior indigo is the
+     cutout structure in the animated treatments. Contrasts, computed: indigo on
+     white 6.44:1 (AA text); cyan on white 1.65:1 (NEVER text on light — mark fill
+     only); white on navy 19.43:1; cyan on navy 11.78:1; indigo on navy 3.02:1
+     (large text / shapes only). Source: apps/decentralized-cloud/brand/mark/mark.mjs. */
+  --color-dc-mark-indigo: #3f3dfa;
+  --color-dc-mark-cyan: #41dbf9;
+  --color-dc-substrate-navy: #000c26;
+  --color-dc-interior-indigo: #0e2250;
+
   /* ---- Status ---- */
   --color-red-500: #fb2c36;
   --color-red-600: #e40014;

@@ -610,18 +610,28 @@ async function checkServer() {
     // mechanical necessity rather than a design choice, and it is the one drawn element
     // the ruling keeps.
     //
-    // Read from the SERVED STYLESHEET rather than an inline style, because the sizing
-    // moved into `.wordmark .dot` in em; an assertion still reading inline px would be
-    // reading an attribute that no longer exists and would fail on a correct surface.
-    const servedCss = await (await fetch(`${BASE}/assets/index.css`)).text();
-    const dotRule = /\.wordmark\s+\.dot\s*\{[^}]*\}/.exec(servedCss);
-    const dotSized = dotRule ? /0\.137em/.test(dotRule[0]) : false;
-    ok("the drawn period survives, cut to the face's own stem weight",
-      shell.includes("wordmark") && dotSized,
-      dotRule
-        ? `.wordmark .dot is ${dotSized ? "cut to 0.137em, the face's measured stem" : "present but NOT at stem weight"}`
-        : "no .wordmark .dot rule in the served stylesheet — the face has no U+002E, so " +
-          "this is the period disappearing",
+    // RE-ANCHORED ON THE DESIGNER'S LOCKUP (2026-09-06). The period used to be a CSS
+    // circle at the face's stem weight; it is now the brand's dot — a rounded square
+    // on the baseline carrying the gradient, its size and radius read from
+    // brand/mark/mark.mjs, the module the shell draws it from. The assertion reads the
+    // served bytes for a rect at exactly those numbers: a dot dropped, resized or
+    // moved off its one source goes red here. The stylesheet is no longer where the
+    // size lives, so a rule-reading assertion would be reading the wrong artifact.
+    const dotSpec = (await import(path.join(APP, "brand/mark/mark.mjs"))).DOT;
+    // THE ARTIFACT'S SPELLING: the bundle does not fold constants, so the rect's
+    // attributes arrive as `x: DOT.x` and the NUMBERS arrive once, as the module's own
+    // object literal `{ x: 149.84, y: 59.588, size: 7.6, radius: 1.9 }`. That literal
+    // is what is matched, all four keys together; and the rect must exist as a `dot`
+    // in the wordmark, which is the second clause.
+    const dotServed =
+      new RegExp(`x:\\s*${dotSpec.x}\\s*,\\s*y:\\s*${dotSpec.y}\\s*,\\s*size:\\s*${dotSpec.size}\\s*,\\s*radius:\\s*${dotSpec.radius}\\b`).test(shell) &&
+      /className:\s*"dot"/.test(shell);
+    ok("the drawn period survives, as the brand's dot at its one source's size",
+      shell.includes("wordmark") && dotServed,
+      dotServed
+        ? `the dot is served at ${dotSpec.size} units on the baseline (y ${dotSpec.y}), radius ${dotSpec.radius}, as mark.mjs says`
+        : "no rect at mark.mjs's DOT numbers in the served bytes — the face has no U+002E, so " +
+          "this is the period disappearing, or drifting from its source",
       1);
     // ── THE FIELD CONTRACT, against LIVE bodies ──────────────────────────────
     //
@@ -961,68 +971,49 @@ async function checkServer() {
     // to `cloud-cue-removed` — because a substring test passes on any name containing
     // it. A rename is the most likely way this drawing actually changes.
     //
-    // RE-ANCHORED ON THE NEW MARK — owner ruling, 2026-09-05. The reserved d is retired
-    // and the dissolving cloud ships in its place, so the old path literal now anchors
-    // on a drawing no visitor receives.
+    // RE-ANCHORED ON THE NEW MARK — owner ruling, 2026-09-05 — and again on the
+    // DESIGNER'S MARK, 2026-09-06: three lobes of a cloud from
+    // brand/mark/source/FInal-CLOUD-v3.svg, whose paths brand/mark/mark.mjs exports
+    // verbatim. The shell draws MARK_PATHS from that module; the asset builder writes
+    // every downloadable SVG from it; this assertion reads it. A literal here would
+    // be a second copy of the drawing, and two copies of a thing that must agree are
+    // two sources and a wish — the fault the wordmark's one-source module was built
+    // to remove and which this assertion would otherwise reintroduce.
     //
-    // Anchored on the GEOMETRY, IMPORTED FROM ITS ONE SOURCE, rather than on a literal
-    // copied into this file. brand/canvas-directions/marks.mjs exports CLOUD and
-    // CLOUD_GRID; the shell draws from the same exports. A literal here would be a
-    // second copy of the drawing, and two copies of a thing that must agree are two
-    // sources and a wish — which is the fault the wordmark's one-source module was
-    // built to remove and which this assertion would otherwise reintroduce.
-    //
-    // The three circles plus the base rect are unique to this drawing and are what a
-    // reader actually sees; there is no mask id to be fooled by this time. Mutating any
-    // radius in the shell must turn this red.
-    const marks = await import(path.join(APP, "brand/canvas-directions/marks.mjs"));
-    const circles = marks.CLOUD.filter((s) => s.r !== undefined);
-    // THE ARTIFACT'S SPELLING, NOT THE SOURCE'S — the scar recorded four paragraphs
-    // above, committed again inside the block that records it.
-    //
-    // This went red across every valid run today while the mark was being served
-    // perfectly. The bundle emits `cx: 32, cy: 38, r: 17`; the third matcher tested for
-    // `cx:32`, without the space the bundler puts after the colon. The first two
-    // matchers cover an attribute form and a JSON form that a built React bundle never
-    // produces, so the whole assertion rested on the one spelling that was wrong.
-    //
-    // Had I sent this on, the designer would have gone hunting for a dropped mark that
-    // is plainly on the screen. Whitespace around the punctuation is now optional, and
-    // the three keys must appear TOGETHER in one object: the old
-    // `includes("cx:32") && includes("r:17")` would have passed on two unrelated numbers
-    // that happened to be somewhere in the bundle.
-    const near = (c) => new RegExp(
-      `cx:\\s*${c.cx}\\s*,\\s*cy:\\s*${c.cy}\\s*,\\s*r:\\s*${c.r}\\b`);
-    const servedCircles = circles.filter((c) =>
-      new RegExp(`cx="?${c.cx}"?[^>]*cy="?${c.cy}"?[^>]*r="?${c.r}"?`).test(shell) ||
-      new RegExp(`"cx":\\s*${c.cx}[^}]*"cy":\\s*${c.cy}[^}]*"r":\\s*${c.r}`).test(shell) ||
-      near(c).test(shell));
-    const gridSquares = marks.CLOUD_GRID.filter((g) =>
-      shell.includes(`${g.x}`) && shell.includes(`${g.s}`)).length;
+    // Each lobe's path data is unique to this drawing and is what a reader sees. The
+    // bundle carries it as a string literal, so the test is exact-substring on the
+    // whole `d` — a coordinate nudged in the shell without the module, or a lobe
+    // dropped, goes red. (The earlier lesson about the artifact's spelling stands:
+    // a path literal is the one form the bundler cannot respell.)
+    const marks = await import(path.join(APP, "brand/mark/mark.mjs"));
+    const servedLobes = marks.MARK_PATHS.filter((d) => shell.includes(d));
     const named = /decentralized\.cloud/.test(shell);
-    const hasMark = servedCircles.length === circles.length && named;
+    const hasMark = servedLobes.length === marks.MARK_PATHS.length && named;
     ok("the served surface carries the mark's own geometry, with the product's name on it",
       hasMark,
       hasMark
-        ? `all ${circles.length} cloud lobes present at the module's radii, ` +
-          `${gridSquares}/${marks.CLOUD_GRID.length} grid squares, accessible name on the mark`
-        : `only ${servedCircles.length} of ${circles.length} lobes match marks.mjs` +
+        ? `all ${marks.MARK_PATHS.length} lobes served with mark.mjs's exact path data, ` +
+          "accessible name on the mark"
+        : `only ${servedLobes.length} of ${marks.MARK_PATHS.length} lobes match mark.mjs` +
           (named ? "" : ", and the accessible name is absent") +
           " — the served drawing and its one source have drifted, or the mark has been " +
           "dropped again the way the port once dropped it by omission with every gate green",
-      circles.length);
+      marks.MARK_PATHS.length);
 
-    // THE RETIRED MARK MAY NOT COME BACK. The reserved d and its mask id are the shapes
-    // the ruling replaced; a shell carrying both drawings, or reverting to the old one,
-    // is the state this catches — and it is the same argument the pre-override Z
-    // assertion used to make, pointed at the other end of the change.
-    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue"].filter((s) => shell.includes(s));
-    ok("the retired reserved-d mark is in no byte this server sends",
+    // THE RETIRED MARKS MAY NOT COME BACK. The reserved d and its mask id are the
+    // shapes the first ruling replaced; the dissolving cloud (three circles and a rect,
+    // brand/canvas-directions/marks.mjs, scored 51 and never a pass) is the one the
+    // designer's mark replaced. A shell carrying any of them, or two drawings at once,
+    // is the state this catches — the same argument the pre-override Z assertion used
+    // to make, pointed at the other end of the change.
+    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue", "mark-bits"].filter((s) => shell.includes(s));
+    if (/cx:\s*32\s*,\s*cy:\s*38\s*,\s*r:\s*17\b/.test(shell)) retired.push("the dissolving cloud's first lobe");
+    ok("no retired mark is in any byte this server sends",
       retired.length === 0,
       retired.length
-        ? `served bytes still carry ${retired.join(" and ")} — the replaced mark is back, ` +
-          "or both drawings are shipping at once"
-        : `neither the reserved d's path nor its mask id appears in ${shell.length} served bytes`,
+        ? `served bytes still carry ${retired.join(" and ")} — a replaced mark is back, ` +
+          "or two drawings are shipping at once"
+        : `neither the reserved d, its mask id, nor the dissolving cloud appears in ${shell.length} served bytes`,
       shell.length);
 
     // THE RUN BREAKS BEFORE THE I. This is the assertion that proves the letter is

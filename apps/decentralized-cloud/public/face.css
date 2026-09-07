@@ -31,9 +31,11 @@
   --surface: #f9f9f9;
   --paper: #ffffff;
 
-  /* The mark's one ink: --color-ocean-blue. Blue carries no meaning on the surface —
-     it is the identity's colour and appears nowhere else. */
-  --brand-blue: #0048ff;
+  /* The mark's two colours: the ends of the cloud gradient, --color-dc-mark-indigo
+     and --color-dc-mark-cyan in the token file. Blue carries no meaning on the
+     surface — it is the identity's colour and appears in the mark and its dot only. */
+  --dc-mark-indigo: #3f3dfa;
+  --dc-mark-cyan: #41dbf9;
   /* Paper on onyx at named steps, restated from the token file with their computed
      contrasts against onyx: text 13.91:1, soft 7.27:1, caption 5.36:1, shape 3.55:1;
      rule and band are decorative. The palette gate sees only #rrggbb literals, so
@@ -67,45 +69,34 @@ a:hover { color: #3e7f5c; }
 
 .mono { font-family: var(--mono); }
 
-/* ── Wordmark ─────────────────────────────────────────────────────────────
-   Everything here is in EM, so the lockup is set once and holds at any size.
+/* ── Lockup ───────────────────────────────────────────────────────────────
+   THE DESIGNER'S LOCKUP OF 2026-09-06 (brand/mark/source/FInal-CLOUD-v3.svg). Its
+   geometry is in brand/mark/mark.mjs, which the shell, the asset builder and the
+   face gate all import; every ratio below is that file's number restated in em.
 
-   THE DRAWN PERIOD. IOI Display carries no U+002E — it maps to .notdef — which is
-   why the period has always had to be drawn. It was drawn ON THE BASELINE, and two
-   independent readers said the same thing about it unprompted: it does not separate
-   the words, so at small sizes the name reads as two words with a gap rather than as
-   a domain. It is now MEDIAL, per the standing spec, and cut to the face's own STEM
-   weight: 137/1000 em, measured off a 300px render rather than chosen. Its centre
-   sits at 0.35em — half the face's measured 0.700em cap — which is the optical
-   centre of a band where every letter is a cap, this face being unicase. */
-.wordmark { display: flex; align-items: baseline; font-family: var(--brand);
-  font-weight: 400; letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
-/* The period is INK, not green. It used to wear --live, and an independent review
-   counted that hue carrying three different meanings at once: live evidence, a GET
-   verb, and decorative punctuation in the lockup. On this surface green marks live
-   evidence and nothing else, so a green dot in the brand is chrome making a claim.
-   Position and weight carry the period; colour was never asked to. */
-.wordmark .dot { display: inline-block; border-radius: 50%; background: var(--ink);
-  width: 0.137em; height: 0.137em; margin: 0 0.10em;
-  position: relative; top: -0.2815em; }   /* raised so its centre lands at 0.35em */
-/* THE WORDMARK IS ONE TEXT RUN IN THE FACE — owner ruling, 2026-09-05. The rules
-   that sized two drawn letters used to sit here; those letters are gone and so are
-   the rules. The period stays drawn because the face has no U+002E.
+   1em ON .lockup IS THE BLOCK HEIGHT — the mark's 67.188 units, which is also the
+   wordmark's height from CLOUD's baseline to the top of DECENTRALIZED. Both SVGs
+   are sized from it, so the narrow-width rule that steps the lockup down steps the
+   pair together as one object. The mark is 130 units wide (1.9349em); the wordmark's
+   ink is 409.206 wide (6.0904em); the clear between them is 19.84 units (0.2953em).
+   At 36px the whole lockup is 300px wide — narrower than the single-line lockup it
+   replaces, which measured 466px at 22px.
 
-   THE MARK is the dissolving cloud, sized in em against the lockup's own font size:
-   1.62 x the face's 0.700em cap, where two head-to-head readers put it ("~15% larger,
-   aligned to cap height"). Because both are in em, the narrow-width rule that steps
-   the lockup down steps the pair down together, as one object. Its ink is the
-   design system's ocean blue and nothing else on the surface is blue. */
-.lockup { display: flex; align-items: center; gap: 10px; font-size: 22px; }
-.wordmark { font-size: 1em; }
-/* The mark's viewBox is cropped to its INK (88 x 48 of the 96 artboard), so the
-   height set here is the cloud's own height, not the artboard's. At 1.134em the first
-   build put the whole artboard in that box and the cloud came out at 60% of it — a
-   smudge beside the name, which is the "bullet point" fault the readers named. */
-.mark { display: block; flex-shrink: 0; width: 2.079em; height: 1.134em; }
-.mark .mark-body { fill: var(--brand-blue); }
-.mark .mark-bits { fill: var(--brand-blue); }
+   THE WORDMARK is live text in the face inside an SVG, positioned by baseline (see
+   Lockup.jsx for why not HTML line boxes). The DOT is the one drawn element — the
+   face has no U+002E — and it carries the gradient: a rounded square on the baseline,
+   7.6 units on a 38 cap, spaced before CLOUD as a sixth letter. It used to be ink,
+   because green had once carried three meanings and colour was not asked to carry the
+   period; the brand's rule now is that the dot is always the gradient, and blue still
+   means nothing on the surface but the identity. */
+.lockup { display: flex; align-items: center; gap: 0.2953em; font-size: 36px; height: 1em; }
+.mark { display: block; flex-shrink: 0; width: 1.9349em; height: 1em; overflow: visible; }
+.wordmark { display: block; flex-shrink: 0; width: 6.0904em; height: 1em; overflow: visible;
+  font-family: var(--brand); font-weight: 400; }
+/* The two lines by name — sizes and positions are attributes from mark.mjs; only the
+   ink is the stylesheet's. The dot's size, radius and gradient are in the markup. */
+.wordmark .wm-top, .wordmark .wm-bottom { fill: var(--ink); }
+.wordmark .dot { shape-rendering: geometricPrecision; }
 
 /* ── Freshness ────────────────────────────────────────────────────────────
    A quote is only worth what its window says. The dial is the fraction of the
@@ -767,10 +758,10 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   main { padding: 22px 16px 44px; }
   .unwired-banner { padding: 12px 16px; flex-direction: column; gap: 6px; }
   /* The narrow lockup: mark and wordmark are both in em on .lockup, so one number
-     steps the pair down together and the 1.62x-cap ratio holds. */
-  /* 15, not 17: at 17px the face's wide caps ran the name to the viewport's last
-     pixel with no margin (measured at 390: "CLOUD" ended at x=385 of 390). */
-  .lockup { font-size: 15px; gap: 7px; }
+     steps the pair down together. 28px is the block height: the lockup is then 233px
+     wide — above the brand's 200px floor for the full lockup and well inside 390 —
+     with DECENTRALIZED's cap at 9.2px. The gap is in em and steps down with it. */
+  .lockup { font-size: 28px; }
   pre.code { padding: 14px 14px; font-size: 11px; }
 }
 

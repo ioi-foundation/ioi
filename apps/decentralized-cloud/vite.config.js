@@ -30,10 +30,15 @@ const copyFonts = () => {
         : path.join(config.root, config.build.outDir);
     },
     closeBundle() {
-      const from = path.join(HERE, "public/fonts");
-      const to = path.join(outDir, "fonts");
-      mkdirSync(to, { recursive: true });
-      cpSync(from, to, { recursive: true });
+      // public/brand travels the same way: the brand assets page and the SVGs it
+      // serves are generated into public/brand by brand/mark/build-assets.mjs from
+      // the same module the shell draws from, and are copied, never duplicated.
+      for (const dir of ["fonts", "brand"]) {
+        const from = path.join(HERE, "public", dir);
+        const to = path.join(outDir, dir);
+        mkdirSync(to, { recursive: true });
+        cpSync(from, to, { recursive: true });
+      }
     },
   };
 };

@@ -1,69 +1,79 @@
-import { CLOUD, CLOUD_GRID } from "../../brand/canvas-directions/marks.mjs";
+import {
+  MARK_BOX, MARK_PATHS, GRADIENT, WORDMARK_BOX, TEXT_TOP, TEXT_BOTTOM, DOT,
+} from "../../brand/mark/mark.mjs";
 
-// THE LOCKUP, under the owner's two rulings of 2026-09-05.
+// THE LOCKUP — the designer's mark of 2026-09-06, from its one source.
 //
-// THE MARK is the dissolving cloud — a solid cloud whose upper-right edge breaks into
-// a fading grid — the owner's reference B, winner of a blind head-to-head over the
-// isometric blocks. Its score ships with it and is not hidden: 51 of 100 against 36,
-// three readers, and NOT a pass — "neither mark passes second-sighting; both are
-// category pictures." Two drawing faults found by the scorer were fixed after that
-// number, so 51 is the corrected drawing's floor. The geometry is IMPORTED from the
-// one module that draws it for the brand plates, so the shell and the sheets cannot
-// drift — the reason the wordmark constants are imported too.
+// THE MARK is three lobes of a cloud, each a rounded slab leaning right, in the cloud
+// gradient. Its geometry is IMPORTED from brand/mark/mark.mjs — the module the asset
+// builder and the face gate read too — so the shell, the downloadable SVGs and the
+// assertion cannot drift. It replaces the dissolving cloud (owner's reference B,
+// scored 51/100, never a pass); that drawing stays in brand/canvas-directions/marks.mjs
+// for the plates that judged it and is asserted ABSENT from the served bytes.
 //
-// THE WORDMARK is set entirely in IOI Display, unaltered: ONE text run. The drawn I and
-// the drawn Z that two reader rounds had granted are removed by the owner's ruling and
-// archived with their evidence; the cost the owner chose — five readers across two
-// rulings transcribed the face's Z as a 2 and its bare-stem I as a 1 at small sizes —
-// is recorded on the identity sheet, not here. The only drawn element is the medial
-// period, and only because the face carries no U+002E at all.
+// THE WORDMARK is set entirely in IOI Display, unaltered, as live text — the owner's
+// ruling of 2026-09-05 stands: one run per line, no drawn letters. The designer's file
+// outlines the same face glyph for glyph, so the two agree by construction. It is two
+// lines now, DECENTRALIZED small over CLOUD large, and it is set INSIDE AN SVG so each
+// line is placed by its baseline: HTML line boxes place text by ascender metrics, and
+// this face's tables put the baseline 0.15em apart between platforms. The only drawn
+// element is the dot — the face has no U+002E — and it is a brand device: a rounded
+// square on the baseline carrying the gradient, spaced before CLOUD as a sixth letter.
 //
-// SIZE: readers of the head-to-head said the mark wanted to be ~15% larger and aligned
-// to cap height rather than to the box; the plates settled at 1.62x the cap. Same here.
+// SIZE is in em on .lockup in the stylesheet and nowhere else: 1em is the block
+// height, both SVGs are sized from it, and the narrow-width rule steps the pair down
+// as one object.
 
-
-// The mark's viewBox is the INK's bounding box on the 96-unit artboard — x 4..92,
-// y 18..66 — not the artboard. The first build put the whole artboard in a
-// cap-sized box and the cloud came out at 60% of it, a smudge beside the name.
-const INK_BOX = "4 18 88 48";
-
-// SIZES ARE IN EM, IN THE STYLESHEET, AND NOWHERE ELSE. The first build set the
-// wordmark's font size inline from a `px` prop, which beat the narrow-width rule that
-// steps the lockup down — so at 390 the name stayed at 22px and pushed the body 74px
-// past the viewport. The dot's geometry (0.137em, 0.10em sides, raised 0.2815em) and
-// the mark's 1.62x-cap height live in face.css in em; wordmark.mjs carries the same
-// numbers for the brand plates. Nothing here re-states them.
+const Gradient = ({ id }) => (
+  <linearGradient id={id} x1={GRADIENT.x1} y1={GRADIENT.y1} x2={GRADIENT.x2} y2={GRADIENT.y2}>
+    <stop offset="0" stopColor={GRADIENT.from} />
+    <stop offset="1" stopColor={GRADIENT.to} />
+  </linearGradient>
+);
 
 export default function Lockup() {
   return (
     <div className="lockup">
-      <svg
-        className="mark"
-        viewBox={INK_BOX}
-        role="img"
-        aria-label="decentralized.cloud"
-      >
-        <g className="mark-body">
-          {CLOUD.map((s, i) =>
-            s.r !== undefined
-              ? <circle key={i} cx={s.cx} cy={s.cy} r={s.r} />
-              : <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} />
-          )}
-        </g>
-        <g className="mark-bits">
-          {CLOUD_GRID.map((g, i) => (
-            <rect key={i} x={g.x} y={g.y} width={g.s} height={g.s} rx="1" opacity={g.o} />
-          ))}
+      <svg className="mark" viewBox={MARK_BOX} role="img" aria-label="decentralized.cloud">
+        <defs><Gradient id="dc-mark-g" /></defs>
+        <g fill="url(#dc-mark-g)">
+          {MARK_PATHS.map((d, i) => <path key={i} d={d} />)}
         </g>
       </svg>
-      <div className="wordmark" aria-hidden="true">
-        <span>decentralized</span>
-        <span className="dot" />
-        <span>cloud</span>
-      </div>
-      {/* The accessible name is on the mark's <svg role="img" aria-label>, once. The
-          wordmark is aria-hidden: a styled span pair plus a drawn dot would be read as
-          fragments. */}
+      {/* The accessible name is on the mark, once. The wordmark is aria-hidden: two
+          text runs plus a drawn dot would be read as fragments. */}
+      <svg className="wordmark" viewBox={WORDMARK_BOX} aria-hidden="true">
+        <defs><Gradient id="dc-dot-g" /></defs>
+        <text
+          className="wm-top"
+          x={TEXT_TOP.x}
+          y={TEXT_TOP.y}
+          fontSize={TEXT_TOP.fontSize}
+          textLength={TEXT_TOP.length}
+          lengthAdjust="spacing"
+        >
+          decentralized
+        </text>
+        <rect
+          className="dot"
+          x={DOT.x}
+          y={DOT.y}
+          width={DOT.size}
+          height={DOT.size}
+          rx={DOT.radius}
+          fill="url(#dc-dot-g)"
+        />
+        <text
+          className="wm-bottom"
+          x={TEXT_BOTTOM.x}
+          y={TEXT_BOTTOM.y}
+          fontSize={TEXT_BOTTOM.fontSize}
+          textLength={TEXT_BOTTOM.length}
+          lengthAdjust="spacing"
+        >
+          cloud
+        </text>
+      </svg>
     </div>
   );
 }

@@ -8,7 +8,38 @@ true about intent and false about mechanism.
 
 Everything below has been moved out of the served shell and lives here instead.
 
-## Where the mark stands
+## The designer's mark — shipped 2026-09-07
+
+The new-mark phase below closed without a mark. The owner's designer then delivered
+one: `brand/mark/source/FInal-CLOUD-v3.svg` (2026-09-06) — three lobes of a cloud in
+an indigo→cyan gradient, a two-line wordmark in IOI Display (the outlines in the file
+are the face's own glyphs, verified glyph for glyph), and a gradient dot before CLOUD.
+It ships in the header from 2026-09-07.
+
+- **One source:** `brand/mark/mark.mjs` holds the lobes' paths verbatim and every
+  measured layout number. The shell (`src/components/Lockup.jsx`), the asset builder
+  (`brand/mark/build-assets.mjs` → `public/brand/*.svg`) and the face gate all import
+  it. `check:decentralized-cloud-brand-assets` fails if a file on disk drifts.
+- **Wordmark:** still live text in the face, one run per line, per the owner's ruling
+  of 2026-09-05 — now two lines, set inside an SVG so each line is placed by its
+  baseline (the face's hhea and Windows metrics disagree by 0.15em, so an HTML stack
+  would sit differently per platform). `textLength` fits each run to the outlined
+  lockup's width. The dot is the one drawn element and now carries the gradient.
+- **Brand assets page:** `/brand/` on the served face (`public/brand/index.html`) —
+  lockups, mark variants, wordmark, app icon, reduction glyph, colour tokens, rules,
+  downloads. The favicon is the reduction glyph.
+- **Tokens added** to `packages/design-system/tokens/colors.css`:
+  `--color-dc-mark-indigo #3f3dfa`, `--color-dc-mark-cyan #41dbf9`,
+  `--color-dc-substrate-navy #000c26`, `--color-dc-interior-indigo #0e2250`, with
+  contrasts. `--brand-blue` (#0048ff) left the face; blue is still the identity only.
+- **Not delivered:** the dimensional hover cloud (the designer's layered PNG
+  reference) and an animated SVG mark. The brand page says so rather than showing a
+  stand-in.
+- **Honest floor:** the reduction glyph's knocked-out network holds to 32px; at 16px
+  it reads as the closed cloud. No blind reader has scored this mark yet; the 51/100
+  of the dissolving cloud it replaces is retired with it.
+
+## Where the mark stands (before the designer's mark)
 
 **identity v0 — provisional, scored 50 of 100** by blind review. The convergence cap
 fired at 75, so iteration on that construction stopped and the face shipped with it.
