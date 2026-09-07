@@ -67,6 +67,15 @@ assertion are unchanged; a reply past the rooted interval is still
 discarded. The verification specification's failure boundaries record the
 shared-lane reply wait as a deployment cost.
 
+## Preflight on the declared profile (`preflight-process/`)
+
+The readiness campaign ran standalone on `199ee3884` after five quiet
+minutes (launch load 3.0 / 3.8 / 4.6; `wait-trace.txt`, `load-trace.txt`).
+It passed (exit 0, 260.48 s) and the readiness evidence checker passed with
+the 4500 ms pin (`evidence-check.txt`). Reply maxima: parent 1608 ms, child
+2602 ms, slot 3 after restart 1315 ms. One passing campaign is a further
+sample, not a bound.
+
 ## What this does and does not establish
 
 It aligns the readiness profile's declared envelope with the flood profile
