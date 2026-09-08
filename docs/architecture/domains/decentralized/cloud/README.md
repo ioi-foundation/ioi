@@ -68,6 +68,7 @@ direction of dependency is written down. See ADR 0001 for what this changes in c
 and the three owner decisions still open.
 
 The console that exists today under `apps/decentralized-cloud/` was built as a face
-over the Hypervisor daemon; its scoreboard is `apps/decentralized-cloud/docs/CONSOLE-AUDIT.md`.
-It continues under this specification's rule: it iterates only against states the
-control plane can produce, and draws the rest once, labelled, behind a toggle.
+over the Hypervisor daemon; its face-era documents were retired on 2026-09-08 and its
+record is its commit history. It continues under this specification's rule: it
+iterates only against states the control plane can produce, and draws the rest once,
+labelled, behind a toggle. Its target shape is document 020.
