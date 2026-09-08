@@ -1,0 +1,120 @@
+[
+  {
+    "name": "consequence",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib",
+      "consequence::tests::"
+    ],
+    "started": "2026-09-06T08:51:32.826604+00:00",
+    "completed": "2026-09-06T08:51:36.725756+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime-finality",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::runtime_finality::tests::"
+    ],
+    "started": "2026-09-06T08:51:36.726117+00:00",
+    "completed": "2026-09-06T08:52:05.386356+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T08:52:05.387084+00:00",
+    "completed": "2026-09-06T08:52:14.102075+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "executor",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::grpc_public::quv_refusal_status_tests::"
+    ],
+    "started": "2026-09-06T08:52:14.102363+00:00",
+    "completed": "2026-09-06T08:52:14.513217+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T08:52:14.513432+00:00",
+    "completed": "2026-09-06T08:52:31.782646+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T08:52:31.782919+00:00",
+    "completed": "2026-09-06T08:52:40.440499+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T08:52:40.440946+00:00",
+    "completed": "2026-09-06T08:52:40.444688+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-receipt-reuse-only"
+    ],
+    "started": "2026-09-06T08:52:40.445275+00:00",
+    "completed": "2026-09-06T08:52:41.783032+00:00",
+    "exit_code": 0
+  }
+]

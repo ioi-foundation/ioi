@@ -1,0 +1,17 @@
+{
+  "scope": "Same-host diagnostic samples; no worst-case timing bound, causal proof for earlier failure, or R2 admission",
+  "foreground_operations": 11,
+  "remote_replies": 21,
+  "missing_remote_stages": 0,
+  "max_adjacent_gaps_ms": {
+    "member_work_completed->member_work_returned": 0.282,
+    "member_work_returned->reply_command_waiting": 1657.767,
+    "reply_command_waiting->reply_command_sending": 287.859,
+    "reply_command_sending->reply_command_sent": 0.023,
+    "reply_command_sent->reply_network_admitted": 456.583,
+    "reply_network_admitted->reply_event_forwarded": 0.033,
+    "reply_event_forwarded->reply_handler_entered": 189.687,
+    "reply_handler_entered->reply_routed": 1350.235
+  },
+  "analyzer_sha256": "88effccd11b821a5859355651a88e233a3728cecb999529079e77e8ec0e60687"
+}

@@ -1,0 +1,15 @@
+[
+  "strace",
+  "-f",
+  "-y",
+  "-s",
+  "128",
+  "-e",
+  "trace=fsync,fallocate,ftruncate,truncate,rename,renameat,renameat2,openat,write,writev,pwrite64,pwritev,close,unlink,unlinkat,link,linkat,symlink,symlinkat",
+  "-o",
+  "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260907T152920Z-9ce911fe798b/receipt-reservation/reuse.trace",
+  "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/agentgres-834edda94e368887",
+  "--exact",
+  "consequence::tests::receipt_preparation_reuses_valid_pair_and_repairs_only_incomplete_spare",
+  "--nocapture"
+]

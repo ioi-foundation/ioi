@@ -1,0 +1,6 @@
+
+running 1 test
+test aft::query_unanimity::journal::tests::reserved_records_preserve_allocation_and_inode_through_complete_lifetime ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 314 filtered out; finished in 0.66s
+

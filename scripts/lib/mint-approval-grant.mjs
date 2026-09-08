@@ -12,8 +12,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 let built = false;
 
 export function mintApprovalGrant(options = {}) {
-  const binary = path.join(repoRoot, "target", "debug", "mint-approval-grant");
+  // A packaged release ships the signer at bin/mint-approval-grant outside any cargo target dir;
+  // the serve's env names it. Unset means the checkout's build, built on demand.
+  const binary = process.env.IOI_MINT_APPROVAL_GRANT_BINARY || path.join(repoRoot, "target", "debug", "mint-approval-grant");
   if (!built && !existsSync(binary)) {
+    if (process.env.IOI_MINT_APPROVAL_GRANT_BINARY) throw new Error(`IOI_MINT_APPROVAL_GRANT_BINARY names an absent signer: ${binary}`);
     const build = spawnSync(
       "cargo",
       ["build", "-p", "ioi-node", "--bin", "mint-approval-grant"],

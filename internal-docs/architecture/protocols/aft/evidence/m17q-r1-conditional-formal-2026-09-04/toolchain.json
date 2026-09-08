@@ -1,0 +1,26 @@
+{
+  "recorded_utc": "2026-09-05T00:04:05.627666+00:00",
+  "hashes": {
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    ".internal/formal-cache/tools/tlaps-pre/install/bin/tlapm": "1de5983ac393658362fe61882e270b65648fa07945453e971fcf9eeabf5ec579",
+    ".internal/formal-cache/tools/tlaps-pre/install/lib/tlapm/stdlib/TLAPS.tla": "9afe54984062748a0568966434cc0945d682f8cd89fdbc38f73b5579751b0c55"
+  },
+  "versions": {
+    "java": {
+      "command": [
+        "java",
+        "-version"
+      ],
+      "exit_code": 0,
+      "output": "openjdk version \"21.0.10\" 2026-01-20\nOpenJDK Runtime Environment (build 21.0.10+7-Ubuntu-124.04)\nOpenJDK 64-Bit Server VM (build 21.0.10+7-Ubuntu-124.04, mixed mode, sharing)\n"
+    },
+    "tlapm": {
+      "command": [
+        ".internal/formal-cache/tools/tlaps-pre/install/bin/tlapm",
+        "--version"
+      ],
+      "exit_code": 0,
+      "output": "4600b24\n"
+    }
+  }
+}

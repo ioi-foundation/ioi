@@ -284,6 +284,56 @@ pub(crate) fn select_aft_pq_local_role(
     }
 }
 
+/// Refusal emitted by every path that would otherwise let a process without a
+/// successor identity follow successor-root history.
+pub(crate) const QUV_RETIRED_SIGNER_REFUSAL: &str =
+    "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set";
+
+/// Whether a block at `height` may enter this process while a QUV successor
+/// is staged but not yet activated by the process-local live-install gate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum QuvSuccessorRootGate {
+    /// No staged, unactivated QUV successor governs `height`.
+    Admit,
+    /// The local process is a staged successor whose durable install gate has
+    /// not activated yet. Successor-root bytes must wait for that gate; they
+    /// never activate it.
+    DeferUntilLocalInstall,
+    /// The local process holds no successor identity. It is retired at
+    /// `height` and must stop rather than adopt successor-root history from
+    /// synced or gossiped bytes.
+    RefuseRetired,
+}
+
+/// Successor authority is granted only by the process-local durable
+/// live-install gate. Blocks at or beyond the staged activation height are
+/// therefore not adopted from sync or gossip while `staged_successor` is still
+/// pending in this process: a successor defers until its own gate activates,
+/// and an old-only member refuses. Heights below activation, ordinary
+/// (non-QUV) rotations, and processes with no pending staged successor are
+/// unaffected.
+pub(crate) fn quv_successor_root_gate(
+    handoff_enabled: bool,
+    staged_successor: Option<&ValidatorSetV1>,
+    local_has_install_gate: bool,
+    height: u64,
+) -> QuvSuccessorRootGate {
+    if !handoff_enabled {
+        return QuvSuccessorRootGate::Admit;
+    }
+    let Some(successor) = staged_successor else {
+        return QuvSuccessorRootGate::Admit;
+    };
+    if height < successor.effective_from_height {
+        return QuvSuccessorRootGate::Admit;
+    }
+    if local_has_install_gate {
+        QuvSuccessorRootGate::DeferUntilLocalInstall
+    } else {
+        QuvSuccessorRootGate::RefuseRetired
+    }
+}
+
 pub(crate) fn aft_pq_outbox_path(
     root: Option<&str>,
     configuration_hash: [u8; 32],
@@ -488,6 +538,11 @@ pub(crate) fn build_aft_pq_channel_configuration(
             identity,
             identity_key_hash,
             outbox_path,
+            rooted_accounts: set
+                .validators
+                .iter()
+                .map(|member| member.account_id)
+                .collect(),
         },
         peer_keys: set
             .validators

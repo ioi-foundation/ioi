@@ -1,0 +1,141 @@
+census OK: 81 modules = 68 executed + 13 manifest-marked (manual)
+(* created new ".tlacache/QuvManifestLocatorProof.tlaps/QuvManifestLocatorProof.thy" *)
+(* fingerprints written in ".tlacache/QuvManifestLocatorProof.tlaps/fingerprints" *)
+File "./QuvManifestLocatorProof.tla", line 1, character 1 to line 20, character 77:
+[INFO]: All 10 obligations proved.
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 46 and seed -7010499110277265493 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2664424] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/consequence/QuvManifestLocator.tla
+Parsing file /tmp/tlc-9511002784443273970/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-9511002784443273970/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-9511002784443273970/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-9511002784443273970/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-9511002784443273970/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-9511002784443273970/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-9511002784443273970/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvManifestLocator
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvManifestLocator
+Starting... (2026-09-06 00:12:42)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 00:12:42.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.1E-16
+95 states generated, 35 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 8.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 3).
+Finished in 00s at (2026-09-06 00:12:42)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 87 and seed -528422288048395331 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2664812] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.FTssFWeIlb/QuvManifestLocator.tla
+Parsing file /tmp/tlc-8284533464807620982/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-8284533464807620982/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-8284533464807620982/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-8284533464807620982/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-8284533464807620982/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-8284533464807620982/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-8284533464807620982/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvManifestLocator
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvManifestLocator
+Starting... (2026-09-06 00:12:42)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 00:12:42.
+Error: Invariant IndexCorrect is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ index = [e1 |-> "absent", e2 |-> "absent"]
+/\ committed = {}
+/\ ready = TRUE
+/\ scanned = {}
+
+State 2: <Admit line 10, col 10 to line 15, col 27 of module QuvManifestLocator>
+/\ index = [e1 |-> "r1", e2 |-> "absent"]
+/\ committed = {"r1"}
+/\ ready = TRUE
+/\ scanned = {"r1"}
+
+State 3: <Admit line 10, col 10 to line 15, col 27 of module QuvManifestLocator>
+/\ index = [e1 |-> "r2", e2 |-> "absent"]
+/\ committed = {"r1", "r2"}
+/\ ready = TRUE
+/\ scanned = {"r1", "r2"}
+
+7 states generated, 6 distinct states found, 3 states left on queue.
+The depth of the complete state graph search is 3.
+Finished in 00s at (2026-09-06 00:12:42)
+Trace exploration spec path: ./QuvManifestLocator_TTrace_1788667962.tla
+expected counterexample observed: QuvManifestLocator.tla: Invariant IndexCorrect is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 98 and seed 3037728692007483373 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2664956] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.btI6LoP0tx/QuvManifestLocator.tla
+Parsing file /tmp/tlc-5003928246585552626/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-5003928246585552626/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-5003928246585552626/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-5003928246585552626/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-5003928246585552626/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-5003928246585552626/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-5003928246585552626/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvManifestLocator
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvManifestLocator
+Starting... (2026-09-06 00:12:43)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 00:12:43.
+Error: Invariant ReadyComplete is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ index = [e1 |-> "absent", e2 |-> "absent"]
+/\ committed = {}
+/\ ready = TRUE
+/\ scanned = {}
+
+State 2: <Admit line 10, col 10 to line 15, col 27 of module QuvManifestLocator>
+/\ index = [e1 |-> "r1", e2 |-> "absent"]
+/\ committed = {"r1"}
+/\ ready = TRUE
+/\ scanned = {"r1"}
+
+State 3: <Crash line 16, col 10 to line 17, col 59 of module QuvManifestLocator>
+/\ index = [e1 |-> "absent", e2 |-> "absent"]
+/\ committed = {"r1"}
+/\ ready = TRUE
+/\ scanned = {}
+
+9 states generated, 7 distinct states found, 4 states left on queue.
+The depth of the complete state graph search is 3.
+Finished in 00s at (2026-09-06 00:12:43)
+Trace exploration spec path: ./QuvManifestLocator_TTrace_1788667962.tla
+expected counterexample observed: QuvManifestLocator.tla: Invariant ReadyComplete is violated

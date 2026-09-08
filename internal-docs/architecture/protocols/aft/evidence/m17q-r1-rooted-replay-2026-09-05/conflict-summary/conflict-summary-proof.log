@@ -1,0 +1,5 @@
+census OK: 61 modules = 48 executed + 13 manifest-marked (manual)
+(* created new ".tlacache/QuvConflictSummaryProof.tlaps/QuvConflictSummaryProof.thy" *)
+(* fingerprints written in ".tlacache/QuvConflictSummaryProof.tlaps/fingerprints" *)
+File "./QuvConflictSummaryProof.tla", line 1, character 1 to line 41, character 77:
+[INFO]: All 27 obligations proved.

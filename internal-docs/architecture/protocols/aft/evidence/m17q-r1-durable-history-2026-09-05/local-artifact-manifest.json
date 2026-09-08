@@ -1,0 +1,12 @@
+{
+  "claim-discipline.log": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d",
+  "cli-check.log": "8d0bf9b65aa897598035854051cca34609e307fdbbd937239edc4185295db97c",
+  "enrolled-core-tests.log": "9b903960f922b31fa8ce2a9706568fcbe6de43a64c524b23b0d4bba427e816cf",
+  "format-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "history-regressions.log": "f3075cc3fc0bb9a18a028f9873e38627ddc88ca5926526a34fd1cff2cefdf30a",
+  "initial-core-tests.log": "610b13f59d7f6441facb1ff32e9312cca3974749d6164c728e2de78bf70337c6",
+  "local-results.json": "ffbedb1178ef220bcd10c4827402d98435d548fd6b501e276643c0498c830b0e",
+  "runtime-history-tests.log": "fe7f50b7830862603c3ad899f89965a614bb7776e6866dbb4d0237ade2a2ecf7",
+  "theorem-assumes.log": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1",
+  "validator-check.log": "70452f7cfa46afd3b35f7a868d76b576e5dd8a7a396af7e45c208a399a60128c"
+}

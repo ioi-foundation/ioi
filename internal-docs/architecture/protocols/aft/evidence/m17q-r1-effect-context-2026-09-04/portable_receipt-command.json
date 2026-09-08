@@ -1,0 +1,15 @@
+{
+  "name": "portable_receipt",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-finality",
+    "--features",
+    "portable-assurance",
+    "--lib",
+    "complete_receipt_verifies_from_canonical_bytes_without_runtime_state"
+  ],
+  "started_utc": "2026-09-04T23:39:36.855317+00:00"
+}

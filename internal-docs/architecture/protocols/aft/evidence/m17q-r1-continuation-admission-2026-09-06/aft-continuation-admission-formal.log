@@ -1,0 +1,141 @@
+census OK: 85 modules = 72 executed + 13 manifest-marked (manual)
+(* created new ".tlacache/QuvContinuationAdmissionProof.tlaps/QuvContinuationAdmissionProof.thy" *)
+(* fingerprints written in ".tlacache/QuvContinuationAdmissionProof.tlaps/fingerprints" *)
+File "./QuvContinuationAdmissionProof.tla", line 1, character 1 to line 12, character 65:
+[INFO]: All 9 obligations proved.
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 110 and seed 2060298063613033517 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 3740390] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/concurrency/QuvContinuationAdmission.tla
+Parsing file /tmp/tlc-4323367883024616840/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4323367883024616840/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4323367883024616840/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4323367883024616840/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-4323367883024616840/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4323367883024616840/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4323367883024616840/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvContinuationAdmission
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvContinuationAdmission
+Starting... (2026-09-06 01:06:11)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 01:06:11.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.7E-18
+12 states generated, 8 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 5.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 2).
+Finished in 00s at (2026-09-06 01:06:11)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 76 and seed -327322524930550282 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 3740515] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.dJKSKGutiy/QuvContinuationAdmission.tla
+Parsing file /tmp/tlc-9278749258312068808/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-9278749258312068808/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-9278749258312068808/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-9278749258312068808/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-9278749258312068808/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-9278749258312068808/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-9278749258312068808/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvContinuationAdmission
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvContinuationAdmission
+Starting... (2026-09-06 01:06:12)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 01:06:12.
+Error: Invariant Ownership is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ observed = TRUE
+/\ held = TRUE
+/\ phase = "Pending"
+/\ nextActive = FALSE
+
+State 2: <Deliver line 8, col 12 to line 10, col 48 of module QuvContinuationAdmission>
+/\ observed = TRUE
+/\ held = FALSE
+/\ phase = "Delivered"
+/\ nextActive = FALSE
+
+2 states generated, 2 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 2.
+Finished in 00s at (2026-09-06 01:06:12)
+Trace exploration spec path: ./QuvContinuationAdmission_TTrace_1788671171.tla
+expected counterexample observed: QuvContinuationAdmission.tla: Invariant Ownership is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 7 and seed -5659336159169901022 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 3740703] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.tYwWj5RksE/QuvContinuationAdmission.tla
+Parsing file /tmp/tlc-15616318683250038575/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-15616318683250038575/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-15616318683250038575/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-15616318683250038575/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-15616318683250038575/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-15616318683250038575/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-15616318683250038575/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvContinuationAdmission
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvContinuationAdmission
+Starting... (2026-09-06 01:06:12)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 01:06:12.
+Error: Invariant Ownership is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ observed = TRUE
+/\ held = TRUE
+/\ phase = "Pending"
+/\ nextActive = FALSE
+
+State 2: <Deliver line 8, col 12 to line 10, col 48 of module QuvContinuationAdmission>
+/\ observed = TRUE
+/\ held = TRUE
+/\ phase = "Delivered"
+/\ nextActive = FALSE
+
+State 3: <Start line 11, col 10 to line 12, col 52 of module QuvContinuationAdmission>
+/\ observed = TRUE
+/\ held = TRUE
+/\ phase = "Worker"
+/\ nextActive = FALSE
+
+State 4: <CancelObservation line 16, col 22 to line 19, col 55 of module QuvContinuationAdmission>
+/\ observed = FALSE
+/\ held = FALSE
+/\ phase = "Worker"
+/\ nextActive = FALSE
+
+7 states generated, 6 distinct states found, 1 states left on queue.
+The depth of the complete state graph search is 4.
+Finished in 00s at (2026-09-06 01:06:12)
+Trace exploration spec path: ./QuvContinuationAdmission_TTrace_1788671172.tla
+expected counterexample observed: QuvContinuationAdmission.tla: Invariant Ownership is violated

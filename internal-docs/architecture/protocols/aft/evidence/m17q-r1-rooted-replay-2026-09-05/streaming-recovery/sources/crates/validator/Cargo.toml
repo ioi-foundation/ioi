@@ -1,0 +1,144 @@
+# Path: crates/validator/Cargo.toml
+[package]
+name = "ioi-validator"
+version = "0.1.0"
+edition = "2021"
+description = "Validator container implementations for the IOI Kernel"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-consensus = { path = "../consensus", default-features = false }
+ioi-ipc = { path = "../ipc" }
+ioi-networking = { path = "../networking" }
+ioi-execution = { path = "../execution" }
+ioi-tx = { path = "../tx" }
+ioi-vm-wasm = { path = "../vm/wasm", optional = true }
+ioi-crypto = { path = "../crypto" }
+ioi-pii = { path = "../pii" }
+ioi-finality = { path = "../ioi-finality" }
+agentgres = { path = "../agentgres" }
+
+# [FIX] Explicitly disable default features here too, just to be safe/explicit
+ioi-services = { path = "../services", default-features = false }
+
+ioi-client = { path = "../client" }
+ioi-telemetry = { path = "../telemetry" }
+ioi-storage = { path = "../storage" }
+ioi-drivers = { path = "../drivers" }
+ioi-memory = { path = "../memory" }
+ioi-plugin-ibc-service = { path = "../plugins/ibc-service", optional = true }
+
+log = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_bytes = { workspace = true }
+serde_json = { workspace = true }
+serde_jcs = "0.1.0"
+tokio = { workspace = true, features = ["full", "sync"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+axum = { workspace = true }
+libp2p = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+toml = { workspace = true }
+clap = { workspace = true, features = ["derive"], optional = true }
+env_logger = { workspace = true, optional = true }
+ioi-state = { path = "../state" }
+once_cell = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true, features = ["serde"] }
+base64 = { workspace = true }
+fs2 = { workspace = true, optional = true }
+bs58 = "0.4"
+lru = { workspace = true }
+bincode = { workspace = true }
+uuid = { version = "1.8.0", features = ["v4"] }
+parity-scale-codec = { workspace = true, features = ["std"] }
+cfg-if = "1.0"
+dashmap = { workspace = true }
+reqwest = { version = "0.11", features = ["json"] }
+dcrypt = { workspace = true }
+slh-dsa = { workspace = true, optional = true }
+zeroize = { workspace = true }
+hyper = { workspace = true, features = ["client", "http1"] }
+http-body-util = { workspace = true }
+hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
+
+# Parallel processing for signature verification
+rayon = "1.8"
+num_cpus = "1.0"
+
+# Hybrid IPC Stack
+tonic = { version = "0.11", features = ["tls", "transport"] }
+prost = "0.12"
+shared_memory = "0.12"
+rkyv = { version = "0.7", features = ["validation"] }
+
+# Added for mTLS implementation
+tokio-rustls = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+rustls-pemfile = { workspace = true }
+rcgen = { workspace = true }
+webpki-roots = { workspace = true }
+# Added for RPC hardening and rate limiting
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
+ipnetwork = "0.20"
+
+zk-driver-succinct = { path = "../plugins/zk-driver-succinct" }
+
+# [NEW] Dependencies for secure key loading
+rpassword = "7.0"
+atty = "0.2"
+
+# [NEW] Dependencies for Sharded Mempool
+ahash = "0.8"
+parking_lot = "0.12"
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.3"
+
+[[bench]]
+name = "aft_pq_terminal_seal"
+harness = false
+
+[features]
+default = []
+
+# [FIX] Explicitly enable the 'vm-wasm' feature here, not just the dependency.
+validator-bins = [
+    "dep:clap",
+    "dep:env_logger",
+    "consensus-aft",
+    "vm-wasm",  # <--- CHANGED from "dep:ioi-vm-wasm" to "vm-wasm"
+]
+
+consensus-aft = [
+    "ioi-consensus/aft",
+    "ioi-crypto/aft-terminal-seals",
+    "ioi-finality/portable-assurance",
+    "dep:fs2",
+    "dep:slh-dsa",
+]
+consensus-poa = ["ioi-consensus/poa"]
+consensus-pos = ["ioi-consensus/pos"]
+
+# This feature flag corresponds to the cfg(feature = "vm-wasm") check in the code
+vm-wasm = ["dep:ioi-vm-wasm"]
+
+# State Tree features must propagate to BOTH commitment and validator crates
+state-iavl = ["ioi-state/state-iavl"]
+state-sparse-merkle = ["ioi-state/state-sparse-merkle"]
+state-verkle = ["ioi-state/state-verkle"]
+state-jellyfish = ["ioi-state/state-jellyfish", "ioi-state/commitment-hash"]
+commitment-hash = ["ioi-state/commitment-hash"]
+commitment-kzg = ["ioi-state/commitment-kzg"]
+
+# IBC plugin feature forwarding
+ibc-deps = ["dep:ioi-plugin-ibc-service"]
+ethereum-zk = ["ioi-plugin-ibc-service/ethereum-zk"]

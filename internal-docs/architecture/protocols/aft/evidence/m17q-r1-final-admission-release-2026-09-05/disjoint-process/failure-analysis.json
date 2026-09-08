@@ -1,0 +1,127 @@
+{
+  "disposition": "FAILED_POST_HANDOFF_PROGRESS",
+  "raw_test_exit_code": 101,
+  "source_changes_during_run": [],
+  "accepted_audits": [
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "e9635695a1735245792339d7cd10dc889255029a7af5381737589555f51fb1d3",
+      "domain_matches": true,
+      "old_root_matches": true,
+      "exact_old_members": true,
+      "max_reply_elapsed_millis": 884
+    },
+    {
+      "file": "validator-20400-orch.log",
+      "nonce": "329061402f00284390bbd0914f75ea6c153eda87553ab01766c2d1c2596326ae",
+      "domain_matches": true,
+      "old_root_matches": true,
+      "exact_old_members": true,
+      "max_reply_elapsed_millis": 697
+    },
+    {
+      "file": "validator-20500-orch.log",
+      "nonce": "efdbab3a808c24157cfa9b42a30f82975fb64ee1d469035cf6c956657e1a36b0",
+      "domain_matches": true,
+      "old_root_matches": true,
+      "exact_old_members": true,
+      "max_reply_elapsed_millis": 550
+    },
+    {
+      "file": "validator-20700-orch.log",
+      "nonce": "ba43e3e2ae52d5aa36ab0ee854fe3c5d2160796e3b06ae499a333bd444f9c333",
+      "domain_matches": true,
+      "old_root_matches": true,
+      "exact_old_members": true,
+      "max_reply_elapsed_millis": 948
+    }
+  ],
+  "node_progress_observations": {
+    "validator-20000-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:50:00.176468506Z",
+        "message": "[Orch Tick] Kicked failed: neither local Ed25519 nor configured ML-DSA-44 key is authorized by the effective AFT validator set at height 4"
+      },
+      "max_admitted_height_diagnostic": 1,
+      "activation_diagnostics": []
+    },
+    "validator-20100-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:50:00.267571139Z",
+        "message": "[Orch Tick] Kicked failed: neither local Ed25519 nor configured ML-DSA-44 key is authorized by the effective AFT validator set at height 4"
+      },
+      "max_admitted_height_diagnostic": 1,
+      "activation_diagnostics": []
+    },
+    "validator-20200-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:50:00.185656671Z",
+        "message": "[Orch Tick] Kicked failed: neither local Ed25519 nor configured ML-DSA-44 key is authorized by the effective AFT validator set at height 4"
+      },
+      "max_admitted_height_diagnostic": 1,
+      "activation_diagnostics": []
+    },
+    "validator-20300-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:53:09.155505067Z",
+        "message": "GuardianMajorityEngine::decide called for height 27"
+      },
+      "max_admitted_height_diagnostic": 25,
+      "activation_diagnostics": [
+        {
+          "timestamp": "2026-09-05T11:49:58.988728349Z",
+          "message": "Recovered QUV successor authority from its durable local install gate"
+        }
+      ]
+    },
+    "validator-20400-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:49:59.816127315Z",
+        "message": "Consensus tick decided the next action."
+      },
+      "max_admitted_height_diagnostic": 1,
+      "activation_diagnostics": [
+        {
+          "timestamp": "2026-09-05T11:49:58.99761206Z",
+          "message": "Recovered QUV successor authority from its durable local install gate"
+        }
+      ]
+    },
+    "validator-20500-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:53:09.086398027Z",
+        "message": "GuardianMajorityEngine::decide called for height 27"
+      },
+      "max_admitted_height_diagnostic": 25,
+      "activation_diagnostics": [
+        {
+          "timestamp": "2026-09-05T11:50:00.250620463Z",
+          "message": "Recovered QUV successor authority from its durable local install gate"
+        }
+      ]
+    },
+    "validator-20600-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:50:00.167773573Z",
+        "message": "[Orch Tick] Kicked failed: neither local Ed25519 nor configured ML-DSA-44 key is authorized by the effective AFT validator set at height 4"
+      },
+      "max_admitted_height_diagnostic": null,
+      "activation_diagnostics": []
+    },
+    "validator-20700-orch.log": {
+      "last_consensus_record": {
+        "timestamp": "2026-09-05T11:53:09.239903366Z",
+        "message": "GuardianMajorityEngine::decide called for height 27"
+      },
+      "max_admitted_height_diagnostic": 25,
+      "activation_diagnostics": [
+        {
+          "timestamp": "2026-09-05T11:49:59.253568299Z",
+          "message": "Recovered QUV successor authority from its durable local install gate"
+        }
+      ]
+    }
+  },
+  "failure": "successor node 4 did not observe post-QUV height 5 within the fixture wait",
+  "scope": "Partial diagnostics only. The mandatory campaign and handoff checker failed. Four live acceptances or successful release checks do not establish post-install history progress. The exact stalled boundary is unresolved."
+}

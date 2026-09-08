@@ -1,0 +1,31 @@
+{
+  "previous_runner_sha256": "56f0ab25eeec82dfc0f05ceea83c71ff3a91e4662c0caa79e7234e57f25c073f",
+  "files": {
+    ".github/scripts/run_aft_m16q_qualification.sh": "7f477c50e289672c5c19e00e8f5e217ee8e1aaf6b061efa9cb71970015aeaaca",
+    ".github/scripts/check_aft_quv_handoff_reservation.py": "f116f5a1038097daeb2a82e24bc7c600845977d1e75590a96b9dd04cef31edd8"
+  },
+  "checks": [
+    {
+      "command": [
+        "bash",
+        "-n",
+        "/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "py_compile",
+        ".github/scripts/check_aft_quv_handoff_reservation.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "scope": "gate/manifest addition after the source-stable scoped collector; no production source changed; full R2 remains pending"
+}

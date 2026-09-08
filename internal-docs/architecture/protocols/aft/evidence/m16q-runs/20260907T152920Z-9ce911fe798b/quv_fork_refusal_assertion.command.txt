@@ -1,0 +1,1 @@
+[M16Q] START quv_fork_refusal_assertion: cargo test --locked -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl quv_unexpected_head_assertion_requires_exact_typed_status -- --exact 

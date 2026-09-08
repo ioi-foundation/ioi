@@ -1,0 +1,27 @@
+{
+  "command": [
+    "strace",
+    "-f",
+    "-yy",
+    "-e",
+    "trace=fsync,rename,openat,mkdir",
+    "-o",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/ancestry-positive.strace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/ioi_consensus-332e553035381bf6",
+    "aft::query_unanimity::journal::tests::bootstrap_interruption_recovers_only_the_provisioned_initial_record",
+    "--exact",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "checker_command": [
+    "python3",
+    ".github/scripts/check_aft_quv_journal_sync.py",
+    "--trace",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/ancestry-positive.strace",
+    "--result",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/ancestry-positive-test.log"
+  ],
+  "checker_exit_code": 0,
+  "test_binary_sha256": "7b43747d1a40c86e62b9eceaaf92b37b0dbc99f1bfe226cf012bf81fc65c6197",
+  "strace_version": "strace -- version 6.8\nCopyright (c) 1991-2024 The strace developers <https://strace.io>.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\nOptional features enabled: stack-trace=libunwind stack-demangle m32-mpers mx32-mpers\n"
+}

@@ -1,0 +1,15 @@
+QuvEndToEndRefinement exit=0 elapsed=30s  8938002 states generated, 1812222 distinct states found, 0 states left on queue. The depth of the complete state graph search is 31.
+QuvEndToEndRefinementUnowned exit=0 elapsed=28s  8965487 states generated, 1818675 distinct states found, 0 states left on queue. The depth of the complete state graph search is 31.
+QuvEndToEndRefinementSolo exit=0 elapsed=1s  25205 states generated, 8980 distinct states found, 0 states left on queue. The depth of the complete state graph search is 26.
+QuvEndToEndRefinementHandoff exit=0 elapsed=526s  140102701 states generated, 25073844 distinct states found, 0 states left on queue. The depth of the complete state graph search is 39.
+QuvEndToEndRefinementTwoDomain exit=0 elapsed=2s  89961 states generated, 31472 distinct states found, 0 states left on queue. The depth of the complete state graph search is 26.
+QuvEndToEndRefinementReachable exit=12 elapsed=1s Error: Invariant NoExecutedSecondSlot is violated. 18826 states generated, 7315 distinct states found, 897 states left on queue. The depth of the complete state graph search is 21.
+QuvEndToEndRefinementPredecessorInKey exit=12 elapsed=22s Error: Invariant NoConflictingAccepts is violated. 5391269 states generated, 1533593 distinct states found, 597015 states left on queue. The depth of the complete state graph search is 16.
+QuvEndToEndRefinementLateReply exit=12 elapsed=2s Error: Invariant NoConflictingAccepts is violated. 115170 states generated, 37814 distinct states found, 20336 states left on queue. The depth of the complete state graph search is 11.
+QuvEndToEndRefinementSkipExecutorQuv exit=12 elapsed=2s Error: Invariant NoClaimWithoutOwnLiveAccept is violated. 132779 states generated, 39654 distinct states found, 16928 states left on queue. The depth of the complete state graph search is 12.
+QuvEndToEndRefinementClaimAfterExpiry exit=12 elapsed=1s Error: Invariant NoClaimAfterExpiryOrFence is violated. 2242 states generated, 945 distinct states found, 187 states left on queue. The depth of the complete state graph search is 14.
+QuvEndToEndRefinementCallBeforeClaim exit=12 elapsed=2s Error: Invariant NoBlindReplayAfterCrash is violated. 22014 states generated, 7456 distinct states found, 145 states left on queue. The depth of the complete state graph search is 22.
+QuvEndToEndRefinementUnauthenticatedRecovery exit=12 elapsed=1s Error: Invariant RecoveryNeverAdvancesBeyondAuthenticatedRecords is violated. 278 states generated, 136 distinct states found, 44 states left on queue. The depth of the complete state graph search is 7.
+QuvEndToEndRefinementResourceIdSplitsKey exit=12 elapsed=76s Error: Invariant AtMostOneExternalMutationPerStableKey is violated. 21477031 states generated, 4485672 distinct states found, 540783 states left on queue. The depth of the complete state graph search is 22.
+QuvEndToEndRefinementActivateFromBytes exit=12 elapsed=16s Error: Invariant NoSuccessorAuthorityFromBytes is violated. 3043074 states generated, 698724 distinct states found, 245034 states left on queue. The depth of the complete state graph search is 15.
+DONE

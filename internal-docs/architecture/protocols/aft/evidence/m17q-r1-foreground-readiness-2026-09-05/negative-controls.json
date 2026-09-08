@@ -1,0 +1,135 @@
+[
+  {
+    "name": "commit-clock-too-early",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "8b7c4ef7695ae66839d4e9419544d9aec3c85940db3143b074dbc109a9f0bb24"
+  },
+  {
+    "name": "retry-resets-clock",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "8b7c4ef7695ae66839d4e9419544d9aec3c85940db3143b074dbc109a9f0bb24"
+  },
+  {
+    "name": "reopen-clock-too-early",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "8b7c4ef7695ae66839d4e9419544d9aec3c85940db3143b074dbc109a9f0bb24"
+  },
+  {
+    "name": "wait-removed",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::readiness_wait_keeps_domain_capacity_and_leaves_preparation_lane_free",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "ad16285e8eedde870af47f165ae67ed6a497f69c682d2bbeb693314485aefbb2"
+  },
+  {
+    "name": "readiness-recheck-removed",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::tests::readiness_revalidation_rejects_before_and_accepts_equal_or_after",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "15e297e7917f2cfa8803829e68e4e005bbf467832c875f62ea1cda559acb090e"
+  },
+  {
+    "name": "preparation-waits",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::tests::every_operation_role_has_a_rooted_active_service_budget",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "15e297e7917f2cfa8803829e68e4e005bbf467832c875f62ea1cda559acb090e"
+  },
+  {
+    "name": "active-before-readiness",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::readiness_wait_keeps_domain_capacity_and_leaves_preparation_lane_free",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "ad16285e8eedde870af47f165ae67ed6a497f69c682d2bbeb693314485aefbb2"
+  }
+]

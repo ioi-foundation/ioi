@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "consequence::tests"
+  ],
+  "exit_code": 101,
+  "error": "E0599: test attempted clone on non-Clone OnlineEffectAuthorizationBindingV1",
+  "repair": "test reads a fresh binding; production type unchanged"
+}

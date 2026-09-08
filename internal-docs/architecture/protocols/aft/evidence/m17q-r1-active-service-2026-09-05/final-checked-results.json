@@ -1,0 +1,40 @@
+{
+  "sources": {
+    "crates/consensus/src/aft/query_unanimity.rs": "0a3affec44a0ef523847702d97fb6aed85b3993be59543e53d9a85e9c6e3d839",
+    "crates/validator/src/standard/orchestration/quv.rs": "fb6358a884d952d638da740784ed08bb26382fe44f6f622dfc86fcb73e4decb4",
+    "crates/types/src/app/query_unanimity.rs": "d4172f1f88541f00c71d46dc98c5f42b067f710c571ab50aa1fb19deea72df1a",
+    ".github/scripts/run_aft_m16q_qualification.sh": "c920a9e4d53b34fbc317906cef6e42c25c15debffeef29589815b1b26efecff4"
+  },
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::"
+      ],
+      "log": "final-runtime-tests.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--features",
+        "consensus-aft"
+      ],
+      "log": "final-cli-check.log",
+      "exit_code": 0,
+      "changed_sources": []
+    }
+  ]
+}

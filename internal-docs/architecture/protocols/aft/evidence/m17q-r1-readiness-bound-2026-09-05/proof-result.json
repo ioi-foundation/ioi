@@ -1,0 +1,18 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--quv-readiness-bound-only"
+  ],
+  "started_utc": "2026-09-05T10:44:10.901165+00:00",
+  "finished_utc": "2026-09-05T10:44:12.277127+00:00",
+  "exit_code": 0,
+  "sources_sha256": {
+    ".github/scripts/run_aft_formal_checks.sh": "9543b48e031f10e5cb8dae71fc85110edfcbc7a35fa68cb45dd872d4c7b11911",
+    ".github/scripts/run_aft_m16q_qualification.sh": "353f82cc5696d9de24a802fddbe5db9d34a7f6e0502f2314376bf4c6735ace0a",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessBoundNoQueueBudget.cfg": "5dea05f8afb9dc2407512d53a0fbde7684b3f06bb6448c274b9097276b829bcf",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessBound.tla": "72930895d2b7d924699640ad620b2b17fd58ac29703b1df1d90ed04731102131",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessBound.cfg": "772c1e9da850f36353482ed10b250149b08bc6238462103ce447010082a61748",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessBoundProof.tla": "74df5a23110cbb62a98fcefc4d1668cb898735a80c5c1bc28c4ff78df0d44760"
+  }
+}

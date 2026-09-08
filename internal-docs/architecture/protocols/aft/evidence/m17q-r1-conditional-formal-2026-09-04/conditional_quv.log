@@ -1,0 +1,11 @@
+census OK: 46 modules = 33 executed + 13 manifest-marked (manual)
+(* fingerprints file ".tlacache/QueryUnanimityProof.tlaps/fingerprints" removed *)
+(* created new ".tlacache/QueryUnanimityProof.tlaps/QueryUnanimityProof.thy" *)
+(* fingerprints written in ".tlacache/QueryUnanimityProof.tlaps/fingerprints" *)
+File "./QueryUnanimityProof.tla", line 1, character 1 to line 146, character 4:
+[INFO]: All 75 obligations proved.
+(* fingerprints file ".tlacache/QueryUnanimityCompositionProof.tlaps/fingerprints" removed *)
+(* created new ".tlacache/QueryUnanimityCompositionProof.tlaps/QueryUnanimityCompositionProof.thy" *)
+(* fingerprints written in ".tlacache/QueryUnanimityCompositionProof.tlaps/fingerprints" *)
+File "./QueryUnanimityCompositionProof.tla", line 1, character 1 to line 58, character 4:
+[INFO]: All 16 obligations proved.

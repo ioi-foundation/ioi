@@ -1,0 +1,170 @@
+# Path: crates/cli/Cargo.toml
+[package]
+name = "ioi-cli"
+version = "0.1.0"
+edition = "2021"
+description = "A development toolkit and end-to-end testing library for the IOI SDK."
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+# CLI framework
+clap = { workspace = true, features = ["derive", "cargo"] }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Error handling and utilities
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+hex = { workspace = true }
+serde_jcs = "0.1.0"
+rand = { workspace = true }
+base64 = { workspace = true }
+
+# Workspace library crates (CLI consumes the SDK as a user would)
+ioi-types = { path = "../types" }
+ioi-api = { path = "../api" }
+ioi-crypto = { path = "../crypto" }
+ioi-validator = { path = "../validator", default-features = false }
+ioi-system = { path = "../system" }
+ioi-state = { path = "../state", default-features = false }
+ioi-client = { path = "../client" }
+ioi-tx = { path = "../tx" }
+ioi-ipc = { path = "../ipc" }
+ioi-services = { path = "../services" }
+ioi-networking = { path = "../networking" }
+ioi-consensus = { path = "../consensus", features = ["aft"] }
+ioi-pii = { path = "../pii" }
+ioi-drivers = { path = "../drivers" }
+
+toml = { workspace = true }
+
+# Dependencies for testing helpers that are now part of the library
+reqwest = { workspace = true }
+tempfile = "3.3"
+bs58 = "0.4"
+libp2p = { workspace = true }
+prost = { workspace = true }
+portpicker = "0.1.1"
+bollard = "0.16"
+futures-util = "0.3"
+async-trait = { workspace = true }
+uuid = { version = "1.8.0", features = ["v4"] }
+tar = "0.4"
+hyper = { workspace = true }
+axum = { workspace = true }
+libc = "0.2"
+dcrypt = { workspace = true }
+# [+] Added missing dependency for GenesisBuilder
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+
+# [FIX] Added missing rpassword for ioi keys provision
+rpassword = "7.0"
+
+# HTTP body helpers for hyper v1 (bollard expects these shapes)
+bytes = "1"
+http-body-util = "0.1"
+
+# WASM Component Model tooling for test artifact generation
+wit-component = "0.201.0"
+
+# [FIX] Add tonic for gRPC client tests
+tonic = { version = "0.11", features = ["tls", "transport"] }
+# [FIX] Add rkyv for zero-copy tests
+rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
+
+# Dependencies for ZK fixture generation (Optional)
+# [FIX] Moved inside [dependencies] table
+sp1-sdk = { version = "3.0.0", optional = true }
+alloy-primitives = { version = "0.7", optional = true }
+alloy-trie = { version = "0.4", optional = true }
+ssz_rs = { version = "0.9", optional = true }
+
+[dev-dependencies]
+agentgres = { path = "../agentgres" }
+ioi-relayer = { path = "../plugins/relayer" } # [FIX] Updated path to plugins/relayer
+ioi-execution = { path = "../execution" }
+ioi-memory = { path = "../memory" }
+
+once_cell = { workspace = true }
+cfg-if = "1.0"
+ibc-client-tendermint = { workspace = true }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-core-client-types = { workspace = true, features = ["std"] }
+tendermint-testgen = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+ibc-core-client-context = { workspace = true, features = ["std"] }
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+ibc-primitives = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true, features = ["serde", "std"] }
+# [FIX] Updated paths for plugins in dev-dependencies
+transport-verifier = { path = "../plugins/transport-verifier" }
+# [NEW] For pHash testing in mocks
+image = "0.25"
+zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
+# [FIX] Add zk-types dependency for zk fixture generation
+zk-types = { path = "../plugins/zk-types" }
+
+
+# The library exposes helpers, the binary provides the CLI
+[lib]
+name = "ioi_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"
+
+[features]
+default = [
+    "validator-bins",
+    "vm-wasm",
+    "state-iavl",
+    "state-sparse-merkle",
+    "state-verkle",
+    "state-jellyfish",
+    "commitment-hash",
+    "commitment-kzg",
+    "consensus-aft",
+]
+# Features must propagate to the validator library, which is a direct dependency.
+# The node binaries are built separately by the test runner, which handles passing features.
+state-iavl = ["ioi-validator/state-iavl"]
+state-sparse-merkle = ["ioi-validator/state-sparse-merkle"]
+state-verkle = ["ioi-validator/state-verkle"]
+# [NEW] Add Jellyfish feature
+state-jellyfish = ["ioi-validator/state-jellyfish"]
+commitment-hash = ["ioi-state/commitment-hash", "ioi-validator/commitment-hash"]
+commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
+
+# Other features also propagate to the validator lib
+vm-wasm = ["ioi-validator/vm-wasm"]
+consensus-aft = ["ioi-validator/consensus-aft"]
+consensus-poa = ["ioi-validator/consensus-poa"]
+consensus-pos = ["ioi-validator/consensus-pos"]
+
+# Service Features
+# IBC plugin wiring now flows through ioi-validator
+ibc-deps = ["ioi-validator/ibc-deps"]
+
+# ZK Features (Test runner gate only)
+ethereum-zk = []
+
+# Feature for building the malicious binary for testing
+# This does not need to be propagated, as the test runner handles it.
+malicious-bin = []
+
+validator-bins = ["ioi-validator/validator-bins"]
+# Feature to enable ZK fixture generation tools (pulls in heavy dependencies)
+zk-gen = ["dep:sp1-sdk", "dep:alloy-primitives", "dep:alloy-trie", "dep:ssz_rs"]
+
+[[bin]]
+name = "generate_zk_fixtures"
+path = "src/bin/generate_zk_fixtures.rs"
+required-features = ["zk-gen"]

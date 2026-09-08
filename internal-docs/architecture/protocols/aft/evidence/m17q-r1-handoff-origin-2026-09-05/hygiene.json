@@ -1,0 +1,66 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2021",
+      "--config",
+      "skip_children=true",
+      "--check",
+      "crates/validator/src/standard/orchestration/quv.rs",
+      "crates/consensus/src/aft/query_unanimity.rs",
+      "crates/cli/tests/aft_e2e.rs"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"negative_cases\": 18, \"positive_cases\": 1}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_claim_discipline.sh"
+    ],
+    "exit_code": 0,
+    "stdout": "PASS: no unqualified 99% tolerance spellings, and no bare flagship assertions, in the AFT specs/formal corpus.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_theorem_assumes.sh"
+    ],
+    "exit_code": 0,
+    "stdout": "theorem convention OK: 28 blocks; Assumes discipline (A5->T4a/T4b only, A9->T5b/T5d only, A10->T5d only), T8 probabilistic + quarantined, T1 timing-free, pairing table complete\n",
+    "stderr": ""
+  }
+]

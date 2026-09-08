@@ -1,0 +1,28 @@
+[
+  [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "--no-run",
+    "--message-format=json"
+  ],
+  [
+    "strace",
+    "-f",
+    "-y",
+    "-s",
+    "256",
+    "-e",
+    "trace=fsync,fallocate,ftruncate,rename,renameat2,openat,write,close",
+    "-o",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-anchor-reservation-2026-09-06/trace-development/reservation.trace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/ioi_consensus-332e553035381bf6",
+    "--exact",
+    "aft::query_unanimity::journal::tests::reserved_records_preserve_allocation_and_inode_through_complete_lifetime"
+  ]
+]

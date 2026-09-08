@@ -1,0 +1,61 @@
+{
+  "recorded_utc": "2026-09-05T07:58:51.358442+00:00",
+  "disposition": "SUPERSEDED_BY_FINAL_DISPOSITION",
+  "runtime_tests": 9,
+  "core_tests": 39,
+  "ignored_benchmark": 1,
+  "cli_check": "pass",
+  "removed_rule_controls": 3,
+  "process_session_id": 97080,
+  "process_status": "Terminal exit 101; see disposition.json.",
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "crates/consensus/src/aft/query_unanimity.rs",
+        "crates/types/src/app/query_unanimity.rs",
+        "crates/validator/src/standard/orchestration/quv.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "remaining": [
+    "current process result and service-event inspection",
+    "aggregate readiness and foreground/queue service bounds",
+    "restart/late-storage/timeout process mutations and transition refinement",
+    "R1 closure, clean R2, independent review and M18Q"
+  ]
+}

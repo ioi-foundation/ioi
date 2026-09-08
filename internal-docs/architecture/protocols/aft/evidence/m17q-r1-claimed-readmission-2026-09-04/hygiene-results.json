@@ -1,0 +1,39 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2021",
+      "--check",
+      "crates/agentgres/src/consequence.rs",
+      "crates/agentgres/src/consequence/tests.rs"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-0.log"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_claim_discipline.sh"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-1.log"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_theorem_assumes.sh"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-2.log"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-3.log"
+  }
+]

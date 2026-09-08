@@ -1,0 +1,11 @@
+{
+  "issued_order": true,
+  "missing_allocation_rejected": true,
+  "missing_initialization_rejected": true,
+  "missing_live_sync_rejected": true,
+  "live_truncation_rejected": true,
+  "reuse_preserves_data_and_syncs_custody": true,
+  "reuse_truncation_rejected": true,
+  "reuse_missing_sync_rejected": true,
+  "reuse_missing_marker_rejected": true
+}

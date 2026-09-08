@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "readiness_wait_surfaces_early_rpc_error_without_diagnostic_timeout",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 101,
+  "expected_regression_failure": true,
+  "restored_sha256": "f162ac57520ff993fd84e0dbaffd5161b48f40c8836e54f6e7d724417c6bf94f"
+}

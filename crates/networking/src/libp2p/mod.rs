@@ -157,6 +157,12 @@ impl Libp2pSync {
                     SwarmInternalEvent::ConnectionClosed(p) => {
                         Some(NetworkEvent::ConnectionClosed(p))
                     }
+                    SwarmInternalEvent::PqCarrierAuthenticated(peer, account) => {
+                        Some(NetworkEvent::PqCarrierAuthenticated { peer, account })
+                    }
+                    SwarmInternalEvent::PqEnrollmentLost(peer) => {
+                        Some(NetworkEvent::PqEnrollmentLost { peer })
+                    }
                     SwarmInternalEvent::StatusRequest(p, c) => {
                         Some(NetworkEvent::StatusRequest(p, c))
                     }

@@ -1,0 +1,7 @@
+commit ab8d2e58103a2eef3e39c1c6042ffefd7d3c86f4
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Fri Sep 4 16:43:57 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Fri Sep 4 16:43:57 2026 -0400
+
+    test(aft): accept both durable QUV activation outcomes

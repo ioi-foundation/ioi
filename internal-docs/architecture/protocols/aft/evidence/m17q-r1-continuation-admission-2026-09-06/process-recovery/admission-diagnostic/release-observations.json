@@ -1,0 +1,5 @@
+{
+  "count": 33,
+  "max_elapsed_micros": 6964691,
+  "scope": "finite observed release lifetimes, not worst-case bound"
+}

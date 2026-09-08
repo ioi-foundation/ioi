@@ -1,0 +1,7 @@
+completed_utc=2026-09-07T17:29:37Z
+commit=9ce911fe798b94fab3112a6eb5c50adb932e73bd
+result=PASS
+result_scope=selected_runner_gates
+quick=false
+tree_dirty=false
+r2_admission=NOT_ESTABLISHED

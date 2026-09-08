@@ -1,0 +1,12 @@
+{
+  "provider": "dcrypt-algorithms 4.0.1 Hmac<Sha256>",
+  "provider_source_sha256": "34a761147bb27ef87ab855c961d9a8bd7e4c184e8c5124c97746b9cf8fae5a59",
+  "cargo_lock_sha256": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+  "python": "Python 3.12.3",
+  "fixture": {
+    "key_hex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+    "input_utf8": "QUV state authentication fixture",
+    "hmac_sha256": "b359a0a065d39adabb237bf18f26ee3fdb0a8229098a8a03a7468f86385bd8d7"
+  },
+  "fixture_keys_are_public_test_data": true
+}

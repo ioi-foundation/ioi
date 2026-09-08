@@ -1,0 +1,57 @@
+{
+  "results": [
+    {
+      "name": "binding",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "d814e9f39bf2a7b4759d48109c1690a36c1c8f2fab29ba156a44d1c923257ce6"
+    },
+    {
+      "name": "preflight",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "356e447bd6203dfd3846d26c90efba9ce37a2072ff1d23e2403d4e98fa8f0409"
+    },
+    {
+      "name": "terminal",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "6eba056318620587541ecbf60ffdbe49bae077b4061c8edbfb9944d942db3a5f"
+    }
+  ],
+  "baseline_sha256": "92371632a2c6aa0f18d19ead874edec7fa2d507a850b7054b2166cd4a5d9e784",
+  "restored": true
+}

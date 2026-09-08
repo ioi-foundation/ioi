@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "standard::orchestration::finalize::tests::finalization_releases_node_state_before_waiting_for_context",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 0
+}

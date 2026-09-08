@@ -12,6 +12,19 @@ pub const QUV_PROFILE_V0: &str = "aft_quv_v0";
 /// Production v0 admission bound. The isolated runtime lane reserves two
 /// events per configured member: one request and one reply.
 pub const QUV_MAX_CONFIGURED_MEMBERS_V0: usize = 1_024;
+/// Absolute syntax ceiling for a rooted finite Fixed-domain slot horizon.
+pub const QUV_MAX_AUTHORITY_SLOTS_V0: u32 = 1_000_000;
+/// Normal pending-record count in the rooted shared-outbox profile.
+pub const QUV_OUTBOX_NORMAL_RECORDS_PER_RECIPIENT_V0: usize = 1_024;
+/// One request lane and one reply lane are reserved per rooted recipient.
+pub const QUV_OUTBOX_RESERVED_RECORDS_PER_RECIPIENT_V0: usize = 2;
+/// Rooted shared-outbox profile: normal traffic cannot spend the QUV reserve.
+/// These are encoded-payload budgets, not physical allocation guarantees.
+pub const QUV_OUTBOX_NORMAL_BYTES_PER_RECIPIENT_V0: u64 = 16 * 1024 * 1024;
+/// Maximum encoded QUV transport payload under the rooted profile.
+pub const QUV_OUTBOX_MAX_PAYLOAD_BYTES_V0: u64 = 16 * 1024;
+/// Separate encoded capacity for one outgoing request and one reply per account.
+pub const QUV_OUTBOX_RESERVED_BYTES_PER_RECIPIENT_V0: u64 = 2 * QUV_OUTBOX_MAX_PAYLOAD_BYTES_V0;
 /// Canonical SHA-256 commitment.
 pub type QuvHash = [u8; 32];
 /// Fresh verifier session nonce.
@@ -27,6 +40,169 @@ pub enum QuvAuthorityModeV0 {
     Owned,
     /// Independently valid candidates race for each member's first winner.
     Unowned,
+}
+
+/// Independently provisioned starting rule, committed by the domain policy.
+/// This describes bootstrap; it is not evidence that any candidate was accepted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum QuvDomainBootstrapV0 {
+    /// Exact initial slot and predecessor for a fixed domain history.
+    Fixed {
+        /// First slot permitted by the provisioned domain history.
+        initial_slot: u64,
+        /// Independently provisioned predecessor of that first slot.
+        predecessor: QuvHash,
+    },
+    /// The handoff slot is its activation height. Its predecessor must be
+    /// derived from the independently verified old-root boundary, never from
+    /// an incoming candidate alone. This does not bootstrap effect domains.
+    HandoffBoundary {
+        /// Successor activation height and exact handoff slot.
+        activation_height: u64,
+    },
+}
+
+impl QuvDomainBootstrapV0 {
+    /// A finite rooted horizon must fit the slot number space without wrapping.
+    pub fn is_valid_authority_slots(self, slots: u32) -> bool {
+        slots > 0
+            && slots <= QUV_MAX_AUTHORITY_SLOTS_V0
+            && match self {
+                Self::Fixed { initial_slot, .. } => {
+                    initial_slot.checked_add(u64::from(slots) - 1).is_some()
+                }
+                Self::HandoffBoundary { .. } => true,
+            }
+    }
+
+    /// Check bootstrap syntax and its compatibility with the authority rule.
+    pub fn is_valid_for(self, mode: QuvAuthorityModeV0) -> bool {
+        match self {
+            Self::Fixed {
+                initial_slot,
+                predecessor,
+            } => initial_slot > 0 && predecessor != [0; 32],
+            Self::HandoffBoundary { activation_height } => {
+                activation_height > 1 && mode == QuvAuthorityModeV0::Owned
+            }
+        }
+    }
+}
+
+/// Rooted preparation budget. These limits are a service contract to qualify,
+/// not evidence that a worker meets them or that any peer has advanced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum QuvPreparationPolicyV0 {
+    /// Each member performs its own live preparation query for Fixed histories.
+    Independent {
+        /// Finite per-slot attempt budget, to be durably reserved before query.
+        max_attempts_per_slot: u16,
+        /// Active attempt service from exclusive operation admission through
+        /// reservation, live query and head commit. Readiness must also cover
+        /// selection and queue waiting; this limit alone does not bound them.
+        service_millis: u64,
+        /// Local child-readiness delay; complete scheduling costs must fit here.
+        readiness_millis: u64,
+    },
+    /// One-shot handoff domains use their dedicated live install coordinator.
+    OneShot,
+}
+
+impl QuvPreparationPolicyV0 {
+    /// Durable reservations permitted in one slot; handoff uses no worker.
+    pub fn max_attempts_per_slot(self) -> u16 {
+        match self {
+            Self::Independent {
+                max_attempts_per_slot,
+                ..
+            } => max_attempts_per_slot,
+            Self::OneShot => 0,
+        }
+    }
+
+    /// All-operation active budget, independently rooted and never inferred.
+    /// A preparation attempt may use a tighter cap, but not a wider one.
+    pub fn is_valid_operation_service(
+        self,
+        operation_service_millis: u64,
+        delta_rt_millis: u64,
+        continuation_millis: u64,
+    ) -> bool {
+        operation_service_millis > delta_rt_millis
+            && delta_rt_millis
+                .checked_add(continuation_millis)
+                .is_some_and(|limit| operation_service_millis <= limit)
+            && match self {
+                Self::Independent { service_millis, .. } => {
+                    service_millis <= operation_service_millis
+                }
+                Self::OneShot => true,
+            }
+    }
+
+    /// Validate local syntax and bootstrap compatibility. This does not qualify
+    /// queue fairness, network/storage costs, or a cross-domain service bound.
+    pub fn is_valid_for(
+        self,
+        bootstrap: QuvDomainBootstrapV0,
+        delta_rt_millis: u64,
+        continuation_millis: u64,
+    ) -> bool {
+        match (self, bootstrap) {
+            (
+                Self::Independent {
+                    max_attempts_per_slot,
+                    service_millis,
+                    readiness_millis,
+                },
+                QuvDomainBootstrapV0::Fixed { .. },
+            ) => {
+                max_attempts_per_slot > 0
+                    && service_millis > delta_rt_millis
+                    && delta_rt_millis
+                        .checked_add(continuation_millis)
+                        .is_some_and(|limit| service_millis <= limit)
+                    && service_millis
+                        .checked_mul(u64::from(max_attempts_per_slot))
+                        .is_some_and(|minimum| readiness_millis >= minimum)
+            }
+            (Self::OneShot, QuvDomainBootstrapV0::HandoffBoundary { .. }) => true,
+            _ => false,
+        }
+    }
+}
+
+/// Absolute syntax ceiling for a rooted per-identity push admission quota.
+pub const QUV_MAX_PUSH_REQUESTS_PER_IDENTITY_V0: u32 = 4_096;
+
+/// Rooted per-identity PUSHQUERY admission quota, committed by the domain
+/// policy. It bounds the number of admitted PUSHQUERY requests per
+/// authenticated requester account, per rooted domain, per sliding window.
+/// A request beyond the quota is dropped with no reply and no durable
+/// mutation. This is a serial-rate bound on one identity's use of
+/// authentication, signing and reply service; it is not a fairness proof and
+/// not a worst-case service proof for the remaining identities.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuvPushAdmissionPolicyV0 {
+    /// Admitted requests per (domain, requester) inside one sliding window.
+    pub max_requests_per_identity: u32,
+    /// Sliding-window length; never shorter than one decision interval.
+    pub window_millis: u64,
+}
+
+impl QuvPushAdmissionPolicyV0 {
+    /// Validate local syntax against the rooted decision interval. A window
+    /// shorter than one decision interval would let a requester exceed the
+    /// per-operation reservation inside a single interval.
+    pub fn is_valid(self, delta_rt_millis: u64) -> bool {
+        self.max_requests_per_identity > 0
+            && self.max_requests_per_identity <= QUV_MAX_PUSH_REQUESTS_PER_IDENTITY_V0
+            && self.window_millis > 0
+            && self.window_millis >= delta_rt_millis
+    }
 }
 
 /// Exact rooted slot identity. Every field is load-bearing replay protection.
@@ -71,7 +247,7 @@ pub struct QuvPushQueryV0 {
     pub candidate: QuvCandidateV0,
 }
 
-/// Signed complete snapshot returned after durable write-back.
+/// Signed complete retained conflict summary after durable write-back.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct QuvReplyV0 {
     /// Nonce of the requesting executor operation.
@@ -84,7 +260,9 @@ pub struct QuvReplyV0 {
     pub candidate_hash: QuvHash,
     /// Commitment to the complete ordered snapshot.
     pub snapshot_hash: QuvHash,
-    /// Complete grow-only candidate sequence for the slot.
+    /// First two distinct candidates in durable linearization order. The field
+    /// name is retained on the wire; v4 policy roots bind summary semantics.
+    /// Saturation preserves owned conflict and the unowned first winner.
     pub complete_snapshot: Vec<QuvCandidateV0>,
     /// Member signature produced only after durable write-back.
     pub signature: Vec<u8>,

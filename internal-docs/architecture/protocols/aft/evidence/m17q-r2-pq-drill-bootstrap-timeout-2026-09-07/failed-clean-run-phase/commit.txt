@@ -1,0 +1,34 @@
+commit f41ba3b416ac35dfd6679e523a2a565ef79db9b6
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Mon Sep 7 03:49:06 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Mon Sep 7 03:49:06 2026 -0400
+
+    fix(aft): gate successor-root history on the process-local QUV install gate
+    
+    A retired old-root member restarted from an admitted height below the QUV
+    activation height, took the ordinary old-member startup path, and adopted
+    successor-signed blocks through sync because the canonical validator-set
+    projection makes the staged successor effective by height and no sync or
+    gossip path consulted the process-local durable install gate. The clean
+    M16Q R2 attempt on 5ae464c11 failed quv_disjoint_reconfiguration on it.
+    
+    quv_successor_root_gate now runs per block in the sync apply loop, in
+    handle_gossip_block and at startup against the workload's durable executed
+    projection: a staged successor defers successor-root blocks until its own
+    gate activates; a process with no successor identity refuses them with the
+    retirement diagnostic, drops sync progress, ignores further blocks
+    responses and quarantines itself. Heights below activation, including the
+    exact QC-certified boundary, are unaffected. No premise changes.
+    
+    Unit regression plus removed-rule control, new mandatory M16Q phase
+    quv_successor_root_gate, standalone disjoint (569 s) and overlapping
+    (263 s) handoff campaigns and both evidence checks pass on the fixed tree.
+    The handoff evidence checker, on its first execution against a disjoint
+    campaign, is corrected to excuse a missing admission release only for a
+    process whose component log shows a later startup and no later nonce
+    event (the fixture's armed crash window); four negative self-tests pin it.
+    
+    Evidence: internal-docs/architecture/protocols/aft/evidence/m17q-r2-retired-sync-2026-09-07/
+    
+    Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

@@ -1,0 +1,7 @@
+{
+  "issued_order": true,
+  "missing_allocation_rejected": true,
+  "missing_preparation_sync_rejected": true,
+  "missing_commit_sync_rejected": true,
+  "live_allocation_rejected": true
+}

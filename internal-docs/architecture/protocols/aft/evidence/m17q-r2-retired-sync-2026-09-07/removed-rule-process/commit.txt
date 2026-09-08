@@ -1,0 +1,15 @@
+commit 5ae464c1146ecff3079415e2e8da5b7daf00d253
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Sun Sep 6 20:41:09 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Sun Sep 6 20:41:09 2026 -0400
+
+    fix(aft): take the per-principal QUV waiting share at the active-queue join
+    
+    A child slot waiting out its rooted readiness delay held the principal share,
+    so the same principal could not run an unrelated effect in another domain;
+    the clean R2 attempt refused exactly that. The share is now acquired when the
+    request joins the active-lane queue and a readiness-waiting reservation holds
+    only its domain permit.
+    
+    Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

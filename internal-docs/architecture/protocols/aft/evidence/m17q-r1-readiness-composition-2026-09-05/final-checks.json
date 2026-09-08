@@ -1,0 +1,11 @@
+{
+  "positive_models": 2,
+  "expected_witnesses": 2,
+  "diff_check_exit_code": 0,
+  "command": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "checked_utc": "2026-09-05T10:41:00.889585+00:00"
+}

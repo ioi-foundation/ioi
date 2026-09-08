@@ -1,0 +1,14 @@
+{
+  "status": "PREPARED_NOT_APPLIED_OR_COMPILED",
+  "preimages": {
+    "crates/validator/src/standard/orchestration/quv.rs": "0a1ad0c2db1741e91a31e059fc44bd44afa392b118c76b838d6226ac877773da",
+    "crates/validator/src/standard/orchestration/mod.rs": "f547e053aa13d093d0f0614db1fe6518d7078eec3dd08c974c962eaf3c99bd54",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "f02b43fb5003e4e8dd4bd0ba85ad6ca50834707e9763a23065dc97ebeabc4b1f",
+    "crates/cli/tests/aft_e2e.rs": "b9d425253b7a31c4d52c637d106443a7f8242e7aedcd9ee3b184384898ba4e4a"
+  },
+  "patch_sha256": "05c0027dbe9ecba0ff0e01b4a2a374c383f2c34005e5ebfe031d668c3b0d1415",
+  "regressions_prepared": [
+    "conflict_status_preserves_type_and_never_classifies_message_text",
+    "quv_conflict_assertion_requires_structured_refusal"
+  ]
+}

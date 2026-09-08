@@ -27,6 +27,116 @@ pub const REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD: &str = "register_effect_manife
 /// Canonical 32-byte SHA-256 commitment used by consequence contracts.
 pub type ConsequenceHash = [u8; 32];
 
+/// Receipt-access queue coefficients committed by QUV policy-root v7.
+/// A finite queue is not a filesystem, authentication or wall-clock bound.
+pub struct QuvConsequenceAdmissionProfileV0;
+
+impl QuvConsequenceAdmissionProfileV0 {
+    /// Maximum concurrent receipt-store owners.
+    pub const ACTIVE: usize = 1;
+    /// Pending initial requests per enrolled committed domain.
+    pub const WAITING_PER_DOMAIN: usize = 1;
+    /// Shared pending capacity for all historical domains.
+    pub const WAITING_HISTORICAL: usize = 1;
+    /// Protected pending capacity for the active QUV operation.
+    pub const WAITING_OWNED: usize = 1;
+    /// Queued foreground or receipt waiters permitted per authorizing
+    /// principal across every domain (policy-root v8). A queued-waiter bound,
+    /// not wall-clock fairness or a worst-case service proof.
+    pub const WAITING_PER_PRINCIPAL: usize = 1;
+    /// Active, per-domain, historical, active-operation and per-principal
+    /// field order.
+    pub const ROOTED_FIELDS: [u64; 5] = [
+        Self::ACTIVE as u64,
+        Self::WAITING_PER_DOMAIN as u64,
+        Self::WAITING_HISTORICAL as u64,
+        Self::WAITING_OWNED as u64,
+        Self::WAITING_PER_PRINCIPAL as u64,
+    ];
+}
+
+/// Named online PQ adapter storage coefficients. These are rooted charges,
+/// not evidence of aggregate admission feasibility or filesystem service.
+pub struct QuvConsequenceStorageProfileV0;
+
+impl QuvConsequenceStorageProfileV0 {
+    /// Storage envelope version: AFTCR001.
+    pub const FORMAT_VERSION: u64 = 1;
+    /// Maximum non-authorizing protocol audit bytes.
+    pub const AUDIT_MAX_BYTES: u64 = 16 * 1024 * 1024;
+    /// Maximum JSON byte-array expansion per audit byte.
+    pub const AUDIT_JSON_CHARGE: u64 = 4;
+    /// Maximum canonical ML-DSA endpoint evidence bytes.
+    pub const PQ_EVIDENCE_MAX_BYTES: u64 = 16 * 1024;
+    /// Maximum encoded endpoint record and reserved record data.
+    pub const PQ_RECORD_MAX_BYTES: u64 = 80 * 1024;
+    /// Authorized, Claim, InFlight and first outcome entries.
+    pub const TRACE_BASE_ENTRIES: u64 = 4;
+    /// Conservative encoded charge for one trace entry.
+    pub const TRACE_ENTRY_BYTES: u64 = 512;
+    /// Fixed receipt/state/audit syntax headroom.
+    pub const RECEIPT_FIXED_BYTES: u64 = 32 * 1024;
+    /// Storage envelope header length.
+    pub const HEADER_BYTES: u64 = 32;
+    /// Page size used to round the declared file capacity.
+    pub const ALLOCATION_UNIT_BYTES: u64 = 4096;
+    /// Maximum reported allocation divided by initialized file capacity.
+    pub const FILE_PHYSICAL_FACTOR: u64 = 2;
+    /// Active and spare receipt files retained per effect.
+    pub const RECEIPT_FILES: u64 = 2;
+    /// Endpoint reservation is fully initialized and space-padded before QUV.
+    pub const ENDPOINT_INITIALIZED: u64 = 1;
+    /// Active and staging stable-key claim-index files per claimed QUV slot,
+    /// reserved before QUV and filled at the durable Claim transition.
+    pub const CLAIM_INDEX_FILES: u64 = 2;
+    /// Initialized capacity of one claim-index file (one allocation unit).
+    pub const CLAIM_INDEX_FILE_BYTES: u64 = Self::ALLOCATION_UNIT_BYTES;
+    /// Storage field order introduced by v6, retained inside policy-root v7,
+    /// and extended by the two claim-index charges inside policy-root v8.
+    pub const ROOTED_FIELDS: [u64; 15] = [
+        Self::FORMAT_VERSION,
+        Self::AUDIT_MAX_BYTES,
+        Self::AUDIT_JSON_CHARGE,
+        Self::PQ_EVIDENCE_MAX_BYTES,
+        Self::PQ_RECORD_MAX_BYTES,
+        Self::TRACE_BASE_ENTRIES,
+        Self::TRACE_ENTRY_BYTES,
+        Self::RECEIPT_FIXED_BYTES,
+        Self::HEADER_BYTES,
+        Self::ALLOCATION_UNIT_BYTES,
+        Self::FILE_PHYSICAL_FACTOR,
+        Self::RECEIPT_FILES,
+        Self::ENDPOINT_INITIALIZED,
+        Self::CLAIM_INDEX_FILES,
+        Self::CLAIM_INDEX_FILE_BYTES,
+    ];
+
+    /// Preserve the full admitted observation allowance without clipping.
+    pub fn receipt_encoded_bound(manifest_bytes: u64, observations: u32) -> Option<u64> {
+        manifest_bytes
+            .checked_add(Self::AUDIT_JSON_CHARGE * Self::AUDIT_MAX_BYTES)?
+            .checked_add(
+                Self::TRACE_ENTRY_BYTES * (Self::TRACE_BASE_ENTRIES + u64::from(observations)),
+            )?
+            .checked_add(Self::PQ_RECORD_MAX_BYTES + Self::RECEIPT_FIXED_BYTES)
+    }
+
+    /// Initialized file capacity including envelope header and page rounding.
+    pub fn receipt_file_capacity(encoded_bound: u64) -> Option<u64> {
+        encoded_bound
+            .checked_add(Self::HEADER_BYTES + Self::ALLOCATION_UNIT_BYTES - 1)
+            .map(|n| n / Self::ALLOCATION_UNIT_BYTES * Self::ALLOCATION_UNIT_BYTES)
+    }
+
+    /// Two receipt files plus one retained endpoint record. This excludes
+    /// inode/directory/journal costs and does not bound the number of effects.
+    pub fn effect_allocated_bound(manifest_bytes: u64, observations: u32) -> Option<u64> {
+        Self::receipt_file_capacity(Self::receipt_encoded_bound(manifest_bytes, observations)?)?
+            .checked_mul(Self::FILE_PHYSICAL_FACTOR * Self::RECEIPT_FILES)?
+            .checked_add(Self::PQ_RECORD_MAX_BYTES)
+    }
+}
+
 /// Wire version for an effect manifest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -198,6 +308,13 @@ pub struct EffectManifestV1 {
     /// Exact independently provisioned online policy. Present only for QUV;
     /// it commits authority and complete timing/continuation bounds.
     pub online_authorization_policy_root: Option<ConsequenceHash>,
+    /// Prior accepted QUV candidate or independently rooted initial QUV head.
+    /// This is distinct from the external resource's `predecessor_root`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub online_authorization_predecessor: Option<ConsequenceHash>,
+    /// Exact QUV authority rule committed by the admitted manifest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub online_authorization_authority_mode: Option<crate::app::QuvAuthorityModeV0>,
     /// Complete declared resource read footprint.
     pub read_set: Vec<EffectResourceKeyV1>,
     /// Complete declared resource write footprint.
@@ -258,9 +375,16 @@ impl EffectManifestV1 {
         match (
             self.authorization_mode,
             self.online_authorization_policy_root,
+            self.online_authorization_predecessor,
+            self.online_authorization_authority_mode,
         ) {
-            (EffectAuthorizationModeV1::OnlineQueryUnanimityV0, Some(root)) if root != [0; 32] => {}
-            (EffectAuthorizationModeV1::Portable, None) => {}
+            (
+                EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+                Some(root),
+                Some(predecessor),
+                Some(_),
+            ) if root != [0; 32] && predecessor != [0; 32] => {}
+            (EffectAuthorizationModeV1::Portable, None, None, None) => {}
             _ => return Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy),
         }
         match self.fence {
@@ -492,6 +616,23 @@ fn commitment<T: Serialize + ?Sized>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn storage_budget_preserves_full_observations_and_refuses_overflow() {
+        use super::QuvConsequenceStorageProfileV0 as P;
+        let initial = P::receipt_encoded_bound(1000, 0).unwrap();
+        assert_eq!(initial, 67_226_600);
+        assert_eq!(
+            P::receipt_encoded_bound(1000, u32::MAX).unwrap() - initial,
+            512 * u64::from(u32::MAX)
+        );
+        let file = P::receipt_file_capacity(initial).unwrap();
+        assert!(file >= initial + 32 && file < initial + 32 + 4096);
+        assert_eq!(P::effect_allocated_bound(1000, 0), Some(4 * file + 81920));
+        assert_eq!(P::receipt_encoded_bound(u64::MAX, 0), None);
+        assert_eq!(P::receipt_file_capacity(u64::MAX), None);
+        assert_eq!(P::effect_allocated_bound(u64::MAX / 2, 0), None);
+    }
+
     use super::*;
 
     fn profile(contract: ExternalResourceContractV1) -> ExternalResourceProfileV1 {
@@ -514,6 +655,8 @@ mod tests {
             conflict_slot: 1,
             authorization_mode: EffectAuthorizationModeV1::Portable,
             online_authorization_policy_root: None,
+            online_authorization_predecessor: None,
+            online_authorization_authority_mode: None,
             read_set: vec![EffectResourceKeyV1 {
                 key: "balance/source".into(),
                 predecessor: Some([1; 32]),
@@ -610,10 +753,60 @@ mod tests {
             Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy)
         );
         manifest.online_authorization_policy_root = Some([7; 32]);
+        manifest.online_authorization_predecessor = Some([77; 32]);
+        manifest.online_authorization_authority_mode =
+            Some(crate::app::QuvAuthorityModeV0::Unowned);
         manifest.validate().unwrap();
         manifest.authorization_mode = EffectAuthorizationModeV1::Portable;
         assert_eq!(
             manifest.validate(),
+            Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy)
+        );
+    }
+
+    #[test]
+    fn online_context_is_required_and_bound_separately_from_resource_state() {
+        let mut value = manifest(ExternalResourceContractV1::AtomicPutIfAbsent);
+        let portable = serde_json::to_value(&value).unwrap();
+        assert!(portable.get("online_authorization_predecessor").is_none());
+        assert!(portable
+            .get("online_authorization_authority_mode")
+            .is_none());
+        assert_eq!(
+            serde_json::from_value::<EffectManifestV1>(portable).unwrap(),
+            value
+        );
+        value.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+        value.idempotency_key = value.query_unanimity_idempotency_key().unwrap();
+        value.online_authorization_policy_root = Some([7; 32]);
+        value.online_authorization_predecessor = Some([77; 32]);
+        value.online_authorization_authority_mode = Some(crate::app::QuvAuthorityModeV0::Unowned);
+        assert_ne!(
+            value.online_authorization_predecessor.unwrap(),
+            value.predecessor_root
+        );
+        let root = value.commitment().unwrap();
+        let mut changed = value.clone();
+        changed.online_authorization_predecessor = Some([78; 32]);
+        assert_ne!(changed.commitment().unwrap(), root);
+        changed = value.clone();
+        changed.online_authorization_authority_mode = Some(crate::app::QuvAuthorityModeV0::Owned);
+        assert_ne!(changed.commitment().unwrap(), root);
+        for missing_predecessor in [false, true] {
+            let mut incomplete = value.clone();
+            if missing_predecessor {
+                incomplete.online_authorization_predecessor = None;
+            } else {
+                incomplete.online_authorization_authority_mode = None;
+            }
+            assert_eq!(
+                incomplete.validate(),
+                Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy)
+            );
+        }
+        value.online_authorization_predecessor = Some([0; 32]);
+        assert_eq!(
+            value.validate(),
             Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy)
         );
     }

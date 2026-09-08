@@ -1,0 +1,315 @@
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+   Compiling ioi-validator v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/validator)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.43s
+     Running unittests src/lib.rs (target/debug/deps/ioi_validator-fc4e7fee24c60f05)
+
+running 54 tests
+test standard::orchestration::finalize::tests::canonicalize_observer_sealed_finality_proof_rewrites_invalid_close_into_abort ... ok
+test standard::orchestration::finalize::tests::an_empty_block_publishes_no_completion_event ... ok
+test standard::orchestration::finalize::tests::durable_header_update_failure_cannot_publish_committed ... ok
+test standard::orchestration::finalize::tests::a_durable_commit_publishes_exactly_one_event_naming_the_exact_transaction ... ok
+test standard::orchestration::finalize::tests::committed_publication_has_no_module_level_definition ... ok
+test standard::orchestration::finalize::tests::a_re_finalized_height_republishes_rather_than_inventing_a_new_completion ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_plan_rejects_threshold_one ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_stays_transparent_outside_coded_shapes ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_binding_assignments_build_for_gf256_shape ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_binding_assignments_build_for_three_of_five_gf256_shape ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_binding_assignments_build_for_four_of_six_gf256_shape ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_binding_assignments_build_for_four_of_seven_gf256_shape ... ok
+test standard::orchestration::finalize::tests::finalization_releases_node_state_before_waiting_for_context ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_plan_changes_with_membership ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_plan_changes_with_threshold ... ok
+test standard::orchestration::finalize::tests::experimental_recovery_scaffold_changes_with_witness_manifest ... ok
+test standard::orchestration::finalize::tests::finalize_and_broadcast_block_reaches_committed_only_through_the_durable_seam ... ok
+test standard::orchestration::finalize::tests::publish_canonical_order_abort_enqueues_abort_tx ... ok
+test standard::orchestration::finalize::tests::publish_canonical_collapse_object_enqueues_collapse_tx ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_rejects_tampered_material_bytes ... ok
+test standard::orchestration::finalize::tests::publish_canonical_order_artifacts_enqueues_bulletin_surface_and_certificate ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_three_of_four_shards ... ok
+test standard::orchestration::finalize::tests::publish_experimental_recovery_artifacts_enqueues_capsule_then_witness_certificate_when_capsule_is_missing ... ok
+test standard::orchestration::finalize::tests::publish_canonical_observer_abort_artifacts_enqueues_transcript_challenge_and_abort ... ok
+test standard::orchestration::finalize::tests::publish_experimental_recovery_artifacts_skips_receipt_when_missing_share_exists ... ok
+test standard::orchestration::finalize::tests::publish_experimental_recovery_artifacts_enqueues_only_witness_certificate_when_capsule_matches ... ok
+test standard::orchestration::finalize::tests::quv_rotation_refuses_every_unqualified_configuration_change ... ok
+test standard::orchestration::finalize::tests::successful_durable_header_update_publishes_committed ... ok
+test standard::orchestration::finalize::tests::publish_experimental_recovery_artifacts_skips_when_capsule_is_mismatched ... ok
+test standard::orchestration::finalize::tests::the_completion_event_is_published_after_durability_and_after_the_status ... ok
+test standard::orchestration::finalize::tests::the_event_carries_the_hash_the_submitting_client_was_given ... ok
+test standard::orchestration::finalize::tests::pq_rotation_is_preflighted_before_header_authority_or_durability ... ok
+test standard::orchestration::finalize::tests::two_transactions_at_one_height_produce_two_distinguishable_events ... ok
+test standard::orchestration::finalize::tests::publish_experimental_recovery_artifacts_enqueues_only_witness_certificate_and_receipt_when_capsule_matches ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_commitments_change_with_transaction_bytes ... ok
+test standard::orchestration::finalize::tests::the_completion_event_has_no_publication_path_outside_the_durable_seam ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_four_of_six_gf256_shards ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_four_of_seven_gf256_shards ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_two_of_four_gf256_shards ... ok
+test standard::orchestration::finalize::tests::publish_experimental_sealed_recovery_artifacts_skips_when_a_witness_binding_is_tampered ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_three_of_five_gf256_shards ... ok
+test standard::orchestration::finalize::tests::publish_experimental_sealed_recovery_artifacts_enqueues_capsule_witness_certificates_and_receipts ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_publication_bundle_payload_from_three_of_seven_gf256_shards ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_recovered_surfaces_chain_publication_frontiers_across_two_slots ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_reconstructs_full_positive_close_surface_from_three_of_seven_gf256_shards ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_builds_and_verifies ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_builds_and_verifies_for_three_of_five_gf256 ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_builds_and_verifies_for_four_of_six_gf256 ... ok
+test standard::orchestration::finalize::tests::publish_experimental_locally_held_recovery_share_materials_enqueues_public_reveals_that_reconstruct_payload ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_builds_and_verifies_for_four_of_seven_gf256 ... ok
+test standard::orchestration::finalize::tests::publish_experimental_recovery_pipeline_enqueues_recovered_publication_bundle_after_receipts_and_reveals ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_coded_family_commitments_are_deterministic_and_input_sensitive ... ok
+test standard::orchestration::finalize::tests::experimental_multi_witness_recovery_share_material_coded_family_subset_conformance_holds_across_bounded_geometries ... ok
+test standard::orchestration::finalize::tests::classic_pq_header_authority_is_rooted_and_guardian_independent ... ok
+
+test result: ok. 54 passed; 0 failed; 0 ignored; 0 measured; 232 filtered out; finished in 1.75s
+

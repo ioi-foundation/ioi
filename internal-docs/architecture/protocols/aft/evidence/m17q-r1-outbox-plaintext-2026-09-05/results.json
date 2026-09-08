@@ -1,0 +1,29 @@
+{
+  "scope": "selected dirty-worktree sources, not immutable R2",
+  "checks": [
+    {
+      "command": "cargo test --locked -p ioi-networking --lib pq_channel",
+      "exit_code": 0,
+      "passed": 20
+    },
+    {
+      "command": "cargo test --locked -p ioi-crypto --lib pq_authenticated_channel",
+      "exit_code": 0,
+      "passed": 6
+    },
+    {
+      "command": "cargo test --locked -p ioi-networking --lib durable_outbox_enforces_record_plaintext_boundary_before_mutation",
+      "exit_code": 0,
+      "passed": 1
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0
+    },
+    {
+      "command": "bash -n .github/scripts/run_aft_m16q_qualification.sh",
+      "exit_code": 0
+    }
+  ],
+  "source_note": "Production sources unchanged after snapshot. Runner subsequently added the crypto source to its hash list; old and final hash manifests retained."
+}

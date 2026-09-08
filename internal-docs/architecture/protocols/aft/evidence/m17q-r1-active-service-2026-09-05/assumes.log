@@ -1,0 +1,1 @@
+theorem convention OK: 28 blocks; Assumes discipline (A5->T4a/T4b only, A9->T5b/T5d only, A10->T5d only), T8 probabilistic + quarantined, T1 timing-free, pairing table complete

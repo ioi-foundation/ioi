@@ -165,6 +165,10 @@ validator-bins = ["ioi-validator/validator-bins"]
 zk-gen = ["dep:sp1-sdk", "dep:alloy-primitives", "dep:alloy-trie", "dep:ssz_rs"]
 
 [[bin]]
+name = "wallet-network-local-authority"
+path = "src/bin/wallet_network_local_authority.rs"
+
+[[bin]]
 name = "generate_zk_fixtures"
 path = "src/bin/generate_zk_fixtures.rs"
 required-features = ["zk-gen"]

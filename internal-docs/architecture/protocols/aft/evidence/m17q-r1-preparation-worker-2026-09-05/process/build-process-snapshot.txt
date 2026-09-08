@@ -1,0 +1,14 @@
+2026-09-05T06:37:51.872885+00:00
+Local shared-host build snapshot; no clean performance claim.
+    PID    PPID COMMAND             ELAPSED %CPU
+3393333 3301524 rustc                 02:05  359
+2749443 2739310 hypervisor-daem       36:36  157
+3429290 3429277 python3               00:00 25.0
+   2595    2439 cosmic-comp     59-17:52:16 11.1
+2725494  101090 code               08:13:51  8.1
+1934489       1 firefox-bin      1-09:54:02  6.9
+1809156 1934823 Isolated Web Co  1-01:37:19  5.1
+ 101913  101090 code             2-23:47:19  5.1
+ 101859  101090 code             2-23:47:19  4.8
+ 178683    8089 chrome           1-11:34:26  4.8
+  26156 1934823 Isolated Web Co    15:40:10  3.3

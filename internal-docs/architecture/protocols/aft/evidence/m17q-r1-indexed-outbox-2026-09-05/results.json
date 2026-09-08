@@ -1,0 +1,37 @@
+{
+  "head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "scope": "selected dirty-worktree source copies; not immutable R2",
+  "checks": [
+    {
+      "command": "cargo test --locked -p ioi-networking --lib pq_channel",
+      "exit_code": 0,
+      "passed": 27
+    },
+    {
+      "command": "cargo test --locked -p ioi-validator --features consensus-aft --lib standard::orchestration::quv::",
+      "exit_code": 0,
+      "passed": 21
+    },
+    {
+      "command": "cargo check --locked -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo test --locked -p ioi-networking --lib protected_payload_routes_only_after_aead_and_type_agreement",
+      "exit_code": 0,
+      "passed": 1,
+      "note": "Before ancestry-only helper addition; final channel and runtime runs cover that addition."
+    },
+    {
+      "command": "bash .github/scripts/run_aft_formal_checks.sh --pq-outbox-index-only",
+      "exit_code": 0,
+      "tlaps_obligations": 9,
+      "positive_distinct_states": 79,
+      "negative_controls": 2
+    },
+    {
+      "command": "python3 .github/scripts/check_aft_pq_outbox_ancestry.py --output /tmp/quv-index-ancestry-gate",
+      "exit_code": 0
+    }
+  ]
+}

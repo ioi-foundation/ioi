@@ -1,0 +1,249 @@
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+     Running unittests src/lib.rs (target/debug/deps/agentgres-0c1f695b4e5fe2c4)
+
+running 106 tests
+test event_stream::tests::coordinate_validation_is_namespace_generic ... ok
+test event_stream::tests::capability_methods_are_distinct_permissions ... ok
+test event_stream::tests::expected_head_must_be_a_full_sha256 ... ok
+test event_stream::tests::forced_durability_failure_refuses ... ok
+test event_stream::tests::refusal_codes_are_pinned ... ok
+test mux::tests::expected_absent_refuses_foreign_same_key_occupant ... ok
+test mux::tests::expected_absent_same_key_batch_admits_exactly_one ... ok
+test consequence::tests::unsupported_resource_cannot_authorize_irreversible_at_most_once_policy ... ok
+test mux::tests::mux_domain_forks_into_single_engine_and_diverges ... ok
+test mux::tests::mux_project_domain_filters_frames ... ok
+test mux::tests::mux_recovery_replays_all_domains ... ok
+test consequence::tests::authorization_token_and_both_fence_forms_fail_closed ... ok
+test mux::tests::per_domain_roots_independent_of_interleaving ... ok
+test consequence::tests::online_effect_rechecks_height_fence_after_live_quv ... ok
+test event_stream::tests::same_key_same_bytes_replays_and_same_key_different_bytes_refuses ... ok
+test mux::tests::promotion_fences_stale_primary ... ok
+test mux::tests::catch_up_resyncs_replica_gap_then_streams_live ... ok
+test consequence::tests::online_effect_rechecks_process_local_deadline_at_claim_transition ... ok
+test mux::tests::shutdown_reports_final_flush_failure_to_caller_and_writer ... ok
+test mux::tests::quorum_label_capped_by_same_host_links ... ok
+test mux::tests::startup_recovery_discards_syntactically_valid_unrooted_batch ... ok
+test mux::tests::startup_recovery_discards_batch_with_partial_domain_root ... ok
+test mux::tests::raw_mux_admission_cannot_bypass_the_profile_spine_owner ... ok
+test mux::tests::startup_refuses_malformed_frame_without_changing_bytes ... ok
+test mux::tests::startup_refuses_oversized_length_without_changing_bytes ... ok
+test mux::tests::status_first_inspection_does_not_initialize_writer_storage ... ok
+test mux::tests::startup_refuses_semantically_invalid_frame_without_changing_bytes ... ok
+test mux::tests::strict_exact_projection_refuses_deleted_log ... ok
+test mux::tests::strict_exact_projection_refuses_malformed_json ... ok
+test mux::tests::strict_exact_projection_refuses_oversized_frame_before_allocation ... ok
+test mux::tests::strict_exact_projection_refuses_one_byte_truncation ... ok
+test consequence::tests::forged_resource_evidence_cannot_create_transferable_attribution ... ok
+test mux::tests::strict_exact_projection_refuses_unrooted_admitted_frame ... ok
+test mux::tests::writer_fsync_error_returns_typed_uncertainty_and_stops ... ok
+test mux::tests::mux_writer_combines_domains_under_concurrency ... ok
+test mux::tests::writer_exact_projection_agrees_with_admission_ack ... ok
+test mux::tests::torn_tail_is_truncated_on_recovery ... ok
+test profile::tests::canonical_profile_identities_are_exact ... ok
+test profile::tests::certificate_variants_bind_their_profile ... ok
+test mux::tests::writer_write_error_returns_typed_uncertainty_and_stops ... ok
+test profile::tests::crossed_variant_and_unknown_profile_bytes_fail_closed ... ok
+test profile::tests::direction_is_computed_from_the_exact_pair ... ok
+test profile::tests::labels_resolve_before_admission_and_never_reach_admitted_bytes ... ok
+test profile::tests::out_of_scope_ambiguous_and_unknown_labels_get_distinct_refusals ... ok
+test profile::tests::production_aft_refuses_a_checkpoint_round_quorum ... ok
+test profile::tests::production_wires_the_native_aft_binding_and_refuses_to_invent_a_quorum ... ok
+test mux::tests::writer_projection_serves_latest_payloads ... ok
+test mux::tests::sync_mode_acks_carry_device_flush_label ... ok
+test consequence::tests::clear_execution_and_duplicate_delivery_mutate_the_resource_once ... ok
+test consequence::tests::receipt_commits_intent_outcome_and_reconciliation_evidence ... ok
+test consequence::tests::query_unanimity_effect_requires_matching_immediate_online_authorization ... ok
+test mux::tests::writer_status_snapshot_is_consistent_during_append ... ok
+test consequence::tests::crash_after_external_call_recovers_by_lookup_and_never_calls_twice ... ok
+test consequence::tests::ambiguous_result_reconciles_same_key_without_blind_replay ... ok
+test recognized_effect::tests::effects_are_refused_under_a_profile_that_is_not_active ... ok
+test event_stream::tests::a_duplicate_key_n_events_back_replays_the_original ... ok
+test recognized_effect::tests::cutover_downgrade_reordering_and_duplicates_are_refused ... ok
+test consequence::tests::ambiguity_is_not_attributed_but_signed_contradiction_is_transferable ... ok
+test consequence::tests::reconciliation_is_bounded_and_never_becomes_mutation_authority ... ok
+test mux::tests::recovery_replays_one_large_safe_prefix_after_unrooted_tail ... ok
+test recognized_effect::tests::genesis_is_sealed_and_a_substituted_reopen_is_refused ... ok
+test recognized_effect::tests::no_dual_authority_interval_across_a_cutover ... ok
+test recognized_effect::tests::restart_recovers_exactly_one_eligible_writer ... ok
+test consequence::tests::runtime_traces_conform_to_the_formal_clear_and_ambiguous_paths ... ok
+test consequence::tests::claimed_online_retry_requires_a_live_fence_and_continuation ... ok
+test consequence::tests::nonexecutable_online_retry_preserves_audit_without_consuming_continuation ... ok
+test consequence::tests::permanently_stalled_seal_domain_does_not_block_unrelated_effects ... ok
+test mux::tests::replicated_ack_upgrades_durability_and_replica_root_matches ... ok
+test recognized_effect::tests::control_plane_crash_points_recover_to_exactly_one_writer ... ok
+test recognized_effect::tests::strengthening_cutover_needs_no_governance_and_refuses_stray_evidence ... ok
+test recognized_effect::tests::weakening_refuses_by_default_and_needs_the_full_inv42_burden ... ok
+test consequence::tests::online_readmission_returns_terminal_results_or_reconciles_without_reinvocation ... ok
+test recognized_effect::tests::writer_binding_requires_exact_identity_and_fence_token ... ok
+test refs::tests::event_stream_refs_are_namespace_generic ... ok
+test refs::tests::ref_formats_are_byte_identical_to_the_retired_route_formatters ... ok
+test tests::deterministic_roots_across_runs ... ok
+test tests::expected_absent_is_backward_compatible_on_the_wire ... ok
+test tests::expected_head_conflict_refuses_without_poisoning_batch ... ok
+test tests::fork_is_isolated_from_parent ... ok
+test recognized_effect::tests::weakening_rollback_must_be_executable_without_the_new_authority ... ok
+test tests::group_commit_writer_admits_under_concurrency ... ok
+test tests::recovery_replay_matches ... ok
+test consequence::tests::every_persistence_and_invocation_boundary_is_restart_safe ... ok
+test recognized_effect::tests::runtime_v3_effect_linearizes_recovers_and_replays_on_the_agentgres_spine ... ok
+test recognized_effect::tests::multiple_live_pre_cutover_processes_refresh_and_refuse_the_retired_writer ... ok
+test recognized_effect::tests::uncommitted_effect_cannot_publish_project_or_ack ... ok
+test consequence::tests::durable_pq_register_is_cross_instance_at_most_once_and_evidence_verified ... ok
+test recognized_effect::tests::control_and_effect_operations_share_one_spine_head ... ok
+test recognized_effect::tests::outbox_order_is_canonical_and_ack_cannot_leapfrog_predecessors ... ok
+test recognized_effect::tests::runtime_v3_native_aft_uses_the_production_profile_adapter ... ok
+test recognized_effect::tests::runtime_v3_preparation_refuses_every_active_writer_and_policy_substitution ... ok
+test recognized_effect::tests::torn_rooted_batch_recovers_to_no_effect_and_clean_retry ... ok
+test recognized_effect::tests::rollback_after_next_profile_effects_is_a_successor_cutover ... ok
+test recognized_effect::tests::crash_point_parser_and_record_mutations_fail_closed ... ok
+test recognized_effect::tests::availability_and_projection_substitution_are_detected ... ok
+test recognized_effect::tests::freeze_recovers_as_an_explicit_frozen_state_and_admits_nothing ... ok
+test recognized_effect::tests::the_spine_carries_effects_under_both_profiles ... ok
+test recognized_effect::tests::commit_recovery_replay_and_outbox_are_byte_identical ... ok
+test recognized_effect::tests::effects_refuse_substituted_profile_writer_epoch_fence_and_bindings ... ok
+test recognized_effect::tests::retries_conflicts_stale_heads_and_revocations_fail_closed ... ok
+test tests::oversized_legacy_log_requires_explicit_migration_without_mutating_evidence ... ok
+test mux::tests::oversized_domain_root_refuses_its_domain_without_stopping_writer ... ok
+test recognized_effect::tests::runtime_v3_crash_edges_recover_before_or_after_the_one_linearization_point ... ok
+test tests::substrate_writer_enforces_replayable_frame_limit_per_operation ... ok
+test mux::tests::exact_limit_admits_and_oversized_same_key_does_not_poison_mixed_batch ... ok
+test recognized_effect::tests::every_declared_crash_point_is_reachable_and_recovers_atomically has been running for over 60 seconds
+test recognized_effect::tests::every_declared_crash_point_is_reachable_and_recovers_atomically ... ok
+
+test result: ok. 106 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 67.09s
+

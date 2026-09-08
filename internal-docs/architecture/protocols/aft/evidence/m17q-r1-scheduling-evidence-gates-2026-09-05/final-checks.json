@@ -1,0 +1,32 @@
+[
+  {
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"negative_cases\": 21, \"positive_cases\": 1}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"negative_cases\": 26, \"overlap\": {\"negative_cases\": 26, \"positive_cases\": 1}, \"positive_cases\": 2}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,87 @@
+{
+  "recorded_utc": "2026-09-04T22:59:09.208284+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "source_sha256": {
+    ".github/scripts/run_aft_formal_checks.sh": "300744eea0b219463a535b0b4bc180bff595ed85bb6e66ab06643bc4e5e7b168",
+    ".github/scripts/run_aft_m16q_qualification.sh": "011f2d6706513029477b6edd500e48b85554b686cbd744c8c4a0afd36e99934f",
+    "crates/agentgres/src/consequence.rs": "e6e2ebfa9fa029a23074c7376d7e13f51f3aeb9e3306b86cf08224940640ed5b",
+    "crates/agentgres/src/consequence/tests.rs": "2c97b5553d30ba3e4aba607e599330d5bb0fecf2d271d6769c19fc78e65e02ec",
+    "crates/cli/tests/aft_e2e.rs": "a889a50f3b1d43b21d5c7027ab2c230f1eeef123bb9de04b738cd7d08ad9b4cc",
+    "crates/consensus/src/aft/query_unanimity.rs": "7fcb9219c24a31dbbb06b064101f1cca9d8ef104673db47e185102d21589b6eb",
+    "crates/networking/src/libp2p/mod.rs": "3af0559f837f96756f4bfd4f1ef27f9e086c39f36ac817f7ff9b557e7ad25c51",
+    "crates/networking/src/libp2p/pq_channel.rs": "a36ec4d8f43a0f1fb9752422c2e7aa811d311b6cd31afc9cd1e62f1e1348d574",
+    "crates/networking/src/libp2p/swarm.rs": "40c10e4a2dc5051e1942639fecbb1b0e69db2bb966c0d387fe3f10dd01dbd24e",
+    "crates/networking/src/libp2p/types.rs": "2b1bb18f0169ba7004bd716e33352d4510533cc8e0920add16301f96b4caedf9",
+    "crates/node/src/bin/ioi-local.rs": "e4ab6a9f5c188784405238c88c446cb0818c047e4e9cfbe39685df360969df47",
+    "crates/validator/src/standard/orchestration/events.rs": "3df4a0224d5b7338b864ab58cea068aa96324579a8597169357a11256f8e1312",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "5ec48777ca4491bc79c3f85241847845c6197c7ee1b3195e6e1ba47391d9b694",
+    "crates/validator/src/standard/orchestration/mod.rs": "d5a91772c67cb7f3b4f777e99941c76fff5f9fd1ad0418fa9b09ee8c5ea5bda2",
+    "crates/validator/src/standard/orchestration/quv.rs": "0a1ad0c2db1741e91a31e059fc44bd44afa392b118c76b838d6226ac877773da",
+    "crates/validator/src/standard/orchestration/sync.rs": "2f24c08c5619897492724e68242f31a3beffad4ef7dcf428187fecaf278e3dc3"
+  },
+  "completed_checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "consequence::tests"
+      ],
+      "exit_code": 0,
+      "passed_library_tests": 17,
+      "log": "consequence-tests.log",
+      "log_sha256": "e5fd936773679b51a222c32ef28afb15d03dbdd5b77eb32151603c1e96f9037e"
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "scope": "default features; not sufficient for QUV",
+      "log": "validator-check.log",
+      "log_sha256": "747d5cc31a5fe21378a5c36ab7442dd67852ba2f9d2cd53f3d90041f25bf68b1"
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "log": "validator-aft-check.log",
+      "log_sha256": "d12f0b956662c90c6e8a806eeaaa3d893ffc5e6734bd6d2afaabc019c380a2ba"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests"
+      ],
+      "exit_code": 0,
+      "passed_library_tests": 16,
+      "ignored_benchmarks": 1,
+      "log": "quv-core-after-claim-changes.log",
+      "log_sha256": "63cd70cfb25c6efb2708ea2f37a93dcc624540e41e99f9126420704de16ee20c"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "recorded_utc": "2026-09-05T05:24:15.667262+00:00",
+  "session_id": 98321,
+  "exit_code": 0,
+  "scope": "debug component smoke; briefly overlapped CLI compilation; not clean release timing qualification",
+  "statistics_fields": [
+    "samples",
+    "min_us",
+    "p50_us",
+    "p95_us",
+    "p99_us",
+    "max_us"
+  ],
+  "statistics": {
+    "mldsa44_sign_4096b": [
+      256,
+      1621795,
+      1769872,
+      1798851,
+      1853036,
+      1870056
+    ],
+    "durable_write_before_reply_hash_signer": [
+      256,
+      41544,
+      50090,
+      56257,
+      57535,
+      58145
+    ],
+    "durable_write_before_reply_mldsa44": [
+      256,
+      1601586,
+      1725341,
+      1777562,
+      1794192,
+      1837408
+    ]
+  },
+  "source_sha256": {
+    "crates/consensus/src/aft/query_unanimity.rs": "b4d58b0a21e4a3c0703ce60ad7849e4e09bc8673f1ec4cd41b95c75593116053",
+    "crates/consensus/src/aft/query_unanimity/head.rs": "93eadbcb8b3d957e1b9560c96c49780e1eceae8d1c9c2931370f824f216c9829"
+  },
+  "log_sha256": "f57afe773c0e8f87de49e6fa433e707ddd3a4e0c1cf84ef86f2fe3d7fdad415e"
+}

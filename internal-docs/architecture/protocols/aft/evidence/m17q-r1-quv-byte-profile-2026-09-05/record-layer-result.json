@@ -1,0 +1,6 @@
+{
+  "command": "cargo test --locked -p ioi-crypto --lib pq_authenticated_channel",
+  "exit_code": 0,
+  "passed": 7,
+  "scope": "same final crypto source and shared constants; separate focused run"
+}

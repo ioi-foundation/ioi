@@ -1,0 +1,329 @@
+// Path: crates/networking/src/libp2p/types.rs
+
+use ioi_types::app::{
+    AccountId, Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage,
+    OracleAttestation, PanicMessage, QuorumCertificate,
+};
+use ioi_types::app::{
+    AftAsyncCarrierV1, AftTimeoutCertificateV1, AftTimeoutVoteV1, FallbackStartCertificateV1,
+    TimeoutCertificate, ViewChangeVote,
+};
+// [FIX] Removed unused codec import
+use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
+// [FIX] Removed unused SyncRequest import
+use crate::libp2p::pq_channel::{PqChannelLocalConfig, PqPeerEnrollment};
+use crate::libp2p::sync::SyncResponse;
+use ioi_types::app::{QuvNonce, QuvPushQueryV0, QuvReplyV0};
+
+#[derive(Debug)]
+pub enum SwarmCommand {
+    Listen(Multiaddr),
+    Dial(Multiaddr),
+    PublishBlock(Vec<u8>),
+    PublishTransaction(Vec<u8>),
+    RelayTransactionToPeer {
+        peer: PeerId,
+        data: Vec<u8>,
+    },
+    BroadcastVote(Vec<u8>),
+    BroadcastQuorumCertificate(Vec<u8>),
+    BroadcastViewChange(Vec<u8>),
+    /// Normative PQ-only, configuration-scoped timeout vote.
+    BroadcastAftTimeoutVote(Vec<u8>),
+    BroadcastTimeoutCertificate(Vec<u8>),
+    /// Normative PQ-only, configuration-scoped timeout certificate.
+    BroadcastAftTimeoutCertificate(Vec<u8>),
+    BroadcastFallbackStart(Vec<u8>),
+    /// Broadcasts public hash-only fallback traffic over the strict PQ channel.
+    BroadcastAftAsyncOrdering(Vec<u8>),
+    /// Sends one private ASKS share to exactly one enrolled PQ peer.
+    SendAftAsyncOrdering {
+        peer: PeerId,
+        data: Vec<u8>,
+    },
+    /// Durably queues hash-only fallback traffic by rooted account identity.
+    /// This form remains safe before the account's transient peer carrier has
+    /// been discovered or its PQ session has completed.
+    QueueAftAsyncOrdering {
+        recipient: AccountId,
+        data: Vec<u8>,
+    },
+    /// Durably removes only traffic for a terminal hash-async instance. The
+    /// caller supplies the verified instance commitment after executed-block
+    /// certification; unrelated and control-plane evidence remains queued.
+    RetireAftAsyncOrdering {
+        instance_hash: [u8; 32],
+    },
+    /// Durably sends one online QUV request to one rooted member.
+    QueueQuvPushQuery {
+        recipient: AccountId,
+        data: Vec<u8>,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    /// Durably sends one online QUV reply to the requesting executor.
+    QueueQuvReply {
+        recipient: AccountId,
+        data: Vec<u8>,
+    },
+    /// Releases the one timing-lane ingress slot held by an authenticated
+    /// requester after its durable PUSHQUERY has completed or failed closed.
+    CompleteQuvPush {
+        requester: AccountId,
+        nonce: QuvNonce,
+    },
+    /// Opens a fresh, process-local verifier admission epoch. Replies are
+    /// admitted at most once per authenticated member until completion.
+    BeginQuvOperation {
+        nonce: QuvNonce,
+        response: tokio::sync::oneshot::Sender<()>,
+    },
+    /// Closes the current verifier admission epoch and discards its reply
+    /// admission set. QUV transcripts remain non-authorizing audit material.
+    CompleteQuvOperation {
+        nonce: QuvNonce,
+    },
+    /// Enables strict PQ consensus transport. Once configured, classical
+    /// vote/QC/view-change gossip and relay paths are refused.
+    ConfigurePqChannels {
+        config: PqChannelLocalConfig,
+        enrollments: Vec<PqPeerEnrollment>,
+        /// True only for a pre-active Q-EA7 successor. Such a local endpoint
+        /// can send PUSHQUERY and receive replies but has no consensus lane.
+        handoff_only: bool,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    EnrollPqPeer(PqPeerEnrollment),
+    /// Admit a staged successor on an old-root channel without granting it
+    /// any old-root payload class except QUV PUSHQUERY.
+    EnrollPqHandoffPeer(PqPeerEnrollment),
+    EstablishPqChannel(PeerId),
+
+    // Protocol Apex Commands
+    BroadcastEcho(Vec<u8>),
+    BroadcastPanic(Vec<u8>),
+    BroadcastConfidence(Vec<u8>),
+
+    // Research-only witness/audit sampling commands.
+    SendSampleRequest {
+        peer: PeerId,
+        height: u64,
+    },
+    SendSampleResponse {
+        channel: ResponseChannel<SyncResponse>,
+        block_hash: [u8; 32],
+        confidence: u32,
+    },
+
+    SendStatusRequest(PeerId),
+    SendBlocksRequest {
+        peer: PeerId,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    },
+    SendStatusResponse {
+        channel: ResponseChannel<SyncResponse>,
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
+    },
+    SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
+    BroadcastToCommittee(Vec<PeerId>, String),
+    AgenticConsensusVote(String, Vec<u8>),
+    SendAgenticAck(ResponseChannel<SyncResponse>),
+    SimulateAgenticTx,
+    GossipOracleAttestation(Vec<u8>),
+    RequestMissingTxs {
+        peer: PeerId,
+        indices: Vec<u32>,
+    },
+}
+
+#[derive(Debug)]
+pub enum NetworkEvent {
+    ConnectionEstablished(PeerId),
+    ConnectionClosed(PeerId),
+    /// The strict-PQ handshake proved that `peer` controls the rooted ML-DSA
+    /// identity for `account`. Unauthenticated status claims never emit this.
+    PqCarrierAuthenticated {
+        peer: PeerId,
+        account: AccountId,
+    },
+    GossipBlock {
+        block: Block<ChainTransaction>,
+        mirror_id: u8,
+        from: PeerId,
+    },
+    GossipTransaction(Box<ChainTransaction>),
+    ConsensusVoteReceived {
+        vote: ConsensusVote,
+        from: PeerId,
+    },
+    QuorumCertificateReceived {
+        qc: QuorumCertificate,
+        from: PeerId,
+    },
+    ViewChangeVoteReceived {
+        vote: ViewChangeVote,
+        from: PeerId,
+    },
+    AftTimeoutVoteReceived {
+        vote: AftTimeoutVoteV1,
+        from: PeerId,
+    },
+    TimeoutCertificateReceived {
+        certificate: TimeoutCertificate,
+        from: PeerId,
+    },
+    AftTimeoutCertificateReceived {
+        certificate: AftTimeoutCertificateV1,
+        from: PeerId,
+    },
+    FallbackStartReceived {
+        certificate: FallbackStartCertificateV1,
+        from: PeerId,
+    },
+    AftAsyncOrderingReceived {
+        carrier: AftAsyncCarrierV1,
+        authenticated_account: AccountId,
+        from: PeerId,
+    },
+    // Protocol Apex Events
+    EchoReceived {
+        echo: EchoMessage,
+        from: PeerId,
+    },
+    PanicReceived {
+        panic: PanicMessage,
+        from: PeerId,
+    },
+    SampleRequestReceived {
+        peer: PeerId,
+        height: u64,
+        channel: ResponseChannel<SyncResponse>,
+    },
+    SampleResponseReceived {
+        peer: PeerId,
+        block_hash: [u8; 32],
+        confidence: u32,
+    },
+    ConfidenceVoteReceived(ConfidenceVote),
+
+    StatusRequest(PeerId, ResponseChannel<SyncResponse>),
+    BlocksRequest {
+        peer: PeerId,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+        channel: ResponseChannel<SyncResponse>,
+    },
+    StatusResponse {
+        peer: PeerId,
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
+    },
+    BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
+    AgenticPrompt {
+        from: PeerId,
+        prompt: String,
+    },
+    AgenticConsensusVote {
+        from: PeerId,
+        prompt_hash: String,
+        vote_hash: Vec<u8>,
+    },
+    OracleAttestationReceived {
+        from: PeerId,
+        attestation: OracleAttestation,
+    },
+    OutboundFailure(PeerId),
+    RequestMissingTxs {
+        peer: PeerId,
+        indices: Vec<u32>,
+        channel: ResponseChannel<SyncResponse>,
+    },
+}
+
+/// Timing-critical online-authorization traffic. This has a dedicated channel
+/// and validator task so unrelated block, transaction, and operator traffic
+/// cannot occupy the queue ahead of a rooted QUV request or reply.
+#[derive(Debug)]
+pub enum QuvNetworkEvent {
+    PushQueryReceived {
+        query: QuvPushQueryV0,
+        authenticated_account: AccountId,
+        from: PeerId,
+    },
+    ReplyReceived {
+        reply: QuvReplyV0,
+        authenticated_account: AccountId,
+        from: PeerId,
+    },
+}
+
+// Internal event type for swarm -> forwarder communication
+#[derive(Debug)]
+pub enum SwarmInternalEvent {
+    ConnectionEstablished(PeerId),
+    ConnectionClosed(PeerId),
+    PqCarrierAuthenticated(PeerId, AccountId),
+    GossipBlock(Vec<u8>, PeerId, u8),
+    GossipTransaction(Vec<u8>, PeerId),
+    ConsensusVoteReceived(Vec<u8>, PeerId),
+    QuorumCertificateReceived(Vec<u8>, PeerId),
+    ViewChangeVoteReceived(Vec<u8>, PeerId),
+    AftTimeoutVoteReceived(Vec<u8>, PeerId),
+    TimeoutCertificateReceived(Vec<u8>, PeerId),
+    AftTimeoutCertificateReceived(Vec<u8>, PeerId),
+    FallbackStartReceived(Vec<u8>, PeerId),
+    AftAsyncOrderingReceived(Vec<u8>, AccountId, PeerId),
+    QuvPushQueryReceived(Vec<u8>, AccountId, PeerId),
+    QuvReplyReceived(Vec<u8>, AccountId, PeerId),
+
+    EchoReceived(Vec<u8>, PeerId),
+    PanicReceived(Vec<u8>, PeerId),
+
+    SampleRequest(PeerId, u64, ResponseChannel<SyncResponse>),
+    SampleResponse(PeerId, [u8; 32], u32),
+    ConfidenceVoteReceived(Vec<u8>, PeerId),
+
+    StatusRequest(PeerId, ResponseChannel<SyncResponse>),
+    BlocksRequest {
+        peer: PeerId,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+        channel: ResponseChannel<SyncResponse>,
+    },
+    StatusResponse {
+        peer: PeerId,
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
+    },
+    BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
+    AgenticPrompt {
+        from: PeerId,
+        prompt: String,
+        channel: ResponseChannel<SyncResponse>,
+    },
+    AgenticConsensusVote {
+        from: PeerId,
+        prompt_hash: String,
+        vote_hash: Vec<u8>,
+    },
+    GossipOracleAttestation(Vec<u8>, PeerId),
+    OutboundFailure(PeerId),
+    RequestMissingTxs {
+        peer: PeerId,
+        indices: Vec<u32>,
+        channel: ResponseChannel<SyncResponse>,
+    },
+}

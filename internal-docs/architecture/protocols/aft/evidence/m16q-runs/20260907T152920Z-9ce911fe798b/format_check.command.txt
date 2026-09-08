@@ -1,0 +1,1 @@
+[M16Q] START format_check: cargo fmt --check -p ioi-types -p ioi-crypto -p ioi-api -p ioi-services -p ioi-consensus -p ioi-networking -p agentgres -p ioi-validator -p ioi-cli 

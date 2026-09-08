@@ -1,0 +1,62 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-9-deployment-local-authority-node",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.9"
+  ],
+  "status": "verified",
+  "objective": "Replace the cargo test fixture (public 07… approver seed) as the bounded alpha's authority node with a supported deployment-local wallet.network node whose control root, capability client key and approver key are generated and custodied on the host, with documented rotation and revocation, without adding a second authority plane.",
+  "falsifiable_claim": "`wallet-network-authority.mjs up` brings up a Solo single-validator wallet.network node with generated keys (0600), issues the control root, registers the daemon's capability client and the approver, binds the approver to the deployment principal (binding v1 Active), and publishes daemon.env/serve.env; a daemon pointed at it parks a run on the operator's approval, the approval signs one grant for that challenge with the daemon's capability account as audience, the chain consumes it and the run executes with an execute receipt; `rotate` appends an Active successor binding for a new key and a run approved under it executes; `revoke` appends a Revoked successor and every later run fails closed before any harness runs; a resumed node refuses a substituted root or a mismatched approver key.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/bounded-alpha-profile.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/cli/src/bin/wallet_network_local_authority.rs",
+      "literal": "APPROVER_SCOPE_ALLOWLIST",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/wallet-network-local-authority.mjs",
+      "literal": "startLocalAuthority",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/wallet-network-authority.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs",
+      "literal": "capability_account_id_hex",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/wallet-authority.mjs",
+      "literal": "capability audience",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+      "literal": "qualifyRotationAndRevocation",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+    "docs/architecture/components/hypervisor/bounded-alpha-profile.md",
+    "docs/architecture/_meta/canon-to-code-delta.md",
+    "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Standalone drill 2026-09-07: up → status (v1 active) → rotate (v2 active, old key retired 0400) → revoke (v3 revoked) → stop → resume (chain resumed, control root verified against custodied keys, revoked head reported not re-issued) → rotate after revoke (v4 active). The journey's deployment mode asserts a run approved under the rotated key executes and a run after revocation fails closed with no execute receipt.",
+  "remaining_nonclaims": [
+    "The chain clock is the deterministic single-node clock unless --wall-clock is given.",
+    "The node's validator launcher resolves its binaries from the source checkout it was compiled in; `up` is not relocatable outside a checkout of the same revision.",
+    "No claim about hosted wallet.network, standing envelopes or external approver devices."
+  ],
+  "source_provenance": "Landed 2026-09-07 by the bounded-alpha closure program; standalone drill and the deployment-mode alpha journey are the evidence; the deployment+package alpha journey passed 43/43 (evidence file tracked) (see canon-to-code-delta.md § Journey verification XVI).",
+  "last_status_transaction": "2026-09-07"
+}

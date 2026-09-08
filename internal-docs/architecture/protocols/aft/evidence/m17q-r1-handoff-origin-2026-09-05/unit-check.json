@@ -1,0 +1,67 @@
+{
+  "status": "LOCAL_CHECKS_PASS_PROCESS_RUNNING",
+  "utc": "2026-09-05T04:04:26.123823+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::tests"
+      ],
+      "log": "checked-validator-tests.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--test",
+        "aft_e2e",
+        "--features",
+        "consensus-aft,vm-wasm,state-iavl"
+      ],
+      "log": "cli-check.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "query_unanimity"
+      ],
+      "log": "checked-consensus-tests.log",
+      "exit_code": 0
+    }
+  ],
+  "source_sha256": {
+    "crates/validator/src/standard/orchestration/quv.rs": "68bfbd65d0680b24e6cf002d74eb9784dd4a6333bb823b850853c8a3d4d19c7e",
+    "crates/consensus/src/aft/query_unanimity.rs": "dde1d1e3e80afcc4826271c68df4c707f0b5378d5f00e1dd099817dd284df6e3",
+    "crates/cli/tests/aft_e2e.rs": "77de2f29f092d5a311c7cf77500bc9d3adcfc0f2b6ae8285f136db81c005a245",
+    ".github/scripts/check_aft_quv_handoff_evidence.py": "ea762596f21ddf4a4b30b5512309180ed678460ef4f3f1d91b816e5ac85b63f3",
+    ".github/scripts/run_aft_m16q_qualification.sh": "0405218c03a282ca9c7a9e62d387e0706ff34e548e8644860c841cf5db4b9c8d",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-handoff-origin-2026-09-05/run_process_checks.py": "e2ddfd5efb966b7d9d093ca7bc205252b56afb3a8a63d70dfd6e6782657a5f51",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md": "3cfbe09f58cd3d0772711f0e3563fe2cbc77dfb47a156027a06f3e9249b861f5",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "23d728e0800e6bd3e222497403669cc3863cb60e015da383f223174f4bc679b9",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_end_to_end_theorems.md": "a799306b3770de85b3d3185a946c10f2c4737c54539688648f9f44255f3e0c79"
+  },
+  "scope": "Typed existing-gate versus fresh-live install reporting; independent source-QC verification against exact local executed boundary; post-validation member diagnostics and strict handoff evidence checks. No full R1 closure, general timing/fairness proof or clean R2 admission.",
+  "process_session_id": 12480,
+  "prior_failed_evidence": "../m17q-r1-rooted-bootstrap-2026-09-05/failed-process-analysis.json"
+}

@@ -417,6 +417,7 @@ is built (the former implementation matrix is archived).
 | GoalRunProfile, GoalRun, Goal Kernel, topology, context cells, and typed step/result seams | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`api.md`](../components/daemon-runtime/api.md) |
 | Goal Space pricing, Work Credits, Network/Open budgets | [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) | [`identity-access-and-metering.md`](../components/hypervisor/identity-access-and-metering.md), [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
 | Foundation-model supply, OpenRouter, BYOK/BYOA, route rights | [`model-router/doctrine.md`](../components/model-router/doctrine.md) | [`api-byok-mounting.md`](../components/model-router/api-byok-mounting.md), [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) |
+| Run Hypervisor yourself: install, bootstrap, a session on one harness/model, stop, recover, back up, diagnose | [`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md) | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`platform-operability.md`](../components/daemon-runtime/platform-operability.md) |
 | Hypervisor shell, Systems/Work, applications, packages, clients, sessions, adapters | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`canonical-enums.md`](../foundations/canonical-enums.md), [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`doctrine.md`](../components/daemon-runtime/doctrine.md) |
 | Project discovery, environment recipes/startup, routes, backups, restore, and provider cleanup | [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) | [`api.md`](../components/daemon-runtime/api.md), [`agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md), [`doctrine.md`](../components/daemon-runtime/doctrine.md) |
 | Type 1/2/3 substrate and HypervisorOS | [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) | [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md) |
@@ -437,6 +438,29 @@ is built (the former implementation matrix is archived).
 | Network enrollment, Standard DAS, L1, token/BME, and sparse public settlement | [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md), [`ecosystem-assurance-certification-liability.md`](../foundations/ecosystem-assurance-certification-liability.md) |
 
 ## Reader Paths
+
+### Hypervisor operator or application builder
+
+The shortest path for someone who wants to run Hypervisor, build on it, or
+qualify it — no goal-pursuit or room vocabulary is required:
+
+1. [`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md)
+   — the supported deployment, the essential journey, and what is built.
+2. [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+   § *Hypervisor Core*, § *First-Class Clients*, § *Hypervisor Sessions*.
+3. [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
+   — environments, venues, archive and restore.
+4. [`identity-access-and-metering.md`](../components/hypervisor/identity-access-and-metering.md)
+   — bootstrap, access and metering.
+5. [`api.md`](../components/daemon-runtime/api.md) and
+   [`platform-operability.md`](../components/daemon-runtime/platform-operability.md)
+   — the daemon contract, readiness, backup and diagnostics.
+6. [`canon-to-code-delta.md`](./canon-to-code-delta.md) before treating any
+   target object as built.
+
+Applications such as ioi.ai compose this platform; their own vocabulary lives
+under [`domains/ioi-ai/`](../domains/ioi-ai/collaborative-outcome-pattern.md)
+and is not a prerequisite for the path above.
 
 ### Runtime implementer
 

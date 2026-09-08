@@ -1,0 +1,38 @@
+{
+  "method": "Static scheduled-proof coverage audit of the selected flag bodies; does not claim model execution",
+  "m16_flags": [
+    "--quv-only",
+    "--quv-theorem-only",
+    "--quv-readiness-bound-only",
+    "--quv-parent-boundary-only",
+    "--consequence-t10-only",
+    "--quv-admission-order-only",
+    "--post-commit-lock-order-only"
+  ],
+  "scheduled_proofs_missing_from_these_bodies": [
+    "consequence/QuvRegistryBootstrapProof.tla",
+    "consequence/QuvQueuedEffectPreparationProof.tla",
+    "concurrency/QuvContinuationAdmissionProof.tla",
+    "consequence/QuvEffectPreparationProof.tla",
+    "consequence/QuvManifestLocatorProof.tla",
+    "consequence/ConsequenceTraceLifetimeProof.tla",
+    "consequence/QuvInstallContinuationProof.tla",
+    "outbox/QuvByteReserveProof.tla",
+    "outbox/PqOutboxIndexCommitProof.tla",
+    "outbox/PqReservedIndexProof.tla",
+    "outbox/QuvPayloadArenaCapacityProof.tla",
+    "resource_profile/QuvLifetimeBudgetProof.tla",
+    "resource_profile/QuvRecordReservationProof.tla",
+    "resource_profile/QuvAnchoredReservationProof.tla",
+    "resource_profile/QuvConflictSummaryProof.tla",
+    "guardian_majority/GuardianMajorityProof.tla",
+    "nested_guardian/NestedGuardianProof.tla",
+    "AsymptoteProof.tla",
+    "canonical_ordering/CanonicalOrderingProof.tla",
+    "common_boundary/BoundaryRingProof.tla",
+    "common_boundary/CustodyObligationProof.tla",
+    "common_boundary/MembershipTransitionProof.tla",
+    "common_boundary/ForensicAccountabilityProof.tla",
+    "common_boundary/SuccessionClockProof.tla"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "observed_utc": "2026-09-05T10:45:42.021800+00:00",
+  "sha256": {
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    ".internal/formal-cache/tools/tlaps-pre/install/bin/tlapm": "1de5983ac393658362fe61882e270b65648fa07945453e971fcf9eeabf5ec579",
+    "crates/validator/src/standard/orchestration/quv.rs": "c65e5c37285ab82357b73073e4e3931b844efdb8a4705f049886499b0f89a94c",
+    "crates/validator/src/standard/orchestration/quv/admission.rs": "f1eef70ce3c4ad4292035acfa8f468433df36bae941b3d8ef89b884883ed69cb"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "completed_utc": "2026-09-05T06:22:17.312682+00:00",
+  "disposition": "DURABLE_ROOTED_PREPARATION_RESERVATION_TESTED_WORKER_NOT_CONNECTED",
+  "member_schema": 6,
+  "handoff_schema": 3,
+  "core_passed": 38,
+  "benchmark_ignored": 1,
+  "runtime_passed": 3,
+  "cli_check": "pass",
+  "removed_rule_controls": 3,
+  "source_context": "source-context.json",
+  "remaining": [
+    "worker reservation-before-query integration",
+    "readiness and restart enforcement",
+    "aggregate fair bounded service",
+    "incremental authenticated storage and quotas",
+    "transition refinement and R1 closure",
+    "clean full R2 and immutable candidate",
+    "fresh independent review and M18Q"
+  ]
+}

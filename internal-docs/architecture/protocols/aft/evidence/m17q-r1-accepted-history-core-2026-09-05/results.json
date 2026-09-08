@@ -1,0 +1,29 @@
+{
+  "completed_utc": "2026-09-05T04:54:20.538836+00:00",
+  "disposition": "TRANSITION_PRIMITIVE_TESTED_NOT_PRODUCTION_HISTORY_ENFORCEMENT",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests"
+  ],
+  "passed": 29,
+  "ignored_benchmark": 1,
+  "removed_predecessor_control": "expected failure; source restored",
+  "source_sha256": {
+    "crates/consensus/src/aft/query_unanimity.rs": "b0748c0fe237eb7e6bc77e93fbab123a5bdbc84254126056d4a7cfc86214dc3f",
+    "crates/consensus/src/aft/query_unanimity/head.rs": "af8d9958c2bbee222f26491337e44cc81b89230020380e4ddb7b143cdbffe9a7",
+    ".github/scripts/run_aft_m16q_qualification.sh": "377fd0bfd2f669fccb3e7c9b9ec402caf743c91c54eeb30d34dfc035d94343f7"
+  },
+  "remaining": [
+    "Persist independently provisioned per-domain histories in authenticated member state",
+    "Validate expected history before member insertion and executor start",
+    "Commit accepted advancement before runtime grant delivery with finishing reservation",
+    "Implement and qualify per-member preparation, bounded retries and handoff frontier transfer"
+  ]
+}

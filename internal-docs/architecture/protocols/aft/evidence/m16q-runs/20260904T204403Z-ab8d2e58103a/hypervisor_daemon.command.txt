@@ -1,0 +1,1 @@
+[M16Q] START hypervisor_daemon: cargo build --locked -p ioi-node --bin hypervisor-daemon 

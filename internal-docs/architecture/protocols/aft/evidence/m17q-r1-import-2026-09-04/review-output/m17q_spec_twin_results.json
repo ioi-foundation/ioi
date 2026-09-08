@@ -1,0 +1,552 @@
+{
+  "basis": "written QUV state machine and theorem assumptions only",
+  "bounded_not_arbitrary_n_proof": true,
+  "bounds": {
+    "candidates": [
+      "X",
+      "Y"
+    ],
+    "clock_skew_ticks": [
+      -1,
+      1
+    ],
+    "concurrent_membership_n": [
+      2,
+      5
+    ],
+    "correct_placements": "all nonempty subsets",
+    "correct_serialization_orders": "all XY/YX products",
+    "deadline_ticks": [
+      0,
+      4
+    ],
+    "reconfiguration_old_and_new_n": [
+      2,
+      4
+    ],
+    "singleton_membership_n": [
+      2,
+      6
+    ]
+  },
+  "environment": {
+    "machine": "x86_64",
+    "pid": 2875460,
+    "platform": "Linux-6.17.9-76061709-generic-x86_64-with-glibc2.39",
+    "python": "3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]"
+  },
+  "families": [
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "zero conflicting accepts with every correct reply present",
+      "explored": 6408,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_concurrent_opposition",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "zero liveness failures for one valid candidate despite Byzantine silence",
+      "explored": 476,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_singleton_progress",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "zero failures whenever complete end-to-end time plus clock-error bound is within delta_rt",
+      "explored": 150,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_deadline_edges_and_skew",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "no reply is exposed before durable state and no restart loses exposed state",
+      "explored": 6,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_write_reply_crash_order",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "all stale and cross-context replies are rejected on every mismatch",
+      "explored": 7,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_exact_reply_binding",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "one live old-root result is durably installed before new-root activation",
+      "explored": 1250,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_live_reconfiguration",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "a conflict in one domain neither blocks nor authorizes another domain",
+      "explored": 4,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_unrelated_domain_isolation",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "at most one physical mutation across every modeled crash point",
+      "explored": 18,
+      "liveness_failures": 0,
+      "minimized_traces": [],
+      "name": "sound_t10_stable_key",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose safety and singleton-liveness failures",
+      "explored": 2,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "the sole correct member's reply is absent from both verifier inputs",
+          "Byzantine B returns singleton {X} to EX and singleton {Y} to EY",
+          "EX accepts X and EY accepts Y"
+        ],
+        [
+          "the sole correct reply is absent and all Byzantine members omit",
+          "the only valid candidate S has no admitted snapshot",
+          "singleton progress fails"
+        ]
+      ],
+      "name": "mutation_absent_correct_reply",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose safety and liveness failures when response delivery is outside delta_rt",
+      "explored": 2,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "requests X and Y reach the correct member within the one-way bound",
+          "both correct responses arrive after each verifier's deadline",
+          "selective Byzantine singleton replies make both X and Y accept"
+        ],
+        [
+          "request S is timely but the correct response is late",
+          "Byzantine members omit",
+          "S does not complete by delta_rt"
+        ]
+      ],
+      "name": "mutation_one_way_only_timing",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 0,
+      "expectation": "must expose authorization outside the rooted decision interval",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "delta_rt=4; verifier reaches tick 4 with no eligible reply",
+          "a valid singleton reply is recorded at tick 5",
+          "late-inclusive finish accepts instead of returning NoValidReplies"
+        ]
+      ],
+      "name": "mutation_accept_reply_after_deadline",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose conflicting accepts after a crash",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member exposes signed singleton {X} before durable write; EX accepts X",
+          "member crashes and loses X",
+          "member durably records Y, replies singleton {Y}; EY accepts Y"
+        ]
+      ],
+      "name": "mutation_reply_before_durable",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose conflicting accepts after durable-state rollback",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member durably records X and EX accepts X",
+          "storage and rollback anchor are restored to the pre-X image",
+          "member records Y as singleton and EY accepts Y"
+        ]
+      ],
+      "name": "mutation_rollback",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose rollback when an anchor authenticates only the prior head",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "anchor authenticates generation g and head H after X was exposed and accepted",
+          "attacker writes an unauthenticated state at g+1 with previous_head=H but erases X",
+          "restart blesses g+1, then a singleton Y reply makes EY accept Y"
+        ]
+      ],
+      "name": "mutation_unauthenticated_one_generation_recovery",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose conflicting accepts when snapshot/read is not one atomic durable transition",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "concurrent X and Y writes race without one slot linearization",
+          "EX receives singleton snapshot {X}; EY receives singleton snapshot {Y}",
+          "both executors accept"
+        ]
+      ],
+      "name": "mutation_split_write_read_atomicity",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose cross-domain replay acceptance",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member signs singleton X in context A and singleton Y in context B differing in domain",
+          "verifier omits domain from exact reply/candidate validation",
+          "both replies are reinterpreted for one logical conflict slot; X and Y both accept"
+        ]
+      ],
+      "name": "mutation_missing_domain_binding",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose cross-slot replay acceptance",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member signs singleton X in context A and singleton Y in context B differing in slot",
+          "verifier omits slot from exact reply/candidate validation",
+          "both replies are reinterpreted for one logical conflict slot; X and Y both accept"
+        ]
+      ],
+      "name": "mutation_missing_slot_binding",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose cross-root replay acceptance",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member signs singleton X in context A and singleton Y in context B differing in root",
+          "verifier omits root from exact reply/candidate validation",
+          "both replies are reinterpreted for one logical conflict slot; X and Y both accept"
+        ]
+      ],
+      "name": "mutation_missing_root_binding",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose cross-configuration replay acceptance",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member signs singleton X in context A and singleton Y in context B differing in configuration",
+          "verifier omits configuration from exact reply/candidate validation",
+          "both replies are reinterpreted for one logical conflict slot; X and Y both accept"
+        ]
+      ],
+      "name": "mutation_missing_configuration_binding",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose cross-candidate replay acceptance",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "correct member signs singleton X in context A and singleton Y in context B differing in candidate",
+          "verifier omits candidate from exact reply/candidate validation",
+          "both replies are reinterpreted for one logical conflict slot; X and Y both accept"
+        ]
+      ],
+      "name": "mutation_missing_candidate_binding",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 1,
+      "expectation": "must expose a fork when two predecessors create independent stores",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "same configuration/domain/slot: owner signs X with predecessor PX and Y with predecessor PY",
+          "correct member indexes conflict state by predecessor and no executor checks the durable expected head",
+          "the PX and PY stores each return a singleton; EX accepts X and EY accepts Y"
+        ]
+      ],
+      "name": "mutation_predecessor_is_storage_key_without_expected_head_check",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose a conflicting authorization under a different live fault/timing assignment",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "EX completes live QUV for X and saves a finite transcript",
+          "later EY treats copied bytes from another context/fault assignment as live authority",
+          "EY externalizes Y without observing the current correct state; X and Y are authorized"
+        ]
+      ],
+      "name": "mutation_cached_or_portable_acceptance",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose conflicting mutation candidates",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "executor EX performs fresh QUV and admits X",
+          "executor EY consumes a receipt/operator assertion instead of its own operation",
+          "EY admits Y; two conflicting mutation candidates exist before T10"
+        ]
+      ],
+      "name": "mutation_skipped_executor_side_quv",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 1,
+      "expectation": "must expose conflicting activation when live old-root verification is skipped",
+      "explored": 2,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "new configuration receives two copied handoff artifacts H0 and H1",
+          "old authority is unreachable, so no successor performs live old-root QUV",
+          "different successors activate conflicting roots"
+        ],
+        [
+          "old configuration has expired before every correct successor completes live verification",
+          "activation correctly cannot proceed",
+          "handoff liveness fails; bytes cannot repair it"
+        ]
+      ],
+      "name": "mutation_stale_membership_handoff",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 0,
+      "expectation": "must expose cross-domain blocking or authorization",
+      "explored": 2,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "D1 records conflicting X,Y in an unscoped member log",
+          "D2's sole valid S reads D1's conflict",
+          "D2 singleton progress is blocked"
+        ],
+        [
+          "D1 singleton reply is accepted as D2 authority because domain is unscoped",
+          "cross-domain bytes become authorizing"
+        ]
+      ],
+      "name": "mutation_unscoped_domain_state",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "must expose Q-A9/singleton-liveness loss once retained state exceeds the qualified envelope",
+      "explored": 1,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "a Byzantine rooted member serially submits valid self-signed candidates at fresh slots",
+          "the grow-only whole-store rewrite crosses the qualified latency/byte envelope",
+          "a later correct singleton request in an unrelated domain cannot durably process by delta_rt"
+        ]
+      ],
+      "name": "mutation_persistent_store_growth_without_lifetime_quota",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 0,
+      "expectation": "must expose execution claimed after its committed protocol-height fence",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "persist Authorized while height is within the manifest fence, then abort before claim",
+          "advance beyond maximum height and retry; receipt existence skips the only fence check",
+          "fresh QUV succeeds and Claimed is persisted after the manifest expired"
+        ]
+      ],
+      "name": "mutation_cached_authorized_receipt_skips_live_fence",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 0,
+      "expectation": "must expose a durable claim after process-local continuation expiry",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "consume the online token one tick before its absolute continuation deadline",
+          "discard the deadline, then spend two ticks persisting its audit receipt",
+          "Claimed is persisted one tick after expiry because the claim transition has no clock check"
+        ]
+      ],
+      "name": "mutation_continuation_checked_only_before_claim",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "must expose unrelated-domain starvation before terminal-state rejection",
+      "explored": 1,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "replay a valid candidate for an already Executed receipt",
+          "run a complete delta_rt QUV while the sole global verifier slot is occupied",
+          "reject WrongState only afterward; an unrelated singleton operation cannot start"
+        ]
+      ],
+      "name": "mutation_terminal_receipt_replay_holds_global_verifier",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "must expose permanent singleton-progress loss without operation retirement",
+      "explored": 1,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "a configured Byzantine recipient never ACKs distinct nonce-bearing QUV requests",
+          "completed and aborted operations do not retire its durable records; the finite queue fills",
+          "the next operation aborts on that recipient before delivery to the sole correct member"
+        ]
+      ],
+      "name": "mutation_silent_recipient_fills_quv_outbox",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "must expose loss of the sole correct reply after crash/reconnect replay",
+      "explored": 1,
+      "liveness_failures": 1,
+      "minimized_traces": [
+        [
+          "an old correct-member reply is first after a new operation begins and consumes its account lane",
+          "transport ACKs it before the application rejects its stale nonce",
+          "the current reply is duplicate-dropped and ACK-deleted; no correct reply reaches the verifier"
+        ]
+      ],
+      "name": "mutation_stale_record_consumes_current_member_lane",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 1,
+      "conflicting_accepts": 0,
+      "expectation": "must expose authorization when durable receipt bytes replace committed admission",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "an effect ID E has committed manifest M, but ordinary storage is replaced with a canonical self-consistent Authorized receipt for unadmitted M' under E's filename",
+          "receipt validation recomputes only unkeyed hashes; the executor skips committed authorization because E exists and derives its QUV requirement from M'",
+          "a fresh valid QUV result for M' invokes the external resource with M' even though Agentgres admitted only M"
+        ]
+      ],
+      "name": "mutation_unkeyed_consequence_receipt_substitutes_unadmitted_manifest",
+      "physical_duplicates": 0
+    },
+    {
+      "binding_failures": 0,
+      "conflicting_accepts": 0,
+      "expectation": "must expose duplicate physical mutation after ambiguous crash",
+      "explored": 1,
+      "liveness_failures": 0,
+      "minimized_traces": [
+        [
+          "external call mutates resource before a durable InFlight/claim record",
+          "executor crashes before recording the response",
+          "restart blindly calls again; physical mutation count becomes two"
+        ]
+      ],
+      "name": "mutation_t10_call_before_claim",
+      "physical_duplicates": 1
+    }
+  ],
+  "model": "m17q-independent-spec-twin-v1",
+  "production_imports": false,
+  "source": {
+    "path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-output/m17q_spec_twin.py",
+    "sha256": "2dbb89bb13bacd767804476d88178ae1dca335ca20a51b8b63798c4d961026af"
+  },
+  "summary": {
+    "families": 33,
+    "negative_mutations_witnessed": 25,
+    "sound_conflicting_accepts": 0,
+    "sound_liveness_failures": 0,
+    "states_explored": 8348
+  }
+}

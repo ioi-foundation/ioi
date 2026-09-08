@@ -4,10 +4,11 @@ Status: canonical implementation index.
 Canonical owner: this file for the object-level delta between the foundational bounded-DAS, institutional-learning-boundary, collaborative-pursuit, federated-ontology, and embedded wallet-authority canon and what the code durably implements today, and for the deferred application-UX backlog that replaced the former surface-by-surface implementation queue.
 Supersedes: the PR68 operational-depth queue as an implementation SEQUENCE (its audit evidence remains valid and referenced); ad hoc "what do we build next" lists in plans.
 Superseded by: none.
-Last alignment pass: 2026-09-04 (ADR 0051 decentralized.cloud public-face,
-supply-registry, and routing-receipt rows added as not-started targets; the
-2026-08-30 Machine Authority and SCM rows and all earlier rows retain their
-measured bases).
+Last alignment pass: 2026-09-05 (deferred OCI workload-source capability recorded;
+ADR 0051 decentralized.cloud public-face, supply-registry, and routing-receipt
+rows added as not-started targets; Machine Authority category/profile ownership
+and the qualified SCM governed-effect evidence retain their 2026-08-30 basis;
+earlier rows retain their measured bases).
 Doctrine status: canonical
 Implementation status: mixed (each row carries its own state; most target objects are not started — that is the point of this file)
 Last implementation audit: 2026-08-30 (targeted authority-profile and live SCM
@@ -192,6 +193,51 @@ Two rules keep this from becoming a source of conflation:
 | OutcomeRoom hosted versus `federated_admission` ownership in the runtime | [`objects/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md) | the two-node distributed proof begins |
 | Session / WorkRun / GoalRun / room boundary as enforced object identity, not only documented boundary | [`term-boundaries.md`](../foundations/term-boundaries.md) | partially landed through M04.7: shared work-lifecycle persistence binds GoalRun creation and hosted OutcomeRoom creation through separate owner gates; WorkRun and the remaining owners resume at their legal mutation boundaries |
 | M-sequencer program-state refresh after `CANON_BASIS_FILES` changed | `scripts/lib/m0-program-control-model.mjs` | next sequencer leg |
+
+## Deferred: OCI workload source to governed environment execution
+
+Status: deferred candidate capability; end-to-end acceptance not established.
+Canon owner: [workload sources and runtime reuse](../components/hypervisor/providers-and-environments.md#workload-sources-and-runtime-reuse).
+Priority is pulled by a concrete workload or customer journey requiring OCI
+input. This entry does not reorder the foundational build sequence or establish
+a Docker replacement, generic orchestrator, or container-runtime program.
+
+Current implementation evidence (source review, 2026-09-05):
+
+- `crates/node/src/bin/hypervisor_daemon_routes/recipe_routes.rs` detects
+  Dockerfile/devcontainer inputs; the recipe owner's registered-contract notes
+  record the narrower produced shape and missing canonical admission lineage.
+- `crates/node/src/bin/hypervisor_daemon_routes/microvm.rs` contains Cloud
+  Hypervisor, Firecracker, and QEMU boot paths using pinned guest components.
+  The documented hostile-guest proof is local and profile-specific.
+- `crates/cli/src/testing/backend.rs` consumes Docker through `DockerBackend`.
+  This is test infrastructure, not evidence of governed OCI environment launch.
+
+These are implementation precedents. They do not establish an admitted,
+digest-bound OCI image-to-environment execution contract. No end-to-end OCI
+verification was run for this entry.
+
+When pulled, implement and verify in this order:
+
+1. Resolve OCI input through an existing image implementation to immutable,
+   platform-specific content and retained configuration/provenance. Bind it
+   through the owning recipe/resolution contracts; reject unavailable or
+   mismatched content and prevent mutable-tag substitution after admission.
+2. Launch one declared workload profile on one existing VM backend through the
+   owning startup, isolation, authority, and lifecycle contracts. Declare limits
+   for image platforms, command semantics, networking/ports, mounts, persistence,
+   and resources; refuse unsupported requirements before launch.
+3. Prove the actual workload's readiness, command completion, logs/artifacts,
+   stop and cleanup, and recovery after daemon restart. Verify refusal without
+   execution for invalid authority or image/configuration bindings, and preserve
+   typed reconciliation and cleanup obligations after partial failure. Gate
+   capability claims on this bounded end-to-end evidence.
+4. Add a convenient CLI run verb over that implemented contract. Familiar
+   ergonomics do not promise Docker flag, API, or Compose compatibility.
+5. Add Dockerfile builds only when demanded, using an existing builder and a
+   separately governed build with exact context/configuration, credential/network
+   policy, isolation, and output-image evidence. Feed its result into the same
+   OCI path rather than adding a parallel launch or authority path.
 
 ## Deferred application-UX backlog (replaces the PR68 queue)
 
@@ -1138,9 +1184,34 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 > The 119-script/3,328-call-site census remains valid at its pinned commit
 > `36ca2b9a4`.
 
+### Journey verification XV (2026-09-07, bounded-alpha program — the platform/application boundary propagated, the session authority profile enforced at admission, canonical routes serving their lanes, and the operator approving exact effects)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **The base-platform alpha became its own acceptance class** ([ADR 0052](../../decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md); owner [`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md)). The flagship first-proof ruling is scoped to the flagship class; the Hypervisor operator reader path precedes the stack-wide paths; the ioi.ai orchestration API catalog, the GoalRun admission-path decision, the GoalRun Profiles surface and the OutcomeRoom read model moved to `domains/ioi-ai/` by move, not rename; the Work queue/item/run forms reference application subjects only through `subject_attachments`. | `npm run check:architecture-docs` (181 files, 11 rules) · `npm run check:architecture-contracts` | landed |
+| **`HypervisorSession.authority_profile` is a durable, closed, default-empty set of connection refs validated at create and enforced at `POST /v1/hypervisor/connectors/:id/invoke` when the body names `session_ref`** — typed 403 `session_authority_out_of_profile` with a durable refusal receipt, before org policy, principal scope and the wallet crossing; in-profile invocations reach the ordinary authority challenge with the session folded into the request hash; deletion fences; the profile and the refusal survive a daemon kill + restart. The serve forwards the operator's selection from the New Session modal's closed picker. | `npm run check:session-authority-profile --workspace=@ioi/hypervisor-app` (21/21, CI-gated, floor-pinned) · `check:session-authority` 24/24 · `check:launch-chain` 58/58 | landed (M13.1/M13.2) |
+| **Canonical routes serve their lanes.** `/work`, `/work/sessions`, `/systems`, `/applications`, `/environments`, `/operations`, `/developer-console` serve their owned lane documents at the canonical route with the canonical ownership marker and headers; `/home`, `/work/new-session`, `/sign-in` redirect to the lanes the serve cannot wrap; `/settings` and reserved routes render a landing with next actions. Build waves, build state, retirement history and source-file names left every product screen for the developer route ledger at `/__ioi/route-ledger`. | `npm run test:hypervisor-route-shell` (17/17) · `check:app-runtime-safety` 32/32 · `check:shell-parity` 6/6 · `check:landing-designations --exit-gate` 10/10 · `smoke:product-surfaces` (hypervisor, light) — see the note below | landed (ADR 0052 Decision 5) |
+| **First-run identity and operator approval.** The sign-in page is the operator bootstrap while no operator exists (token + the operator's own name, email and password; one-shot; the daemon accepts and validates `name`/`email`). A run that needs execution authority parks on the operator's decision when a deployment-local approver key is configured (`IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH`); Work / Sessions shows the exact effect and its policy/request commitments with Approve / Deny; approving signs that one challenge, denying mints nothing. The dev test signer and the external-wallet parked state are unchanged. | `npm run check:alpha-journey --workspace=@ioi/hypervisor-app` (on demand); the no-authority run's evidence is tracked at [`evidence/m13-alpha-journey-no-authority-2026-09-07.v1.json`](./evidence/m13-alpha-journey-no-authority-2026-09-07.v1.json) (23/24; the red is the backup sub-verifier's pre-existing census drift). The run lane also fails CLOSED with the daemon's typed code when no authority node is configured, instead of parking a run that could never be approved | landed; the authority-node (fixture-mode) qualification of approval + execution is OPEN — six attempts on 2026-09-07 were blocked by the wallet.network test fixture on a loaded host (see the profile's program-evidence table for the closure test) |
+| **Latent browser-smoke contract drift surfaced and repaired.** The GRE-2 redirect transfers (2026-08-20) and the family splash landings had never been declared to the smoke, and the first failure masked the rest; the smoke now declares transfer targets, family landing titles, and rewrite headings, and the family landings stamp the registry/route-ledger owner instead of a display title. | `IOI_PRODUCT_SMOKE_PRODUCT=hypervisor IOI_PRODUCT_SMOKE_MODE=light npm run smoke:product-surfaces` | repaired |
+| **Pre-existing master red, not this program's:** `npm run check:shipped-products` fails because `apps/decentralized-cloud` is an undispositioned executable workspace (merged 2026-09-07 by the decentralized-cloud program; the register was not updated). The CI job that runs the smoke runs after it and is red for that reason. | `npm run check:shipped-products` | open — owner: the decentralized-cloud program (register a disposition for `apps/decentralized-cloud`) |
+| **Remaining alpha blockers (closure tests in the profile's matrix):** no packaged release / signer / supply-chain evidence (step 1); no update/rollback of the release (step 12); the authority node used in qualification is the wallet.network test fixture with a public approver seed (a real deployment needs a generated key and a documented node bring-up); host_spawn is the only qualified venue. | [`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md) § *Release qualification* | open |
+
+### Journey verification XVI (2026-09-07, bounded-alpha closure program — the blocked qualification's two root causes found and fixed, the authority node replaced by a deployment bring-up with generated keys, the release packaged and updatable/rollbackable through admitted change plans, the session panes bound to daemon truth, and the journey passed 43/43 on the packaged release)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Root cause 1 — the wallet.network fixture's blocks were topology, not load alone:** the fixture's default ordering profile is the four-validator AFT (ML-DSA classic-BFT) cluster of debug binaries, so every setup transaction needed a BFT commit across four starved validators. The alpha names ONE deployment-local node; the journey now starts the fixture in the Solo single-validator profile and it converged (readiness 416 s including a one-time node build). | `check:alpha-journey` fixture mode 25/29 (the reds were root cause 2) | fixed |
+| **Root cause 2 — the operator's approved grant could never be consumed:** the local approver minted with no `audience` (wallet.network consumes only when the audience is the consuming signer), and even with the audience the daemon's preflight found no state for the grant because the approval decision was never RECORDED on the node. The execute challenge now carries `approval.audience` (the daemon's capability account) and `approval.target_scope`; the approval act mints one one-use grant and records it on the node (`wallet-network-local-authority record-approval`, or the fixture's command directory) before the execute resumes; an unconfigured recorder refuses the approval. | direct reproduction (record committed, execute proceeded); deployment-mode journey step 6 `done` with an execute receipt binding the lease | fixed (`ced3f1b9c`, `a1bf94cbc`) |
+| **The deployment-local authority node replaces the test fixture for qualification.** `wallet-network-local-authority serve|rotate|revoke|status|record-approval` + `wallet-network-authority.mjs`: generated, operator-custodied keys (0600), durable Solo chain that resumes and refuses a substituted root, pinned TLS front, `daemon.env`/`serve.env`; the approver's allowlist is exactly `scope:hypervisor.live-route.*`. No second authority plane. | standalone drill (v1 → rotate v2 → revoke v3 → resume → rotate v4); journey steps 2b, 2c-rotation (second run executes under the new key), 2c-revocation (third run fails closed) | landed (`15b19290f`; M03.9 record verified) |
+| **Packaged release + admitted update/rollback.** `package-hypervisor-alpha-release.mjs` (signed manifest, per-file digests, SBOM, prerequisites incl. the typed absence), `install.mjs` (pinned signer, immutable installs, symlink activation, rollback), and the daemon's `release-change-plans` (admit with self-digest, refuse no-op/double, observe by self-digest, receipts). | `test:hypervisor-alpha-release` 4/4; journey package mode: step 1 (installed bytes under test), step 12 update completed + rollback completed, both observed by the daemon's own digest | landed (`f4e3e9907`; M12.2 record verified) |
+| **M13.4 session truth-rebind.** The SPA session pane's Run Timeline is bound to the daemon session record, its receipts and its events; the parked approval is decidable from the session it was submitted in; `/__ioi/sessions` stays the Operations readout. | `check:session-truth-rebind` 11/11; journey steps 6 (awaiting card on the pane) and 7 (proof band names the execute receipt with its lease) | landed (`64f114287`) |
+| **Inherited reds repaired.** `check:shipped-products` green (decentralized-cloud dispositioned at `development_only`, owner may refine); backup/restore census covers the two newer snapshot families → 76/76 for the right reason. | `check:shipped-products` · `test:shipped-products` 23/23 · `check:backup-restore` 76/76 | repaired (`d9e9da0f5`, `e0cba7871`) |
+| **Verdict recorded in the profile:** release-qualified for the bounded profile exactly as stated; bounded properties: debug cargo profile, authority-node launcher not relocatable outside a checkout, v2 differs from v1 only by crate version, loaded qualification host. Register posture stays `development_only` until the relocatability closure test passes. | [`evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json`](./evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json) 43/43 | ruled (owner-reversible) |
+| **Observed outside this program, not acted on:** 13 files under `apps/decentralized-cloud/docs/` were deleted in the primary working tree at 20:10:58 on 2026-09-07 by another actor (this program never touched that path); left untouched for the decentralized-cloud program. | `git status` | open — owner: the decentralized-cloud program |
+
 ## Related Canon
 
-- [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
+- [`work-items/`](./work-items/) — the machine-checked work-item status records this ledger pairs with (the former implementation matrix is an archived stub).
 - [`execution-horizons.md`](./execution-horizons.md) — horizon framing + the contract-first build sequence.
 - [`source-of-truth-map.md`](./source-of-truth-map.md) — subject-to-owner map.
 - [`../foundations/institutional-learning-boundary.md`](../foundations/institutional-learning-boundary.md) — enterprise-owned learning compiler, portability, and model-independence owner.

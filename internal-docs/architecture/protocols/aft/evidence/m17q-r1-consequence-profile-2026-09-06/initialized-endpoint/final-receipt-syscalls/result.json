@@ -1,0 +1,7 @@
+{
+  "issued_order": true,
+  "missing_allocation_rejected": true,
+  "missing_initialization_rejected": true,
+  "missing_live_sync_rejected": true,
+  "live_truncation_rejected": true
+}

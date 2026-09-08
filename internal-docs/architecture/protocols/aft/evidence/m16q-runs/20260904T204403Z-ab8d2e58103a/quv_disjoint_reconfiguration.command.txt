@@ -1,0 +1,1 @@
+[M16Q] START quv_disjoint_reconfiguration: cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_quv_disjoint_successors_install_live_handoff_before_activation -- --nocapture 

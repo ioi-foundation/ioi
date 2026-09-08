@@ -1,0 +1,36 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2021",
+      "crates/types/src/app/query_unanimity.rs",
+      "crates/types/src/config/mod.rs",
+      "crates/consensus/src/aft/query_unanimity.rs",
+      "crates/validator/src/standard/orchestration/quv.rs",
+      "crates/cli/src/testing/cluster.rs",
+      "crates/cli/tests/aft_e2e.rs"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "output": ""
+  }
+]

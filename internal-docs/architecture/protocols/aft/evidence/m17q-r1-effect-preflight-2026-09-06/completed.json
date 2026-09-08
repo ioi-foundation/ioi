@@ -1,0 +1,6 @@
+{
+  "completed": "2026-09-06T05:00:04.211051+00:00",
+  "source_changes": [],
+  "passing": true,
+  "scope": "scoped preparation guard refinement; process regression compiled but not run; aggregate admission/profile/full transition refinement/R2/review outstanding"
+}

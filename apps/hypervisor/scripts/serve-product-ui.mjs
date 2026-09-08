@@ -26,7 +26,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
-import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
+import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
@@ -36,7 +36,7 @@ import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./moni
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { compileProductSurfaces } from "./surface-compiler.mjs";
-import { bindSurface, boundSurface, boundActionRoute, canonicalSurfaceRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
+import { SURFACES, bindSurface, boundSurface, boundActionRoute, canonicalSurfaceRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
 import { canonicalTimelineRef, escHtml, GRE1_LIGHT, GRE1_LIGHT_BODY_CSS } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
@@ -44,7 +44,7 @@ import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
-import { resolveV2Route, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
+import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -278,9 +278,17 @@ const LOOPBACK_REMOTE_ADDRESSES = new Set([
 // adjudicates as unauthenticated rather than as an operator.
 function daemonFetch(pathOrUrl, init = {}) {
   const req = init.req || reqCtx.getStore()?.req || null;
+  // Header names are case-insensitive on the wire but not in an object spread: a handler that
+  // re-encodes a browser form post as JSON sets `Content-Type` while the ambient request carries
+  // `content-type: application/x-www-form-urlencoded`, and both keys reached the daemon (the
+  // form type first → axum answered 415 Unsupported Media Type). Normalize the handler's keys to
+  // lowercase so an explicit header always REPLACES the ambient one.
+  const explicit = Object.fromEntries(
+    Object.entries(init.headers || {}).map(([name, value]) => [String(name).toLowerCase(), value]),
+  );
   const headers = {
     ...(req ? daemonRequestHeaders(req, { includeContentType: Boolean(init.body) }) : {}),
-    ...(init.headers || {}),
+    ...explicit,
   };
   const { req: _drop, ...rest } = init;
   const url = String(pathOrUrl).startsWith("http") ? pathOrUrl : `${DAEMON}${pathOrUrl}`;
@@ -377,6 +385,7 @@ function internallyOwnedManagedRoute(req, pathname) {
   const exactEnvironmentRunRead = /^\/__ioi\/env-latest-run\/[^/]+$/.test(pathname);
   const exactRunPublish = /^\/__ioi\/run-publish\/[^/]+$/.test(pathname);
   return pathname === "/__ioi/login" ||
+    pathname === "/__ioi/bootstrap" ||
     pathname.startsWith("/__ioi/login/sso/") ||
     pathname.startsWith("/__ioi/invite/") ||
     pathname === "/__ioi/logout" ||
@@ -1482,7 +1491,32 @@ function renderCodeRepositories(projectsRes, scmRes, publicationEffects) {
 // demos). Session lifecycle FACTS over the daemon records: lifecycle chips with counts, each
 // session's admitted harness binding (selection is session truth, not UI state), its environment
 // join with phase, and the owned proof affordances. List-first slice; no mutation lanes here.
-function renderSessionsRoot(sessionsRes, envSummary) {
+// Awaiting-approval block for the Sessions surface (ADR 0052; the deployment-local approver).
+// Renders each parked run's EXACT effect — the session, the intent, the daemon's required scopes
+// and its policy/request commitments — with Approve / Deny forms. The facts come from the daemon's
+// own challenge recorded on the run; the page paraphrases nothing and mints nothing itself.
+function renderAwaitingApprovals(pendingRuns, returnTo) {
+  const enc = encodeURIComponent;
+  if (!pendingRuns || !pendingRuns.length) return "";
+  const cards = pendingRuns.map((run) => {
+    const p = run.pendingApproval || {};
+    const scopes = (p.required_scopes || []).map((s) => `<code style="font-size:11px">${CX_ESC(s)}</code>`).join(" ") || "—";
+    return `<div class="card" data-ioi-awaiting-approval="${CX_ESC(run.id)}"><div class="main">
+      <div class="name">Approve this run?<span class="pill warn">awaiting your approval</span></div>
+      <div class="meta" style="margin-top:6px"><b>What it will do</b>: ${CX_ESC(p.intent || run.prompt || "")}</div>
+      <div class="meta"><b>Where</b>: session <code style="font-size:11px">${CX_ESC(p.session_ref || run.sessionRef || "")}</code>${run.envId ? ` · environment <code style="font-size:11px">${CX_ESC(run.envId)}</code>` : ""}</div>
+      <div class="meta"><b>Authority it needs</b>: ${scopes} — a host process in this session's workspace, no connections beyond the session's profile</div>
+      <div class="meta"><b>Exact commitments</b>: policy <code style="font-size:10.5px">${CX_ESC(p.policy_hash || "")}</code> · request <code style="font-size:10.5px">${CX_ESC(p.request_hash || "")}</code></div>
+      <div class="meta">Requested ${CX_ESC(p.requested_at || run.updatedAt || "")} · <a href="/__ioi/run-timeline/env/${enc(run.envId || "")}" target="_blank" rel="noopener">timeline ↗</a></div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <form method="post" action="/__ioi/runs/${enc(run.id)}/approve"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}"><button class="act" type="submit">Approve and run</button></form>
+        <form method="post" action="/__ioi/runs/${enc(run.id)}/deny"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}"><input name="reason" placeholder="reason (optional)" style="background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px"> <button class="act ghost" type="submit">Deny</button></form>
+      </div></div></div>`;
+  }).join("");
+  return `<h2 style="margin-top:4px">Waiting for your approval</h2><p class="sub">Each card is one exact effect the daemon refused to run without your decision. Approving signs that one request with the deployment approver key; denying runs nothing.</p>${cards}`;
+}
+
+function renderSessionsRoot(sessionsRes, envSummary, pendingRuns = [], returnTo = "/work/sessions") {
   const enc = encodeURIComponent;
   const sessions = ((sessionsRes || {}).sessions || []).slice().sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
   const envPhase = {};
@@ -1505,7 +1539,7 @@ function renderSessionsRoot(sessionsRes, envSummary) {
     ${sessions.length ? `${chips}<table><thead><tr><th>Session</th><th>Lifecycle</th><th>Admitted binding</th><th>Environment</th><th>Open</th></tr></thead><tbody id="sess-body">${rows}</tbody></table><div class="empty" id="sess-empty" style="display:none">No sessions in this state.</div>
     <script>function ssChip(b){document.querySelectorAll('#sess-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-ss');var n=0;document.querySelectorAll('#sess-body tr').forEach(function(r){var on=!w||r.getAttribute('data-ss')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('sess-empty').style.display=n?'none':'';}</script>`
     : `<div class="empty">No sessions yet — launch one from the rail's New Session and it appears here with its admitted binding.</div>`}`;
-  return automationsShell("Sessions", inner);
+  return automationsShell("Sessions", `${renderAwaitingApprovals(pendingRuns, returnTo)}${inner}`);
 }
 
 function renderApplications(compiled) {
@@ -7059,7 +7093,7 @@ const RUN_TIMELINE_HTML = `<!doctype html>
     var root=document.getElementById("rt-root"); root.textContent="";
     if(!tl){ root.appendChild(el("div","rt-error","Run not found.")); return; }
     ensureComposer();
-    var statusCls = tl.status==="done"?"rt-done":(tl.status==="failed"?"rt-failed":(tl.status==="running"?"rt-running":""));
+    var statusCls = tl.status==="done"?"rt-done":(tl.status==="failed"?"rt-failed":(tl.status==="running"||tl.status==="awaiting_operator_approval"?"rt-running":""));
 
     var head=el("div","rt-head");
     var left=el("div");
@@ -7177,6 +7211,36 @@ const RUN_TIMELINE_HTML = `<!doctype html>
       // 5) Proof (governance audit trail)
       var pf=turn.proof||{};
       var s5=el("div"); s5.appendChild(label(5,"Proof"));
+      // The parked operator decision — the exact effect and its commitments, decided HERE, from
+      // the session the run was submitted in (M13.4). Approve signs exactly this challenge.
+      var ap=turn.approval||null;
+      if(ap){
+        var apc=el("div","rt-proof"); apc.setAttribute("data-ioi-run-approval", ap.state||"");
+        var apkv=el("dl","rt-kv");
+        apkv.appendChild(el("dt",null,"operator decision")); apkv.appendChild(el("dd",null, ap.state==="awaiting" ? "AWAITING YOUR APPROVAL — the run will not execute until you decide" : ("decided: "+(ap.decision||ap.state)+(ap.decidedAt?" at "+ap.decidedAt:""))));
+        apkv.appendChild(el("dt",null,"exact effect")); apkv.appendChild(el("dd",null,(ap.kind||"session_execute")+" in "+(ap.sessionRef||"?")+" — "+trunc(ap.intent||"",160)));
+        apkv.appendChild(el("dt",null,"policy hash")); apkv.appendChild(el("dd",null,trunc(ap.policyHash||"",32)));
+        apkv.appendChild(el("dt",null,"request hash")); apkv.appendChild(el("dd",null,trunc(ap.requestHash||"",32)));
+        if(ap.audience){ apkv.appendChild(el("dt",null,"grant audience")); apkv.appendChild(el("dd",null,trunc(ap.audience,24)+" (this daemon's wallet account)")); }
+        if((ap.requiredScopes||[]).length){ apkv.appendChild(el("dt",null,"scopes")); apkv.appendChild(el("dd",null,ap.requiredScopes.join(", "))); }
+        apc.appendChild(apkv);
+        if(ap.state==="awaiting"&&ap.approveUrl){
+          var apacts=el("div","rt-acts");
+          var decide=function(url,labelText){ var b=el("button","rt-act",labelText); b.addEventListener("click",function(){ b.disabled=true; b.textContent=labelText+"…"; fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(function(r){return r.json();}).then(function(d){ b.textContent = d&&d.ok ? labelText+" ✓" : "Refused: "+((d&&d.error&&d.error.code)||"unknown"); setTimeout(load,600); }).catch(function(){ b.disabled=false; b.textContent=labelText; }); }); return b; };
+          apacts.appendChild(decide(ap.approveUrl,"Approve and run"));
+          apacts.appendChild(decide(ap.denyUrl,"Deny"));
+          apc.appendChild(apacts);
+        }
+        s5.appendChild(apc);
+      }
+      // The session as the DAEMON holds it, and the receipts the record names (daemon truth).
+      if(pf.session){
+        var sc=el("div","rt-proof"); sc.setAttribute("data-ioi-session-truth", pf.session.ref||""); var skv=el("dl","rt-kv");
+        skv.appendChild(el("dt",null,"session")); skv.appendChild(el("dd",null,(pf.session.ref||"?")+" · "+(pf.session.lifecycleState||"?")+" (daemon record)"));
+        (pf.daemonReceipts||[]).forEach(function(r){ skv.appendChild(el("dt",null,"receipt")); skv.appendChild(el("dd",null,(r.kind||"?")+" · "+(r.status||r.exitStatus||"")+(r.capabilityLeaseRef?" · lease "+trunc(r.capabilityLeaseRef,40):"")+" · "+trunc(r.id||"",48))); });
+        if(!(pf.daemonReceipts||[]).length){ skv.appendChild(el("dt",null,"receipts")); skv.appendChild(el("dd",null,(pf.session.latestReceiptRefs||[]).length? String(pf.session.latestReceiptRefs.length)+" named on the record (not readable)" : "none on the record yet")); }
+        sc.appendChild(skv); s5.appendChild(sc);
+      }
       if(pf.authority||pf.proposalRefs&&pf.proposalRefs.length||pf.receipts&&pf.receipts.length||pf.leaseRef||pf.stateRoot){
         var card=el("div","rt-proof"); var kv=el("dl","rt-kv");
         if(pf.stateRoot){ kv.appendChild(el("dt",null,"state root")); kv.appendChild(el("dd",null,pf.stateRoot+" · durable")); }
@@ -7259,7 +7323,7 @@ const RUN_TIMELINE_HTML = `<!doctype html>
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(tl){
         render(tl);
-        if(tl && (tl.status==="running"||tl.status==="waiting")) setTimeout(load, 1500);
+        if(tl && (tl.status==="running"||tl.status==="waiting"||tl.status==="awaiting_operator_approval")) setTimeout(load, 1500);
       })
       .catch(function(){ setTimeout(load, 2500); });
   }
@@ -7605,6 +7669,33 @@ ${ssoButtons ? `<div class="div"><span>or</span></div>${ssoButtons}` : ""}
 </form></body></html>`;
 }
 
+// Owned first-run bootstrap surface — the sign-in page while the deployment has no operator yet.
+// The token is the daemon's one-boot credential (printed to its log); the operator names
+// themselves; the daemon mints the operator session. No identity is fabricated by the page.
+function bootstrapShell(error) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set up · IOI Hypervisor</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:#0b0c0f;color:#e7e9ee;display:flex;min-height:100vh;align-items:center;justify-content:center}
+.card{width:400px;background:#15171c;border:1px solid #262a33;border-radius:14px;padding:28px}
+.brand{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a90a0;margin-bottom:6px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:#8a90a0;font-size:13px;margin-bottom:14px;line-height:1.5}label{display:block;font-size:13px;color:#aeb4c2;margin:12px 0 5px}
+input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;background:#0e1014;color:#e7e9ee;font-size:14px}
+button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.err{margin-top:14px;color:#ff9b9b;font-size:13px}.hint{margin-top:16px;color:#6a7080;font-size:12px;line-height:1.5}
+code{font-family:ui-monospace,monospace;font-size:12px;color:#c9ccd4}
+</style></head><body><form class="card" method="POST" action="/__ioi/bootstrap" data-ioi-first-run="1">
+<div class="brand">IOI Hypervisor</div><h1>Set up the operator account</h1>
+<div class="sub">This deployment has no operator yet. Enter the one-time bootstrap token the daemon printed when it started (the line beginning <code>ioi_bootstrap_</code>), then choose how you sign in.</div>
+<label>Bootstrap token</label><input name="token" autocomplete="off" autofocus placeholder="ioi_bootstrap_…" required>
+<label>Your name</label><input name="name" autocomplete="name" placeholder="Operator name">
+<label>Email (used to sign in)</label><input name="email" type="email" autocomplete="username" placeholder="you@example.com" required>
+<label>Password (at least 8 characters)</label><input name="password" type="password" autocomplete="new-password" minlength="8" required>
+<button type="submit">Create operator account</button>
+${error ? `<div class="err">${String(error).replace(/[<>]/g, "")}</div>` : ""}
+<div class="hint">The token can be used once. Authentication is the identity plane only; it grants no execution authority — every consequential action is still approved separately.</div>
+</form></body></html>`;
+}
+
 // Owned invite-acceptance surface — provisions a member account from the org invite link.
 function inviteShell(inviteId, error) {
   const safe = String(inviteId).replace(/[^A-Za-z0-9_-]/g, "");
@@ -7636,6 +7727,52 @@ const server = http.createServer((req, res) => {
   // instead of being adjudicated as the loopback development principal.
   req.on("end", () => reqCtx.run({ req }, () => handleEstateRequest(req, res, Buffer.concat(chunks))).catch((err) => surfaceErrorBoundary(req, res, err)));
 });
+
+// ---- Canonical-route lane serving (ADR 0052 Decision 5) ----
+// A canonical route declared `serve: { kind: "rewrite", to }` in the route table SERVES its lane's
+// handler at the canonical route: the request is re-dispatched with the lane path, and the lane's
+// rendered document is stamped with the CANONICAL ownership marker and headers so the smoke and
+// the estate see one served surface at one route. The lane page's own marker (if it stamped one
+// for its legacy mount) is rewritten, never duplicated. Only GET HTML documents are marked; JSON
+// or streamed lanes pass through untouched. The lane path is never a canonical route, so this
+// cannot recurse.
+async function serveCanonicalLane(req, res, body, row, lane, search) {
+  const esc = escHtml;
+  req.url = `${lane}${search}`;
+  const originalWriteHead = res.writeHead.bind(res);
+  const originalEnd = res.end.bind(res);
+  let htmlDocument = false;
+  res.writeHead = (status, headersOrMessage, maybeHeaders) => {
+    const headers = (typeof headersOrMessage === "object" && headersOrMessage) || maybeHeaders || {};
+    const contentType = String(headers["Content-Type"] || headers["content-type"] || res.getHeader("content-type") || "");
+    htmlDocument = status === 200 && /text\/html/i.test(contentType);
+    const stamped = {
+      ...headers,
+      "X-IOI-Surface-Route": row.route,
+      "X-IOI-Surface-Owner": row.kind,
+      "X-IOI-Surface-Lane": lane,
+    };
+    return typeof headersOrMessage === "string"
+      ? originalWriteHead(status, headersOrMessage, stamped)
+      : originalWriteHead(status, stamped);
+  };
+  res.end = (chunk, ...rest) => {
+    if (htmlDocument && chunk) {
+      let html = Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+      const marker = `data-ioi-surface-route="${esc(row.route)}" data-ioi-surface-owner="${esc(row.kind)}"`;
+      if (/\bdata-ioi-surface-route="/i.test(html)) {
+        html = html
+          .replace(/\bdata-ioi-surface-route="[^"]*"/i, `data-ioi-surface-route="${esc(row.route)}"`)
+          .replace(/\bdata-ioi-surface-owner="[^"]*"/i, `data-ioi-surface-owner="${esc(row.kind)}"`);
+      } else {
+        html = html.replace(/<body\b/i, `<body ${marker}`);
+      }
+      return originalEnd(html, ...rest);
+    }
+    return originalEnd(chunk, ...rest);
+  };
+  return handleEstateRequest(req, res, body);
+}
 
 // ---- App-runtime error boundary (functional-runtime wave) ----
 // One surface's renderer exception must fail THAT request (500 + logged), never the estate
@@ -7912,10 +8049,14 @@ async function handleEstateRequest(req, res, body) {
     if (FAMILY_LANDINGS[pathname] && req.method === "GET") {
       const fl = FAMILY_LANDINGS[pathname];
       const rowsHtml = fl.rows.map(([name, what, href]) => `<a class="spl-row" href="${href}"><span><b>${CX_ESC(name)}</b></span><span>${CX_ESC(what)}</span><span><code style="font-size:11px;color:#5f6b7c">${CX_ESC(href)}</code></span></a>`).join("");
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "x-ioi-surface-route": pathname, "x-ioi-surface-owner": fl.title });
+      // The ownership marker names the route's REGISTERED owner: the surface-registry owner when
+      // this canonical route is a module's canonical mount (the registry wins for such a route),
+      // else the route ledger's owner kind — never the family's display title.
+      const familyOwner = SURFACES.find((s) => s.canonical_route === pathname)?.owner || v2RouteFor(pathname)?.kind || fl.title;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "x-ioi-surface-route": pathname, "x-ioi-surface-owner": familyOwner });
       res.end(renderSplashLanding({
         slug: pathname.slice(1), routeOverride: pathname, title: fl.title,
-        surfaceRoute: pathname, surfaceOwner: fl.title,
+        surfaceRoute: pathname, surfaceOwner: familyOwner,
         appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
         newLabel: fl.newLabel, newHref: fl.newHref, newTitle: fl.newTitle, newGapReason: fl.newGapReason,
         heroTitle: fl.title, heroDesc: fl.hero,
@@ -8802,10 +8943,61 @@ async function handleEstateRequest(req, res, body) {
         }
         return;
       }
+      // First run: while no login exists yet, the sign-in page IS the operator bootstrap — the
+      // one-boot token from the daemon log plus the operator's own name, email and password.
+      // The daemon decides (needs_bootstrap); the page never guesses.
+      let needsBootstrap = false;
+      try { const r = await daemonFetch(`/v1/hypervisor/auth/bootstrap-status`); const d = await r.json(); needsBootstrap = d.needs_bootstrap === true; } catch { /* unknown → ordinary sign-in */ }
+      if (needsBootstrap) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(bootstrapShell(""));
+        return;
+      }
       let cfgs = [];
       try { const r = await daemonFetch(`/v1/hypervisor/sso-configurations`); const d = await r.json(); cfgs = d.sso_configurations || []; } catch { /* none */ }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(loginShell("", cfgs));
+      return;
+    }
+    // Operator bootstrap (first run). POST → daemon one-time bootstrap → operator session cookie.
+    // A GET lands on the same first-run form; once a login exists the daemon refuses
+    // (already_bootstrapped) and the page says so and points at sign-in.
+    if (pathname === "/__ioi/bootstrap") {
+      if (req.method === "POST") {
+        const form = new URLSearchParams(body.toString("utf8"));
+        try {
+          const r = await daemonFetch(`/v1/hypervisor/auth/bootstrap`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: (form.get("token") || "").trim(),
+              name: (form.get("name") || "").trim(),
+              email: (form.get("email") || "").trim(),
+              password: form.get("password") || "",
+            }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && d.ok && d.session_token) {
+            res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
+            res.end();
+            return;
+          }
+          const reason = String(d.reason || `HTTP ${r.status}`);
+          const message = reason === "already_bootstrapped"
+            ? "This deployment already has an operator account. Sign in instead."
+            : reason === "invalid_bootstrap_token"
+              ? "That bootstrap token does not match the one the daemon printed at startup. Copy the line starting with ioi_bootstrap_ from the daemon log."
+              : reason;
+          res.writeHead(r.status >= 400 ? r.status : 400, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(bootstrapShell(message));
+        } catch (e) {
+          res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(bootstrapShell(`Bootstrap service unavailable: ${e.message}`));
+        }
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(bootstrapShell(""));
       return;
     }
     // SSO login start — build the PKCE authorize URL via the daemon, redirect to the IdP.
@@ -8907,6 +9099,20 @@ async function handleEstateRequest(req, res, body) {
     // already serves that canonical experience at this exact route. Retired UI routes
     // (/sessions) answer the daemon's typed 410 semantics instead of soft-404ing into the SPA —
     // a link to the canonical replacement, never a redirect alias.
+    // Developer diagnostics: the complete canonical route ledger (waves, build state, serving
+    // lanes, how each route is served). This is where the implementation narrative lives now;
+    // ordinary product screens link here instead of printing it (ADR 0052 Decision 5).
+    if (pathname === "/__ioi/route-ledger" && req.method === "GET") {
+      const compiled = await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "X-IOI-Surface-Route": "/__ioi/route-ledger",
+        "X-IOI-Surface-Owner": "developer diagnostics",
+      });
+      res.end(renderRouteLedgerPage(compiled));
+      return;
+    }
     if (req.method === "GET") {
       // W1.3: a retired root retires its subtree — /sessions/<id> answers the same typed 410,
       // deep link carried onto the canonical replacement. A link, never a redirect alias.
@@ -8930,6 +9136,31 @@ async function handleEstateRequest(req, res, body) {
       const resolved = canonicalSurfaceRoute(pathname) ? null : resolveV2Route(pathname);
       if (resolved) {
         const requestUrl = new URL(req.url, "http://x");
+        // ADR 0052 Decision 5: a canonical route whose serving lane exists SERVES that lane here
+        // (rewrite: the lane's handler runs at this route and the canonical ownership marker is
+        // stamped on its document; redirect: 302 to a lane the serve cannot wrap). Deep links
+        // under the root still render the honest landing below. The route ledger with waves and
+        // build state is developer diagnostics at /__ioi/route-ledger, never a product screen.
+        const laneSpec = resolved.row.serve;
+        if (laneSpec && !resolved.subpath && !requestUrl.searchParams.has("embed")) {
+          if (laneSpec.kind === "redirect") {
+            const [laneTarget, fragment] = String(laneSpec.to).split("#");
+            const location = `${laneTarget}${requestUrl.search || ""}${fragment ? `#${fragment}` : ""}`;
+            res.writeHead(302, {
+              Location: location,
+              "Cache-Control": "no-cache",
+              "X-IOI-Surface-Route": resolved.row.route,
+              "X-IOI-Surface-Owner": resolved.row.kind,
+              "X-IOI-Surface-Lane": laneTarget,
+            });
+            res.end();
+            return;
+          }
+          if (laneSpec.kind === "rewrite") {
+            await serveCanonicalLane(req, res, body, resolved.row, laneSpec.to, requestUrl.search || "");
+            return;
+          }
+        }
         // W0.2: the page's estate-navigation band renders the compiled product-surface
         // projection (surface-compiler.mjs) — daemon registration records, never a hand list.
         // Embedded renders (?embed=1) omit estate chrome and skip the compile entirely.
@@ -12548,9 +12779,48 @@ async function handleEstateRequest(req, res, body) {
         daemonFetch(`/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/environments-summary?limit=60`).then((x) => x.json()).catch(() => ({})),
       ]);
+      // Runs parked on the operator's decision (deployment-local approver) render first: the
+      // exact effect, then Approve / Deny. Only the operator's own authenticated request may act.
+      const returnTo = req.headers["x-ioi-canonical-route"] || "/work/sessions";
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderSessionsRoot(sessRes, envRes));
+      res.end(renderSessionsRoot(sessRes, envRes, listRunsAwaitingApproval(), returnTo));
       return;
+    }
+    // Operator decision on a parked run (ADR 0052). POST /__ioi/runs/:id/approve|deny — a form
+    // post from the Sessions surface (redirects back) or a JSON call (returns the decision).
+    // Admission mirrors the run-publish crossing: the caller's daemon identity is resolved and the
+    // local run cache must be admitted; the resumed execute carries the caller's identity.
+    {
+      const decisionMatch = pathname.match(/^\/__ioi\/runs\/([^/]+)\/(approve|deny)$/u);
+      if (decisionMatch && req.method === "POST") {
+        const cacheAdmission = await localRunCacheAdmission(req);
+        if (!cacheAdmission.ok) {
+          refuseLocalRunCacheJson(res, cacheAdmission);
+          return;
+        }
+        const runId = decodeURIComponent(decisionMatch[1]);
+        const decision = decisionMatch[2];
+        const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
+        let reason = "";
+        let returnTo = "/work/sessions";
+        if (isForm) {
+          const form = new URLSearchParams(body.toString("utf8"));
+          reason = form.get("reason") || "";
+          const wanted = form.get("return_to") || "";
+          if (/^\/[a-zA-Z0-9_\-./]*$/u.test(wanted)) returnTo = wanted;
+        } else {
+          try { reason = JSON.parse(body.toString() || "{}").reason || ""; } catch { /* no reason */ }
+        }
+        const result = await decideRunApproval({ runId, decision, reason, daemonHeaders: cacheAdmission.headers });
+        if (isForm) {
+          res.writeHead(303, { Location: returnTo, "Cache-Control": "no-cache" });
+          res.end();
+          return;
+        }
+        res.writeHead(result.status || (result.ok ? 200 : 409), { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        res.end(JSON.stringify(result));
+        return;
+      }
     }
     // ---- Home full readout (03-home graft) — deep-link target of the composer home's injected
     // governed-work band. Fetches fail to null (NOT {}) so the renderer can distinguish "daemon
@@ -12812,7 +13082,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
-      const [pj, envs, arp, mr, et, lp, plVenues, plPolicy] = await Promise.all([
+      const [pj, envs, arp, mr, et, lp, plVenues, plPolicy, cx] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
         J("/v1/hypervisor/agent-runner-profiles"),
@@ -12821,6 +13091,7 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/goal-orchestration/ioi-agent/launch-policies?status=active"),
         J("/v1/hypervisor/placement/venues"),
         J("/v1/hypervisor/placement/venue-policy"),
+        J("/v1/hypervisor/connectors"),
       ]);
       const environments = (envs.environments || [])
         .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
@@ -12862,6 +13133,19 @@ async function handleEstateRequest(req, res, body) {
           reason: (t.open_posture || {}).probe?.evidence?.note || ((t.open_posture || {}).probe?.evidence?.required_binary ? `${(t.open_posture || {}).probe.evidence.required_binary} not on PATH` : ""),
         })),
         placement: { venues: plVenues.venues || [], policy: plPolicy.policy || null, fee_bases: plVenues.fee_bases || {} },
+        // The Connections estate the session MAY name (closed profile; nothing is selected by
+        // default). Bound/open connectors are selectable; an unbound credential-bearing connector
+        // is listed disabled with its reason — never hidden, never silently usable.
+        connections: (cx.connectors || []).map((c) => ({
+          connection_ref: `connector:${c.connector_id}`,
+          connector_id: c.connector_id,
+          name: c.name || c.service || c.connector_id,
+          service: c.service || "",
+          kind: c.kind || "",
+          auth_posture: c.auth_posture || "",
+          selectable: c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false,
+          reason: (c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false) ? "" : "no credential bound — connect it in Connections first",
+        })),
       }));
       return;
     }
@@ -12870,6 +13154,12 @@ async function handleEstateRequest(req, res, body) {
       const sessionBody = {};
       for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "editor_target_ref", "session_ref"]) {
         if (b[k]) sessionBody[k] = b[k];
+      }
+      // ADR 0052 Decision 3 / M13.2: the session's CLOSED authority profile — the connections
+      // the operator selected for this session, forwarded verbatim. Absent → the daemon binds
+      // the empty profile; the serve never widens it to the workspace's estate.
+      if (b.authority_profile && typeof b.authority_profile === "object" && Array.isArray(b.authority_profile.connection_refs)) {
+        sessionBody.authority_profile = { connection_refs: b.authority_profile.connection_refs.map(String) };
       }
       const r = await daemonFetch(`/v1/hypervisor/sessions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionBody) }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : { error: { code: "daemon_unavailable", message: "the daemon did not answer" } };
@@ -14285,7 +14575,20 @@ async function handleEstateRequest(req, res, body) {
       // is a usable SCM connector registered? (gates the governed "Publish PR" follow-up)
       let hasConnector = false;
       try { const c = await djson("GET", "/v1/hypervisor/scm-connectors"); hasConnector = (c.body?.connectors || []).some((x) => x.auth_posture === "local-none"); } catch { /* */ }
-      const timeline = projectRunTimeline(run, { authorityReceipts, hasConnector });
+      // M13.4 truth-rebind: the daemon's session record, the receipts it names and its workspace
+      // events are read under the CALLER's identity and projected as the panes' truth. A daemon
+      // that cannot answer yields null (rendered as unavailable), never a fabricated record.
+      let session = null;
+      let sessionReceipts = [];
+      let sessionEvents = null;
+      if (run.sessionRef) {
+        const sessionPath = `/v1/hypervisor/sessions/${encodeURIComponent(run.sessionRef)}`;
+        try { const sr = await daemonFetch(sessionPath, { headers: timelineHeaders }).then((x) => x.json()); session = sr?.session || null; } catch { session = null; }
+        try { const ev = await daemonFetch(`${sessionPath}/events`, { headers: timelineHeaders }).then((x) => x.json()); sessionEvents = ev || null; } catch { sessionEvents = null; }
+        const refs = Array.isArray(session?.latest_receipt_refs) ? session.latest_receipt_refs.slice(-12) : [];
+        sessionReceipts = (await Promise.all(refs.map((ref) => daemonFetch(`/v1/model-mount/receipts/${encodeURIComponent(String(ref))}`, { headers: timelineHeaders }).then((x) => (x.ok ? x.json() : null)).catch(() => null)))).filter(Boolean);
+      }
+      const timeline = projectRunTimeline(run, { authorityReceipts, hasConnector, session, sessionReceipts, sessionEvents });
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(timeline));
       return;

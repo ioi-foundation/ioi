@@ -1,0 +1,142 @@
+census OK: 65 modules = 52 executed + 13 manifest-marked (manual)
+(* fingerprints file ".tlacache/PqOutboxIndexCommitProof.tlaps/fingerprints" removed *)
+(* created new ".tlacache/PqOutboxIndexCommitProof.tlaps/PqOutboxIndexCommitProof.thy" *)
+(* fingerprints written in ".tlacache/PqOutboxIndexCommitProof.tlaps/fingerprints" *)
+File "./PqOutboxIndexCommitProof.tla", line 1, character 1 to line 15, character 77:
+[INFO]: All 9 obligations proved.
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 21 and seed -981247898366614903 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 380933] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/outbox/PqOutboxIndexCommit.tla
+Parsing file /tmp/tlc-3006769410768899530/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-3006769410768899530/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-3006769410768899530/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-3006769410768899530/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-3006769410768899530/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-3006769410768899530/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-3006769410768899530/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module PqOutboxIndexCommit
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module PqOutboxIndexCommit
+Starting... (2026-09-05 18:53:47)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 18:53:47.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 5.6E-16
+210 states generated, 79 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 10.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 4).
+Finished in 00s at (2026-09-05 18:53:47)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 33 and seed 3146717821469332179 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 381169] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.4kBISAC1Nl/PqOutboxIndexCommit.tla
+Parsing file /tmp/tlc-12524338105227767994/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-12524338105227767994/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-12524338105227767994/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-12524338105227767994/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-12524338105227767994/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-12524338105227767994/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-12524338105227767994/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module PqOutboxIndexCommit
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module PqOutboxIndexCommit
+Starting... (2026-09-05 18:53:47)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 18:53:47.
+Error: Invariant RecoverableIndex is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ pending = {}
+/\ index = {a}
+/\ phase = "Idle"
+/\ blobs = {a}
+
+State 2: <Stage line 8, col 10 to line 10, col 61 of module PqOutboxIndexCommit>
+/\ pending = {}
+/\ index = {a}
+/\ phase = "Prepared"
+/\ blobs = {a}
+
+State 3: <WritePayloads line 11, col 18 to line 13, col 71 of module PqOutboxIndexCommit>
+/\ pending = {}
+/\ index = {a}
+/\ phase = "Payloads"
+/\ blobs = {}
+
+7 states generated, 6 distinct states found, 3 states left on queue.
+The depth of the complete state graph search is 3.
+Finished in 00s at (2026-09-05 18:53:47)
+Trace exploration spec path: ./PqOutboxIndexCommit_TTrace_1788648827.tla
+expected counterexample observed: PqOutboxIndexCommit.tla: Invariant RecoverableIndex is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 97 and seed 3504675689352033746 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 381261] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.vDF656kVsp/PqOutboxIndexCommit.tla
+Parsing file /tmp/tlc-6464346656914703315/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-6464346656914703315/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-6464346656914703315/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-6464346656914703315/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-6464346656914703315/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-6464346656914703315/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-6464346656914703315/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module PqOutboxIndexCommit
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module PqOutboxIndexCommit
+Starting... (2026-09-05 18:53:47)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 18:53:47.
+Error: Invariant RecoverableIndex is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ pending = {}
+/\ index = {a}
+/\ phase = "Idle"
+/\ blobs = {a}
+
+State 2: <Stage line 8, col 10 to line 10, col 61 of module PqOutboxIndexCommit>
+/\ pending = {b}
+/\ index = {a}
+/\ phase = "Prepared"
+/\ blobs = {a}
+
+State 3: <Publish line 17, col 12 to line 19, col 42 of module PqOutboxIndexCommit>
+/\ pending = {b}
+/\ index = {b}
+/\ phase = "Committed"
+/\ blobs = {a}
+
+15 states generated, 12 distinct states found, 7 states left on queue.
+The depth of the complete state graph search is 3.
+Finished in 00s at (2026-09-05 18:53:47)
+Trace exploration spec path: ./PqOutboxIndexCommit_TTrace_1788648827.tla
+expected counterexample observed: PqOutboxIndexCommit.tla: Invariant RecoverableIndex is violated

@@ -1,0 +1,148 @@
+[
+  {
+    "name": "pressure-checker",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_readiness_evidence.py",
+      "--self-test"
+    ],
+    "started": "2026-09-06T07:05:01.148378+00:00",
+    "completed": "2026-09-06T07:05:01.174849+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "policy-types",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-types",
+      "--lib",
+      "app::consequence::tests"
+    ],
+    "started": "2026-09-06T07:05:01.174993+00:00",
+    "completed": "2026-09-06T07:06:48.697690+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "quv-core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::"
+    ],
+    "started": "2026-09-06T07:06:48.698062+00:00",
+    "completed": "2026-09-06T07:08:48.531480+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime-finality",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::runtime_finality::tests::"
+    ],
+    "started": "2026-09-06T07:08:48.531735+00:00",
+    "completed": "2026-09-06T07:09:04.027556+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T07:09:04.027817+00:00",
+    "completed": "2026-09-06T07:09:12.249803+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "executor",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::grpc_public::quv_refusal_status_tests"
+    ],
+    "started": "2026-09-06T07:09:12.250076+00:00",
+    "completed": "2026-09-06T07:09:12.661281+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T07:09:12.661544+00:00",
+    "completed": "2026-09-06T07:10:33.917464+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T07:10:33.917747+00:00",
+    "completed": "2026-09-06T07:10:42.311757+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T07:10:42.312038+00:00",
+    "completed": "2026-09-06T07:10:42.313802+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-receipt-admission-only"
+    ],
+    "started": "2026-09-06T07:10:42.316806+00:00",
+    "completed": "2026-09-06T07:10:43.320493+00:00",
+    "exit_code": 0
+  }
+]

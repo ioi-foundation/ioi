@@ -1,0 +1,40 @@
+{
+  "results": [
+    {
+      "name": "identity",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-services",
+        "--lib",
+        "aft_effect_registry::tests::identity_substitution_refuses_without_invalidating_prior_admission",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "e2ba69439bf544c5de077dec871efa1c7c234efbac932d6e363d2f20de9d2fbd"
+    },
+    {
+      "name": "schema",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-services",
+        "--lib",
+        "aft_effect_registry::tests::unindexed_or_unknown_registry_schema_refuses_without_reinitializing",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "406c7509a32cf8fd7a781596c37205cb1338ec99fdaef159b7acf734c5ce5d1b"
+    }
+  ],
+  "baseline_sha256": "ebb82edcdc594f6d3bf877d706ff43e5859b46d6492fc89b11ceab11db11652f",
+  "restored": true
+}

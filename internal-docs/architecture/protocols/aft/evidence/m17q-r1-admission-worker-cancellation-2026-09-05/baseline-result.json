@@ -1,0 +1,15 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "aborting_event_drain_cancels_blocked_admission_worker"
+  ],
+  "exit_code": 101,
+  "source_sha256": "474c67762d53f71f5d30bd3f38bb276f59cffd838a5862da4e2198f93b723968"
+}

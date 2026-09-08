@@ -1,0 +1,6 @@
+{
+  "crates/crypto/src/transport/pq_authenticated_channel.rs": "3e7b556590314c5bad36df4eeb5cc52342cb31b84335998a2de39055139e4afa",
+  "crates/networking/src/libp2p/pq_channel.rs": "f3c798f7b8976d0715c12748683a651bc1101a8d643e511fddf568999ccaa145",
+  ".github/scripts/run_aft_m16q_qualification.sh": "036fe1368e1957d6f44b02f95b2e86d702ed72c05e3034f1948e338383efade6",
+  "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "name": "root-omission",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::policy_root_binds_operation_service_and_refuses_invalid_limits",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "mutant_sha256": "e54f35765234a2d60ddc2513caaad43bec1c13385637ec434f582ac89d3cbefc"
+  },
+  {
+    "name": "root-omission-restored",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::policy_root_binds_operation_service_and_refuses_invalid_limits",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "source_sha256": "6fd8cdf7f30c2b164fc7fe03860f0b176c63d91a2af4b6d40420fb7f5953918f"
+  },
+  {
+    "name": "foreground-budget-bypass",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::tests::every_operation_role_has_a_rooted_active_service_budget",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "mutant_sha256": "46f28d074e532012dd92045192796e23c97c0c3bde9f21e758bd5c6de4a2f7e4"
+  },
+  {
+    "name": "foreground-budget-bypass-restored",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::tests::every_operation_role_has_a_rooted_active_service_budget",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "source_sha256": "265973b40efc73b785e672571a069ac7611969e4dcd4ad40ebd87d334b75d315"
+  }
+]

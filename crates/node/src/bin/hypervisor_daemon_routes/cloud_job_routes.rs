@@ -95,10 +95,23 @@ fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 
+/// A refusal is rendered VERBATIM on the public surface — the daemon's own words, never a
+/// paraphrase — so the `message` is product prose and carries no internal identifier. Roadmap
+/// milestones, source anchors and module ids go in `internal_ref`, which is kept beside the
+/// sentence rather than dropped: an implementer still needs to find the lane, and a customer
+/// should never read a milestone id off a screen.
 fn refuse(code: &str, message: String) -> (StatusCode, Json<Value>) {
+    refuse_with(code, message, None)
+}
+
+fn refuse_with(code: &str, message: String, internal_ref: Option<&str>) -> (StatusCode, Json<Value>) {
+    let mut error = json!({ "code": code, "message": message });
+    if let (Some(target), Some(r)) = (error.as_object_mut(), internal_ref) {
+        target.insert("internal_ref".into(), json!(r));
+    }
     (
         StatusCode::UNPROCESSABLE_ENTITY,
-        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+        Json(json!({ "ok": false, "error": error })),
     )
 }
 
@@ -140,7 +153,14 @@ fn resolve_authority_mode(caller_kind: &str, authority_ref: &str) -> Result<Valu
                 "caller_kind": "human",
                 "mode": "wallet_grant",
                 "authority_ref": authority_ref,
-                "resolution": "the grant is presented at submit and authorized as PR:9574 does today",
+                // Product words in the sentence a caller reads; the code anchor kept
+                // beside it in a structured field. A refusal is rendered VERBATIM on the
+                // public surface by design — the daemon's own words, never a paraphrase —
+                // so a source line number in the sentence is a source line number on a
+                // customer's screen. Kept rather than dropped: the anchor is how an
+                // implementer finds the lane.
+                "resolution": "the grant is presented when the job is submitted and authorized on the existing wallet path",
+                "internal_ref": "provider_routes.rs::handle_provider_op_internal wallet_approval_grant",
                 "credential_held_by_caller": false,
             }))
         }
@@ -155,7 +175,8 @@ fn resolve_authority_mode(caller_kind: &str, authority_ref: &str) -> Result<Valu
                 "caller_kind": "agent",
                 "mode": "capability_lease_drawdown",
                 "authority_ref": authority_ref,
-                "resolution": "drawn down against the lease following the broker authority shape at PR:8950; never a grant the agent minted for itself",
+                "resolution": "drawn down against the lease under delegated authority; never a grant the agent minted for itself",
+                "internal_ref": "provider_routes.rs::invoke_workload_brokered_provider_operation",
                 "narrowing_only": "a draw-down cannot widen what the underlying grant permits",
                 "credential_held_by_caller": false,
             }))
@@ -224,9 +245,10 @@ pub(crate) async fn handle_cloud_job_create(
         );
     }
     if redundancy != REDUNDANCY_ACCEPTED {
-        return refuse(
+        return refuse_with(
             "redundancy_posture_unsupported",
-            format!("'{redundancy}' is a known posture but is not accepted until M15.9: replica placement, a per-replica exposure set and a switch policy do not exist yet. It is refused rather than downgraded to 'none', because a caller who asked for redundancy and silently received none would believe their work was protected when it was not"),
+            format!("'{redundancy}' is a real posture but is not available yet: running your work in a second place needs replica placement, a per-replica exposure set and a switch policy, none of which exist today. It is refused rather than quietly downgraded to 'none', because if you asked for redundancy and silently received none you would believe your work was protected when it was not"),
+            Some("M15.9 redundancy posture"),
         );
     }
 
@@ -439,11 +461,10 @@ fn resolve_lease_drawdown(
         return Err((
             "capability_lease_out_of_scope".into(),
             format!(
-                "lease '{lease_id}' is not bound to {resource_ref}. A lease is scoped to the \
-                 resources it names, and widening that here would be minting authority by \
-                 interpretation. Agent draw-down requires an intent-scoped bound lease issued \
-                 under M03's delegation envelope; no caller-facing issuance exists and none is \
-                 added here"
+                "lease '{lease_id}' is not bound to {resource_ref}. A lease covers only the \
+                 resources it names, and stretching it to cover this one would be granting \
+                 authority nobody issued. Running a job under delegated authority requires a \
+                 lease issued for that job's request; standing delegation is not yet issuable"
             ),
         ));
     }
@@ -455,7 +476,7 @@ fn resolve_lease_drawdown(
     if principal_ref.is_empty() || owner_ref.is_empty() {
         return Err((
             "lease_predates_principal_binding".into(),
-            format!("lease '{lease_id}' records no principal, so there is no acting principal to name (INV-37). Leases issued before principals were bound are not back-filled: a principal inferred after the fact is a principal nobody granted. Obtain a new lease"),
+            format!("lease '{lease_id}' does not record who holds it, so there is no one to name as having acted. Leases issued before holders were recorded are not filled in afterwards: a holder inferred after the fact is a holder nobody granted. Obtain a new lease"),
         ));
     }
 
@@ -546,12 +567,26 @@ pub(crate) async fn handle_cloud_job_execute(
         ) {
             Ok(authority) => broker_authority = Some(authority),
             Err((code, message)) => {
+                // The sentence is product prose; the roadmap dependency rides in a
+                // structured field so a caller never reads a milestone id off a screen
+                // and an implementer never loses the pointer.
+                let internal_ref = if code == "capability_lease_out_of_scope"
+                    || code == "lease_predates_principal_binding"
+                {
+                    json!("M03.12 standing-lease mint — intent-scoped bound lease issuance")
+                } else {
+                    Value::Null
+                };
                 job["state"] = json!("refused_authority");
-                job["refusal"] = json!({ "code": code, "detail": message, "at": iso_now() });
+                job["refusal"] = json!({
+                    "code": code, "detail": message,
+                    "internal_ref": internal_ref, "at": iso_now(),
+                });
                 let _ = persist_record(&st.data_dir, JOB_KIND, &want, &job);
                 return (
                     StatusCode::FORBIDDEN,
-                    Json(json!({ "ok": false, "error": { "code": code, "message": message },
+                    Json(json!({ "ok": false,
+                        "error": { "code": code, "message": message, "internal_ref": internal_ref },
                         "job": job })),
                 );
             }
@@ -621,6 +656,14 @@ pub(crate) async fn handle_cloud_job_execute(
         "provider_id": selected.get("provider_account_ref").cloned().unwrap_or(Value::Null),
         "op": body.get("op").cloned().unwrap_or(json!("create")),
         "environment_ref": body.get("environment_ref").cloned().unwrap_or(json!("env-default")),
+        // QUOTE-GATED AT THE OFFER THE DECISION CITED. Provisioning refuses
+        // `{kind}_candidate_ref_required` without this: a create that named no candidate
+        // would be a create at whatever the venue charges when it is asked, rather than
+        // at the price the placement decision was made on. Passing the decision's own
+        // candidate binds the mutation to the quote that justified it — the same object
+        // the receipt will cite, so the price paid and the price compared are one number.
+        "candidate_ref": job.pointer("/placement/candidate_ref").cloned().unwrap_or(Value::Null),
+        "quote_ref": job.pointer("/placement/quote_ref").cloned().unwrap_or(Value::Null),
         "job_ref": job["job_ref"],
         "budget_ref": job["budget_ref"],
         "owner_ref": body.get("owner_ref").cloned().unwrap_or(Value::Null),

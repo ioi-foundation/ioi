@@ -1,0 +1,69 @@
+{
+  "results": [
+    {
+      "name": "runtime",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "network",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-networking",
+        "--lib",
+        "quv"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "network-routing",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-networking",
+        "--lib",
+        "protected_payload_routes_only_after_aead_and_type_agreement"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/networking/src/libp2p/swarm.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "sources": {
+    "crates/validator/src/standard/orchestration/quv.rs": "27b588f182368cca75076cdc9ef940f677747ab6e15b4786e69dc4d36652bcb2",
+    "crates/networking/src/libp2p/swarm.rs": "a42b0e557cf36ff1552de761b78ba7ff41d241486d21f0cb8e453b60b7d38283"
+  },
+  "scope": "Diagnostics only; 9 runtime, 3 QUV outbox, and 1 authenticated routing test passed. No process timing qualification."
+}

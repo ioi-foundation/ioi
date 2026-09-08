@@ -1,0 +1,122 @@
+[
+  {
+    "name": "core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity"
+    ],
+    "started": "2026-09-06T01:39:00.886198+00:00",
+    "completed": "2026-09-06T01:40:51.161234+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T01:40:51.161450+00:00",
+    "completed": "2026-09-06T01:41:18.547635+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T01:41:18.547976+00:00",
+    "completed": "2026-09-06T01:41:32.941174+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T01:41:32.941454+00:00",
+    "completed": "2026-09-06T01:41:41.569267+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T01:41:41.569564+00:00",
+    "completed": "2026-09-06T01:41:41.571267+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-record-reservation-only"
+    ],
+    "started": "2026-09-06T01:41:41.573947+00:00",
+    "completed": "2026-09-06T01:41:42.918222+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "anchor",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-anchor-reservation-only"
+    ],
+    "started": "2026-09-06T01:41:42.918470+00:00",
+    "completed": "2026-09-06T01:41:44.296230+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "lifetime",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-lifetime-budget-only"
+    ],
+    "started": "2026-09-06T01:41:44.296596+00:00",
+    "completed": "2026-09-06T01:41:45.878464+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "trace",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_record_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-anchor-reservation-2026-09-06/trace"
+    ],
+    "started": "2026-09-06T01:41:45.878696+00:00",
+    "completed": "2026-09-06T01:41:46.969722+00:00",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,57 @@
+{
+  "recorded_utc": "2026-09-04T23:56:57.556056+00:00",
+  "sources": {
+    ".github/scripts/check_aft_m16q_process_evidence.py": "ee48b5ab9888af6ba81015d2ed4a4f98bbc0703f8b1a47d49910953eb170cd77",
+    ".github/scripts/run_aft_m16q_qualification.sh": "79efe22a614727e59fd78f98b7c7de18daabaccba624463f2a0c3ecebd05ea62"
+  },
+  "checks": [
+    {
+      "command": [
+        "python3",
+        ".github/scripts/check_aft_m16q_process_evidence.py",
+        "--self-test"
+      ],
+      "exit_code": 0,
+      "log": "runner-check-0.log",
+      "log_sha256": "4ee80d47b23626b64c1f4aef46f50ec9b2887d6478c8aae6009cb926a08b870f"
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0,
+      "log": "runner-check-1.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0,
+      "log": "runner-check-2.log",
+      "log_sha256": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d"
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0,
+      "log": "runner-check-3.log",
+      "log_sha256": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "runner-check-4.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

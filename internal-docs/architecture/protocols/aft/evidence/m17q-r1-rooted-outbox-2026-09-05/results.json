@@ -1,0 +1,32 @@
+{
+  "scope": "selected dirty-worktree sources, not immutable R2",
+  "checks": [
+    {
+      "command": "cargo test --locked -p ioi-networking --lib pq_channel",
+      "exit_code": 0,
+      "passed": 24
+    },
+    {
+      "command": "cargo test --locked -p ioi-validator --features consensus-aft --lib standard::orchestration::quv::",
+      "exit_code": 0,
+      "passed": 21
+    },
+    {
+      "command": "cargo test --locked -p ioi-networking --lib protected_payload_routes_only_after_aead_and_type_agreement",
+      "exit_code": 0,
+      "passed": 1
+    },
+    {
+      "command": "cargo check --locked -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0
+    },
+    {
+      "command": "bash -n .github/scripts/run_aft_m16q_qualification.sh",
+      "exit_code": 0
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "started_utc": "2026-09-05T00:03:00.302326+00:00",
+  "sources": {
+    ".github/scripts/run_aft_formal_checks.sh": "300744eea0b219463a535b0b4bc180bff595ed85bb6e66ab06643bc4e5e7b168",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QueryUnanimityProof.tla": "4ba8dd71491fc98d525016f88c9b7d6e3aed01148f89f717da363dd7aea005e5",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QueryUnanimityCompositionProof.tla": "436e7f4a318384b1edf2b6b902c3009f07f718fd772256f9b3aab2b7943d0d2f",
+    "internal-docs/architecture/protocols/aft/formal/consequence/AtMostOnceExternalization.tla": "40f71146dbd28b6d84d4348ad43d9c7bc934089e579e959bc8339af78f927315",
+    "internal-docs/architecture/protocols/aft/formal/consequence/AtMostOnceExternalization.cfg": "93fd054c33816f9e51f068bb4800a3dc3c9f44d07af10ccc5c211880453a6d5a"
+  },
+  "checks": [
+    {
+      "phase": "conditional_quv",
+      "command": [
+        "bash",
+        ".github/scripts/run_aft_formal_checks.sh",
+        "--quv-theorem-only"
+      ],
+      "started_utc": "2026-09-05T00:03:00.307652+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T00:03:01.633691+00:00",
+      "log_sha256": "c9cf3b61f371195fe79f1efe617a30465e0d3476f3c23a855b83ce3d428a43c3"
+    },
+    {
+      "phase": "abstract_t10",
+      "command": [
+        "bash",
+        ".github/scripts/run_aft_formal_checks.sh",
+        "--consequence-t10-only"
+      ],
+      "started_utc": "2026-09-05T00:03:01.634230+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T00:03:02.598749+00:00",
+      "log_sha256": "fd40c86f2ea56fae6e7adfb3e87286953df791a8ab6112858fb98d40e8709edd"
+    }
+  ]
+}

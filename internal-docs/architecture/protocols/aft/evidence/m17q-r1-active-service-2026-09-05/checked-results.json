@@ -1,0 +1,103 @@
+{
+  "sources": {
+    "crates/consensus/src/aft/query_unanimity.rs": "0a3affec44a0ef523847702d97fb6aed85b3993be59543e53d9a85e9c6e3d839",
+    "crates/validator/src/standard/orchestration/quv.rs": "5e219c9630b6e4974dc87f710fda9f20d7c84b0c00973ef710cc627f5817a1f0",
+    "crates/types/src/app/query_unanimity.rs": "d4172f1f88541f00c71d46dc98c5f42b067f710c571ab50aa1fb19deea72df1a",
+    ".github/scripts/run_aft_m16q_qualification.sh": "c920a9e4d53b34fbc317906cef6e42c25c15debffeef29589815b1b26efecff4"
+  },
+  "negative_controls": [
+    {
+      "removed_rule": "no-extension",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "authorization_expiry_cap_never_extends_or_revives_a_grant"
+      ],
+      "exit_code": 101
+    },
+    {
+      "removed_rule": "expired-grant",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "authorization_expiry_cap_never_extends_or_revives_a_grant"
+      ],
+      "exit_code": 101
+    },
+    {
+      "removed_rule": "late-service",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "active_service_completion_never_reports_late_success"
+      ],
+      "exit_code": 101
+    }
+  ],
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests"
+      ],
+      "log": "core-tests.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::"
+      ],
+      "log": "restored-runtime-tests.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--features",
+        "consensus-aft"
+      ],
+      "log": "cli-check.log",
+      "exit_code": 0,
+      "changed_sources": []
+    }
+  ]
+}

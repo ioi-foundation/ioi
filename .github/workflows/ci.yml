@@ -540,6 +540,7 @@ jobs:
           npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
           npm run check:session-authority --workspace=@ioi/hypervisor-app
+          npm run check:session-authority-profile --workspace=@ioi/hypervisor-app
           npm run check:landing-designations --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
           npm run check:provider-transport --workspace=@ioi/hypervisor-app

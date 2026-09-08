@@ -1,0 +1,49 @@
+# Path: crates/consensus/Cargo.toml
+[package]
+name = "ioi-consensus"
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+description = "Consensus for the IOI Kernel"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-tx = { path = "../tx" }
+ioi-client = { path = "../client" }
+ioi-state = { path = "../state" }
+ioi-system = { path = "../system" }
+ioi-crypto = { path = "../crypto" }
+agentgres = { path = "../agentgres" }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+libp2p = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["time"], optional = true }
+bs58 = "0.4"
+cfg-if = "1.0"
+hex = { workspace = true }
+fs2 = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+tracing = { workspace = true }
+zk-driver-succinct = { path = "../plugins/zk-driver-succinct" }
+dcrypt = { workspace = true }
+rand = { workspace = true }
+zeroize = { workspace = true }
+libc = { workspace = true }
+
+[features]
+default = []
+aft = ["dep:tokio"]
+poa = []
+pos = []
+custom-consensus = []
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -1,0 +1,37 @@
+{
+  "commands": [
+    {
+      "command": [
+        "rustc",
+        "-Vv"
+      ],
+      "exit_code": 0,
+      "stdout": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "cargo",
+        "-V"
+      ],
+      "exit_code": 0,
+      "stdout": "cargo 1.93.1 (083ac5135 2025-12-15)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "java",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "openjdk 21.0.10 2026-01-20\nOpenJDK Runtime Environment (build 21.0.10+7-Ubuntu-124.04)\nOpenJDK 64-Bit Server VM (build 21.0.10+7-Ubuntu-124.04, mixed mode, sharing)\n",
+      "stderr": ""
+    }
+  ],
+  "formal_tool_sha256": {
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    ".internal/formal-cache/tools/tlaps-pre/install/bin/tlapm": "1de5983ac393658362fe61882e270b65648fa07945453e971fcf9eeabf5ec579",
+    ".internal/formal-cache/tools/tlaps-pre/install/lib/tlapm/stdlib/TLAPS.tla": "9afe54984062748a0568966434cc0945d682f8cd89fdbc38f73b5579751b0c55"
+  },
+  "scope": "observed after retained runs"
+}

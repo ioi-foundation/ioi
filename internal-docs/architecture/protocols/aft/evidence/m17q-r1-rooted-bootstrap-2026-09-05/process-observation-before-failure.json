@@ -1,0 +1,9 @@
+{
+  "observed_utc": "2026-09-05T03:26:33.328537+00:00",
+  "live_unified_exec_session": 87640,
+  "tool_observation": "write_stdin returned session_id with no terminal exit code",
+  "stage": "disjoint handoff release build",
+  "started_source_count": 31,
+  "changed_sources": [],
+  "disposition": "RUNNING_NOT_ADMISSION"
+}

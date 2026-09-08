@@ -1,0 +1,16 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--quv-admission-order-only"
+  ],
+  "exit_code": 0,
+  "sources": {
+    ".github/scripts/run_aft_formal_checks.sh": "314c15fac61fbcd53127305fbfa362d20dfded8cc0c275184e950dba92103a8f",
+    ".github/scripts/run_aft_m16q_qualification.sh": "e8452559753786d937ef6d70c3faf168536db7d98874eb1e48b4fcfe1a75a85c",
+    "internal-docs/architecture/protocols/aft/formal/concurrency/QuvAdmissionOrderNoFifo.cfg": "e710575a040338f2deece274dc7d4c0885e50ee1cbc1b5d062c5197bc15de522",
+    "internal-docs/architecture/protocols/aft/formal/concurrency/QuvAdmissionOrderTwo.cfg": "d133de989f3502e50fbfdf0a37cb9c74e58506d879a059318edf67c70d415b77",
+    "internal-docs/architecture/protocols/aft/formal/concurrency/QuvAdmissionOrderOne.cfg": "c32c6aa44f3bd62f636395122c0c5b9ace23bdedffd5545d93d180b2464c3190",
+    "internal-docs/architecture/protocols/aft/formal/concurrency/QuvAdmissionOrder.tla": "4b9d56f2ff1f56740cd49ae1d5b72a0b4aa42b487acf0d58b4574c21d69b3548"
+  }
+}

@@ -1,0 +1,15 @@
+2026-09-07T07:42:06Z
+5ae464c1146ecff3079415e2e8da5b7daf00d253
+ M .github/scripts/run_aft_m16q_qualification.sh
+ M crates/validator/src/standard/orchestration/consensus.rs
+ M crates/validator/src/standard/orchestration/consensus/production/tests.rs
+ M crates/validator/src/standard/orchestration/context.rs
+ M crates/validator/src/standard/orchestration/gossip.rs
+ M crates/validator/src/standard/orchestration/lifecycle.rs
+ M crates/validator/src/standard/orchestration/sync.rs
+ M docs/architecture/_meta/canon-to-code-delta.md
+ M docs/architecture/components/hypervisor/providers-and-environments.md
+ M internal-docs/architecture/protocols/aft/specs/query_unanimity_end_to_end_theorems.md
+ M internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r2-retired-sync-2026-09-07/
+?? internal-docs/architecture/protocols/aft/packets/M18Q-quv-public-admission.md

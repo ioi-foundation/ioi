@@ -1,0 +1,75 @@
+{
+  "sources": {
+    "crates/types/src/app/query_unanimity.rs": "fed96ec9ef660984c300754d316d68881bbea1cddff186b8abaab5bd0947039a",
+    "crates/types/src/config/mod.rs": "4f8af78c0ef6bd8189e38acf18c321122bd4700a5cbe9a9581c92b11ae90557f",
+    "crates/types/src/config/tests.rs": "fbd698250b9f726eaa1870d8165db7b67de6c8dae2524dec0c86e33fc3aa8c06",
+    "crates/consensus/src/aft/query_unanimity.rs": "02c46707d6d48cedc8bb19563ab6d475c6eeef3f29a41d4c8ae1632862df417a",
+    "crates/validator/src/standard/orchestration/quv.rs": "ea9438b27e35d358d7aebfcb07292a79b33e586af262c7c764f82892f35e6852",
+    "crates/cli/tests/aft_e2e.rs": "7e8fc323f8a02fb99378495436832e51559c32ba924ef5d18a2072f791f1a836",
+    "crates/cli/src/testing/cluster.rs": "5b94a62df52beda58243595649f52ad507c4c7deecf99d3593aa2a63898da31a"
+  },
+  "results": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-types",
+        "--lib",
+        "quv_policy_requires_exact_authority_and_durable_roots"
+      ],
+      "log": "checked-config.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests"
+      ],
+      "log": "checked-core.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::tests"
+      ],
+      "log": "checked-runtime.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--test",
+        "aft_e2e",
+        "--features",
+        "consensus-aft,vm-wasm,state-iavl"
+      ],
+      "log": "checked-cli.log",
+      "exit_code": 0,
+      "changed_sources": []
+    }
+  ]
+}

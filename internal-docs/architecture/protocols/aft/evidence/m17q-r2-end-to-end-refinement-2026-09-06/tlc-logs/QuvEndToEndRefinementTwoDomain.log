@@ -1,0 +1,16 @@
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Running breadth-first search Model-Checking with fp 43 and seed -7192351412313976981 with 6 workers on 24 cores with 10923MB heap and 64MB offheap memory [pid: 1553390] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvEndToEndRefinement
+Starting... (2026-09-06 06:17:01)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 06:17:02.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 10.0E-11
+89961 states generated, 31472 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 26.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 11 and the 95th percentile is 3).
+Finished in 01s at (2026-09-06 06:17:03)

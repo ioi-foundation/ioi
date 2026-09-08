@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-readiness-process-2026-09-05/consecutive-process-recovery-probed/sources/.github/scripts/check_aft_quv_readiness_evidence.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-readiness-process-2026-09-05/consecutive-process-recovery-probed/process.log",
+    "--components",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-readiness-process-2026-09-05/consecutive-process-recovery-probed/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "15de3b751d35c5816b30a8f54071a091d81d145b12fdd2079a18e613de9311c2"
+}

@@ -1,0 +1,75 @@
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 124 and seed 2003894691924143812 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2968352] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessComposition.tla
+Parsing file /tmp/tlc-10442400471610009715/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-10442400471610009715/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-10442400471610009715/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-10442400471610009715/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-10442400471610009715/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-10442400471610009715/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-10442400471610009715/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvReadinessComposition
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvReadinessComposition
+Starting... (2026-09-05 06:31:33)
+Warning: The invariant Premises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 06:31:33.
+Error: Invariant EveryIntroducedChildAdmissible is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ slot = 0
+/\ refused = FALSE
+/\ fastDone = 0
+/\ introducedAt = 0
+/\ slowDone = 0
+
+State 2: <Advance line 17, col 5 to line 25, col 79 of module QuvReadinessComposition>
+/\ slot = 1
+/\ refused = FALSE
+/\ fastDone = 1
+/\ introducedAt = 0
+/\ slowDone = 2
+
+State 3: <Advance line 17, col 5 to line 25, col 79 of module QuvReadinessComposition>
+/\ slot = 2
+/\ refused = FALSE
+/\ fastDone = 5
+/\ introducedAt = 4
+/\ slowDone = 7
+
+State 4: <Advance line 17, col 5 to line 25, col 79 of module QuvReadinessComposition>
+/\ slot = 3
+/\ refused = FALSE
+/\ fastDone = 9
+/\ introducedAt = 8
+/\ slowDone = 12
+
+State 5: <Advance line 17, col 5 to line 25, col 79 of module QuvReadinessComposition>
+/\ slot = 4
+/\ refused = FALSE
+/\ fastDone = 13
+/\ introducedAt = 12
+/\ slowDone = 17
+
+State 6: <Advance line 17, col 5 to line 25, col 79 of module QuvReadinessComposition>
+/\ slot = 5
+/\ refused = TRUE
+/\ fastDone = 13
+/\ introducedAt = 16
+/\ slowDone = 17
+
+6 states generated, 6 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 6.
+Finished in 00s at (2026-09-05 06:31:33)
+Trace exploration spec path: ./QuvReadinessComposition_TTrace_1788604293.tla

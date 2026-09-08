@@ -1,0 +1,36 @@
+# Immutable preflight
+review_root="$(mktemp -d /tmp/ioi-m17q-daybreak.XXXXXX)"
+git clone --no-hardlinks --no-checkout /home/heathledger/Documents/ioi/repos/ioi "$review_root/review-clone"
+cd "$review_root/review-clone"
+git fetch --force --tags origin
+git cat-file -t refs/tags/aft-quv-v0-m17q-candidate-r1-2026-09-04
+git rev-parse refs/tags/aft-quv-v0-m17q-candidate-r1-2026-09-04
+git rev-parse refs/tags/aft-quv-v0-m17q-candidate-r1-2026-09-04^{}
+git checkout --detach refs/tags/aft-quv-v0-m17q-candidate-r1-2026-09-04^{}
+git status --short --branch
+
+# Complete non-quick mandatory reproduction
+bash .github/scripts/run_aft_m16q_qualification.sh
+
+# Independent spec-only twin
+cd /tmp/ioi-m17q-daybreak.u6nAwg/review-output
+set -o pipefail
+/usr/bin/time -v python3 m17q_spec_twin.py --output m17q_spec_twin_results.json 2>&1 | tee m17q_spec_twin.log
+
+# Independent formal theorem rerun
+cd /tmp/ioi-m17q-daybreak.u6nAwg/review-clone
+bash .github/scripts/run_aft_formal_checks.sh --quv-theorem-only
+
+# Independent T10 TLC rerun
+cd internal-docs/architecture/protocols/aft/formal/consequence
+java -cp "$(git rev-parse --show-toplevel)/.internal/formal-cache/tools/tla/tla2tools.jar" \
+  tlc2.TLC -cleanup -deadlock -config AtMostOnceExternalization.cfg AtMostOnceExternalization.tla
+
+# Focused exact-candidate regression reproductions (combined one-shot selection)
+cd /tmp/ioi-m17q-repro.Bitdwf/repro-clone
+cargo test -p ioi-consensus --features aft repro_ --lib -- --nocapture
+
+# Focused status/PQ-carrier regression
+cd /tmp/ioi-m17q-network-repro.DMcOfy/repro-clone
+cargo test -p ioi-networking --lib \
+  repro_status_claimed_account_carrier_squat_survives_disconnect -- --nocapture

@@ -1,0 +1,51 @@
+[
+  {
+    "name": "restored-quv-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity",
+      "--no-fail-fast"
+    ],
+    "exit_code": 0,
+    "log": "restored-quv-tests.log"
+  },
+  {
+    "name": "restored-runtime-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "exit_code": 0,
+    "log": "restored-runtime-tests.log"
+  },
+  {
+    "name": "cli-check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "exit_code": 0,
+    "log": "cli-check.log"
+  }
+]

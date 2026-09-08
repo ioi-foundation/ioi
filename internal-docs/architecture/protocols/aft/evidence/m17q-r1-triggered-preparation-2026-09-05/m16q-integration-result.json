@@ -1,0 +1,37 @@
+{
+  "completed_utc": "2026-09-05T04:46:34.626059+00:00",
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--quv-parent-boundary-only"
+  ],
+  "exit_code": 0,
+  "positive_model_runs": 11,
+  "required_counterexamples": 6,
+  "m16q_integration": "source hashes and mandatory selected head/preparation phase added after process sequence terminated",
+  "scope": "finite design models, not production head refinement or full R2 admission",
+  "source_sha256": {
+    ".github/scripts/run_aft_m16q_qualification.sh": "e1e76007be5a3e8cdc9f375420ee73ec9b7f784704ff1524e266e9ff476bb5a2",
+    ".github/scripts/run_aft_formal_checks.sh": "b5337d6703d17e13bee8f2172f2d996ac75266dd22b5ada9e0a281a75ed82425",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla": "103e953a641b71f6b0edb873cdd274e586fdda634359b6984c52a0a446966c97",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla": "c4f1d082acb95feaf03116a30f52f91519ddc897933ec8a123910cfe9abb6675",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgress.tla": "5a12324cd7a50b6540c270eb9a1880b4f8be29b9a40cd02c14fb1a9f696ca2a1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparation.tla": "43d1d4dddfdc4c5001ba1fa271eeb5152ec719871f0f84076593d11d19f60dbc",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.cfg": "52735e9d65c434099ebd1156f8178f588f13f73fb453942ed004f45d7b10d6e3",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingReachable.cfg": "527251b27a61403a1fd1b119ab37f8e9dbf29f4e75dae0a4c8dd3a487f0a4304",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingTwoSlot.cfg": "e077336f4bbfdceee2447b6cbabe3322872fdf29960481b7c908547642e65315",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingUnowned.cfg": "037086593d27148de8b7f1598ce4eab64ca04b60075b6593b6561819c5ceac04",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingUnownedReachable.cfg": "889599ea2782c5f89ca8ec21f9c72ffcd0b10a974bd8f465dd14abffe91aec14",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingUnownedSolo.cfg": "016e64145b69f0cdffdb9dcc9b464c0562a8a6bda824aa1b6341a211f44eb58a",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.cfg": "3cf6a477adc80d88d95416f33957f7b0730467f451094fb104dd1ab8798d71e1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationReachable.cfg": "c59d89e155a44dd6275db7194d86399232db47e0d8dce81e15f0f96a9e49091d",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationSolo.cfg": "ed49fda48dc3a63b9fd856654fbdb41641c70764b1c9439d42c7b896b3046098",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgressDiscardGrant.cfg": "10055a58652a9dde78251690da5d32b5c03e5224379c4372dd41e43a65ebbbfb",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgressOwned.cfg": "da091eb9d511bc8eee34dc0ad17dd176b95927da7e933d0ee42be2902a06cfca",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgressUnowned.cfg": "18ff7b8eed6ccbd6be1627eaba6dc518d5a6a0d0b5a72f68a1ace71459ea18d9",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparationDisabled.cfg": "0abdde9ac14d1deae89dcb83dfac23b627eac1d0b0fb5dd45e9398549fea6e4a",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparationOwned.cfg": "7dd6023e3ecec56787b2ce9daf2c186978ae64a57c910c16c5cc4b7fd5df1359",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparationUnowned.cfg": "cf0254756f41275f0050ac7eeb9b75b92c204a9a96594869c00716acacdfa36c"
+  },
+  "log_sha256": "121a898df453811bfd23e6ea9281d582985b8163f5d8b56d3dd91d0e0950f95b"
+}

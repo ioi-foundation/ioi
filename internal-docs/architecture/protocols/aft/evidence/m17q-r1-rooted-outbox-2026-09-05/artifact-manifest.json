@@ -1,0 +1,18 @@
+{
+  "README.md": "7cb7f3e343cb21dfcd4093f3c6db2ead91c74f655f03c2c85b39f3f359948a27",
+  "channel.log": "66d93939b7cdbc0945958bc7c162f960c055daaf9f37815a4f8615b8ce424514",
+  "cli.log": "f926488ae4d80c73e04d45e2438783f19b7b30eda9d5f322b57620c4e4ed11bc",
+  "fixture-failure.log": "dcccbba050720f128516f5ecfe6c72077e395edf5392813071082b8617104fa0",
+  "initial-channel.log": "c007de1f5c1c470c366f66587072c1beac01b9a5d8092abeeeb82f0ea911a884",
+  "results.json": "d9ba9a2fd17e64e5f4fb8605fc0b811cf177c1e82e116beacc26a5371f929849",
+  "runtime.log": "e67073b65567a7af5ba6f3a37518590d7a34385a3f82c61dcab16adacdfb1f5b",
+  "source-sha256.json": "2993c6111387cbeb4f17f4be316e8cfde89283491a494713d1317bf600949494",
+  "sources/.github/scripts/run_aft_m16q_qualification.sh": "dd217bb78eba028d977fc1096379d8ad118fe52cde79cae19e217cdc99c0d7b1",
+  "sources/Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+  "sources/crates/networking/src/libp2p/pq_channel/outbox_decode.rs": "d230b834e3c836b09a5d741ff209577c529b7b0a5354b6e8861be2a2bdddda58",
+  "sources/crates/networking/src/libp2p/pq_channel.rs": "58a522f2d28379c30eec5d99d2fc9b07421658091d54fef063c19d70e9dc733f",
+  "sources/crates/networking/src/libp2p/swarm.rs": "488bc0ea19af435e06700eb4eabde0ab8568b846de27f512ea3a84c6c3496503",
+  "sources/crates/validator/src/standard/orchestration/consensus.rs": "87be88f7db8cf700b8c5afa5eed4bb62537ca0b604f189a35c14452cbdd91657",
+  "sources/crates/validator/src/standard/orchestration/lifecycle.rs": "34762e2669bc5fed9f57b2c11a2afb1a7236909e67fe1854a307699180c0db11",
+  "swarm.log": "ff0165af7b66f49087cad15882370bf4b9787c4b42a8470ddb982a7d873357ca"
+}

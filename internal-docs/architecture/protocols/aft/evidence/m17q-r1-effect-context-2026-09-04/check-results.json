@@ -1,0 +1,72 @@
+[
+  {
+    "name": "quv_core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests"
+    ],
+    "started_utc": "2026-09-04T23:34:32.705030+00:00",
+    "exit_code": 0,
+    "finished_utc": "2026-09-04T23:36:08.187191+00:00",
+    "log_sha256": "8437c6143c0d798786a2d39de1f92387ac4ffae3e4228f53746acc87cf26e787"
+  },
+  {
+    "name": "manifest_registry",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-services",
+      "--lib",
+      "aft_effect_registry"
+    ],
+    "started_utc": "2026-09-04T23:36:08.188497+00:00",
+    "exit_code": 0,
+    "finished_utc": "2026-09-04T23:39:36.854052+00:00",
+    "log_sha256": "de7f2c05d264118b400f5f18d8a9a4d490181114ae464c598c38682ecbff1f7b"
+  },
+  {
+    "name": "portable_receipt",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-finality",
+      "--features",
+      "portable-assurance",
+      "--lib",
+      "complete_receipt_verifies_from_canonical_bytes_without_runtime_state"
+    ],
+    "started_utc": "2026-09-04T23:39:36.855317+00:00",
+    "exit_code": 0,
+    "finished_utc": "2026-09-04T23:44:38.530265+00:00",
+    "log_sha256": "300cda57e8202edcd8becfecdd724acb8b304b849cc12dd86c45f806d8c4f851"
+  },
+  {
+    "name": "process_fixture_check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started_utc": "2026-09-04T23:44:38.531299+00:00",
+    "exit_code": 0,
+    "finished_utc": "2026-09-04T23:46:51.391437+00:00",
+    "log_sha256": "2708030ab96f64d9bef3db7d15c40d49fdcb3e47561d4a02fb983eed75703380"
+  }
+]

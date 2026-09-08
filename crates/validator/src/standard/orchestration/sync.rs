@@ -30,6 +30,39 @@ use std::time::Instant;
 
 // --- BlockSync Trait Implementation ---
 
+/// Process-test seam for the M17Q-007 status identity-squatting case: when
+/// `IOI_TESTING_AFT_STATUS_CLAIMED_ACCOUNT_HEX` names a 64-hex account, this
+/// process reports THAT account in its status responses instead of its own.
+/// The seam changes only the advertised routing hint; key material, the local
+/// PQ identity, enrollment decisions and QUV routing are untouched, so a
+/// receiving peer must still refuse or evict the claim exactly as it would
+/// for a real squatter. It is fail-closed: a malformed value is returned as
+/// `Some(Err)` and the caller then withholds the account hint entirely rather
+/// than falling back to the genuine account, so a misconfigured campaign can
+/// never pass as an honest one. The `IOI_TESTING_` name keeps it outside every
+/// production configuration surface.
+fn testing_status_claimed_account_override() -> Option<Result<AccountId, String>> {
+    let value = std::env::var_os("IOI_TESTING_AFT_STATUS_CLAIMED_ACCOUNT_HEX")?;
+    Some(parse_testing_status_claimed_account(&value))
+}
+
+fn parse_testing_status_claimed_account(value: &std::ffi::OsStr) -> Result<AccountId, String> {
+    let text = value
+        .to_str()
+        .ok_or_else(|| "claimed account override is not UTF-8".to_string())?;
+    if text.len() != 64 || !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!(
+            "claimed account override must be exactly 64 hex characters, got {} bytes",
+            text.len()
+        ));
+    }
+    let bytes = hex::decode(text).map_err(|error| error.to_string())?;
+    let account: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| "claimed account override is not 32 bytes".to_string())?;
+    Ok(AccountId(account))
+}
+
 pub(crate) fn sync_batch_max_bytes() -> u32 {
     std::env::var("IOI_AFT_SYNC_MAX_BYTES")
         .ok()
@@ -67,7 +100,7 @@ fn sync_response_entry_is_committed(
 /// it waits for descendant-QC finality. Starting a catch-up request from that
 /// unadmitted height omits the canonical competing block and makes the next
 /// peer block impossible to execute against the local parent state.
-async fn agentgres_sync_floor<CS, ST, CE, V>(
+pub(super) async fn agentgres_sync_floor<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
 ) -> Option<u64>
 where
@@ -158,6 +191,49 @@ fn sync_cursor_when_peer_is_ahead(
 
 fn effective_executed_height(reported_height: u64, tracked_height: u64) -> u64 {
     reported_height.max(tracked_height)
+}
+
+/// Number of leading blocks in an unsolicited response that merely repeat the
+/// hash-linked prefix this node already executed speculatively. The prefix is
+/// identified only by exact equality between the response's block at the
+/// speculative height and the locally executed tip hash; hash linkage then
+/// makes every earlier response block the same chain, so re-applying them
+/// cannot add information and must not be mistaken for a history
+/// disagreement. A differing hash at that height skips nothing: the ordinary
+/// fail-closed replacement checks decide it. Skipping grants no ordering or
+/// finality authority; every retained block still passes the full checks.
+fn already_executed_prefix_len<'a>(
+    response: impl Iterator<Item = (u64, Option<&'a [u8]>)>,
+    speculative_height: u64,
+    speculative_tip_hash: &[u8],
+) -> usize {
+    if speculative_height == 0 || speculative_tip_hash.is_empty() {
+        return 0;
+    }
+    for (index, (height, hash)) in response.enumerate() {
+        if height == speculative_height {
+            return if hash == Some(speculative_tip_hash) {
+                index + 1
+            } else {
+                0
+            };
+        }
+        if height > speculative_height {
+            return 0;
+        }
+    }
+    0
+}
+
+fn opportunistic_response_reaches_live_projection(
+    speculative_height: u64,
+    response_tip: u64,
+) -> bool {
+    // An unsolicited response may reconcile the current projected height or
+    // advance it, but a peer carrying only a shorter prefix must never roll a
+    // node back. Canonical replacement at the same height remains subject to
+    // the exact Agentgres floor, byte fences, and execution checks below.
+    response_tip >= speculative_height
 }
 
 pub async fn start_catchup_to_peer<CS, ST, CE, V>(
@@ -313,6 +389,37 @@ pub async fn handle_status_request<CS, ST, CE, V>(
                 .unwrap_or_default(),
             ))
         });
+    // Test-only status identity override (see
+    // `testing_status_claimed_account_override`). Absent in production this
+    // block is byte-inert; when present it rewrites only the advertised
+    // account field of this response.
+    let validator_account_id = match testing_status_claimed_account_override() {
+        None => validator_account_id,
+        Some(Ok(claimed_account)) => {
+            tracing::warn!(
+                target: "network",
+                event = "testing_status_account_override",
+                %_peer,
+                local_peer = %context.local_keypair.public().to_peer_id(),
+                claimed_account = %hex::encode(claimed_account.as_ref()),
+                local_account = %validator_account_id
+                    .map(|account| hex::encode(account.as_ref()))
+                    .unwrap_or_default(),
+                "Testing override: status response claims a foreign account; key material, enrollment and routing are untouched."
+            );
+            Some(claimed_account)
+        }
+        Some(Err(error)) => {
+            tracing::warn!(
+                target: "network",
+                event = "testing_status_account_override_invalid",
+                %_peer,
+                %error,
+                "Testing override is set but malformed; withholding the status account hint (fail-closed)."
+            );
+            None
+        }
+    };
     tracing::info!(
         target: "sync",
         %_peer,
@@ -364,11 +471,17 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + Debug,
 {
     let expose_test_projection = crate::standard::testing_trivial_aft_restart_anchor_enabled();
-    let certified_handoff_tip = context
+    let certified_handoff_history = context
         .aft_quv_certified_handoff
         .as_ref()
-        .zip(context.last_executed_block.as_ref())
-        .filter(|(qc, block)| {
+        .zip(context.aft_quv_certified_handoff_block.as_ref())
+        .zip(context.aft_quv_certified_handoff_parent_block.as_ref())
+        .filter(|((qc, block), parent)| {
+            let parent_hash = parent
+                .header
+                .hash()
+                .ok()
+                .and_then(|hash| <[u8; 32]>::try_from(hash).ok());
             qc.height == block.header.height
                 && qc.view == block.header.view
                 && block
@@ -377,8 +490,14 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
                     .ok()
                     .and_then(|hash| <[u8; 32]>::try_from(hash).ok())
                     == Some(qc.block_hash)
+                && parent.header.height.saturating_add(1) == block.header.height
+                && parent_hash == Some(block.header.parent_hash)
+                && parent.header.state_root.0 == block.header.parent_state_root.0
         })
-        .map(|(_, block)| block);
+        .map(|((_, block), parent)| vec![parent.clone(), block.clone()]);
+    let certified_handoff_tip = certified_handoff_history
+        .as_ref()
+        .and_then(|history| history.last());
     let committed_tip = if expose_test_projection {
         context.last_executed_block.as_ref()
     } else {
@@ -398,6 +517,32 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         .get_blocks_range(since + 1, max_blocks, max_bytes)
         .await
         .unwrap_or_default();
+    if let Some(history) = certified_handoff_history {
+        let request_end = since.saturating_add(u64::from(max_blocks));
+        for certified in history {
+            if certified.header.height <= since || certified.header.height > request_end {
+                continue;
+            }
+            if let Some(existing) = blocks
+                .iter_mut()
+                .find(|block| block.header.height == certified.header.height)
+            {
+                *existing = certified;
+            } else {
+                blocks.push(certified);
+            }
+        }
+        blocks.sort_by_key(|block| block.header.height);
+        blocks.truncate(max_blocks as usize);
+        while codec::to_bytes_canonical(&blocks)
+            .map(|bytes| bytes.len() > max_bytes as usize)
+            .unwrap_or(true)
+        {
+            if blocks.pop().is_none() {
+                break;
+            }
+        }
+    }
     let fetched_blocks = blocks.len();
     blocks.retain(|block| {
         let candidate_hash = (block.header.height == committed_height)
@@ -494,11 +639,10 @@ pub async fn handle_status_response<CS, ST, CE, V>(
     }
 
     if let Some(account_id) = validator_account_id {
-        context
-            .peer_accounts_ref
-            .lock()
-            .await
-            .insert(peer, account_id);
+        // Status metadata is an untrusted carrier hint. It may start a PQ
+        // handshake against the independently rooted account key, but it must
+        // not enter the authoritative peer/account routing map until that
+        // handshake proves possession of the configured ML-DSA identity.
         if let Some(identity_key_hash) = context
             .aft_pq_peer_keys
             .as_ref()
@@ -519,6 +663,15 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         }
     }
 
+    if sync_cursor.is_some() && context.aft_quv_retired {
+        tracing::debug!(
+            target: "sync",
+            %peer,
+            peer_height,
+            "Retired old-root process does not re-initiate sync toward successor-root history."
+        );
+        return;
+    }
     if let Some(sync_cursor) = sync_cursor {
         if let Some(progress) = context.sync_progress.as_mut() {
             if peer_height > progress.tip {
@@ -605,16 +758,80 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 {
     let mut blocks = blocks;
     let workload_client = context.view_resolver.workload_client().clone();
+    if context.aft_quv_retired {
+        // Already refused successor-root history without a successor
+        // identity; solicited or unsolicited responses carry nothing this
+        // process may adopt.
+        tracing::debug!(
+            target: "sync",
+            %peer,
+            received_blocks = blocks.len(),
+            "Retired old-root process ignores blocks responses."
+        );
+        return;
+    }
     if context.sync_progress.is_none() {
         let Some(local_height) = agentgres_sync_floor(context).await else {
             return;
         };
+        let tracked_height = context
+            .last_executed_block
+            .as_ref()
+            .map(|block| block.header.height)
+            .unwrap_or(0);
+        let reported_height = workload_client
+            .get_execution_status()
+            .await
+            .map(|status| status.height)
+            .unwrap_or(0);
+        let speculative_height = effective_executed_height(reported_height, tracked_height);
         let first_new_index = blocks
             .iter()
             .position(|block| block.header.height > local_height);
-        let sequential_blocks = first_new_index
+        let mut sequential_blocks = first_new_index
             .map(|index| blocks.split_off(index))
             .unwrap_or_default();
+        // A duplicate or late response may restate blocks this node already
+        // executed after an earlier batch completed while the Agentgres floor
+        // still trails the executed cursor. Skip exactly the hash-linked prefix
+        // that ends in the locally executed tip; anything else is decided by
+        // the fail-closed checks below.
+        let speculative_tip_hash = context
+            .last_executed_block
+            .as_ref()
+            .and_then(|block| block.header.hash().ok());
+        let response_hashes = sequential_blocks
+            .iter()
+            .map(|block| (block.header.height, block.header.hash().ok()))
+            .collect::<Vec<_>>();
+        let already_executed = speculative_tip_hash
+            .as_deref()
+            .map(|tip| {
+                already_executed_prefix_len(
+                    response_hashes
+                        .iter()
+                        .map(|(height, hash)| (*height, hash.as_deref())),
+                    speculative_height,
+                    tip,
+                )
+            })
+            .unwrap_or(0);
+        if already_executed > 0 {
+            tracing::info!(
+                target: "sync",
+                %peer,
+                skipped_blocks = already_executed,
+                speculative_height,
+                local_height,
+                "Skipping an already-executed hash-linked prefix in an opportunistic sync response."
+            );
+            sequential_blocks.drain(..already_executed);
+        }
+        let resume_from = if already_executed > 0 {
+            speculative_height
+        } else {
+            local_height
+        };
         let bootstrap_tip = sequential_blocks
             .last()
             .map(|block| block.header.height)
@@ -624,7 +841,10 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             .map(|block| block.header.height)
             .unwrap_or(0);
 
-        if !sequential_blocks.is_empty() && first_height == local_height + 1 {
+        if !sequential_blocks.is_empty()
+            && first_height == resume_from + 1
+            && opportunistic_response_reaches_live_projection(speculative_height, bootstrap_tip)
+        {
             tracing::info!(
                 target: "sync",
                 %peer,
@@ -636,7 +856,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             context.sync_progress = Some(SyncProgress {
                 target: Some(peer),
                 tip: bootstrap_tip,
-                next: local_height,
+                next: resume_from,
                 inflight: false,
                 req_id: 0,
                 requested_at: Instant::now(),
@@ -665,12 +885,45 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     let Some(canonical_height) = agentgres_sync_floor(context).await else {
         return;
     };
+    let speculative_height = context
+        .last_executed_block
+        .as_ref()
+        .map(|block| block.header.height)
+        .unwrap_or(0);
+    let mut force_canonical_replacement_at = None;
     {
         let Some(progress) = context.sync_progress.as_mut() else {
             return;
         };
         if progress.target != Some(peer) {
-            return;
+            // Explicit boundary recovery can ask several authenticated peers
+            // for the same canonical range. The first responder may supply
+            // only a prefix (for example genesis H1), while a different old
+            // member retains the exact QC-certified QUV boundary H2. Permit
+            // that second response to take over only when it demonstrably
+            // carries the next consecutive height. The ordinary block,
+            // signature, QC, execution, and finality checks below still run
+            // before any state is admitted; empty, stale, or gapped replies
+            // cannot retarget sync.
+            let next_height = progress.next.saturating_add(1);
+            let advances = blocks
+                .iter()
+                .find(|block| block.header.height >= next_height)
+                .is_some_and(|block| {
+                    block.header.height == next_height && block.header.height <= progress.tip
+                });
+            if !advances {
+                return;
+            }
+            tracing::info!(
+                target: "sync",
+                %peer,
+                previous_target = ?progress.target,
+                next = progress.next,
+                tip = progress.tip,
+                "Retargeting sync to an authenticated peer carrying the next consecutive block."
+            );
+            progress.target = Some(peer);
         }
         progress.inflight = false;
         if canonical_height > progress.next {
@@ -683,6 +936,37 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 "Advancing sync cursor to the Agentgres-admitted height before applying batch."
             );
             progress.next = canonical_height;
+        } else if canonical_height < progress.next
+            && blocks
+                .iter()
+                .any(|block| block.header.height == canonical_height.saturating_add(1))
+        {
+            // `progress.next` can include a speculative workload projection
+            // that Agentgres has not admitted. A certified peer may supply a
+            // different execution of that same height as the parent of the
+            // next canonical block. When the response carries the complete
+            // consecutive suffix from canonical truth, rewind the cursor so
+            // the atomic AFT replacement path below reconciles that parent
+            // before applying its child. Never rewind on a gapped response.
+            tracing::info!(
+                target: "sync",
+                %peer,
+                canonical_height,
+                previous_next = progress.next,
+                tip = progress.tip,
+                "Rewinding sync cursor to reconcile an unadmitted workload projection."
+            );
+            progress.next = canonical_height;
+            force_canonical_replacement_at = Some(canonical_height.saturating_add(1));
+        }
+        if force_canonical_replacement_at.is_none()
+            && progress.next == canonical_height
+            && speculative_height > canonical_height
+            && blocks
+                .iter()
+                .any(|block| block.header.height == canonical_height.saturating_add(1))
+        {
+            force_canonical_replacement_at = Some(canonical_height.saturating_add(1));
         }
     }
 
@@ -765,8 +1049,47 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 
     for block in blocks {
         let applying_height = block.header.height;
+        // Successor authority comes only from this process's durable
+        // live-install gate. Synced bytes at or beyond the staged activation
+        // height are not adopted while that gate is pending: a successor
+        // waits for its own activation, an old-only member is retired and
+        // stops. Heights below activation (including the exact QC-certified
+        // handoff boundary) are unaffected.
+        match super::consensus::quv_successor_root_gate(
+            context.config.aft_quv_handoff_source.is_some(),
+            context.aft_quv_staged_successor.as_ref(),
+            context.aft_quv_handoff_store.is_some(),
+            applying_height,
+        ) {
+            super::consensus::QuvSuccessorRootGate::Admit => {}
+            super::consensus::QuvSuccessorRootGate::DeferUntilLocalInstall => {
+                tracing::warn!(
+                    target: "sync",
+                    %peer,
+                    applying_height,
+                    "Deferring successor-root sync until the local QUV install gate activates."
+                );
+                context.sync_progress = None;
+                return;
+            }
+            super::consensus::QuvSuccessorRootGate::RefuseRetired => {
+                context.aft_quv_retired = true;
+                context.sync_progress = None;
+                context
+                    .is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "quv",
+                    %peer,
+                    applying_height,
+                    "{}; refusing successor-root history from sync, node stopped",
+                    super::consensus::QUV_RETIRED_SIGNER_REFUSAL
+                );
+                return;
+            }
+        }
         let reported_height = workload_client
-            .get_status()
+            .get_execution_status()
             .await
             .map(|status| status.height)
             .unwrap_or(0);
@@ -775,19 +1098,58 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             .as_ref()
             .map(|candidate| candidate.header.height)
             .unwrap_or(0);
-        // AFT status is intentionally collapse/Agentgres-backed. It may lag
-        // the speculative workload tip by the descendant-QC finality depth,
-        // so it must never make sync replay an already executed height as if
-        // it were a new state transition.
+        // Replacement fencing needs the workload's raw execution cursor, not
+        // its collapse/Agentgres-backed public status. The raw cursor grants
+        // no ordering or finality authority: the exact target and live-tip
+        // bytes, Agentgres floor, and two-projection limit remain mandatory
+        // below. It only prevents a valid rollback request from presenting a
+        // stale live-tip fence while the workload is speculatively ahead of
+        // orchestration's in-memory tracking.
         let workload_height = effective_executed_height(reported_height, tracked_height);
 
+        // This node may have executed the exact fetched block itself (through
+        // an earlier batch or live consensus) while the canonical Agentgres
+        // floor still trails its executed cursor. An exact header-hash match
+        // against the local executed ring is not a disagreement and is not
+        // re-applied; the block was already verified and executed here, and
+        // its admission still follows the unchanged finality path. A differing
+        // or unknown hash takes the fail-closed reconciliation below.
+        if workload_height >= applying_height {
+            let candidate_hash = block.header.hash().unwrap_or_default();
+            if super::context::executed_exactly(
+                &context.recent_executed_headers,
+                applying_height,
+                &candidate_hash,
+            ) {
+                tracing::info!(
+                    target: "sync",
+                    %peer,
+                    applying_height,
+                    workload_height,
+                    "Skipping a synced block this node already executed with the exact header hash."
+                );
+                if let Some(progress) = context.sync_progress.as_mut() {
+                    progress.next = applying_height;
+                }
+                continue;
+            }
+        }
+
         let (processed_block, replaces_live_tip) = if workload_height >= applying_height {
-            match super::runtime_finality::stage_execution_equivalent_candidate(
-                context,
-                block.clone(),
-            )
-            .await
-            {
+            let execution_equivalent = if force_canonical_replacement_at == Some(applying_height) {
+                // Header equality cannot prove that the workload's current
+                // state tree is the certified branch. A cursor rewind from
+                // Agentgres truth must run the rollback-and-reexecute path so
+                // the next block observes the exact parent state root.
+                Ok(false)
+            } else {
+                super::runtime_finality::stage_execution_equivalent_candidate(
+                    context,
+                    block.clone(),
+                )
+                .await
+            };
+            match execution_equivalent {
                 Ok(true) => {
                     if let Err(error) = workload_client.update_block_header(block.clone()).await {
                         tracing::warn!(
@@ -1053,6 +1415,10 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         {
             context.last_executed_block = Some(processed_block.clone());
         }
+        super::context::remember_executed_header(
+            &mut context.recent_executed_headers,
+            &processed_block,
+        );
         match observe_live_committed_chain_through_block(
             &context.consensus_engine_ref,
             context.config.consensus_type,
@@ -1392,9 +1758,110 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn testing_status_claimed_account_override_accepts_only_exact_64_hex() {
+        use super::parse_testing_status_claimed_account;
+        use std::ffi::OsStr;
+        let account = parse_testing_status_claimed_account(OsStr::new(&"ab".repeat(32)))
+            .expect("64 hex characters parse");
+        assert_eq!(account.0, [0xab; 32]);
+        assert_eq!(
+            parse_testing_status_claimed_account(OsStr::new(&"AB".repeat(32)))
+                .expect("uppercase hex parses")
+                .0,
+            [0xab; 32]
+        );
+        for malformed in [
+            String::new(),
+            "ab".repeat(31),
+            "ab".repeat(33),
+            format!(" {}", "ab".repeat(32)),
+            format!("{}\n", "ab".repeat(32)),
+            format!("0x{}", "ab".repeat(31)),
+            format!("{}zz", "ab".repeat(31)),
+        ] {
+            assert!(
+                parse_testing_status_claimed_account(OsStr::new(&malformed)).is_err(),
+                "malformed override {malformed:?} must be refused"
+            );
+        }
+    }
+
+    #[test]
+    fn executed_header_ring_is_bounded_and_matches_only_exact_hashes() {
+        use crate::standard::orchestration::context::{executed_exactly, RECENT_EXECUTED_HEADERS};
+        let mut recent = std::collections::BTreeMap::new();
+        for height in 1..=(RECENT_EXECUTED_HEADERS as u64 + 10) {
+            recent.insert(height, vec![height as u8; 32]);
+            while recent.len() > RECENT_EXECUTED_HEADERS {
+                let oldest = *recent.keys().next().unwrap();
+                recent.remove(&oldest);
+            }
+        }
+        assert_eq!(recent.len(), RECENT_EXECUTED_HEADERS);
+        assert!(!recent.contains_key(&1));
+        let top = RECENT_EXECUTED_HEADERS as u64 + 10;
+        assert!(executed_exactly(&recent, top, &[top as u8; 32]));
+        assert!(!executed_exactly(&recent, top, &[0u8; 32]));
+        assert!(!executed_exactly(&recent, 1, &[1u8; 32]));
+        assert!(!executed_exactly(&recent, top, &[]));
+    }
+
+    #[test]
+    fn already_executed_prefix_is_skipped_only_on_exact_tip_hash_match() {
+        use super::already_executed_prefix_len;
+        let tip = [6u8; 32];
+        let other = [9u8; 32];
+        let chain = |tip_hash: &'static [u8]| {
+            vec![
+                (1u64, Some(&[1u8; 32][..])),
+                (2, Some(&[2u8; 32][..])),
+                (3, Some(&[3u8; 32][..])),
+                (4, Some(&[4u8; 32][..])),
+                (5, Some(&[5u8; 32][..])),
+                (6, Some(tip_hash)),
+                (7, Some(&[7u8; 32][..])),
+            ]
+        };
+        // Duplicate batch restating the executed prefix: skip through height 6.
+        assert_eq!(
+            already_executed_prefix_len(chain(&[6u8; 32]).into_iter(), 6, &tip),
+            6
+        );
+        // Same heights, different tip hash: a real disagreement, skip nothing.
+        assert_eq!(
+            already_executed_prefix_len(chain(&[6u8; 32]).into_iter(), 6, &other),
+            0
+        );
+        // Response starting beyond the speculative height: nothing to skip.
+        assert_eq!(
+            already_executed_prefix_len(
+                vec![(7u64, Some(&[7u8; 32][..])), (8, Some(&[8u8; 32][..]))].into_iter(),
+                6,
+                &tip
+            ),
+            0
+        );
+        // Unhashable block at the speculative height never matches.
+        assert_eq!(
+            already_executed_prefix_len(vec![(6u64, None)].into_iter(), 6, &tip),
+            0
+        );
+        // Genesis-only node or empty tip hash: nothing is ever skipped.
+        assert_eq!(
+            already_executed_prefix_len(chain(&[6u8; 32]).into_iter(), 0, &tip),
+            0
+        );
+        assert_eq!(
+            already_executed_prefix_len(chain(&[6u8; 32]).into_iter(), 6, &[]),
+            0
+        );
+    }
+
     use super::{
-        effective_executed_height, sync_cursor_when_peer_is_ahead,
-        sync_response_entry_is_committed, within_aft_sync_replacement_window,
+        effective_executed_height, opportunistic_response_reaches_live_projection,
+        sync_cursor_when_peer_is_ahead, sync_response_entry_is_committed,
+        within_aft_sync_replacement_window,
     };
 
     #[test]
@@ -1460,5 +1927,12 @@ mod tests {
     fn collapse_backed_status_cannot_downgrade_the_tracked_execution_tip() {
         assert_eq!(effective_executed_height(10, 12), 12);
         assert_eq!(effective_executed_height(12, 10), 12);
+    }
+
+    #[test]
+    fn opportunistic_sync_never_lowers_the_live_projection_tip() {
+        assert!(!opportunistic_response_reaches_live_projection(2, 1));
+        assert!(opportunistic_response_reaches_live_projection(2, 2));
+        assert!(opportunistic_response_reaches_live_projection(2, 3));
     }
 }

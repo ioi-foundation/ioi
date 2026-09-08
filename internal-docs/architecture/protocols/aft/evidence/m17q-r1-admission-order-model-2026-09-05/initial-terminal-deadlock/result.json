@@ -1,0 +1,68 @@
+{
+  "checks": [
+    {
+      "command": [
+        "java",
+        "-XX:ActiveProcessorCount=2",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-metadir",
+        "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-order-model-2026-09-05/Fifo1.cfg.states",
+        "-config",
+        "Fifo1.cfg",
+        "QuvAdmissionOrder.tla"
+      ],
+      "exit_code": 11,
+      "expected_result": false
+    },
+    {
+      "command": [
+        "java",
+        "-XX:ActiveProcessorCount=2",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-metadir",
+        "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-order-model-2026-09-05/Fifo2.cfg.states",
+        "-config",
+        "Fifo2.cfg",
+        "QuvAdmissionOrder.tla"
+      ],
+      "exit_code": 11,
+      "expected_result": false
+    },
+    {
+      "command": [
+        "java",
+        "-XX:ActiveProcessorCount=2",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-metadir",
+        "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-order-model-2026-09-05/NoFifo.cfg.states",
+        "-config",
+        "NoFifo.cfg",
+        "QuvAdmissionOrder.tla"
+      ],
+      "exit_code": 11,
+      "expected_result": false
+    }
+  ],
+  "jar_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+  "sources": {
+    "Fifo2.cfg": "d133de989f3502e50fbfdf0a37cb9c74e58506d879a059318edf67c70d415b77",
+    "QuvAdmissionOrder_TTrace_1788611627.tla": "55d97ef096f1099e3a09572436db05f91cfbcb442978d0a4f99b62e2567bea0a",
+    "NoFifo.cfg": "e710575a040338f2deece274dc7d4c0885e50ee1cbc1b5d062c5197bc15de522",
+    "QuvAdmissionOrder.tla": "62dd48035b81fd5cc8d01de95081d01c1f814fafb7e5a27115b4e7514662a79e",
+    "QuvAdmissionOrder_TTrace_1788611626.tla": "ee744b971e3fe212082010b3ef0c6f401ca3953bcc3039889b9860a2d72d678c",
+    "Fifo1.cfg": "c32c6aa44f3bd62f636395122c0c5b9ace23bdedffd5545d93d180b2464c3190"
+  },
+  "scope": "Finite admission-order component abstraction; not runtime refinement or wall-clock queue bound"
+}

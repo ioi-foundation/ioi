@@ -1,0 +1,89 @@
+{
+  "completed_utc": "2026-09-05T14:57:05.212456+00:00",
+  "head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "sources": [
+    {
+      "path": "crates/consensus/src/aft/query_unanimity.rs",
+      "sha256": "6e67310899669e6b8d6de2ad1756148ef673cdcb6ef1f62fce482e4318f62eeb"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal.rs",
+      "sha256": "d7a6813c72e63aa7e1d64af8f11b7afcff06a09d8a082d5e13b6839e18e195a7"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal/tests.rs",
+      "sha256": "a633158a66286d263eec9d5e6095c56b15ef4b4be4502563835cda34fabc3521"
+    }
+  ],
+  "source_scope": "retained subset of dirty worktree; not immutable R2",
+  "commands": [
+    {
+      "command": "cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::journal --no-fail-fast",
+      "log": "commit-boundary-tests.log",
+      "exit_code": 0,
+      "passed": 12
+    },
+    {
+      "command": "cargo test -p ioi-consensus --features aft --lib aft::query_unanimity --no-fail-fast",
+      "log": "commit-boundary-restored-quv-tests.log",
+      "exit_code": 0,
+      "passed": 53,
+      "ignored": 1
+    },
+    {
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "crates/consensus/src/aft/query_unanimity/journal.rs",
+        "crates/consensus/src/aft/query_unanimity/journal/tests.rs"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "negative_controls": {
+    "restored_source_sha256": "d7a6813c72e63aa7e1d64af8f11b7afcff06a09d8a082d5e13b6839e18e195a7",
+    "controls": [
+      {
+        "control": "missing-final-check",
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "ioi-consensus",
+          "--features",
+          "aft",
+          "--lib",
+          "aft::query_unanimity::journal::tests::final_continuation_refusal_is_nonmutating_and_precedes_any_write",
+          "--",
+          "--exact"
+        ],
+        "exit_code": 101,
+        "expected_assertion_failure": true,
+        "source_sha256": "a1b4afcd46b2f9a43ec3d3ca924fb1ddfe93e22696f8bb9e20d0d9d870cb1d60"
+      },
+      {
+        "control": "missing-quarantine",
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "ioi-consensus",
+          "--features",
+          "aft",
+          "--lib",
+          "aft::query_unanimity::journal::tests::interrupted_record_write_quarantines_until_authenticated_reopen",
+          "--",
+          "--exact"
+        ],
+        "exit_code": 101,
+        "expected_assertion_failure": true,
+        "source_sha256": "4bd4a0b0e274105442963e7935cfd81f225217b597168651196d764ea2b80f98"
+      }
+    ]
+  },
+  "production_integration": false,
+  "whole_findings_closed": [],
+  "disposition": "PASS_SCOPED_COMPONENT_TESTS"
+}

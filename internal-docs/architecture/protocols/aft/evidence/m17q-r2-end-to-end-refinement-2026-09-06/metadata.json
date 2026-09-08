@@ -1,0 +1,38 @@
+{
+  "status": "LOCAL_FINITE_DESIGN_CHECK_PASS_NOT_PRODUCTION_REFINEMENT",
+  "date": "2026-09-06",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "finding": "QUV-M17Q-005",
+  "module": "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvEndToEndRefinement.tla",
+  "tool": "TLC (tla2tools.jar 1.8.0, sha256 ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f), OpenJDK 21, -cleanup -deadlock, 4-6 workers",
+  "positive": {
+    "QuvEndToEndRefinement.cfg": {"generated": 8938002, "distinct": 1812222, "depth": 31, "elapsed_s": 30},
+    "QuvEndToEndRefinementUnowned.cfg": {"generated": 8965487, "distinct": 1818675, "depth": 31, "elapsed_s": 28},
+    "QuvEndToEndRefinementSolo.cfg": {"generated": 25205, "distinct": 8980, "depth": 26, "elapsed_s": 1},
+    "QuvEndToEndRefinementHandoff.cfg": {"generated": 16827430, "distinct": 3273246, "depth": 37, "elapsed_s": 66},
+    "QuvEndToEndRefinementTwoDomain.cfg": {"generated": 89961, "distinct": 31472, "depth": 26, "elapsed_s": 2}
+  },
+  "countermodels": {
+    "QuvEndToEndRefinementReachable.cfg": {"violated": "NoExecutedSecondSlot", "generated": 18826, "distinct": 7315, "depth": 21},
+    "QuvEndToEndRefinementPredecessorInKey.cfg": {"violated": "NoConflictingAccepts", "generated": 5391269, "distinct": 1533593, "depth": 16},
+    "QuvEndToEndRefinementLateReply.cfg": {"violated": "NoConflictingAccepts", "generated": 115170, "distinct": 37814, "depth": 11},
+    "QuvEndToEndRefinementSkipExecutorQuv.cfg": {"violated": "NoClaimWithoutOwnLiveAccept", "generated": 132779, "distinct": 39654, "depth": 12},
+    "QuvEndToEndRefinementClaimAfterExpiry.cfg": {"violated": "NoClaimAfterExpiryOrFence", "generated": 2242, "distinct": 945, "depth": 14},
+    "QuvEndToEndRefinementCallBeforeClaim.cfg": {"violated": "NoBlindReplayAfterCrash", "generated": 22014, "distinct": 7456, "depth": 22, "note": "AtMostOneExternalMutationPerStableKey holds under this mutation (diagnostic run, complete, 7552 distinct)"},
+    "QuvEndToEndRefinementUnauthenticatedRecovery.cfg": {"violated": "RecoveryNeverAdvancesBeyondAuthenticatedRecords", "generated": 278, "distinct": 136, "depth": 7},
+    "QuvEndToEndRefinementResourceIdSplitsKey.cfg": {"violated": "AtMostOneExternalMutationPerStableKey", "generated": 22402, "distinct": 7864, "depth": 21},
+    "QuvEndToEndRefinementActivateFromBytes.cfg": {"violated": "NoSuccessorAuthorityFromBytes", "generated": 1488974, "distinct": 370848, "depth": 15}
+  },
+  "deviations": [
+    "CallBeforeClaim violates NoBlindReplayAfterCrash, not AtMostOneExternalMutationPerStableKey: a faithful put-if-absent register on the stable key deduplicates the blind second call.",
+    "LateReplyAdmitted is modeled as unfenced finalization (no wait through the cutoff), because under Q-A3 no correct reply is ever first observed late.",
+    "PredecessorInKey also makes the predecessor request-supplied (pre-schema-5 store); under strict head admission the split is unreachable in this instance."
+  ],
+  "limitations": [
+    "Finite explicit-state abstraction; not a mechanized refinement of the Rust implementation",
+    "Atomic durable writes, MAC unforgeability, ideal shared model time, static silent Byzantine faults assumed",
+    "Executors identified with correct relying members; nonce freshness abstracted as exact-context-plus-start binding",
+    "Admitted manifest chain fixed to X; heads root-independent across handoff; no retention/retirement/capacity/scheduling/lock modeling",
+    "Distinct-state counts vary by a few hundred between multi-worker SYMMETRY runs; verdicts do not"
+  ]
+}

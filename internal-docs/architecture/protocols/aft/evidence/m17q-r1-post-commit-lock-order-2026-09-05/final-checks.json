@@ -1,0 +1,32 @@
+[
+  {
+    "name": "finalize-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::finalize::tests"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "cli-check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl",
+      "--test",
+      "aft_e2e"
+    ],
+    "exit_code": 0
+  }
+]

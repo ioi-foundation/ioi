@@ -1,0 +1,46 @@
+142:test consequence::tests::cached_authorized_receipt_beyond_fence_is_refused_on_inspect_prepare_and_execute ... ok
+143:test consequence::tests::online_effect_rechecks_process_local_deadline_at_claim_transition ... ok
+144:test consequence::tests::endpoint_reservation_refuses_lost_capacity_and_recovers_only_uncommitted_staging ... ok
+145:test consequence::tests::online_effect_rechecks_height_fence_after_live_quv ... ok
+146:test consequence::tests::forged_resource_evidence_cannot_create_transferable_attribution ... ok
+147:test consequence::tests::authorization_token_and_both_fence_forms_fail_closed ... ok
+148:test consequence::tests::ambiguous_result_reconciles_same_key_without_blind_replay ... ok
+149:test consequence::tests::clear_execution_and_duplicate_delivery_mutate_the_resource_once ... ok
+150:test consequence::tests::expired_result_preparation_preserves_authority_identity_and_execution_fences ... ok
+151:test consequence::tests::crash_after_external_call_recovers_by_lookup_and_never_calls_twice ... ok
+152:test consequence::tests::consequence_lock_refuses_aliases_and_retains_exclusive_ownership ... ok
+153:test consequence::tests::receipt_hash_view_preserves_canonical_bytes_and_optional_fields ... ok
+154:test consequence::tests::ambiguity_is_not_attributed_but_signed_contradiction_is_transferable ... ok
+155:test consequence::tests::portable_manifests_do_not_touch_the_claim_index ... ok
+156:test consequence::tests::query_unanimity_effect_requires_matching_immediate_online_authorization ... ok
+157:test consequence::tests::receipt_reserved_exchange_preserves_capacity_and_payload_when_length_shrinks ... ok
+158:test consequence::tests::receipt_commits_intent_outcome_and_reconciliation_evidence ... ok
+159:test consequence::tests::receipt_preparation_reuses_valid_pair_and_repairs_only_incomplete_spare ... ok
+160:test consequence::tests::unsupported_resource_cannot_authorize_irreversible_at_most_once_policy ... ok
+161:test consequence::tests::continuation_deadline_is_inclusive_and_rechecked_after_claimed_persist ... ok
+162:test consequence::tests::permanently_stalled_seal_domain_does_not_block_unrelated_effects ... ok
+163:test consequence::tests::reconciliation_is_bounded_and_never_becomes_mutation_authority ... ok
+164:test consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state ... ok
+165:test consequence::tests::receipt_admission_preserves_invalid_active_and_staging_aliases ... ok
+166:test consequence::tests::nonexecutable_online_retry_preserves_audit_without_consuming_continuation ... ok
+167:test consequence::tests::runtime_traces_conform_to_the_formal_clear_and_ambiguous_paths ... ok
+168:test consequence::tests::claimed_online_retry_requires_a_live_fence_and_continuation ... ok
+169:test consequence::tests::reconciliation_legacy_counter_and_known_execution_are_preserved ... ok
+170:test consequence::tests::online_readmission_returns_terminal_results_or_reconciles_without_reinvocation ... ok
+171:test consequence::tests::durable_pq_register_is_cross_instance_at_most_once_and_evidence_verified ... ok
+172:test consequence::tests::pq_resource_format_bounds_cover_maximum_tokens_and_refuse_noncanonical_evidence ... ok
+173:test consequence::tests::reconciliation_reserves_attempts_across_crashes_before_and_after_lookup ... ok
+174:test consequence::tests::online_receipt_bound_covers_named_resource_execution_and_complete_budget ... ok
+175:test consequence::tests::every_persistence_and_invocation_boundary_is_restart_safe ... ok
+176:test consequence::tests::online_receipt_lost_reservation_refuses_before_claim_and_requires_reopen ... ok
+177:test consequence::tests::claim_index_crash_before_claimed_persist_binds_slot_to_that_effect_across_reopen ... ok
+178:test consequence::tests::checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing ... ok
+179:test consequence::tests::online_pq_endpoint_consumes_reserved_inode_and_retains_active_authority ... ok
+180:test consequence::tests::stable_key_claim_guard_refuses_second_effect_for_same_conflict_slot_before_invocation ... ok
+181:test consequence::tests::substituted_receipt_for_unadmitted_manifest_is_refused_before_quv_and_invocation ... ok
+182:test consequence::tests::corrupt_or_aliased_claim_index_refuses_execution_without_mutation ... ok
+184:test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 87 filtered out; finished in 14.81s
+190:test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+196:test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+202:test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+208:test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

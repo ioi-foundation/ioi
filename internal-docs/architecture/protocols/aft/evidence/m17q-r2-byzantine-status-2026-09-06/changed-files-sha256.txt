@@ -1,0 +1,5 @@
+9457f2d21023612257d48e8cb4883fe773e20e6371fdd9d1f9108a092c6c6adc  crates/validator/src/standard/orchestration/sync.rs
+9223b2386962e4bea1848e3209e9062beeb3d1a77b2251f1a51c36092e79aa28  crates/cli/tests/aft_e2e.rs
+ca965cf58f15c556798b2dd40bf08ac3314ea69901f1fff99e0a2a9e4847b306  crates/cli/src/testing/backend.rs
+61a3ddf919c09c0ea020489a025aacca7cfa161df1cc9011553d0c17f9d8ffe2  crates/cli/src/testing/validator.rs
+27210bf9901180031fe10f3c7f8fa28a12bd298adb7a45b158c78b02515482fe  .github/scripts/check_aft_m16q_process_evidence.py

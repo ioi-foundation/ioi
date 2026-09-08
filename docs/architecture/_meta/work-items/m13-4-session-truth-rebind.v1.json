@@ -1,0 +1,44 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-4-session-truth-rebind",
+  "stage_id": "M13",
+  "required_work": [
+    "M13.4"
+  ],
+  "status": "verified",
+  "objective": "Bind the SPA session view's panes (request, activity, artifacts, proof band) to the daemon's session record, its receipts and its workspace events; keep the served /__ioi/sessions readout as the Operations inspection lane; make the operator's parked approval reachable from the session the run was submitted in.",
+  "falsifiable_claim": "The run-timeline projection the SPA session pane renders names the daemon session's ref and lifecycle state read under the caller's identity, carries exactly the record's latest_receipt_refs and the receipts they name (kind, lease, scopes), feeds artifacts from the daemon's workspace diff when the cache has none, renders a parked run as an awaiting-approval card with the exact commitments, the daemon's grant audience and the approve/deny endpoints, and renders a decided run with no endpoint; a run that fails closed without an authority node shows exactly that with no fabricated receipt.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/ioi-run-timeline.mjs",
+      "literal": "daemonReceiptSummary",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "literal": "data-ioi-run-approval",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:session-truth-rebind (11/11 on 2026-09-07) drives the pure projection with a parked, a decided and a bound run, then an isolated daemon + serve where a real composer run fails closed and the pane's session ref, lifecycle state and receipt refs are compared field-by-field with the daemon record; the live awaiting card and post-execution receipt binding are asserted by check:alpha-journey (deployment mode).",
+  "remaining_nonclaims": [
+    "The SPA's own React panes are not rewritten; the bound projection is the owned Run Timeline frame the /details lane mounts (canonical-app doctrine: bundle + adapter lane, no parallel runtime).",
+    "Per-session cost is not projected (profile step 7 stays partial on cost).",
+    "No landing-designation JSON row was added; the designation is recorded in core-clients-surfaces.md § Session surface."
+  ],
+  "source_provenance": "Landed 2026-09-07 by the bounded-alpha closure program.",
+  "last_status_transaction": "2026-09-07"
+}

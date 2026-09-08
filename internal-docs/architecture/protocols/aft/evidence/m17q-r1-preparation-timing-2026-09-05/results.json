@@ -1,0 +1,56 @@
+[
+  {
+    "case": "Wait",
+    "command": [
+      "java",
+      "-Xmx256m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-workers",
+      "1",
+      "-config",
+      "QuvHeadPreparationTimingWait.cfg",
+      "QuvHeadPreparationTiming.tla"
+    ],
+    "exit_code": 0,
+    "expected": null,
+    "expected_result_observed": true
+  },
+  {
+    "case": "NoWait",
+    "command": [
+      "java",
+      "-Xmx256m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-workers",
+      "1",
+      "-config",
+      "QuvHeadPreparationTimingNoWait.cfg",
+      "QuvHeadPreparationTiming.tla"
+    ],
+    "exit_code": 12,
+    "expected": "Invariant CompleteCorrectProcessing is violated",
+    "expected_result_observed": true
+  },
+  {
+    "case": "Reachable",
+    "command": [
+      "java",
+      "-Xmx256m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-workers",
+      "1",
+      "-config",
+      "QuvHeadPreparationTimingReachable.cfg",
+      "QuvHeadPreparationTiming.tla"
+    ],
+    "exit_code": 12,
+    "expected": "Invariant NoCompletedChild is violated",
+    "expected_result_observed": true
+  }
+]

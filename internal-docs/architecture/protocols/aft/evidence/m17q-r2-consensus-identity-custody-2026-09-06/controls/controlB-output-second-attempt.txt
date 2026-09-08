@@ -1,0 +1,16 @@
+
+---- aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot stdout ----
+
+thread 'aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot' (1055526) panicked at crates/consensus/src/aft/query_unanimity.rs:4527:9:
+assertion failed: matches!(member.process_push(&QuvPushQueryV0
+    { verifier_nonce: [4; 32], candidate: substituted_again, },
+    &AcceptCandidates, &signer,), Err(QuvError::UnexpectedHead))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 322 filtered out; finished in 2.63s
+
+error: test failed, to rerun pass `-p ioi-consensus --lib`

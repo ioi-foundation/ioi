@@ -1,0 +1,103 @@
+[
+  {
+    "name": "core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity"
+    ],
+    "started": "2026-09-05T23:28:04.489496+00:00",
+    "completed": "2026-09-05T23:29:21.868305+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "network",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-networking",
+      "--lib",
+      "pq_channel"
+    ],
+    "started": "2026-09-05T23:29:21.868727+00:00",
+    "completed": "2026-09-05T23:29:57.257156+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-05T23:29:57.257424+00:00",
+    "completed": "2026-09-05T23:31:07.086698+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-05T23:31:07.087058+00:00",
+    "completed": "2026-09-05T23:31:53.296210+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-05T23:31:53.296637+00:00",
+    "completed": "2026-09-05T23:32:01.920707+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-05T23:32:01.921036+00:00",
+    "completed": "2026-09-05T23:32:01.923414+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-byte-reserve-only"
+    ],
+    "started": "2026-09-05T23:32:01.925264+00:00",
+    "completed": "2026-09-05T23:32:02.938158+00:00",
+    "exit_code": 0
+  }
+]

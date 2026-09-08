@@ -1,0 +1,7 @@
+commit c7db4184d27efd2f9346fec6dd88cb760c41f1d0
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Fri Sep 4 09:44:18 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Fri Sep 4 09:44:18 2026 -0400
+
+    test(aft): qualify bounded QUV saturation envelope

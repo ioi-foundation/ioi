@@ -1,0 +1,39 @@
+{
+  "completed_operations": 4,
+  "release_records": 4,
+  "max_observed_active_release_micros": 30012800,
+  "foreground_max_micros": 30012800,
+  "preparation_max_micros": null,
+  "scope": "Runtime monotonic samples after final semaphore release; finite host observations, not a worst-case service/queue/readiness guarantee",
+  "release_records_detail": [
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "7cc5c83091e4bacd98f6ced862caf572dcda7608c14eeeac9d90ae6421b64ee8",
+      "elapsed_micros": 30012315
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "147d4df1d28285bb0694f0381e70a26b4d49e8c3829b058f02a1380328544dfd",
+      "elapsed_micros": 30012776
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "97d895ab65d588094436484a3d8cad6fcbc0795dbc12aa6232edae975ee722b8",
+      "elapsed_micros": 30012415
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "f6f99b242033b9ac3fd16bcc423b91d77583415c707cc3605abc1c09fab234e7",
+      "elapsed_micros": 30012800
+    }
+  ],
+  "component_sha256": {
+    "validator-20000-orch.log": "8f75ee6e8ec9f724f11b8cdec6361946cf2627e6064ac67aaa595d5e9623e843",
+    "validator-20100-orch.log": "f67b10d2ca8ed7cb8263ced2175d1d3295b69ed135217edd3d29f430c24f942d",
+    "validator-20200-orch.log": "71eb19c4c1fa882cda627ec2e579db087ff342e9a807245418ebf2a2b78c6963",
+    "validator-20300-orch.log": "a4652329c4b4fd1d27de940abffdd87e240d3e5104ba2334c63bf432755b094b",
+    "validator-20400-orch.log": "2eae66f351ef2c2b94c07d120e8df8206066c52c35adb56b0c66a90e727140ff",
+    "validator-20500-orch.log": "7bb969412824e7b3eed0be4cfa0bdb505d064ef9f975d29df913a93dbd2e1bb9",
+    "validator-20600-orch.log": "df631ca5ffc3715e1f5e90c47c9e67a5af719a905413d492d60c590aa90ac1d9"
+  }
+}

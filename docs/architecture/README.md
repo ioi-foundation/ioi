@@ -19,6 +19,10 @@ any synthesis or UI into a competing source of truth.
 
 Start with [`START_HERE.md`](./START_HERE.md). Then use:
 
+- [`bounded-alpha-profile.md`](./components/hypervisor/bounded-alpha-profile.md)
+  if you want to run, build on, or qualify Hypervisor itself — the supported
+  deployment, the essential journey, and the readiness matrix, with no
+  application vocabulary required;
 - [`current-canon-defaults.md`](./_meta/current-canon-defaults.md) for the
   cross-owner target-state digest;
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) before changing a
@@ -470,7 +474,7 @@ actuator commands, safety heartbeats, or emergency-stop authorities.
 | [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) | edit-first subject ownership |
 | [`current-canon-defaults.md`](./_meta/current-canon-defaults.md) | cross-owner defaults |
 | [`vocabulary.md`](./_meta/vocabulary.md) | shared names and boundary terms |
-| [`implementation-matrix.md`](./_meta/implementation-matrix.md) | durable forms, status, code anchors, conformance hooks |
+| [`canon-to-code-delta.md`](./_meta/canon-to-code-delta.md) and [`work-items/`](./_meta/work-items/) | per-object implementation status, code anchors, and machine-checked work-item records (the former `implementation-matrix.md` is an archived stub) |
 | [`execution-horizons.md`](./_meta/execution-horizons.md) | convergence target and gated later horizons |
 | [`doc-classes.md`](./_meta/doc-classes.md) | document classes and authority order |
 | [`decisions/README.md`](../decisions/README.md) | accepted architecture decision records |

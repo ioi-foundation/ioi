@@ -354,6 +354,71 @@ fn quv_post_activation_restart_stays_on_old_root_until_local_gate_recovers() {
     assert!(!ordinary.recovery_required);
 }
 
+#[test]
+fn quv_successor_root_gate_refuses_retired_and_defers_uninstalled_successor() {
+    use super::super::{quv_successor_root_gate, QuvSuccessorRootGate};
+    let successor = ValidatorSetV1 {
+        effective_from_height: 8,
+        total_weight: 1,
+        validators: vec![ValidatorV1 {
+            account_id: AccountId([2; 32]),
+            weight: 1,
+            consensus_key: ActiveKeyRecord {
+                suite: SignatureSuite::ML_DSA_44,
+                public_key_hash: [12; 32],
+                since_height: 8,
+            },
+        }],
+    };
+    // The retirement refusal is the exact diagnostic the process fixtures
+    // require from a restarted retired member.
+    assert_eq!(
+        super::super::QUV_RETIRED_SIGNER_REFUSAL,
+        "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set"
+    );
+    // Ordinary rotations and processes without a pending staged successor
+    // are untouched at every height.
+    assert_eq!(
+        quv_successor_root_gate(false, Some(&successor), false, 9),
+        QuvSuccessorRootGate::Admit
+    );
+    assert_eq!(
+        quv_successor_root_gate(true, None, false, 9),
+        QuvSuccessorRootGate::Admit
+    );
+    assert_eq!(
+        quv_successor_root_gate(true, None, true, u64::MAX),
+        QuvSuccessorRootGate::Admit
+    );
+    // Every height below activation, including the exact QC-certified
+    // handoff boundary at activation - 1, is admitted to old members and
+    // pending successors alike.
+    for height in [0, 1, 7] {
+        assert_eq!(
+            quv_successor_root_gate(true, Some(&successor), false, height),
+            QuvSuccessorRootGate::Admit
+        );
+        assert_eq!(
+            quv_successor_root_gate(true, Some(&successor), true, height),
+            QuvSuccessorRootGate::Admit
+        );
+    }
+    // At and beyond activation an old-only process holds no successor
+    // identity: it is retired and refuses, whatever height the bytes claim.
+    for height in [8, 9, 14, u64::MAX] {
+        assert_eq!(
+            quv_successor_root_gate(true, Some(&successor), false, height),
+            QuvSuccessorRootGate::RefuseRetired
+        );
+        // A staged successor whose durable install gate is still pending
+        // defers; successor-root bytes never activate that gate.
+        assert_eq!(
+            quv_successor_root_gate(true, Some(&successor), true, height),
+            QuvSuccessorRootGate::DeferUntilLocalInstall
+        );
+    }
+}
+
 fn system_tx(account_id: AccountId, nonce: u64) -> ChainTransaction {
     ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {

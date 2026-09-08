@@ -1,0 +1,9 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--consequence-t10-only"
+  ],
+  "exit_code": 0,
+  "log_sha256": "147c5d2a90e48943378e0a39bd822899ed5c9fd03f8bd6815b8dbe74c3355738"
+}

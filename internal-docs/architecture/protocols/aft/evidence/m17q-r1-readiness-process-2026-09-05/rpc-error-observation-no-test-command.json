@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "readiness_wait_surfaces_early_rpc_error_without_diagnostic_timeout",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 0,
+  "qualification": false,
+  "reason": "The source edit assertion failed before writing; the command ran zero tests and is not passing regression evidence."
+}

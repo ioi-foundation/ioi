@@ -1,0 +1,1600 @@
+use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
+use super::*;
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
+use std::collections::{HashMap, HashSet};
+use std::time::Instant;
+
+impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Clone
+        + Debug,
+    CE: ConsensusEngine<ChainTransaction> + ConsensusControl + Send + Sync + 'static, // [FIX] Added ConsensusControl bound
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    async fn perform_guardian_attestation(
+        &self,
+        guardian_addr: &str,
+        workload_client: &WorkloadClient,
+    ) -> Result<()> {
+        let guardian_channel =
+            ioi_client::security::SecurityChannel::new("orchestration", "guardian");
+        let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
+            ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
+        })?;
+        guardian_channel
+            .establish_client(
+                guardian_addr,
+                "guardian",
+                &format!("{}/ca.pem", certs_dir),
+                &format!("{}/orchestration.pem", certs_dir),
+                &format!("{}/orchestration.key", certs_dir),
+            )
+            .await?;
+
+        let mut stream = guardian_channel
+            .take_stream()
+            .await
+            .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
+
+        let len = stream.read_u32().await?;
+        const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024;
+        if len > MAX_REPORT_SIZE {
+            return Err(anyhow!(
+                "Guardian attestation report too large: {} bytes (limit: {})",
+                len,
+                MAX_REPORT_SIZE
+            ));
+        }
+
+        let mut report_bytes = vec![0u8; len as usize];
+        stream.read_exact(&mut report_bytes).await?;
+
+        let report: GuardianReport = serde_json::from_slice(&report_bytes)
+            .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
+
+        let expected_hash = workload_client.get_expected_model_hash().await?;
+        if report.agentic_hash != expected_hash {
+            return Err(anyhow!(
+                "Model Integrity Failure! Local hash {} != on-chain hash {}",
+                hex::encode(&report.agentic_hash),
+                hex::encode(expected_hash)
+            ));
+        }
+
+        let payload_bytes =
+            codec::to_bytes_canonical(&report.binary_attestation).map_err(|e| anyhow!(e))?;
+
+        let sys_payload = SystemPayload::CallService {
+            service_id: "identity_hub".to_string(),
+            method: "register_attestation@v1".to_string(),
+            params: payload_bytes,
+        };
+
+        let our_pk = self.local_keypair.public().encode_protobuf();
+        let our_account_id = AccountId(
+            account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
+                .map_err(|e| anyhow!(e))?,
+        );
+
+        let nonce = {
+            let mut nm = self.nonce_manager.lock().await;
+            let n = nm.entry(our_account_id).or_insert(0);
+            let cur = *n;
+            *n += 1;
+            cur
+        };
+
+        let mut sys_tx = SystemTransaction {
+            header: SignHeader {
+                account_id: our_account_id,
+                nonce,
+                chain_id: self.config.chain_id,
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: sys_payload,
+            signature_proof: SignatureProof::default(),
+        };
+
+        let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
+        let signature = self.local_keypair.sign(&sign_bytes)?;
+
+        sys_tx.signature_proof = SignatureProof {
+            suite: SignatureSuite::ED25519,
+            public_key: our_pk,
+            signature,
+        };
+
+        let tx = ChainTransaction::System(Box::new(sys_tx));
+        let tx_hash = tx.hash()?;
+
+        let committed_nonce = 0;
+        self.tx_pool
+            .add(tx, tx_hash, Some((our_account_id, nonce)), committed_nonce);
+
+        Ok(())
+    }
+
+    async fn run_consensus_ticker(
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+        mut kick_rx: mpsc::UnboundedReceiver<()>,
+        mut shutdown_rx: watch::Receiver<bool>,
+    ) {
+        let interval = {
+            let ctx = context_arc.lock().await;
+            if let Some(interval_ms) = std::env::var("ORCH_BLOCK_INTERVAL_MS")
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .filter(|value| *value > 0)
+            {
+                Duration::from_millis(interval_ms)
+            } else {
+                Duration::from_secs(
+                    std::env::var("ORCH_BLOCK_INTERVAL_SECS")
+                        .ok()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or_else(|| ctx.config.block_production_interval_secs),
+                )
+            }
+        };
+
+        if interval.is_zero() {
+            tracing::info!(target: "consensus", "Consensus ticker disabled (interval=0).");
+            let _ = shutdown_rx.changed().await;
+            return;
+        }
+
+        let mut ticker = time::interval(interval);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        // Keep kick-driven consensus responsive for vote/QC propagation and post-commit replay.
+        // Actual block cadence is enforced at the ProduceBlock edge using the block timestamp.
+        let min_block_time = Duration::from_millis(
+            std::env::var("ORCH_CONSENSUS_MIN_TICK_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(50),
+        );
+        let mut last_tick = tokio::time::Instant::now()
+            .checked_sub(min_block_time)
+            .unwrap();
+
+        loop {
+            tokio::select! {
+                _ = ticker.tick() => {
+                    let (is_quarantined, next_due_wakeup_at_ms) = {
+                        let ctx = context_arc.lock().await;
+                        (
+                            ctx.is_quarantined.load(Ordering::SeqCst),
+                            ctx.next_due_wakeup_at_ms.load(Ordering::SeqCst),
+                        )
+                    };
+
+                    if is_quarantined { continue; }
+
+                    if next_due_wakeup_at_ms > 0 {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_else(|_| Duration::from_secs(0))
+                            .as_millis()
+                            .min(u128::from(u64::MAX)) as u64;
+                        if now_ms < next_due_wakeup_at_ms {
+                            continue;
+                        }
+
+                        let ctx = context_arc.lock().await;
+                        ctx.next_due_wakeup_at_ms.store(0, Ordering::SeqCst);
+                    }
+
+                    last_tick = tokio::time::Instant::now();
+
+                    let cause = "timer";
+                    let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
+                    if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
+                        tracing::error!(target: "consensus", "[Orch Tick] Consensus tick failed: {:?}. Continuing loop.", e);
+                    }
+                }
+                Some(()) = kick_rx.recv() => {
+                    let mut _count = 1;
+                    while let Ok(_) = kick_rx.try_recv() { _count += 1; }
+                    let cause = "kick";
+                    let (is_quarantined, kick_tx, kick_scheduled, next_due_wakeup_at_ms) = {
+                        let ctx = context_arc.lock().await;
+                        (
+                            ctx.is_quarantined.load(Ordering::SeqCst),
+                            ctx.consensus_kick_tx.clone(),
+                            ctx.consensus_kick_scheduled.clone(),
+                            ctx.next_due_wakeup_at_ms.clone(),
+                        )
+                    };
+                    let remaining = min_block_time.saturating_sub(last_tick.elapsed());
+                    if is_quarantined {
+                        continue;
+                    }
+                    if !remaining.is_zero() {
+                        if !kick_scheduled.swap(true, Ordering::SeqCst) {
+                            tokio::spawn(async move {
+                                time::sleep(remaining).await;
+                                let _ = kick_tx.send(());
+                                kick_scheduled.store(false, Ordering::SeqCst);
+                            });
+                        }
+                        continue;
+                    }
+                    last_tick = tokio::time::Instant::now();
+                    next_due_wakeup_at_ms.store(0, Ordering::SeqCst);
+
+                    let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
+                     if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
+                        tracing::error!(target: "consensus", "[Orch Tick] Kicked failed: {:?}.", e);
+                    }
+                }
+                 _ = shutdown_rx.changed() => {
+                    if *shutdown_rx.borrow() { break; }
+                }
+            }
+        }
+    }
+
+    async fn run_sync_discoverer(
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+        mut shutdown_rx: watch::Receiver<bool>,
+    ) {
+        let interval_secs = {
+            let ctx = context_arc.lock().await;
+            ctx.config.initial_sync_timeout_secs
+        };
+
+        if interval_secs == 0 {
+            tracing::info!(target: "orchestration", "Sync discoverer disabled (interval=0).");
+            let _ = shutdown_rx.changed().await;
+            return;
+        }
+
+        let mut interval = time::interval(Duration::from_secs(interval_secs));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    let (known_peers, swarm_commander, aft_safety_mode, sample_height, sync_timeout_ms, local_height) = {
+                        let ctx = context_arc.lock().await;
+                        (
+                            ctx.known_peers_ref.clone(),
+                            ctx.swarm_commander.clone(),
+                            ctx.config.aft_safety_mode,
+                            ctx.last_executed_block
+                                .as_ref()
+                                .map(|block| block.header.height + 1)
+                                .unwrap_or(1),
+                            std::env::var("IOI_AFT_SYNC_REQUEST_TIMEOUT_MS")
+                                .ok()
+                                .and_then(|value| value.parse::<u64>().ok())
+                                .filter(|value| *value > 0)
+                                .unwrap_or(2_000),
+                            ctx.last_executed_block
+                                .as_ref()
+                                .map(|block| block.header.height)
+                                .unwrap_or(0),
+                        )
+                    };
+                    let peers: Vec<_> = known_peers.lock().await.iter().cloned().collect();
+                    for peer in &peers {
+                        if swarm_commander
+                            .send(SwarmCommand::SendStatusRequest(*peer))
+                            .await
+                            .is_err()
+                        {
+                            log::warn!("Failed to send periodic status request to swarm.");
+                        }
+                    }
+
+                    // Near-tip pull keeps connected but lagging nodes from waiting on a
+                    // perfectly timed status round-trip before self-healing.
+                    if let Some(random_peer) = {
+                        let mut rng = rand::thread_rng();
+                        peers.choose(&mut rng).copied()
+                    } {
+                        let _ = swarm_commander
+                            .send(SwarmCommand::SendBlocksRequest {
+                                peer: random_peer,
+                                since: local_height,
+                                max_blocks: super::sync::sync_batch_max_blocks(),
+                                max_bytes: super::sync::sync_batch_max_bytes(),
+                            })
+                            .await;
+                    }
+
+                    {
+                        let mut ctx = context_arc.lock().await;
+                        if let Some(progress) = ctx.sync_progress.as_mut() {
+                            let request_timed_out = progress.inflight
+                                && progress.requested_at.elapsed()
+                                    >= Duration::from_millis(sync_timeout_ms);
+                            let deferred_retry_due = !progress.inflight
+                                && progress
+                                    .retry_not_before
+                                    .is_some_and(|not_before| Instant::now() >= not_before);
+                            if request_timed_out || deferred_retry_due {
+                                tracing::warn!(
+                                    target: "sync",
+                                    target = ?progress.target,
+                                    next = progress.next,
+                                    tip = progress.tip,
+                                    timeout_ms = sync_timeout_ms,
+                                    request_timed_out,
+                                    "Retrying an incomplete sync batch."
+                                );
+                                progress.inflight = false;
+                                if progress.target.is_none() {
+                                    progress.target = peers.first().copied();
+                                }
+                                super::sync::request_next_batch(&mut ctx).await;
+                            }
+                        }
+                    }
+
+                    let random_peer = {
+                        let mut rng = rand::thread_rng();
+                        peers.choose(&mut rng).cloned()
+                    };
+                    if let Some(random_peer) = random_peer {
+                        if matches!(
+                            aft_safety_mode,
+                            ioi_types::config::AftSafetyMode::ExperimentalNestedGuardian
+                        ) {
+                            let _ = swarm_commander
+                                .send(SwarmCommand::SendSampleRequest {
+                                    peer: random_peer,
+                                    height: sample_height,
+                                })
+                                .await;
+                        }
+                    }
+                }
+                _ = shutdown_rx.changed() => {
+                    if *shutdown_rx.borrow() { break; }
+                }
+            }
+        }
+    }
+
+    async fn run_main_loop(
+        mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
+        mut shutdown_receiver: watch::Receiver<bool>,
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    ) {
+        let sync_timeout = {
+            let ctx = context_arc.lock().await;
+            ctx.config.initial_sync_timeout_secs
+        };
+
+        if sync_timeout == 0 {
+            let (node_state, consensus_kick_tx) = {
+                let context = context_arc.lock().await;
+                (
+                    context.node_state.clone(),
+                    context.consensus_kick_tx.clone(),
+                )
+            };
+            let mut ns = node_state.lock().await;
+            if *ns == NodeState::Syncing || *ns == NodeState::Initializing {
+                *ns = NodeState::Synced;
+                let _ = consensus_kick_tx.send(());
+                tracing::info!(target: "orchestration", "State -> Synced (direct/local mode).");
+            }
+        } else {
+            let node_state = {
+                let context = context_arc.lock().await;
+                context.node_state.clone()
+            };
+            *node_state.lock().await = NodeState::Syncing;
+            tracing::info!(target: "orchestration", "State -> Syncing.");
+        }
+
+        let mut sync_check_interval_opt = if sync_timeout > 0 {
+            let mut i = time::interval(Duration::from_secs(sync_timeout));
+            i.set_missed_tick_behavior(MissedTickBehavior::Delay);
+            Some(i)
+        } else {
+            None
+        };
+
+        let mut operator_ticker = time::interval(Duration::from_secs(10));
+        operator_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                biased;
+
+                Some(event) = network_event_receiver.recv() => {
+                    handle_network_event(event, &context_arc).await;
+                }
+
+                _ = operator_ticker.tick() => {
+                    let workload_client = {
+                        let ctx = context_arc.lock().await;
+                        ctx.view_resolver.workload_client().clone()
+                    };
+                    if let Err(e) = operator_tasks::run_oracle_operator_task_with_client(workload_client).await {
+                         tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
+                    }
+                }
+
+                _ = async {
+                    if let Some(ref mut i) = sync_check_interval_opt {
+                        i.tick().await
+                    } else {
+                        futures::future::pending().await
+                    }
+                }, if {
+                    let node_state = {
+                        let context = context_arc.lock().await;
+                        context.node_state.clone()
+                    };
+                    let is_syncing = *node_state.lock().await == NodeState::Syncing;
+                    is_syncing
+                } => {
+                    let (
+                        known_peers_ref,
+                        bootstrap_expected,
+                        node_state,
+                        consensus_kick_tx,
+                    ) = {
+                        let context = context_arc.lock().await;
+                        (
+                            context.known_peers_ref.clone(),
+                            context.configured_bootstrap_peers > 0,
+                            context.node_state.clone(),
+                            context.consensus_kick_tx.clone(),
+                        )
+                    };
+                    let has_known_peers = !known_peers_ref.lock().await.is_empty();
+                    if !has_known_peers && !bootstrap_expected {
+                        let mut node_state = node_state.lock().await;
+                        if *node_state == NodeState::Syncing {
+                            *node_state = NodeState::Synced;
+                            let _ = consensus_kick_tx.send(());
+                            tracing::info!(target: "orchestration", "State -> Synced (no peers).");
+                        }
+                    }
+                },
+
+                _ = shutdown_receiver.changed() => {
+                    if *shutdown_receiver.borrow() { break; }
+                }
+            }
+        }
+    }
+
+    /// One bounded admission worker keeps a PUSHQUERY waiting for the main
+    /// context from blocking reply observation. This is not a timing bound.
+    async fn run_quv_loop(
+        receiver: mpsc::Receiver<ioi_networking::libp2p::QuvNetworkEvent>,
+        shutdown_receiver: watch::Receiver<bool>,
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    ) {
+        use ioi_networking::libp2p::{QuvNetworkEvent, SwarmCommand};
+        let (operations, commander) = {
+            let context = context_arc.lock().await;
+            if context.config.aft_quv_domain_policies.is_empty() {
+                return;
+            }
+            (
+                context.aft_quv_operations.clone(),
+                context.quv_swarm_commander.clone(),
+            )
+        };
+        // This finite cap covers the protocol-capped old/successor union.
+        // Transport still admits at most one PUSHQUERY per authenticated account.
+        let capacity = 2 * ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0;
+        super::quv::event_dispatch::run(
+            receiver, shutdown_receiver, capacity,
+            move |event| {
+                let context = context_arc.clone();
+                async move {
+                    if let QuvNetworkEvent::PushQueryReceived { query, authenticated_account, from } = event {
+                        super::quv::dispatch_push_query(&context, authenticated_account, from, query).await;
+                    }
+                }
+            },
+            move |event| {
+                let operations = operations.clone();
+                async move {
+                    if let QuvNetworkEvent::ReplyReceived { reply, authenticated_account, from } = event {
+                        super::quv::handle_reply(&operations, authenticated_account, from, reply).await;
+                    }
+                }
+            },
+            move |event| {
+                if let QuvNetworkEvent::PushQueryReceived { query, authenticated_account, .. } = event {
+                    tracing::error!(target: "quv", event = "push_admission_overflow", nonce = %hex::encode(query.verifier_nonce), ?authenticated_account, capacity, "QUV push admission refused; timing qualification failed");
+                    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvPush {
+                        requester: authenticated_account, nonce: query.verifier_nonce,
+                    }) {
+                        tracing::error!(target: "quv", %error, "Failed to retire refused QUV admission lane");
+                    }
+                }
+            },
+        ).await;
+    }
+
+    pub(crate) async fn start_internal(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
+        if self.is_running.load(Ordering::SeqCst) {
+            return Err(ValidatorError::AlreadyRunning("orchestration".to_string()));
+        }
+        tracing::info!(target: "orchestration", "Orchestrator starting...");
+
+        self.syncer
+            .start()
+            .await
+            .map_err(|e| ValidatorError::Other(e.to_string()))?;
+
+        let workload_client = self
+            .workload_client
+            .get()
+            .ok_or_else(|| {
+                ValidatorError::Other(
+                    "Workload client ref not initialized before start".to_string(),
+                )
+            })?
+            .clone();
+
+        // --- NEW: Hydrate Chain Tip from Store ---
+        let mut initial_block = None;
+        match workload_client.get_status().await {
+            Ok(status) => {
+                if status.height > 0 {
+                    tracing::info!(target: "orchestration", "Recovering chain state from height {}", status.height);
+                    match workload_client.get_block_by_height(status.height).await {
+                        Ok(Some(block)) => {
+                            require_persisted_aft_canonical_collapse_if_needed(
+                                self.config.consensus_type,
+                                workload_client.as_ref(),
+                                &block,
+                            )
+                            .await
+                            .map_err(|error| {
+                                ValidatorError::Other(format!(
+                                    "Refusing to hydrate AFT durable tip at height {} without a matching canonical collapse object: {error}",
+                                    block.header.height
+                                ))
+                            })?;
+                            initial_block = Some(block);
+                            tracing::info!(target: "orchestration", "Hydrated last_executed_block (Height {})", status.height);
+                        }
+                        Ok(None) => {
+                            tracing::warn!(target: "orchestration", "Status says height {}, but block not found in store!", status.height);
+                        }
+                        Err(e) => {
+                            tracing::error!(target: "orchestration", "Failed to fetch head block: {}", e);
+                            return Err(ValidatorError::Other(e.to_string()));
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                return Err(ValidatorError::Other(format!(
+                    "Failed to get initial chain status: {}",
+                    e
+                )));
+            }
+        }
+        // ------------------------------------------
+
+        let genesis_root = match workload_client.get_genesis_status_details().await {
+            Ok(status) if status.ready && !status.root.is_empty() => status.root,
+            Ok(_) | Err(_) => workload_client
+                .get_block_by_height(0)
+                .await
+                .ok()
+                .flatten()
+                .map(|block| block.header.state_root.0)
+                .unwrap_or_default(),
+        };
+
+        let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
+        let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
+        // Test-only clock bridge for externally composed fixtures whose
+        // evidence is emitted in wall-clock time. The AFT engine seeds the
+        // matching height-zero parent clock; seeding only one side would make
+        // first-height production compare two clock domains.
+        let testing_initial_tip_timestamp_ms =
+            std::env::var("IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .filter(|value| *value > 0)
+                .unwrap_or(0);
+
+        let initial_tip = if let Some(b) = &initial_block {
+            ChainTipInfo {
+                height: b.header.height,
+                timestamp: b.header.timestamp,
+                timestamp_ms: b.header.timestamp_ms_or_legacy(),
+                gas_used: b.header.gas_used,
+                state_root: b.header.state_root.0.clone(),
+                genesis_root: genesis_root.clone(),
+                validator_set: b.header.validator_set.clone(),
+            }
+        } else {
+            ChainTipInfo {
+                height: 0,
+                timestamp: testing_initial_tip_timestamp_ms / 1_000,
+                timestamp_ms: testing_initial_tip_timestamp_ms,
+                gas_used: 0,
+                state_root: vec![],
+                genesis_root: genesis_root.clone(),
+                validator_set: Vec::new(),
+            }
+        };
+
+        let (tip_tx, tip_rx) = watch::channel(initial_tip);
+        let peer_accounts_ref = Arc::new(Mutex::new(std::collections::HashMap::new()));
+        let tx_status_cache = Arc::new(Mutex::new(LruCache::new(
+            std::num::NonZeroUsize::new(100_000).unwrap(),
+        )));
+        let receipt_map = Arc::new(Mutex::new(LruCache::new(
+            std::num::NonZeroUsize::new(100_000).unwrap(),
+        )));
+        let public_service = PublicApiImpl {
+            context_wrapper: self.main_loop_context.clone(),
+            workload_client: workload_client.clone(),
+            tx_ingest_tx,
+        };
+
+        let rpc_addr = self
+            .config
+            .rpc_listen_address
+            .parse()
+            .map_err(|e| ValidatorError::Config(format!("Invalid RPC address: {}", e)))?;
+
+        tracing::info!(target: "rpc", "Public gRPC API listening on {}", rpc_addr);
+        eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+
+        let mut shutdown_rx = self.shutdown_sender.subscribe();
+
+        let rpc_handle = tokio::spawn(async move {
+            if let Err(e) = Server::builder()
+                .add_service(PublicApiServer::new(public_service))
+                .serve_with_shutdown(rpc_addr, async move {
+                    let _ = shutdown_rx.changed().await;
+                })
+                .await
+            {
+                tracing::error!(target: "rpc", "Public API server failed: {}", e);
+            }
+        });
+
+        let mut handles = self.task_handles.lock().await;
+        handles.push(rpc_handle);
+
+        let (event_tx, _event_rx_guard) = if let Some(tx) = &self.event_broadcaster {
+            (tx.clone(), None)
+        } else {
+            let (tx, rx) = tokio::sync::broadcast::channel(1000);
+            (tx, Some(rx))
+        };
+
+        let ingestion_handle = tokio::spawn(run_ingestion_worker(
+            tx_ingest_rx,
+            workload_client.clone(),
+            self.tx_pool.clone(),
+            self.swarm_command_sender.clone(),
+            peer_accounts_ref.clone(),
+            AccountId(
+                account_id_from_key_material(
+                    SignatureSuite::ED25519,
+                    &self.local_keypair.public().encode_protobuf(),
+                )
+                .unwrap_or_default(),
+            ),
+            self.consensus_kick_tx.clone(),
+            tx_model.clone(),
+            tip_rx,
+            tx_status_cache.clone(),
+            receipt_map.clone(),
+            self.safety_model.clone(),
+            self.os_driver.clone(),
+            self.memory_runtime.clone(),
+            IngestionConfig::from_runtime_env(),
+            event_tx.clone(),
+        ));
+        handles.push(ingestion_handle);
+
+        let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
+        if !guardian_addr.is_empty() {
+            tracing::info!(target: "orchestration", "[Orchestration] Performing agentic attestation with Guardian...");
+            match self
+                .perform_guardian_attestation(&guardian_addr, &workload_client)
+                .await
+            {
+                Ok(()) => {
+                    tracing::info!(target: "orchestration", "[Orchestrator] Agentic attestation successful.")
+                }
+                Err(e) => {
+                    tracing::error!(target: "orchestration", "[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
+                    self.is_quarantined.store(true, Ordering::SeqCst);
+                    return Err(ValidatorError::Attestation(e.to_string()));
+                }
+            }
+        }
+
+        let chain = self
+            .chain
+            .get()
+            .ok_or_else(|| {
+                ValidatorError::Other("Chain ref not initialized before start".to_string())
+            })?
+            .clone();
+
+        let view_resolver = Arc::new(view_resolver::DefaultViewResolver::new(
+            workload_client.clone(),
+            self.verifier.clone(),
+            self.proof_cache.clone(),
+        ));
+
+        let local_account_id = AccountId(
+            account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &self.local_keypair.public().encode_protobuf(),
+            )
+            .map_err(|e| {
+                ValidatorError::Config(format!("Failed to derive local account ID: {}", e))
+            })?,
+        );
+        let nonce_key = [
+            ioi_types::keys::ACCOUNT_NONCE_PREFIX,
+            local_account_id.as_ref(),
+        ]
+        .concat();
+
+        let initial_nonce = match workload_client.query_raw_state(&nonce_key).await {
+            Ok(Some(bytes)) => {
+                let arr: [u8; 8] = match bytes.try_into() {
+                    Ok(a) => a,
+                    Err(_) => [0; 8],
+                };
+                u64::from_le_bytes(arr)
+            }
+            _ => 0,
+        };
+        self.nonce_manager
+            .lock()
+            .await
+            .insert(local_account_id, initial_nonce);
+
+        // Hydrate AFT membership and its canonically stored raw keys before
+        // the main consensus loop can consume votes, QCs, or committed-block
+        // sync events. A follower may never execute `decide` or proposal
+        // handling before such evidence arrives, so those paths cannot be the
+        // sole source of theorem-critical verification material.
+        let mut aft_pq_peer_keys: Option<HashMap<AccountId, [u8; 32]>> = None;
+        let mut aft_pq_configuration_hash: Option<[u8; 32]> = None;
+        let mut local_validator_account_id: Option<AccountId> = None;
+        let mut aft_pq_local_account_id: Option<AccountId> = None;
+        let mut aft_pq_handoff_only_accounts = HashSet::new();
+        let mut aft_quv_staged_successor = None;
+        let mut aft_async_membership = None;
+        let mut aft_async_custody_key = None;
+        let mut aft_cross_path_signing_fence = None;
+        let mut aft_quv_member = None;
+        let mut aft_quv_handoff_envelope = None;
+        let mut aft_quv_handoff_store = None;
+        if matches!(
+            self.config.consensus_type,
+            ioi_types::config::ConsensusType::Aft
+        ) {
+            // The first certificate a recovered node must verify is the parent
+            // QC carried by the next block, so membership has to be observed at
+            // the durable tip itself.  Recording the same rooted
+            // `ValidatorSetsV1` only at `tip + 1` leaves the engine deliberately
+            // unable to authenticate the tip QC: validator-set lookup never
+            // falls back from an older certificate to a newer observation.
+            // `effective_set_for_height` still selects a staged successor when
+            // it becomes active at the next height, so anchoring the snapshot
+            // here covers both the parent QC and new-height votes without
+            // granting a rotated-in validator authority over earlier history.
+            let observation_height = initial_block
+                .as_ref()
+                .map(|block| block.header.height.max(1))
+                .unwrap_or(1);
+            let encoded_sets = workload_client
+                .query_raw_state(ioi_types::keys::VALIDATOR_SET_KEY)
+                .await
+                .map_err(|error| {
+                    ValidatorError::Other(format!(
+                        "failed to read canonical AFT validator sets at startup: {error}"
+                    ))
+                })?
+                .ok_or_else(|| {
+                    ValidatorError::Other(
+                        "canonical AFT validator sets are missing at startup".into(),
+                    )
+                })?;
+            let sets = ioi_types::app::read_validator_sets(&encoded_sets).map_err(|error| {
+                ValidatorError::Other(format!(
+                    "failed to decode canonical AFT validator sets at startup: {error}"
+                ))
+            })?;
+            let quv_enabled = !self.config.aft_quv_domain_policies.is_empty();
+            // Effect-domain QUV and QUV configuration handoff share the
+            // member state machine, but only the latter changes the startup
+            // authority root and requires a signed handoff source. Treating
+            // any ordinary effect policy as a handoff made an otherwise
+            // static QUV node demand nonexistent recovery bytes at startup.
+            let quv_handoff_enabled = self.config.aft_quv_handoff_source.is_some();
+            let pq_startup = super::consensus::select_aft_pq_startup_root(
+                &sets,
+                observation_height,
+                quv_handoff_enabled,
+            )
+            .map_err(|error| ValidatorError::Config(error.to_string()))?;
+            // A generic admitted-state restart may recover an old-root floor
+            // whose `next` field has already been consumed in the live
+            // workload projection. In that case source bytes alone still may
+            // not restore authority. They may only locate the successor and
+            // its rollback-anchored local install store; the store is opened
+            // and exact-matched below before startup is allowed to continue.
+            let quv_recovery_envelope = if quv_handoff_enabled
+                && pq_startup.handoff_successor.is_none()
+            {
+                let source = self
+                    .config
+                    .aft_quv_handoff_source
+                    .as_deref()
+                    .ok_or_else(|| {
+                        ValidatorError::Config(
+                            "QUV restart recovery has no configured handoff source".into(),
+                        )
+                    })?;
+                let envelope = super::quv::read_handoff_source(source)
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                ioi_consensus::aft::query_unanimity::validate_quv_handoff_candidate(
+                    &envelope.candidate,
+                    &envelope.handoff,
+                )
+                .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                let current_root = ioi_types::app::canonical_validator_set_hash(&sets.current)
+                    .map_err(ValidatorError::Config)?;
+                let successor_root =
+                    ioi_types::app::canonical_validator_set_hash(&envelope.handoff.successor_set)
+                        .map_err(ValidatorError::Config)?;
+                if envelope.handoff.network_id != self.genesis_hash
+                    || (envelope.handoff.old_configuration_root != current_root
+                        && successor_root != current_root)
+                {
+                    return Err(ValidatorError::Config(
+                        "QUV recovery source names neither the rooted startup configuration nor its exact successor"
+                            .into(),
+                    ));
+                }
+                Some(envelope)
+            } else {
+                None
+            };
+            let quv_handoff_successor = pq_startup.handoff_successor.or_else(|| {
+                quv_recovery_envelope
+                    .as_ref()
+                    .map(|envelope| &envelope.handoff.successor_set)
+            });
+            let staged_successor = quv_handoff_successor;
+            // A QUV transition retains the old set in `current` and the
+            // successor in `next`. Even after the activation height, startup
+            // must initially root transport and verification in the old set;
+            // only the recovered process-local install gate may activate the
+            // successor. Treating `effective_set_for_height` as sufficient
+            // here would turn restart into an authority bypass.
+            let pq_rooted_set = pq_startup.rooted;
+            let quv_recovery_required =
+                pq_startup.recovery_required || quv_recovery_envelope.is_some();
+            if quv_handoff_enabled {
+                aft_quv_staged_successor = quv_handoff_successor.cloned();
+                aft_quv_handoff_envelope = quv_recovery_envelope.clone();
+            }
+            if pq_rooted_set.validators.is_empty() {
+                return Err(ValidatorError::Other(format!(
+                    "canonical AFT validator set is empty at height {observation_height}"
+                )));
+            }
+            if !self.config.aft_quv_domain_policies.is_empty()
+                && pq_rooted_set.validators.len() > ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+            {
+                return Err(ValidatorError::Config(format!(
+                    "aft_quv_v0 supports at most {} configured members so its isolated request/reply lane remains bounded",
+                    ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+                )));
+            }
+            if !self.config.aft_quv_domain_policies.is_empty()
+                && staged_successor.is_some_and(|successor| {
+                    successor.validators.len() > ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+                })
+            {
+                return Err(ValidatorError::Config(format!(
+                    "aft_quv_v0 supports at most {} staged successor members",
+                    ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+                )));
+            }
+            let mut key_records = pq_rooted_set.validators.iter().collect::<Vec<_>>();
+            if quv_handoff_enabled {
+                if let Some(successor) = staged_successor {
+                    key_records.extend(successor.validators.iter());
+                }
+            }
+            let mut canonical_keys = HashMap::<AccountId, Vec<u8>>::new();
+            for validator in key_records {
+                if !matches!(
+                    validator.consensus_key.suite,
+                    SignatureSuite::ED25519 | SignatureSuite::ML_DSA_44
+                ) {
+                    return Err(ValidatorError::Other(format!(
+                        "AFT validator {} declares unsupported consensus suite {:?}",
+                        hex::encode(validator.account_id.as_ref()),
+                        validator.consensus_key.suite
+                    )));
+                }
+                if let Some(existing) = canonical_keys.get(&validator.account_id) {
+                    let derived =
+                        account_id_from_key_material(validator.consensus_key.suite, existing)
+                            .map_err(|error| ValidatorError::Other(error.to_string()))?;
+                    if derived != validator.consensus_key.public_key_hash {
+                        return Err(ValidatorError::Config(format!(
+                            "AFT overlapping validator {} changes its consensus key across the live QUV handoff; dual-key overlap is not supported",
+                            hex::encode(validator.account_id.as_ref())
+                        )));
+                    }
+                    continue;
+                }
+                let key = [
+                    ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                    validator.account_id.as_ref(),
+                ]
+                .concat();
+                let public_key = workload_client
+                    .query_raw_state(&key)
+                    .await
+                    .map_err(|error| {
+                        ValidatorError::Other(format!(
+                            "failed to read canonical AFT key for validator {}: {error}",
+                            hex::encode(validator.account_id.as_ref())
+                        ))
+                    })?
+                    .ok_or_else(|| {
+                        ValidatorError::Other(format!(
+                            "canonical AFT key is missing for validator {}",
+                            hex::encode(validator.account_id.as_ref())
+                        ))
+                    })?;
+                let derived =
+                    account_id_from_key_material(validator.consensus_key.suite, &public_key)
+                        .map_err(|error| ValidatorError::Other(error.to_string()))?;
+                if derived != validator.consensus_key.public_key_hash {
+                    return Err(ValidatorError::Other(format!(
+                        "canonical AFT key substitution for validator {}: expected={} actual={}",
+                        hex::encode(validator.account_id.as_ref()),
+                        hex::encode(validator.consensus_key.public_key_hash),
+                        hex::encode(derived)
+                    )));
+                }
+                canonical_keys.insert(validator.account_id, public_key);
+            }
+            {
+                let mut engine = self.consensus_engine.lock().await;
+                for public_key in canonical_keys.values() {
+                    if !engine.observe_validator_public_key(public_key) {
+                        return Err(ValidatorError::Other(
+                            "consensus engine refused a canonical AFT validator key".into(),
+                        ));
+                    }
+                }
+                if !engine.observe_validator_sets(observation_height, &sets) {
+                    return Err(ValidatorError::Other(
+                        "consensus engine refused canonical AFT validator-set hydration".into(),
+                    ));
+                }
+                if crate::standard::testing_trivial_aft_restart_anchor_enabled()
+                    && observation_height > 1
+                    && !engine.observe_validator_sets(1, &sets)
+                {
+                    // The stable-state ClassicBFT test profile has one static
+                    // validator set and no canonical-collapse objects. Its
+                    // raw-tip recovery must therefore hydrate the same rooted
+                    // set back to genesis so descendant-QC replay can recover
+                    // every still-unadmitted ancestor in order. Restrict this
+                    // retrospective observation to the explicit testing-only
+                    // lane: production membership history must come from its
+                    // canonical rooted observations, never from the current
+                    // set projected backwards.
+                    return Err(ValidatorError::Other(
+                        "consensus engine refused testing-only static AFT validator-set history"
+                            .into(),
+                    ));
+                }
+            }
+
+            let all_ml_dsa = pq_rooted_set
+                .validators
+                .iter()
+                .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
+            let successor_all_ml_dsa = staged_successor.is_none_or(|successor| {
+                successor
+                    .validators
+                    .iter()
+                    .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+            });
+            if quv_enabled && (!all_ml_dsa || !successor_all_ml_dsa) {
+                return Err(ValidatorError::Config(
+                    "aft_quv_v0 requires every effective and staged successor member to use ML-DSA-44".into(),
+                ));
+            }
+            if all_ml_dsa {
+                let pq_identity = self.pqc_signer.clone().ok_or_else(|| {
+                    ValidatorError::Config(
+                        "all-ML-DSA AFT configuration requires a local ML-DSA signer".into(),
+                    )
+                })?;
+                let pq_public = SigningKeyPair::public_key(&pq_identity).to_bytes();
+                let identity_key_hash =
+                    account_id_from_key_material(SignatureSuite::ML_DSA_44, &pq_public)
+                        .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                let (local_pq_account, handoff_only) =
+                    match super::consensus::select_aft_pq_local_role(
+                        pq_rooted_set,
+                        staged_successor,
+                        identity_key_hash,
+                        observation_height,
+                        quv_handoff_enabled,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?
+                    {
+                        super::consensus::AftPqLocalRole::ActiveMember(account) => (account, false),
+                        super::consensus::AftPqLocalRole::HandoffOnlySuccessor(account) => {
+                            (account, true)
+                        }
+                    };
+                let handoff_only = handoff_only || quv_recovery_required;
+                aft_pq_local_account_id = Some(local_pq_account);
+                if !handoff_only {
+                    local_validator_account_id = Some(local_pq_account);
+                }
+                let configuration_hash =
+                    ioi_types::app::canonical_validator_set_hash(pq_rooted_set)
+                        .map_err(ValidatorError::Config)?;
+                let mut validator_key_registry =
+                    ioi_consensus::aft::authenticated_quorum::ValidatorKeyRegistry::new();
+                for validator in &pq_rooted_set.validators {
+                    let public_key =
+                        canonical_keys.get(&validator.account_id).ok_or_else(|| {
+                            ValidatorError::Config("canonical AFT validator key disappeared".into())
+                        })?;
+                    validator_key_registry
+                        .learn_raw_public_key(SignatureSuite::ML_DSA_44, public_key)
+                        .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                }
+                aft_async_membership = Some((pq_rooted_set.clone(), validator_key_registry));
+                let outbox_path = super::consensus::aft_pq_outbox_path(
+                    self.config.aft_pq_outbox_dir.as_deref(),
+                    configuration_hash,
+                    local_pq_account,
+                )
+                .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                let local_is_successor = staged_successor.is_some_and(|successor| {
+                    successor
+                        .validators
+                        .iter()
+                        .any(|validator| validator.account_id == local_pq_account)
+                });
+                if quv_recovery_required && !local_is_successor {
+                    return Err(ValidatorError::Config(
+                        "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set"
+                            .into(),
+                    ));
+                }
+                if quv_handoff_enabled && local_is_successor {
+                    // The live-install gate is permanently scoped by the old
+                    // root even after the canonical workload projection has
+                    // advanced to the successor. The authenticated recovery
+                    // envelope locates that old-root store; it cannot create
+                    // or modify the separately anchored gate.
+                    let handoff_configuration_hash = quv_recovery_envelope
+                        .as_ref()
+                        .map(|envelope| envelope.handoff.old_configuration_root)
+                        .unwrap_or(configuration_hash);
+                    let custody_key = super::consensus::derive_aft_quv_handoff_custody_key(
+                        &pq_identity,
+                        self.genesis_hash,
+                        handoff_configuration_hash,
+                        local_pq_account,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let paths = super::consensus::aft_async_storage_paths(
+                        self.config.aft_pq_outbox_dir.as_deref(),
+                        self.config.aft_external_anchor_dir.as_deref(),
+                        handoff_configuration_hash,
+                        local_pq_account,
+                        staged_successor
+                            .expect("local successor implies a staged successor")
+                            .effective_from_height,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let store = ioi_consensus::aft::query_unanimity::DurableQuvHandoffV0::open(
+                        &paths.quv_handoff_state,
+                        &paths.quv_handoff_anchor,
+                        *custody_key,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    if let Some(envelope) = quv_recovery_envelope.as_ref() {
+                        if !store.permits_exact_activation(
+                            envelope,
+                            local_pq_account,
+                            envelope.handoff.state_block_hash,
+                            &envelope.handoff.state_root,
+                        ) {
+                            return Err(ValidatorError::Config(
+                                "QUV recovery source has no exact rollback-anchored local install gate"
+                                    .into(),
+                            ));
+                        }
+                    }
+                    aft_quv_handoff_store = Some(Arc::new(Mutex::new(store)));
+                }
+                if !handoff_only {
+                    let custody_key = super::consensus::derive_aft_async_custody_key(
+                        &pq_identity,
+                        self.genesis_hash,
+                        configuration_hash,
+                        local_pq_account,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let async_paths = super::consensus::aft_async_storage_paths(
+                        self.config.aft_pq_outbox_dir.as_deref(),
+                        self.config.aft_external_anchor_dir.as_deref(),
+                        configuration_hash,
+                        local_pq_account,
+                        observation_height.max(1),
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let signing_fence =
+                        ioi_consensus::aft::hash_async::DurableCrossPathSigningFence::open(
+                            &async_paths.signing_fence_state,
+                            &async_paths.signing_fence_anchor,
+                            ioi_types::app::AftFallbackScopeV1 {
+                                network_id: self.genesis_hash,
+                                configuration_hash,
+                                epoch: pq_rooted_set.effective_from_height,
+                            },
+                            local_pq_account,
+                            &custody_key,
+                        )
+                        .map_err(ValidatorError::Config)?;
+                    if quv_enabled {
+                        let member = ioi_consensus::aft::query_unanimity::DurableQuvMemberV0::open(
+                            &async_paths.quv_member_state,
+                            &async_paths.quv_member_anchor,
+                            *custody_key,
+                            super::quv::member_provisioning_root(
+                                self.genesis_hash,
+                                configuration_hash,
+                                &self.config.aft_quv_domain_policies,
+                            )
+                            .map_err(|error| ValidatorError::Config(error.to_string()))?,
+                            super::quv::member_provisioned_domains(
+                                self.genesis_hash,
+                                configuration_hash,
+                                &self.config.aft_quv_domain_policies,
+                            )
+                            .map_err(|error| ValidatorError::Config(error.to_string()))?,
+                        )
+                        .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                        aft_quv_member = Some(Arc::new(Mutex::new(member)));
+                    }
+                    if matches!(
+                        self.config.aft_safety_mode,
+                        ioi_types::config::AftSafetyMode::ClassicBft
+                    ) {
+                        let fallback_journal_path = super::consensus::aft_fallback_journal_path(
+                            self.config.aft_pq_outbox_dir.as_deref(),
+                            configuration_hash,
+                            local_pq_account,
+                        )
+                        .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                        let mut engine = self.consensus_engine.lock().await;
+                        engine
+                            .configure_fallback_journal(
+                                ioi_types::app::AftFallbackScopeV1 {
+                                    network_id: self.genesis_hash,
+                                    configuration_hash,
+                                    epoch: pq_rooted_set.effective_from_height,
+                                },
+                                &fallback_journal_path,
+                            )
+                            .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    }
+                    aft_async_custody_key = Some(custody_key);
+                    aft_cross_path_signing_fence =
+                        Some(Arc::new(std::sync::Mutex::new(signing_fence)));
+                }
+                let (pq_configured_tx, pq_configured_rx) = tokio::sync::oneshot::channel();
+                self.swarm_command_sender
+                    .send(SwarmCommand::ConfigurePqChannels {
+                        config: PqChannelLocalConfig {
+                            network_id: self.genesis_hash,
+                            configuration_hash,
+                            epoch: pq_rooted_set.effective_from_height,
+                            account_id: local_pq_account,
+                            peer_id: self.syncer.get_local_peer_id(),
+                            identity: pq_identity,
+                            identity_key_hash,
+                            outbox_path,
+                            rooted_accounts: pq_rooted_set
+                                .validators
+                                .iter()
+                                .chain(
+                                    staged_successor
+                                        .filter(|_| quv_enabled)
+                                        .into_iter()
+                                        .flat_map(|set| set.validators.iter()),
+                                )
+                                .map(|member| member.account_id)
+                                .collect(),
+                        },
+                        enrollments: Vec::new(),
+                        handoff_only,
+                        response: pq_configured_tx,
+                    })
+                    .await
+                    .map_err(|error| {
+                        ValidatorError::Other(format!(
+                            "failed to configure strict AFT PQ channels: {error}"
+                        ))
+                    })?;
+                pq_configured_rx
+                    .await
+                    .map_err(|_| {
+                        ValidatorError::Other(
+                            "strict AFT PQ channel configuration acknowledgement was dropped"
+                                .into(),
+                        )
+                    })?
+                    .map_err(|error| {
+                        ValidatorError::Other(format!(
+                            "strict AFT PQ channel configuration was refused: {error}"
+                        ))
+                    })?;
+                let active_accounts = pq_rooted_set
+                    .validators
+                    .iter()
+                    .map(|validator| validator.account_id)
+                    .collect::<HashSet<_>>();
+                let mut peer_keys = pq_rooted_set
+                    .validators
+                    .iter()
+                    .map(|validator| {
+                        (
+                            validator.account_id,
+                            validator.consensus_key.public_key_hash,
+                        )
+                    })
+                    .collect::<HashMap<_, _>>();
+                if quv_enabled {
+                    if let Some(successor) = staged_successor {
+                        for validator in &successor.validators {
+                            peer_keys.insert(
+                                validator.account_id,
+                                validator.consensus_key.public_key_hash,
+                            );
+                            if !active_accounts.contains(&validator.account_id) {
+                                aft_pq_handoff_only_accounts.insert(validator.account_id);
+                            }
+                        }
+                    }
+                }
+                aft_pq_peer_keys = Some(peer_keys);
+                aft_pq_configuration_hash = Some(configuration_hash);
+            }
+        }
+
+        // Register this node's own consensus key before any task that can cast
+        // or replay a self-vote is spawned. Peer keys arrive on their own —
+        // `decide` receives the authenticated `known_peers` set and an Ed25519
+        // peer id inlines its key — but the local key appears in no peer set,
+        // so without this the node cannot verify even its own votes.
+        //
+        // Recording a key authorizes nothing: it still has to match the key
+        // hash an on-chain validator record binds before any signature counts.
+        let local_consensus_public_key = self.local_keypair.public().encode_protobuf();
+        if !self
+            .consensus_engine
+            .lock()
+            .await
+            .observe_validator_public_key(&local_consensus_public_key)
+        {
+            tracing::debug!(
+                target: "orchestration",
+                "Consensus engine did not record the local consensus key; engines without a native quorum notion ignore it."
+            );
+        }
+
+        let configured_profile = self
+            .config
+            .resolved_finality_profile()
+            .map_err(ValidatorError::Config)?;
+        let ed25519 = self.local_keypair.clone().try_into_ed25519().map_err(|_| {
+            ValidatorError::Config("runtime finality requires an Ed25519 node identity".into())
+        })?;
+        let secret = ed25519.secret();
+        let finality_key = Ed25519PrivateKey::from_bytes(secret.as_ref())
+            .map_err(|error| ValidatorError::Config(error.to_string()))?;
+        let issuer_key_id = format!(
+            "key://ioi/finality/{}",
+            hex::encode(
+                finality_key
+                    .public_key()
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?
+                    .to_bytes()
+            )
+        );
+        let runtime_finality = super::runtime_finality::RuntimeFinalityCoordinator::open(
+            self.runtime_finality_root.clone(),
+            format!("chain://ioi/{}", self.config.chain_id.0),
+            configured_profile,
+            format!("writer://ioi/validator/{}", hex::encode(local_account_id.0)),
+            super::runtime_finality::runtime_finality_initial_head(initial_block.as_ref())
+                .map_err(|error| ValidatorError::Other(error.to_string()))?,
+            issuer_key_id,
+            secret.as_ref(),
+        )
+        .map_err(|error| {
+            ValidatorError::Other(format!("runtime finality startup refusal: {error}"))
+        })?;
+        let agentgres_admitted_block = runtime_finality.last_admitted_block().map_err(|error| {
+            ValidatorError::Other(format!(
+                "runtime finality canonical-tip recovery refusal: {error}"
+            ))
+        })?;
+        if matches!(
+            self.config.consensus_type,
+            ioi_types::config::ConsensusType::Aft
+        ) {
+            // Only an Agentgres commit advances the safety gadget's admitted
+            // floor. A pre-active QUV successor can have a synchronized
+            // workload cursor while its fresh consequence spine still names
+            // the zero genesis head. Treating that cursor as admitted lets a
+            // later child QC skip the missing predecessor consequence.
+            let admitted_height = agentgres_admitted_block
+                .as_ref()
+                .map(|block| block.header.height)
+                .unwrap_or(0);
+            if !self
+                .consensus_engine
+                .lock()
+                .await
+                .observe_admitted_finality_height(admitted_height)
+            {
+                return Err(ValidatorError::Other(format!(
+                    "AFT engine refused Agentgres-admitted finality floor {admitted_height}"
+                )));
+            }
+        }
+        let last_admitted_block = agentgres_admitted_block.or_else(|| initial_block.clone());
+        let runtime_finality = Arc::new(Mutex::new(runtime_finality));
+
+        let mut context = MainLoopContext::<CS, ST, CE, V> {
+            chain_ref: chain,
+            tx_pool_ref: self.tx_pool.clone(),
+            view_resolver,
+            swarm_commander: self.swarm_command_sender.clone(),
+            quv_swarm_commander: self.quv_swarm_command_sender.clone(),
+            consensus_engine_ref: self.consensus_engine.clone(),
+            node_state: self.syncer.get_node_state(),
+            local_keypair: self.local_keypair.clone(),
+            pqc_signer: self.pqc_signer.clone(),
+            local_validator_account_id,
+            aft_pq_local_account_id,
+            known_peers_ref: self.syncer.get_known_peers(),
+            peer_accounts_ref,
+            aft_pq_peer_keys,
+            aft_pq_handoff_only_accounts,
+            aft_quv_staged_successor,
+            aft_pq_configuration_hash,
+            aft_async_membership,
+            aft_async_custody_key,
+            aft_cross_path_signing_fence,
+            aft_quv_member,
+            aft_quv_handoff_envelope,
+            aft_quv_certified_handoff: None,
+            aft_quv_certified_handoff_block: None,
+            aft_quv_certified_handoff_parent_block: None,
+            aft_quv_handoff_store,
+            aft_quv_push_inflight: HashSet::new(),
+            aft_quv_admission: Arc::new(super::quv::admission::QuvOperationAdmissionV0::new(
+                self.config
+                    .aft_quv_domain_policies
+                    .iter()
+                    .map(|policy| policy.domain_id),
+            )),
+            aft_quv_preparation_notify: Arc::new(tokio::sync::Notify::new()),
+            aft_quv_operations: Arc::new(Mutex::new(HashMap::new())),
+            aft_async_sessions: BTreeMap::new(),
+            aft_async_finalized: BTreeMap::new(),
+            aft_async_finalized_batches: BTreeMap::new(),
+            aft_async_executed: BTreeMap::new(),
+            configured_bootstrap_peers: self.syncer.bootstrap_peer_count(),
+            config: self.config.clone(),
+            chain_id: self.config.chain_id,
+            genesis_hash: self.genesis_hash,
+            genesis_root,
+            is_quarantined: self.is_quarantined.clone(),
+            pending_attestations: std::collections::HashMap::new(),
+            last_committed_block: last_admitted_block,
+            last_executed_block: initial_block,
+            last_tip_vote_replay: None,
+            last_production_attempt: None,
+            rejected_aft_replacements: LruCache::new(
+                std::num::NonZeroUsize::new(1024).expect("non-zero AFT rejection cache"),
+            ),
+            consensus_kick_tx: self.consensus_kick_tx.clone(),
+            consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
+            next_due_wakeup_at_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            sync_progress: None,
+            nonce_manager: self.nonce_manager.clone(),
+            signer: self.signer.clone(),
+            batch_verifier: self.batch_verifier.clone(),
+            tx_status_cache: tx_status_cache.clone(),
+            tip_sender: tip_tx,
+            receipt_map: receipt_map.clone(),
+            safety_model: self.safety_model.clone(),
+            inference_runtime: Arc::new(RuntimeWrapper {
+                inner: self.inference_runtime.clone(),
+            }),
+            os_driver: self.os_driver.clone(),
+            memory_runtime: self.memory_runtime.clone(),
+            event_broadcaster: event_tx,
+            runtime_finality,
+        };
+
+        super::runtime_finality::redrive_pending(&mut context)
+            .await
+            .map_err(|error| {
+                ValidatorError::Other(format!(
+                    "runtime finality committed-outbox recovery refusal: {error}"
+                ))
+            })?;
+        super::runtime_finality::recover_workload_gap(&mut context)
+            .await
+            .map_err(|error| {
+                ValidatorError::Other(format!(
+                    "runtime finality committed-workload recovery refusal: {error}"
+                ))
+            })?;
+
+        let mut receiver_opt = self.network_event_receiver.lock().await;
+        let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
+            "Network event receiver already taken".to_string(),
+        ))?;
+        let mut quv_receiver_opt = self.quv_network_event_receiver.lock().await;
+        let quv_receiver = quv_receiver_opt.take().ok_or(ValidatorError::Other(
+            "QUV network event receiver already taken".to_string(),
+        ))?;
+
+        let context_arc = Arc::new(Mutex::new(context));
+        *self.main_loop_context.lock().await = Some(context_arc.clone());
+
+        let ticker_kick_rx = match self.consensus_kick_rx.lock().await.take() {
+            Some(rx) => rx,
+            None => {
+                return Err(ValidatorError::Other(
+                    "Consensus kick receiver already taken".into(),
+                ))
+            }
+        };
+
+        let shutdown_rx = self.shutdown_sender.subscribe();
+
+        handles.push(tokio::spawn(Self::run_consensus_ticker(
+            context_arc.clone(),
+            ticker_kick_rx,
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(Self::run_sync_discoverer(
+            context_arc.clone(),
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(
+            crate::standard::orchestration::operator_tasks::run_wallet_network_audit_bridge_task(
+                context_arc.clone(),
+                shutdown_rx.clone(),
+            ),
+        ));
+        handles.push(tokio::spawn(Self::run_quv_loop(
+            quv_receiver,
+            shutdown_rx.clone(),
+            context_arc.clone(),
+        )));
+        handles.push(tokio::spawn(super::quv::run_preparation_worker(
+            context_arc.clone(),
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(super::quv::run_handoff_coordinator(
+            context_arc.clone(),
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(Self::run_main_loop(
+            receiver,
+            shutdown_rx,
+            context_arc,
+        )));
+
+        self.is_running.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    pub(crate) async fn stop_internal(&self) -> Result<(), ValidatorError> {
+        if !self.is_running.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        tracing::info!(target: "orchestration", "Orchestrator stopping...");
+        self.shutdown_sender.send(true).ok();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        self.is_running.store(false, Ordering::SeqCst);
+
+        self.syncer
+            .stop()
+            .await
+            .map_err(|e| ValidatorError::Other(e.to_string()))?;
+
+        // Avoid indefinite shutdown hangs when a background task is stuck in long-running
+        // in-flight work (e.g., model inference inside block execution).
+        const TASK_SHUTDOWN_GRACE_TIMEOUT: Duration = Duration::from_secs(2);
+        let mut handles = self.task_handles.lock().await;
+        for mut handle in handles.drain(..) {
+            match tokio::time::timeout(TASK_SHUTDOWN_GRACE_TIMEOUT, &mut handle).await {
+                Ok(join_result) => {
+                    if let Err(e) = join_result {
+                        if !e.is_cancelled() {
+                            return Err(ValidatorError::Other(format!("Task panicked: {e}")));
+                        }
+                    }
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        target: "orchestration",
+                        "Task did not stop within {}ms; aborting.",
+                        TASK_SHUTDOWN_GRACE_TIMEOUT.as_millis()
+                    );
+                    handle.abort();
+                    if let Err(e) = handle.await {
+                        if !e.is_cancelled() {
+                            return Err(ValidatorError::Other(format!(
+                                "Task failed during abort: {e}"
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}

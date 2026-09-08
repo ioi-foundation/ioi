@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::handoff_recovery_rejects_authenticated_unreachable_generations",
+    "--",
+    "--exact"
+  ],
+  "baseline_sha256": "c450ef4660ac929d9379d1be3d4abe778073b1480b36cb40dec9c8f47eae17be",
+  "mutant_sha256": "bad830ff9d5e2a38525fa8bbcd0cc6e1fcf348e168beb1c17a753fdf6b4080e1",
+  "exit_code": 101,
+  "expected_regression_failure": true,
+  "restored": true
+}

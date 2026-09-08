@@ -1,0 +1,1 @@
+[M16Q] START quv_single_correct_process: cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation -- --nocapture 

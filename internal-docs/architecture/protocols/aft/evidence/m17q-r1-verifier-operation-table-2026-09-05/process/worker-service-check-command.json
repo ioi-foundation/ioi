@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-active-service-2026-09-05/check_worker_service_observations.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-verifier-operation-table-2026-09-05/process/components"
+  ],
+  "checker_sha256": "35f51e4f27ffbdd01d8248b743266911635737e270bccba0332450d8d3aa62b8",
+  "exit_code": 0,
+  "stderr": ""
+}

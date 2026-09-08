@@ -1,0 +1,44 @@
+{
+  "results": [
+    {
+      "name": "owned-capacity",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::admission::tests::receipt_admission_bounds_history_preserves_fifo_and_protects_live_reopen",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "7f9497243989a56354e67a8cde3ef7ee1b97acd4db65a8b5c3b21e54724dfc2a"
+    },
+    {
+      "name": "historical-capacity",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::admission::tests::receipt_admission_bounds_history_preserves_fifo_and_protects_live_reopen",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "59c884db90e1f9b28e1a33c90e065618d31be441606ce64908293daa1da7ee65"
+    }
+  ],
+  "baseline_sha256": "3ac8f88793f58a5ad11fe3076a8ea67c17248c1c540ecd1ca3a018652809fa48",
+  "restored": true
+}

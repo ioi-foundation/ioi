@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::policy_root_binds_preparation_limits_and_rejects_invalid_budgets",
+    "--",
+    "--exact"
+  ],
+  "mutation": "omit preparation policy from canonical root preimage while retaining syntax validation",
+  "original_sha256": "02c46707d6d48cedc8bb19563ab6d475c6eeef3f29a41d4c8ae1632862df417a",
+  "mutant_sha256": "273d71540806fc582a16d24a2588a16dbda0aef4f59d1e7a277c8c18f99a127c",
+  "exit_code": 101,
+  "source_restored": true
+}

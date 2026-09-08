@@ -1,0 +1,133 @@
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 77 and seed -2807201437370750885 with 1 worker on 24 cores with 256MB heap and 64MB offheap memory [pid: 1924757] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-preparation-timing-2026-09-05/Reachable/QuvHeadPreparationTiming.tla
+Parsing file /tmp/tlc-1649384035880272267/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-1649384035880272267/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-1649384035880272267/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-1649384035880272267/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-1649384035880272267/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-1649384035880272267/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-1649384035880272267/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadPreparationTiming
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadPreparationTiming
+Starting... (2026-09-05 01:17:34)
+Warning: The invariant Premises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 01:17:34.
+Error: Invariant NoCompletedChild is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ replied = {}
+/\ now = 0
+/\ ownGrant = {m1}
+/\ refused = {}
+/\ started = FALSE
+/\ startTime = 0
+/\ ready = {m1}
+/\ finished = FALSE
+
+State 2: <OwnParentQuery(m2) line 17, col 5 to line 20, col 79 of module QuvHeadPreparationTiming>
+/\ replied = {}
+/\ now = 0
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = FALSE
+/\ startTime = 0
+/\ ready = {m1}
+/\ finished = FALSE
+
+State 3: <CommitParent(m2) line 22, col 5 to line 25, col 82 of module QuvHeadPreparationTiming>
+/\ replied = {}
+/\ now = 0
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = FALSE
+/\ startTime = 0
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 4: <Tick line 43, col 5 to line 50, col 84 of module QuvHeadPreparationTiming>
+/\ replied = {}
+/\ now = 1
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = FALSE
+/\ startTime = 0
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 5: <Tick line 43, col 5 to line 50, col 84 of module QuvHeadPreparationTiming>
+/\ replied = {}
+/\ now = 2
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = FALSE
+/\ startTime = 0
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 6: <BeginChild line 27, col 5 to line 30, col 69 of module QuvHeadPreparationTiming>
+/\ replied = {}
+/\ now = 2
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = TRUE
+/\ startTime = 2
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 7: <DeliverChild(m1) line 32, col 5 to line 37, col 71 of module QuvHeadPreparationTiming>
+/\ replied = {m1}
+/\ now = 2
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = TRUE
+/\ startTime = 2
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 8: <DeliverChild(m2) line 32, col 5 to line 37, col 71 of module QuvHeadPreparationTiming>
+/\ replied = {m1, m2}
+/\ now = 2
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = TRUE
+/\ startTime = 2
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 9: <Tick line 43, col 5 to line 50, col 84 of module QuvHeadPreparationTiming>
+/\ replied = {m1, m2}
+/\ now = 3
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = TRUE
+/\ startTime = 2
+/\ ready = {m1, m2}
+/\ finished = FALSE
+
+State 10: <FinishChild line 39, col 5 to line 41, col 79 of module QuvHeadPreparationTiming>
+/\ replied = {m1, m2}
+/\ now = 3
+/\ ownGrant = {m1, m2}
+/\ refused = {}
+/\ started = TRUE
+/\ startTime = 2
+/\ ready = {m1, m2}
+/\ finished = TRUE
+
+26 states generated, 22 distinct states found, 3 states left on queue.
+The depth of the complete state graph search is 10.
+Finished in 00s at (2026-09-05 01:17:34)
+Trace exploration spec path: ./QuvHeadPreparationTiming_TTrace_1788585454.tla

@@ -1,0 +1,14 @@
+{
+  "scope": "diagnostic workload observation, not a protocol deadline proof",
+  "selection": "four operations following four sole-correct cases, as ordered by start logs and fixed campaign source",
+  "operation_summary_sha256": "a51ce36a755454b2420cd8c88d47672ade4014ca5eed799fabddc17b97fdc994",
+  "start_span_millis": 5689.907,
+  "maximum_overlapping_logged_verifier_intervals": 3,
+  "four_way_overlap_observed": false,
+  "nonces": [
+    "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+    "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+    "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+    "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532"
+  ]
+}

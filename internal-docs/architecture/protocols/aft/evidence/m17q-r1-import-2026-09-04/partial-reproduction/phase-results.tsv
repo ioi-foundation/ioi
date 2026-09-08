@@ -1,0 +1,9 @@
+phase	result	elapsed_seconds	command
+formal_r4	PASS	119	bash .github/scripts/run_aft_formal_checks.sh --quv-only 
+quv_core	PASS	314	cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::tests 
+pq_transport	PASS	302	cargo test -p ioi-networking --lib pq_channel 
+pq_swarm_admission	PASS	253	cargo test -p ioi-networking --lib protected_payload_routes_only_after_aead_and_type_agreement 
+consequence_t10	PASS	152	cargo test -p agentgres consequence::tests 
+terminal_seal_sim	PASS	78	cargo test -p ioi-consensus --features aft --lib adversarial_campaigns 
+terminal_seal_receipts	PASS	493	cargo test -p ioi-finality --features portable-assurance --lib portable_assurance::tests 
+quv_component_timing	PASS	977	cargo test --release -p ioi-consensus --features aft --lib m16q_profiles_mldsa_signing_and_durable_write_before_reply -- --ignored --nocapture 

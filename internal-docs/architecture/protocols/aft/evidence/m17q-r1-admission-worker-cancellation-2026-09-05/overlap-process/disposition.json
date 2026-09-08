@@ -1,0 +1,11 @@
+{
+  "disposition": "LOCAL_RECONFIGURATION_CAMPAIGN_PASSED",
+  "exit_code": 0,
+  "changed_sources_during_process": [],
+  "successors": 4,
+  "expected_old_members": 4,
+  "max_valid_reply_elapsed_millis": 911,
+  "portable_final_receipt": false,
+  "strong_scheduling_service_gate": "PASS",
+  "scope": "Exact recorded development runtime; not complete restart/refinement or clean R2. Disjoint evidence was additionally rechecked after strengthening checker code."
+}

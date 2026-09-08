@@ -1,0 +1,11 @@
+{
+  "source_sha256": "066fadaa2b1f8cdbab1999ee2e2f5b346d4f56665101c89c77587b8deeb30eb9",
+  "result": "PASS",
+  "checks": [
+    "cross-file nonce correlation",
+    "timestamp ordering and relative wall time",
+    "malformed/non-JSON accounting",
+    "source content hash",
+    "event counts"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "cases": [
+    {
+      "case": "record-bound",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::online_receipt_bound_covers_named_resource_execution_and_complete_budget",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "9c56c09c0170ebcd9ab59f904eb5ab5a6c3ed263d4c4f024c484774c1005d0a3",
+      "mutant_sha256": "5b7a83641359f34d8b67b729dc402e70cf798a44b6abeb934ac8483af5effa3c",
+      "exit_code": 101,
+      "assertion_failure": true
+    },
+    {
+      "case": "live",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "9c56c09c0170ebcd9ab59f904eb5ab5a6c3ed263d4c4f024c484774c1005d0a3",
+      "mutant_sha256": "d6885ef302572837ad1691d1779c99a7ba3d86e9453f0662131c3c38841affa5",
+      "exit_code": 101,
+      "assertion_failure": true
+    },
+    {
+      "case": "recovery",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "9c56c09c0170ebcd9ab59f904eb5ab5a6c3ed263d4c4f024c484774c1005d0a3",
+      "mutant_sha256": "007601d5d4fadd7bc9b5679c7ff0aed23cbc7786ced82ff2f9d7cc2961e05266",
+      "exit_code": 101,
+      "assertion_failure": true
+    },
+    {
+      "case": "canonical",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::pq_resource_format_bounds_cover_maximum_tokens_and_refuse_noncanonical_evidence",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "9c56c09c0170ebcd9ab59f904eb5ab5a6c3ed263d4c4f024c484774c1005d0a3",
+      "mutant_sha256": "d150e1fb1fdff7c71ae987930a5ceeb42f0603a4fa853545c53dbd5e1a03ac70",
+      "exit_code": 101,
+      "assertion_failure": true
+    }
+  ],
+  "restored": true
+}

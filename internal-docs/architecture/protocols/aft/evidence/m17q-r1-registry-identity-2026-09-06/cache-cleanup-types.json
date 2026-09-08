@@ -1,0 +1,79 @@
+{
+  "time": "2026-09-06T08:16:00.345101+00:00",
+  "active_crates": [],
+  "scope": "inactive ioi_types incremental cache only; compiled deps and all source/evidence preserved",
+  "removed": [
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-05etbbi12v38p",
+      "bytes": 2626851231
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-0go7vgvnlycua",
+      "bytes": 1343486664
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-0kekka0wk2ff9",
+      "bytes": 1339370490
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-114qosju4q7cx",
+      "bytes": 1609356698
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-177xtxdnim6a5",
+      "bytes": 2587642596
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-1e7wf7j5tjj70",
+      "bytes": 1608025211
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-1ngu79wvczwpj",
+      "bytes": 2626256842
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-235gojljf3mlm",
+      "bytes": 2547898085
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-25j05zusw0g2l",
+      "bytes": 2629688574
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-29ucuatg5aytf",
+      "bytes": 1341474235
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-2chqg56zvq39n",
+      "bytes": 804190479
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-2ck07p7y6r9ah",
+      "bytes": 2629646316
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-2csf1hn58lyfd",
+      "bytes": 1614721537
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-2josyejpcmzjy",
+      "bytes": 805512769
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-2leoghj1g3jsl",
+      "bytes": 2600019820
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-2wtqycviq4kql",
+      "bytes": 1613581700
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-35hdtawm8cgtu",
+      "bytes": 2595799907
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_types-3r8fj7dmsblyv",
+      "bytes": 2635332007
+    }
+  ]
+}

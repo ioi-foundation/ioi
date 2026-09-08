@@ -1,0 +1,50 @@
+diff --git a/crates/networking/src/libp2p/pq_channel.rs b/crates/networking/src/libp2p/pq_channel.rs
+index 992f0eaef..f251288b6 100644
+--- a/crates/networking/src/libp2p/pq_channel.rs
++++ b/crates/networking/src/libp2p/pq_channel.rs
+@@ -1425,6 +1425,45 @@ mod tests {
+             .is_err());
+     }
+ 
++    #[test]
++    fn repro_status_claimed_account_carrier_squat_survives_disconnect() {
++        let temp = tempfile::tempdir().unwrap();
++        let local = local_config(46, temp.path().join("carrier-squat.outbox"));
++        let genuine = local_config(47, temp.path().join("genuine-unused.outbox"));
++        let claimed_account = genuine.account_id;
++        let claimed_key_hash = genuine.identity_key_hash;
++        let genuine_peer = genuine.peer_id;
++        let attacker_peer = Keypair::generate_ed25519().public().to_peer_id();
++        let mut manager = PqChannelSessionManager::new(local).unwrap();
++
++        // Status handling constructs this enrollment from an unproven carrier's
++        // claimed account plus the rooted account's real identity-key hash.
++        manager
++            .enroll_peer(PqPeerEnrollment {
++                peer_id: attacker_peer,
++                account_id: claimed_account,
++                identity_key_hash: claimed_key_hash,
++            })
++            .unwrap();
++        assert_eq!(manager.peer_for_account(claimed_account), Some(attacker_peer));
++
++        // Connection and failed-handshake cleanup drops ephemeral session state,
++        // but it does not retire the account-to-carrier enrollment.
++        manager.disconnect(&attacker_peer);
++        assert_eq!(manager.peer_for_account(claimed_account), Some(attacker_peer));
++
++        // The carrier that can actually prove the rooted key is now refused by
++        // the first-wins account uniqueness check.
++        assert!(manager
++            .enroll_peer(PqPeerEnrollment {
++                peer_id: genuine_peer,
++                account_id: claimed_account,
++                identity_key_hash: claimed_key_hash,
++            })
++            .is_err());
++        assert_eq!(manager.peer_for_account(claimed_account), Some(attacker_peer));
++    }
++
+     #[test]
+     fn durable_outbox_refuses_cross_configuration_reuse() {
+         let temp = tempfile::tempdir().unwrap();

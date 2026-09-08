@@ -29,7 +29,7 @@ synchronized.
 1. Start with [start-here.md](./start-here.md) for the five-minute stack model.
 2. Use this digest for the current cross-owner defaults.
 3. Use [source-of-truth-map.md](./source-of-truth-map.md) to find the edit-first owner.
-4. Use [implementation-matrix.md](./implementation-matrix.md) to map a concept to durable forms, code anchors, and conformance hooks.
+4. Use [canon-to-code-delta.md](./canon-to-code-delta.md) and the [work-items/](./work-items/) records to map a concept to its durable form, code anchors, and implementation status (the former implementation matrix is an archived stub).
 
 ## Current Defaults
 

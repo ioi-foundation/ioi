@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-reply-boundary-diagnostics-2026-09-05/process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-reply-boundary-diagnostics-2026-09-05/process/components"
+  ],
+  "checker_sha256": "1939e07c04dd78d1946379639b807172f9394943cd6f193f11d48d987d15714c",
+  "exit_code": 0,
+  "stdout": "{\"conflict_accepts\": 1, \"expired_result_recorded\": true, \"log_sha256\": \"7c786ad06b27d14da8099834b20e76ec24203ab3e73db5289f14cfc94f6ce809\", \"saturation_operations\": 4, \"sole_correct_placements\": 4, \"unrelated_executed\": true, \"workload_overlap\": {\"common_overlap_millis\": 4153.826, \"component_sha256\": {\"validator-20000-orch.log\": \"b3bf2de6fea5fd78983c258eed0237647a35251115a404221be0e5c6af3256c2\", \"validator-20100-orch.log\": \"b6ae529fc815cb78012ebdf8f7542eb1b9b50a073fc3510eb45e33b455d46f1e\", \"validator-20200-orch.log\": \"bc53d8aa9a8a991e6ab9008bc230579f707cc2d1070e84e173d1b82d38b034cf\", \"validator-20300-orch.log\": \"3e72aba5eb128923db33713026897858487512b27bb1e58f1721d4d7b0b23661\"}, \"four_way_overlap_observed\": true, \"scope\": \"same-host wall-clock workload observation, not protocol deadline proof\", \"start_span_millis\": 846.174, \"verifier_nonces\": [\"0d452bfdd86cde962543d46a925f5f5e1a9fc4437eb3fd2f9845fb1b8446813f\", \"ddfaa15228649ac659c31213b750cf7bf967d5af4a187aef17b293c9cf7bd242\", \"8dba23a29e915890d95da103e74c197ff745d41ecbb13fd506c0ce0f7914aaae\", \"49d6278852aa6fe0f39fa0df449a75e6694141e51e9ed14ec4859f4f98e49f57\"]}}\n",
+  "stderr": ""
+}

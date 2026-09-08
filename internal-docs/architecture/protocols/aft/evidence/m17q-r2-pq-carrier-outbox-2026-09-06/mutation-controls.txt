@@ -1,0 +1,49 @@
+==================================================================
+CONTROL: disconnect eviction of an unproven enrollment
+file: crates/networking/src/libp2p/pq_channel.rs
+named test: unproven_squatter_disconnect_releases_account_for_genuine_carrier
+sha256 before mutation: b815941cd64db8ac44d8dbddeb5e9adad6c81bc74752a4246a0d258e843b9bd9
+mutated crates/networking/src/libp2p/pq_channel.rs: '        if !authenticated {\n            self.peer_capabilities.remove(peer);' -> '        if !authenticated && false {\n            self.peer_capabilities.remove(peer);'
+--- running named test under mutation (expected: FAILED)
+test libp2p::pq_channel::tests::unproven_squatter_disconnect_releases_account_for_genuine_carrier ... FAILED
+thread 'libp2p::pq_channel::tests::unproven_squatter_disconnect_releases_account_for_genuine_carrier' (913265) panicked at crates/networking/src/libp2p/pq_channel.rs:3227:9:
+assertion failed: !manager.enrollments.contains_key(peer)
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 2.46s
+cargo exit: 101
+sha256 after restore:   b815941cd64db8ac44d8dbddeb5e9adad6c81bc74752a4246a0d258e843b9bd9
+RESTORE: exact (sha256 equal; git diff --stat unchanged: ' 1 file changed, 2177 insertions(+), 88 deletions(-)')
+==================================================================
+CONTROL: deferred push ACK (ACK only after CompleteQuvPush)
+file: crates/networking/src/libp2p/swarm.rs
+named test: push_ack_is_withheld_until_durable_completion
+sha256 before mutation: 5a149dfbc39dcfabf8ab6520a3f73552701cd2d676083452f708381d865b7a13
+mutated crates/networking/src/libp2p/swarm.rs: '        Some(nonce) if admitted_quv_push => Ok(PqRecordAdmission::AckAfterDurablePush {' -> '        Some(nonce) if admitted_quv_push && false => Ok(PqRecordAdmission::AckAfterDurablePush {'
+--- running named test under mutation (expected: FAILED)
+test libp2p::swarm::tests::push_ack_is_withheld_until_durable_completion ... FAILED
+thread 'libp2p::swarm::tests::push_ack_is_withheld_until_durable_completion' (938880) panicked at crates/networking/src/libp2p/swarm.rs:2570:9:
+assertion `left == right` failed
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 6.48s
+cargo exit: 101
+sha256 after restore:   5a149dfbc39dcfabf8ab6520a3f73552701cd2d676083452f708381d865b7a13
+RESTORE: exact (sha256 equal; git diff --stat unchanged: ' 1 file changed, 1267 insertions(+), 83 deletions(-)')
+==================================================================
+CONTROL: stale reply retired before the current-operation lane
+file: crates/networking/src/libp2p/swarm.rs
+named test: stale_reply_is_acked_without_holding_the_current_operation_lane
+sha256 before mutation: 5a149dfbc39dcfabf8ab6520a3f73552701cd2d676083452f708381d865b7a13
+mutated crates/networking/src/libp2p/swarm.rs: '        if active_quv_operation != Some(nonce) {' -> '        if active_quv_operation != Some(nonce) && false {'
+--- running named test under mutation (expected: FAILED)
+test libp2p::swarm::tests::stale_reply_is_acked_without_holding_the_current_operation_lane ... FAILED
+thread 'libp2p::swarm::tests::stale_reply_is_acked_without_holding_the_current_operation_lane' (945936) panicked at crates/networking/src/libp2p/swarm.rs:2409:9:
+assertion failed: reply_lane.is_empty()
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 7.29s
+cargo exit: 101
+sha256 after restore:   5a149dfbc39dcfabf8ab6520a3f73552701cd2d676083452f708381d865b7a13
+RESTORE: exact (sha256 equal; git diff --stat unchanged: ' 1 file changed, 1267 insertions(+), 83 deletions(-)')
+==================================================================
+final: rebuilding the restored tree and re-running the three named tests (expected: ok)
+test libp2p::swarm::tests::push_ack_is_withheld_until_durable_completion ... ok
+test libp2p::swarm::tests::stale_reply_is_acked_without_holding_the_current_operation_lane ... ok
+test libp2p::pq_channel::tests::unproven_squatter_disconnect_releases_account_for_genuine_carrier ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 20.85s
+cargo exit: 0

@@ -1,0 +1,103 @@
+[
+  {
+    "name": "registry",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-services",
+      "--lib",
+      "aft_effect_registry"
+    ],
+    "started": "2026-09-06T08:12:25.323210+00:00",
+    "completed": "2026-09-06T08:12:57.668203+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "transaction-write-cleanup",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-execution",
+      "--lib",
+      "mv_memory::tests::clear_tx_writes_removes_stale_keys_from_prior_incarnation",
+      "--",
+      "--exact"
+    ],
+    "started": "2026-09-06T08:12:57.668818+00:00",
+    "completed": "2026-09-06T08:15:11.156331+00:00",
+    "exit_code": 101
+  },
+  {
+    "name": "runtime-finality",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::runtime_finality::tests::"
+    ],
+    "started": "2026-09-06T08:15:11.156789+00:00",
+    "completed": "2026-09-06T08:16:05.389953+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T08:16:05.390166+00:00",
+    "completed": "2026-09-06T08:16:30.641625+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T08:16:30.641873+00:00",
+    "completed": "2026-09-06T08:16:39.316706+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T08:16:39.316987+00:00",
+    "completed": "2026-09-06T08:16:39.318935+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-manifest-locator-only"
+    ],
+    "started": "2026-09-06T08:16:39.319058+00:00",
+    "completed": "2026-09-06T08:16:41.579482+00:00",
+    "exit_code": 0
+  }
+]

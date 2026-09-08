@@ -1,0 +1,60 @@
+{
+  "completed_utc": "2026-09-05T07:14:40.203983+00:00",
+  "disposition": "LOCAL_DISPATCH_CANCELLATION_AND_DEADLINE_CHECKS_PASS_NOT_R1_CLOSURE",
+  "runtime_tests": 8,
+  "core_tests": 38,
+  "benchmark_ignored": 1,
+  "cli_check": "pass",
+  "removed_rule_controls": 2,
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "crates/consensus/src/aft/query_unanimity.rs",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/quv/dispatch.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "scope": "Local dispatch accounting; outbox admission is not delivery or correct-member processing.",
+  "remaining": [
+    "current-source process cancellation and restart evidence",
+    "worker service and child-readiness enforcement",
+    "full transition refinement and storage quotas/WAL",
+    "R1 closure, clean full R2, independent review and M18Q"
+  ]
+}

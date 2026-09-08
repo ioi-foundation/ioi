@@ -1,0 +1,19 @@
+{
+  "completed_utc": "2026-09-05T05:41:24.835403+00:00",
+  "disposition": "RECOVERABLE_WORK_SELECTION_TESTED_NOT_WORKER_OR_READINESS_IMPLEMENTATION",
+  "passed": 34,
+  "ignored_component_benchmark": 1,
+  "negative_control": "historical rescheduling fails; source restored",
+  "source_sha256": {
+    "crates/consensus/src/aft/query_unanimity.rs": "082b716a068198c119692b297fdca47c5510fb367f8f93a6defcc6e49d20fa44",
+    "crates/consensus/src/aft/query_unanimity/head.rs": "a6c81400b4ad1df800dcb50a8d53668174fc4751cfc17d398d93f996d9a12cd6",
+    ".github/scripts/run_aft_m16q_qualification.sh": "952fe7d16cfbce6f92892a94660e3072d69b34cd70319305d6063c7bc137677d"
+  },
+  "remaining": [
+    "worker with bounded independent live queries",
+    "fair admission and bounded attempt/service policy",
+    "local child readiness and restart timing",
+    "successor frontier transfer",
+    "full R2 qualification/review/M18Q"
+  ]
+}

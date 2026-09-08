@@ -1,0 +1,78 @@
+[
+  {
+    "name": "quv-core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity",
+      "--no-fail-fast"
+    ],
+    "started": "2026-09-05T20:35:22.158640+00:00",
+    "completed": "2026-09-05T20:35:56.932235+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "quv-runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-05T20:35:56.932458+00:00",
+    "completed": "2026-09-05T20:36:16.619304+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli-check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-05T20:36:16.619569+00:00",
+    "completed": "2026-09-05T20:36:23.019456+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-05T20:36:23.019721+00:00",
+    "completed": "2026-09-05T20:36:31.233098+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runner-syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-05T20:36:31.233460+00:00",
+    "completed": "2026-09-05T20:36:31.235063+00:00",
+    "exit_code": 0
+  }
+]

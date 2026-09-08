@@ -1,0 +1,366 @@
+diff --git a/crates/consensus/src/aft/query_unanimity.rs b/crates/consensus/src/aft/query_unanimity.rs
+index ccb823476..5d4b4da0a 100644
+--- a/crates/consensus/src/aft/query_unanimity.rs
++++ b/crates/consensus/src/aft/query_unanimity.rs
+@@ -1974,6 +1974,361 @@ mod tests {
+         ));
+     }
+ 
++    #[test]
++    fn repro_unauthenticated_one_generation_ahead_state_erases_conflict() {
++        let temp = TempDir::new().unwrap();
++        let state_path = temp.path().join("state/quv.scale");
++        let anchor_path = temp.path().join("anchor/quv.anchor");
++        let custody_key = [8; 32];
++        let signer = TestMember(account(1));
++        let x = candidate(QuvAuthorityModeV0::Owned, 10);
++
++        let mut member = DurableQuvMemberV0::open(&state_path, &anchor_path, custody_key).unwrap();
++        member
++            .process_push(
++                &QuvPushQueryV0 {
++                    verifier_nonce: [5; 32],
++                    candidate: x,
++                },
++                &AcceptCandidates,
++                &signer,
++            )
++            .unwrap();
++        drop(member);
++
++        // The attacker changes only the ordinary state file. It neither knows
++        // the custody key nor changes the separately protected anchor.
++        let protected_anchor: QuvStoreAnchorV0 = read_canonical(&anchor_path).unwrap();
++        assert_eq!(protected_anchor.generation, 1);
++        let forged_state = QuvStoreStateV0 {
++            magic: STORE_MAGIC_V0,
++            schema: STORE_SCHEMA_V0,
++            generation: protected_anchor.generation + 1,
++            previous_head: protected_anchor.head,
++            slots: BTreeMap::new(),
++        };
++        std::fs::write(
++            &state_path,
++            codec::to_bytes_canonical(&forged_state).unwrap(),
++        )
++        .unwrap();
++
++        // open() mistakes the unauthenticated bytes for its honest crash
++        // window and authenticates them by advancing the protected anchor.
++        let mut recovered =
++            DurableQuvMemberV0::open(&state_path, &anchor_path, custody_key).unwrap();
++        assert_eq!(recovered.generation(), 2);
++        let blessed_anchor: QuvStoreAnchorV0 = read_canonical(&anchor_path).unwrap();
++        assert_eq!(blessed_anchor.generation, 2);
++        assert_eq!(blessed_anchor.head, store_head(&forged_state).unwrap());
++
++        let y = candidate(QuvAuthorityModeV0::Owned, 11);
++        let reply_y = recovered
++            .process_push(
++                &QuvPushQueryV0 {
++                    verifier_nonce: [6; 32],
++                    candidate: y.clone(),
++                },
++                &AcceptCandidates,
++                &signer,
++            )
++            .unwrap();
++        assert_eq!(reply_y.complete_snapshot, vec![y]);
++    }
++
++    #[test]
++    fn repro_distinct_predecessors_split_one_numeric_slot_and_both_accept() {
++        let owner_key = MldsaScheme::new(SecurityLevel::Level2)
++            .generate_keypair()
++            .unwrap();
++        let owner_public = owner_key.public_key().to_bytes();
++        let owner_hash =
++            account_id_from_key_material(SignatureSuite::ML_DSA_44, &owner_public).unwrap();
++        let owner = AccountId(owner_hash);
++
++        let correct_key = MldsaScheme::new(SecurityLevel::Level2)
++            .generate_keypair()
++            .unwrap();
++        let correct_public = correct_key.public_key().to_bytes();
++        let correct_hash =
++            account_id_from_key_material(SignatureSuite::ML_DSA_44, &correct_public).unwrap();
++        let correct = AccountId(correct_hash);
++
++        let mut validators = vec![
++            ValidatorV1 {
++                account_id: owner,
++                weight: 1,
++                consensus_key: ActiveKeyRecord {
++                    suite: SignatureSuite::ML_DSA_44,
++                    public_key_hash: owner_hash,
++                    since_height: 1,
++                },
++            },
++            ValidatorV1 {
++                account_id: correct,
++                weight: 1,
++                consensus_key: ActiveKeyRecord {
++                    suite: SignatureSuite::ML_DSA_44,
++                    public_key_hash: correct_hash,
++                    since_height: 1,
++                },
++            },
++        ];
++        validators.sort_by(|left, right| left.account_id.cmp(&right.account_id));
++        let set = ValidatorSetV1 {
++            effective_from_height: 1,
++            total_weight: 2,
++            validators,
++        };
++        let configuration_root = ioi_types::app::canonical_validator_set_hash(&set).unwrap();
++        let mut keys = super::super::authenticated_quorum::ValidatorKeyRegistry::new();
++        keys.learn_raw_public_key(SignatureSuite::ML_DSA_44, &owner_public)
++            .unwrap();
++        keys.learn_raw_public_key(SignatureSuite::ML_DSA_44, &correct_public)
++            .unwrap();
++        let validator =
++            RootedQuvCandidateValidatorV0::new(&set, &keys, 1, [2; 32], [6; 32], Some(owner))
++                .unwrap();
++        let reply_verifier = RootedQuvReplyVerifierV0::new(&validator);
++        let correct_signer = MldsaTestMember {
++            account: correct,
++            keypair: correct_key,
++        };
++
++        let mut x = QuvCandidateV0 {
++            slot: QuvSlotV0 {
++                configuration_root,
++                policy_root: [6; 32],
++                network_id: [2; 32],
++                domain_id: [3; 32],
++                slot: 7,
++                predecessor: [4; 32],
++                authority_mode: QuvAuthorityModeV0::Owned,
++            },
++            payload_hash: [10; 32],
++            authorizer: owner,
++            authority_signature: Vec::new(),
++        };
++        x.authority_signature = owner_key
++            .sign(&quv_candidate_authority_signing_bytes(&x).unwrap())
++            .unwrap()
++            .to_bytes();
++        let mut y = x.clone();
++        y.slot.predecessor = [5; 32];
++        y.payload_hash = [11; 32];
++        y.authority_signature = owner_key
++            .sign(&quv_candidate_authority_signing_bytes(&y).unwrap())
++            .unwrap()
++            .to_bytes();
++        validator.validate_candidate(&x).unwrap();
++        validator.validate_candidate(&y).unwrap();
++
++        let temp = TempDir::new().unwrap();
++        let mut member = open_member(&temp);
++        let members = BTreeSet::from([owner, correct]);
++        let request_x = QuvPushQueryV0 {
++            verifier_nonce: [1; 32],
++            candidate: x.clone(),
++        };
++        let reply_x = member
++            .process_push(&request_x, &validator, &correct_signer)
++            .unwrap();
++        assert_eq!(reply_x.complete_snapshot, vec![x.clone()]);
++        let mut operation_x = QuvOnlineOperationV0::start(
++            request_x,
++            members.clone(),
++            Duration::from_secs(1),
++            Duration::from_secs(1),
++        )
++        .unwrap();
++        operation_x.observe_reply(reply_x);
++        let accepted_x = operation_x
++            .finish_at(Duration::from_secs(1), &validator, &reply_verifier)
++            .unwrap();
++
++        let request_y = QuvPushQueryV0 {
++            verifier_nonce: [2; 32],
++            candidate: y.clone(),
++        };
++        let reply_y = member
++            .process_push(&request_y, &validator, &correct_signer)
++            .unwrap();
++        assert_eq!(reply_y.complete_snapshot, vec![y.clone()]);
++        let mut operation_y = QuvOnlineOperationV0::start(
++            request_y,
++            members,
++            Duration::from_secs(1),
++            Duration::from_secs(1),
++        )
++        .unwrap();
++        operation_y.observe_reply(reply_y);
++        let accepted_y = operation_y
++            .finish_at(Duration::from_secs(1), &validator, &reply_verifier)
++            .unwrap();
++
++        assert_ne!(accepted_x.candidate_hash(), accepted_y.candidate_hash());
++        assert_eq!(
++            accepted_x.slot().configuration_root,
++            accepted_y.slot().configuration_root
++        );
++        assert_eq!(accepted_x.slot().domain_id, accepted_y.slot().domain_id);
++        assert_eq!(accepted_x.slot().slot, accepted_y.slot().slot);
++        assert_ne!(accepted_x.slot().predecessor, accepted_y.slot().predecessor);
++    }
++
++    #[test]
++    fn repro_reply_observed_after_deadline_still_mints_authorization() {
++        let temp = TempDir::new().unwrap();
++        let signer = TestMember(account(1));
++        let request = QuvPushQueryV0 {
++            verifier_nonce: [3; 32],
++            candidate: candidate(QuvAuthorityModeV0::Owned, 10),
++        };
++        let reply = open_member(&temp)
++            .process_push(&request, &AcceptCandidates, &signer)
++            .unwrap();
++        let mut operation = QuvOnlineOperationV0::start(
++            request,
++            BTreeSet::from([account(1)]),
++            Duration::from_millis(1),
++            Duration::from_secs(1),
++        )
++        .unwrap();
++
++        std::thread::sleep(Duration::from_millis(20));
++        operation.observe_reply(reply);
++        let authorization = operation.finish(&AcceptCandidates, &signer).unwrap();
++        let consumed = authorization.consume().unwrap();
++        let evidence: QuvAcceptedAuditEvidenceV0 =
++            codec::from_bytes_canonical(&consumed.audit.protocol_evidence).unwrap();
++
++        assert!(evidence.valid_reply_elapsed_millis[0] > evidence.decision_interval_millis);
++        assert!(evidence.observed_elapsed_millis >= evidence.valid_reply_elapsed_millis[0]);
++        assert_eq!(
++            verify_non_authorizing_quv_audit(
++                &consumed.audit,
++                BTreeSet::from([account(1)]),
++                Duration::from_millis(1),
++                &AcceptCandidates,
++                &signer,
++            )
++            .unwrap()
++            .valid_reply_count,
++            1
++        );
++    }
++
++    #[test]
++    fn repro_unauthenticated_one_generation_ahead_handoff_mints_activation_gate() {
++        let successor_set = ValidatorSetV1 {
++            effective_from_height: 11,
++            total_weight: 1,
++            validators: vec![ValidatorV1 {
++                account_id: account(20),
++                weight: 1,
++                consensus_key: ActiveKeyRecord {
++                    suite: SignatureSuite::ML_DSA_44,
++                    public_key_hash: [20; 32],
++                    since_height: 1,
++                },
++            }],
++        };
++        let handoff = QuvConfigurationHandoffV0 {
++            network_id: [2; 32],
++            old_configuration_root: [1; 32],
++            successor_set,
++            activation_height: 11,
++            old_authority_expiry_height: 10,
++            predecessor_candidate_hash: quv_handoff_initial_predecessor(
++                [2; 32], [1; 32], 11, 10, [5; 32], &[6; 32],
++            )
++            .unwrap(),
++            state_height: 10,
++            state_block_hash: [5; 32],
++            state_root: vec![6; 32],
++            boundary_qc: QuorumCertificate {
++                height: 10,
++                view: 0,
++                block_hash: [5; 32],
++                signatures: vec![(account(1), vec![1])],
++                aggregated_signature: vec![],
++                signers_bitfield: vec![],
++            },
++        };
++        let successor_root =
++            ioi_types::app::canonical_validator_set_hash(&handoff.successor_set).unwrap();
++        let candidate = QuvCandidateV0 {
++            slot: QuvSlotV0 {
++                configuration_root: handoff.old_configuration_root,
++                policy_root: [7; 32],
++                network_id: handoff.network_id,
++                domain_id: quv_handoff_domain_id(
++                    handoff.network_id,
++                    handoff.old_configuration_root,
++                    successor_root,
++                    handoff.activation_height,
++                )
++                .unwrap(),
++                slot: handoff.activation_height,
++                predecessor: handoff.predecessor_candidate_hash,
++                authority_mode: QuvAuthorityModeV0::Owned,
++            },
++            payload_hash: quv_handoff_payload_hash(&handoff).unwrap(),
++            authorizer: account(9),
++            authority_signature: vec![8],
++        };
++        let envelope = QuvConfigurationHandoffEnvelopeV0 {
++            handoff: handoff.clone(),
++            candidate: candidate.clone(),
++        };
++
++        let temp = TempDir::new().unwrap();
++        let state_path = temp.path().join("handoff/state.scale");
++        let anchor_path = temp.path().join("handoff-anchor/state.anchor");
++        let custody_key = [9; 32];
++        drop(DurableQuvHandoffV0::open(
++            &state_path,
++            &anchor_path,
++            custody_key,
++        )
++        .unwrap());
++        let protected_anchor: QuvHandoffStoreAnchorV0 = read_canonical(&anchor_path).unwrap();
++        assert_eq!(protected_anchor.generation, 0);
++
++        // All installed fields are derivable from the public source envelope.
++        // The attacker changes no protected-anchor byte and knows no custody key.
++        let forged_state = QuvHandoffStoreStateV0 {
++            magic: HANDOFF_STORE_MAGIC_V0,
++            schema: HANDOFF_STORE_SCHEMA_V0,
++            generation: 1,
++            previous_head: protected_anchor.head,
++            installed: Some(InstalledQuvHandoffV0 {
++                local_successor: account(20),
++                successor_configuration_root: successor_root,
++                candidate_hash: quv_candidate_hash(&candidate).unwrap(),
++                payload_hash: quv_handoff_payload_hash(&handoff).unwrap(),
++                handoff,
++            }),
++        };
++        std::fs::write(
++            &state_path,
++            codec::to_bytes_canonical(&forged_state).unwrap(),
++        )
++        .unwrap();
++
++        let recovered =
++            DurableQuvHandoffV0::open(&state_path, &anchor_path, custody_key).unwrap();
++        let blessed_anchor: QuvHandoffStoreAnchorV0 = read_canonical(&anchor_path).unwrap();
++        assert_eq!(blessed_anchor.generation, 1);
++        assert_eq!(blessed_anchor.head, handoff_store_head(&forged_state).unwrap());
++        assert!(recovered.permits_exact_activation(
++            &envelope,
++            account(20),
++            [5; 32],
++            &[6; 32],
++        ));
++    }
++
+     #[test]
+     fn live_handoff_candidate_binds_both_roots_and_complete_activation_state() {
+         let successor_set = ValidatorSetV1 {

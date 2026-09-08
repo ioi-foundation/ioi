@@ -1,0 +1,641 @@
+   Compiling generic-array v0.14.9
+    Checking const-oid v0.9.6
+    Checking byteorder v1.5.0
+   Compiling serde_json v1.0.149
+    Checking indexmap v2.13.0
+   Compiling displaydoc v0.2.5
+    Checking smallvec v1.15.1
+   Compiling serde_core v1.0.228
+   Compiling rustix v1.1.3
+    Checking serde_bytes v0.11.19
+    Checking prost v0.13.5
+    Checking hashbrown v0.14.5
+    Checking socket2 v0.6.2
+   Compiling rustix v0.38.44
+    Checking linux-raw-sys v0.4.15
+    Checking quick-protobuf v0.8.1
+    Checking netlink-packet-utils v0.5.2
+    Checking parking_lot_core v0.9.12
+    Checking multistream-select v0.13.0
+    Checking zip v0.6.6
+    Checking subtle-encoding v0.5.1
+    Checking flex-error v0.4.4
+    Checking semver v1.0.27
+    Checking netlink-packet-core v0.7.0
+    Checking quick-protobuf-codec v0.3.1
+    Checking der v0.7.10
+   Compiling blake3 v1.8.3
+    Checking parking_lot v0.12.5
+    Checking fxhash v0.2.1
+    Checking informalsystems-pbjson v0.7.0
+    Checking ff v0.13.1
+    Checking tendermint-proto v0.40.4
+    Checking keccak v0.1.6
+    Checking base16ct v0.2.0
+    Checking netlink-packet-route v0.17.1
+    Checking constant_time_eq v0.4.2
+   Compiling derive_more-impl v1.0.0
+   Compiling cranelift-isle v0.108.2
+    Checking subtle-ng v2.5.0
+    Checking tokio v1.42.0
+    Checking yamux v0.12.1
+    Checking yamux v0.13.8
+    Checking prometheus-client v0.22.3
+    Checking tinystr v0.8.2
+    Checking zerotrie v0.2.3
+    Checking icu_collections v2.1.1
+    Checking dashmap v5.5.3
+    Checking group v0.13.0
+    Checking string_cache v0.8.9
+    Checking leb128 v0.2.5
+    Checking exr v1.74.0
+    Checking crypto-common v0.1.6
+    Checking block-buffer v0.10.4
+    Checking digest v0.9.0
+    Checking block-buffer v0.9.0
+    Checking icu_locale_core v2.1.1
+    Checking cipher v0.2.5
+    Checking universal-hash v0.4.0
+    Checking crypto-mac v0.10.0
+    Checking crypto-bigint v0.5.5
+    Checking aead v0.3.2
+    Checking digest v0.10.7
+    Checking sha2 v0.9.9
+    Checking curve25519-dalek-ng v4.1.1
+    Checking polyval v0.4.5
+    Checking block-padding v0.3.3
+    Checking hmac v0.10.1
+    Checking cranelift-entity v0.108.2
+    Checking aes-soft v0.6.4
+    Checking ctr v0.6.0
+   Compiling cranelift-codegen-shared v0.108.2
+   Compiling target-lexicon v0.12.16
+    Checking sha2 v0.10.9
+    Checking signature v2.2.0
+    Checking hmac v0.12.1
+    Checking curve25519-dalek v4.1.3
+    Checking serde_jcs v0.1.0
+    Checking schemars v0.8.22
+    Checking ripemd v0.1.3
+    Checking sha1 v0.10.6
+    Checking aes v0.6.0
+    Checking sec1 v0.7.3
+    Checking ed25519 v2.2.3
+    Checking hkdf v0.12.4
+    Checking ghash v0.3.1
+    Checking blake2 v0.10.6
+    Checking sha3 v0.10.8
+    Checking rfc6979 v0.4.0
+    Checking spki v0.7.3
+    Checking aes-gcm v0.8.0
+    Checking hkdf v0.10.0
+   Compiling io-lifetimes v2.0.4
+    Checking ed25519-consensus v2.1.0
+   Compiling cranelift-codegen-meta v0.108.2
+    Checking inout v0.1.4
+    Checking icu_provider v2.1.1
+    Checking cookie v0.14.4
+    Checking gimli v0.28.1
+   Compiling wasmtime-versioned-export-macros v21.0.2
+   Compiling ahash v0.8.12
+    Checking bumpalo v3.19.1
+    Checking toml_edit v0.22.27
+    Checking cipher v0.4.4
+    Checking chromiumoxide_types v0.5.2
+    Checking icu_properties v2.1.2
+    Checking icu_normalizer v2.1.1
+    Checking elliptic-curve v0.13.8
+    Checking hashbrown v0.13.2
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+    Checking rustc-hash v1.1.0
+    Checking arbitrary v1.4.2
+   Compiling io-extras v0.18.4
+    Checking slice-group-by v0.3.1
+    Checking chromiumoxide_pdl v0.5.2
+    Checking cssparser v0.27.2
+    Checking ed25519-dalek v2.2.0
+    Checking x25519-dalek v2.0.1
+    Checking ecdsa v0.16.9
+    Checking tracing-subscriber v0.3.22
+    Checking libp2p-identity v0.2.13
+    Checking ics23 v0.12.0
+    Checking markup5ever v0.10.1
+    Checking regalloc2 v0.9.3
+    Checking cranelift-bforest v0.108.2
+    Checking wasmparser v0.207.0
+    Checking hashlink v0.9.1
+    Checking k256 v0.13.4
+    Checking cranelift-control v0.108.2
+   Compiling serde v1.0.228
+    Checking ambient-authority v0.0.2
+   Compiling cap-primitives v3.4.5
+    Checking rusqlite v0.32.1
+    Checking selectors v0.22.0
+    Checking idna_adapter v1.2.1
+    Checking idna v1.1.0
+    Checking cobs v0.3.0
+    Checking image v0.25.9
+   Compiling zmij v1.0.21
+    Checking chromiumoxide_cdp v0.5.2
+   Compiling zstd-safe v7.2.4
+    Checking maybe-owned v0.3.4
+    Checking url v2.5.8
+    Checking toml v0.8.23
+   Compiling toml_edit v0.23.10+spec-1.0.0
+   Compiling toml_edit v0.19.15
+   Compiling petgraph v0.6.5
+    Checking derive_more v1.0.0
+   Compiling heck v0.4.1
+   Compiling cpp_demangle v0.4.5
+    Checking html5ever v0.25.2
+   Compiling itoa v1.0.17
+    Checking serde_yaml_ng v0.10.0
+    Checking ioi-memory v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/memory)
+    Checking postcard v1.1.3
+    Checking markup5ever v0.11.0
+    Checking multiaddr v0.18.2
+    Checking hickory-proto v0.24.4
+    Checking tungstenite v0.20.1
+    Checking cssparser v0.31.2
+    Checking polling v3.11.0
+    Checking gethostname v1.1.0
+   Compiling proc-macro-crate v3.4.0
+    Checking libp2p-core v0.41.3
+   Compiling cranelift-codegen v0.108.2
+    Checking x11rb v0.13.2
+    Checking async-io v2.6.0
+    Checking rustix-linux-procfs v0.1.1
+    Checking fs-set-times v0.20.3
+    Checking kuchiki v0.8.1
+   Compiling prost-build v0.12.6
+    Checking tempfile v3.25.0
+    Checking ecb v0.1.2
+    Checking aes v0.8.4
+    Checking cbc v0.1.2
+    Checking async-signal v0.2.13
+    Checking async-global-executor v2.4.1
+    Checking md-5 v0.10.6
+    Checking object v0.33.0
+   Compiling ittapi-sys v0.4.0
+   Compiling parity-scale-codec-derive v3.7.5
+   Compiling dirs-sys v0.3.7
+    Checking async-process v2.5.0
+   Compiling cap-std v3.4.5
+   Compiling id-arena v2.3.0
+    Checking tokio-util v0.7.17
+    Checking tower v0.5.3
+    Checking netlink-sys v0.8.8
+    Checking libp2p-swarm v0.44.2
+    Checking libp2p-yamux v0.45.2
+    Checking libp2p-noise v0.44.0
+    Checking tokio-native-tls v0.3.1
+   Compiling proc-macro-crate v1.3.1
+    Checking tokio-rustls v0.26.4
+    Checking deadpool v0.7.0
+    Checking async-std v1.13.2
+    Checking netlink-proto v0.11.5
+   Compiling tonic-build v0.11.0
+    Checking tokio-io-timeout v1.2.1
+    Checking procfs v0.16.0
+    Checking h2 v0.4.13
+    Checking tower v0.4.13
+    Checking tokio-stream v0.1.18
+    Checking h2 v0.3.27
+    Checking which v4.4.2
+    Checking tokio-rustls v0.25.0
+    Checking rtnetlink v0.13.1
+    Checking leb128fmt v0.1.0
+   Compiling wast v35.0.2
+    Checking lopdf v0.38.0
+    Checking wasm-encoder v0.245.1
+    Checking if-watch v3.2.1
+    Checking imageproc v0.25.0
+    Checking libp2p-tcp v0.41.0
+    Checking xcap v0.0.14 (/home/heathledger/Documents/ioi/repos/ioi/third_party/cargo-patches/xcap-0.0.14)
+    Checking prometheus v0.13.4
+    Checking image_hasher v2.0.0
+    Checking arboard v3.6.1
+    Checking libp2p-allow-block-list v0.3.0
+    Checking libp2p-gossipsub v0.46.1
+    Checking libp2p-mdns v0.45.1
+    Checking libp2p-identify v0.44.2
+    Checking libp2p-connection-limits v0.3.1
+    Checking libp2p-request-response v0.26.3
+    Checking libp2p-ping v0.44.1
+   Compiling zvariant_derive v3.15.2
+    Checking parity-scale-codec v3.7.5
+   Compiling zbus_macros v3.15.2
+   Compiling ioi-ipc v0.2.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/ipc)
+    Checking wasmtime-types v21.0.2
+    Checking wasmprinter v0.207.0
+   Compiling dirs v4.0.0
+    Checking selectors v0.25.0
+    Checking html5ever v0.26.0
+    Checking xattr v1.6.1
+    Checking chumsky v0.9.3
+   Compiling wasmtime-fiber v21.0.2
+    Checking wasm-encoder v0.207.0
+   Compiling thiserror v1.0.69
+    Checking dirs-sys-next v0.1.2
+   Compiling memoffset v0.9.1
+   Compiling wasmtime-cache v21.0.2
+    Checking rustc-demangle v0.1.27
+    Checking http-types v2.12.0
+    Checking async-native-tls v0.3.3
+    Checking async-tungstenite v0.23.0
+   Compiling wasmtime-component-macro v21.0.2
+    Checking wasmtime-component-util v21.0.2
+    Checking directories-next v2.0.0
+   Compiling witx v0.9.1
+    Checking scraper v0.18.1
+    Checking tar v0.4.44
+    Checking zvariant v3.15.2
+   Compiling wit-parser v0.207.0
+   Compiling shellexpand v2.1.2
+    Checking wast v245.0.1
+    Checking fd-lock v4.0.4
+   Compiling wasmtime v21.0.2
+    Checking debugid v0.8.0
+    Checking spdx v0.10.9
+    Checking wasmtime-asm-macros v21.0.2
+    Checking unicode-xid v0.2.6
+    Checking pdf-extract v0.10.0
+    Checking fxprof-processed-profile v0.6.0
+    Checking ittapi v0.4.0
+    Checking lettre v0.11.19
+    Checking addr2line v0.21.0
+    Checking memfd v0.6.5
+    Checking wasmparser v0.121.2
+    Checking zk-types v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/plugins/zk-types)
+    Checking wasmtime-jit-icache-coherence v21.0.2
+    Checking wasmtime-slab v21.0.2
+    Checking wasmtime-environ v21.0.2
+    Checking libp2p v0.53.2
+    Checking wasmtime-jit-debug v21.0.2
+    Checking utf8parse v0.2.2
+    Checking sptr v0.3.2
+   Compiling system-interface v0.27.3
+   Compiling cap-fs-ext v3.4.5
+    Checking wasm-encoder v0.41.2
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle-parse v0.2.7
+    Checking async-h1 v2.3.4
+    Checking colorchoice v1.0.4
+    Checking anstyle-query v1.1.5
+    Checking anstyle v1.0.13
+    Checking ioi-types v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/types)
+    Checking cap-net-ext v3.4.5
+    Checking cap-time-ext v3.4.5
+    Checking hyper v0.14.32
+   Compiling wiggle-generate v21.0.2
+    Checking cap-rand v3.4.5
+    Checking anstream v0.6.21
+    Checking zbus_names v2.6.1
+    Checking clap_lex v1.0.0
+    Checking strsim v0.11.1
+    Checking wasmparser v0.201.0
+   Compiling clap_derive v4.5.55
+    Checking http-client v6.5.3
+    Checking is-terminal v0.4.17
+    Checking termcolor v1.4.1
+    Checking humantime v2.3.0
+    Checking clap_builder v4.5.58
+    Checking wasm-encoder v0.201.0
+    Checking hyper v1.8.1
+   Compiling gumdrop_derive v0.8.1
+    Checking serde_with v3.16.1
+    Checking env_logger v0.10.2
+    Checking surf v2.3.2
+   Compiling wasmtime-wit-bindgen v21.0.2
+    Checking simple-error v0.3.2
+    Checking portpicker v0.1.1
+    Checking zbus v3.15.2
+    Checking chromiumoxide_fetcher v0.5.3
+    Checking gumdrop v0.8.1
+   Compiling wiggle-macro v21.0.2
+    Checking hyper-util v0.1.20
+    Checking clap v4.5.58
+    Checking bollard-stubs v1.44.0-rc.2
+    Checking zstd v0.13.3
+    Checking wit-parser v0.14.0
+    Checking wasm-metadata v0.10.20
+    Checking tendermint v0.40.4
+    Checking axum v0.7.9
+    Checking hyper-timeout v0.5.2
+    Checking hyperlocal-next v0.9.0
+    Checking wat v1.245.1
+    Checking hyper-tls v0.5.0
+    Checking axum v0.6.20
+    Checking hyper-timeout v0.4.1
+    Checking reqwest v0.11.27
+    Checking wasm-metadata v0.201.0
+    Checking wit-parser v0.201.0
+    Checking wit-component v0.21.0
+    Checking wit-component v0.201.0
+    Checking atspi-common v0.3.0
+    Checking tendermint-light-client-verifier v0.40.4
+    Checking tendermint-testgen v0.40.4
+    Checking tonic v0.11.0
+    Checking tonic v0.12.3
+    Checking ioi-telemetry v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/telemetry)
+    Checking atspi-proxies v0.3.0
+    Checking cosmos-sdk-proto v0.26.1
+    Checking bollard v0.16.1
+    Checking atspi-connection v0.3.0
+    Checking atspi v0.19.0
+    Checking cranelift-frontend v0.108.2
+    Checking cranelift-native v0.108.2
+    Checking cranelift-wasm v0.108.2
+    Checking wasmtime-cranelift v21.0.2
+    Checking wiggle v21.0.2
+    Checking wasmtime-wasi v21.0.2
+    Checking ibc-proto v0.51.1
+    Checking ibc-primitives v0.57.0
+    Checking ibc-core-host-types v0.57.0
+    Checking ibc-core-commitment-types v0.57.0
+    Checking ibc-core-router-types v0.57.0
+    Checking chromiumoxide v0.5.7
+    Checking ibc-core-client-types v0.57.0
+    Checking ibc-core-connection-types v0.57.0
+    Checking ibc-client-tendermint-types v0.57.0
+    Checking ibc-core-channel-types v0.57.0
+    Checking ibc-core-handler-types v0.57.0
+    Checking ibc-core-client-context v0.57.0
+    Checking ibc-core-host v0.57.0
+    Checking ibc-core-client v0.57.0
+    Checking ibc-client-tendermint v0.57.0
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+    Checking ioi-api v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/api)
+    Checking ioi-pii v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/pii)
+    Checking ioi-crypto v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/crypto)
+    Checking ioi-storage v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/storage)
+    Checking ioi-system v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/system)
+    Checking zk-driver-succinct v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/plugins/zk-driver-succinct)
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+    Checking ioi-finality v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/ioi-finality)
+    Checking ioi-state v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/state)
+    Checking ioi-drivers v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/drivers)
+    Checking agentgres v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/agentgres)
+    Checking ioi-relayer v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/plugins/relayer)
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+    Checking ioi-client v0.2.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/client)
+warning: `agentgres` (lib) generated 1 warning
+    Checking ioi-services v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/services)
+    Checking ioi-vm-wasm v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/vm/wasm)
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+    Checking ioi-tx v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/tx)
+    Checking ioi-consensus v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/consensus)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+    Checking ioi-networking v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/networking)
+    Checking ioi-execution v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/execution)
+    Checking ioi-validator v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/validator)
+    Checking ioi-cli v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/cli)
+    Checking transport-verifier v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/plugins/transport-verifier)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 12s

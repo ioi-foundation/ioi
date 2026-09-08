@@ -1,0 +1,28 @@
+{
+  "verified_utc": "2026-09-04T23:47:18.915968+00:00",
+  "sources_match": true,
+  "local_checks_passed": true,
+  "clean_r2_qualification": false,
+  "artifacts": {
+    "README.md": "06217d0e5d07caeef894d70c67680b31522e03f40a30c7feb831f2ce63624911",
+    "agentgres.log": "240970d3d5f9125f120e12055c3c4eab9f7f602131d2c92c5e8568f0265394ef",
+    "check-results.json": "cc49d808b50c6dbf47a8ec9db3abc4c89b8275f1737cc17d5b177996504c3eb8",
+    "final-hygiene-0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-hygiene-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-hygiene-2.log": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d",
+    "final-hygiene-3.log": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1",
+    "final-hygiene-4.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hygiene-results.json": "6bc4ff60b67182aeafccdde2538070e7c43d3660d2bedfa9c30be3fe239bcaf9",
+    "initial-check-results.json": "eb50d3a190e1aa378000c73b4814ad289ed8dd5156ae3e8a6f1438678ed43d77",
+    "manifest_registry-command.json": "632650c8fc1bbf9648c9a3d8ce23dc9fa0893111dd356c234fb1492e093cc18a",
+    "manifest_registry.log": "de7f2c05d264118b400f5f18d8a9a4d490181114ae464c598c38682ecbff1f7b",
+    "portable_receipt-command.json": "297c0c88f1a064ef3af6593ccfbe1f59baa3b77ad37c678f0103b358665f8af2",
+    "portable_receipt.log": "300cda57e8202edcd8becfecdd724acb8b304b849cc12dd86c45f806d8c4f851",
+    "process_fixture_check-command.json": "91e5e8856072e20bcdf84865b569075cb8853a038be28affecd28babed9faccc",
+    "process_fixture_check.log": "2708030ab96f64d9bef3db7d15c40d49fdcb3e47561d4a02fb983eed75703380",
+    "quv_core-command.json": "9c9d4e1410500c56aee64b1ebad4ad55ae249de69aed8f6b3d62bf5e5d52425b",
+    "quv_core.log": "8437c6143c0d798786a2d39de1f92387ac4ffae3e4228f53746acc87cf26e787",
+    "source-manifest.json": "c98619310b03ee9d0ee12aebca71c09102a323dc5c73bf04d2784b8ad5fad514",
+    "types.log": "459110533f4d09c7857f3855b61cb0d3d1ad416e4370df46b1b710f5b1d79fe1"
+  }
+}

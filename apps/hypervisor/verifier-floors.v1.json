@@ -265,6 +265,14 @@
       "note": "E7 cockpit retirement (2026-08-20): this row was `work-cockpit` (51). The Work cockpit slice it verified was removed with its registry rows and module, so every assertion that drove a rendered /work \u00b7 /work/sessions \u00b7 /work/new-session page went with the surface. The 24 that remain have LIVE subjects and are the estate's only coverage of them \u2014 the session family's owned-verb inventory, its identity GATE (rule-E 401s, forged internal-dispatch, exposure-marked create), the INV-37 provision + teardown receipts, the served /sessions typed 410, the protected seeds, and a positive check that the eight retired lanes now serve no surface. The surface journey they used to ride is proven end to end by check:launch-chain (56)."
     },
     {
+      "id": "session-authority-profile",
+      "npm_script": "check:session-authority-profile",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs",
+      "runtime_assertions": 21,
+      "assertion_names_sha256": "cb1a9ce6b0c30312cac93e0ad460b4e665d4fb58ea3243a283bab0affc38c3a4",
+      "note": "ADR 0052 Decision 3 / M13.2 (2026-09-07): the session authority profile at the DIRECT daemon path — empty default on the durable record and list projection, closed set at create (unknown connection refuses 412, malformed 422), out-of-profile connector invoke refuses typed 403 with a durable refusal receipt before org policy/principal scope/wallet crossing, in-profile invoke reaches the ordinary authority challenge, session-less invoke unchanged, anonymous session-scoped invoke 401 before record load, deletion fences, and the profile plus refusal survive a daemon kill + restart."
+    },
+    {
       "id": "shell-parity",
       "npm_script": "check:shell-parity",
       "source": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",

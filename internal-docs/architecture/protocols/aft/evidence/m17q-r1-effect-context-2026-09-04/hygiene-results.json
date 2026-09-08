@@ -1,0 +1,70 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2021",
+      "--check",
+      "crates/agentgres/src/consequence.rs",
+      "crates/agentgres/src/consequence/tests.rs",
+      "crates/agentgres/src/recognized_effect/tests.rs",
+      "crates/cli/tests/aft_e2e.rs",
+      "crates/consensus/src/aft/query_unanimity.rs",
+      "crates/ioi-finality/src/portable_assurance/tests.rs",
+      "crates/networking/src/libp2p/mod.rs",
+      "crates/networking/src/libp2p/pq_channel.rs",
+      "crates/networking/src/libp2p/swarm.rs",
+      "crates/networking/src/libp2p/types.rs",
+      "crates/node/src/bin/ioi-local.rs",
+      "crates/services/src/aft_effect_registry.rs",
+      "crates/types/src/app/consequence.rs",
+      "crates/validator/src/standard/orchestration/events.rs",
+      "crates/validator/src/standard/orchestration/grpc_public.rs",
+      "crates/validator/src/standard/orchestration/mod.rs",
+      "crates/validator/src/standard/orchestration/quv.rs",
+      "crates/validator/src/standard/orchestration/runtime_finality.rs",
+      "crates/validator/src/standard/orchestration/sync.rs"
+    ],
+    "exit_code": 0,
+    "log": "final-hygiene-0.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "log": "final-hygiene-1.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_claim_discipline.sh"
+    ],
+    "exit_code": 0,
+    "log": "final-hygiene-2.log",
+    "log_sha256": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_theorem_assumes.sh"
+    ],
+    "exit_code": 0,
+    "log": "final-hygiene-3.log",
+    "log_sha256": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "log": "final-hygiene-4.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

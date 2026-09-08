@@ -1,0 +1,42 @@
+[
+  {
+    "name": "transport-cause-erased",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl",
+      "recovery_probe_retries_only_startup_and_requires_exact_result",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "d5e97b381efe3585d6f878f77d77a9a1ff120581884d69d4798ce2a79ff37bde"
+  },
+  {
+    "name": "recovery-accepts-changed-result",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl",
+      "recovery_probe_retries_only_startup_and_requires_exact_result",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "restored_sha256": "842e5203d6b9a2d13b58b5176f9c21748609a0b0ffab0f0adb3eed5bd0b8bd26"
+  }
+]

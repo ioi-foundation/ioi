@@ -192,10 +192,13 @@ System. Hypervisor clients continue to resolve the same public semantic
 contracts across standalone and connected postures; capacity, availability,
 custody, and assurance differences remain explicit.
 
-The claim is gated by
-`sovereign-local-completeness.md`;
-the contract currently defines target evidence and does not claim a shipped
-end-to-end standalone product.
+The claim's fixture and target-evidence contract is stated in
+[`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
+minimum-L0 proof profile* (the former separate conformance document was
+retired on 2026-08-12); the contract currently defines target evidence and
+does not claim a shipped end-to-end standalone product. The narrower
+base-platform alpha is owned by
+[`bounded-alpha-profile.md`](./bounded-alpha-profile.md).
 
 ## Zero-To-Operable Local Deployment
 
@@ -240,6 +243,22 @@ cross signer, digest, revocation, downgrade, Change Plane, authority, rollback,
 and receipt checks before activation. App, Web where locally served, CLI,
 headless, SDK, and optional TUI projections resolve the same deployment state;
 none maintains separate lifecycle truth.
+
+Implementation (bounded alpha, 2026-09-07): the packaged release is built by
+`scripts/package-hypervisor-alpha-release.mjs` (daemon, grant signer,
+authority-node control binary and validator binaries, the served App and the
+harness shims at their repository paths with the node packages the App's
+import graph reaches, the installer; a
+manifest naming the checkout, toolchains, cargo profile, every file digest and
+the SBOM; an Ed25519 signature over the manifest). `install.mjs` verifies
+against an operator-PINNED signer key — never a key carried by the package —
+re-hashes every file, refuses unlisted or missing files, installs immutably
+under `<prefix>/releases/<version>`, and activates by symlink with a durable
+activation history; update and rollback go through the daemon's release change
+plans (`daemon-runtime/api.md` § *Release Change Plans*). What the package does
+not provide is stated in its manifest: the local model route, and the authority
+node's launcher, which still runs from a source checkout (typed absence with a
+closure test in `bounded-alpha-profile.md`).
 
 ## Hypervisor Lineage And Operator Entry Contract
 
@@ -2935,23 +2954,15 @@ adapter, but vendor/process mechanics never become a HarnessProfile family.
 The resulting HarnessInvocation must emit the common boundary objects and obey
 daemon gates.
 
-## GoalRun Profiles
+## Application-Contributed Surfaces
 
-`GoalRunProfile` is the reusable product object for adaptive pursuit. Studio
-may author and compare profile revisions; Packages versions, distributes,
-recalls, and revokes released revisions; Work / Goals and ioi.ai select or
-explain the profile for a GoalRun; Improvement proposes successor revisions;
-Provenance exposes the resolution snapshot and receipt. None of those surfaces
-creates a second runtime owner.
-
-New Goal UX may present a friendly Recipe or mode name, but the backing
-`goal-run-profile://.../revision/...` ref must be inspectable. Direct ad hoc
-work resolves through the versioned generic-adaptive profile. Advanced editors
-may expose optional WorkflowTemplate refs, role/topology requirements,
-SkillManifest and tool requirements, verifier and acceptance contracts,
-budgets, stop/recovery/escalation policy, compatible domains, and permitted
-override schema. They must not embed credentials, live leases, selected
-RuntimeAssignments, attempts, artifacts, or domain lifecycle state.
+Surfaces an application contributes through the product-surface registration
+family are owned by that application's canon, not here. The ioi.ai
+orchestration application's GoalRun Profiles surface (authoring, packaging,
+selection, improvement and provenance of `GoalRunProfile` revisions) is owned
+by [`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md) § *GoalRun
+Profiles Surface* (moved 2026-09-07, ADR 0052 Decision 4). Direct ad hoc work
+on Hypervisor needs no such profile and no application to be installed.
 
 ## Hypervisor Sessions
 
@@ -2995,6 +3006,70 @@ A Session binds:
 - Agentgres refs and receipt obligations;
 - adapter targets;
 - replay and restore metadata.
+
+### Session surface: the SPA session lane and the operator readout (M13.4)
+
+The designated session landing is the reference-ported SPA session view
+(`/details/{environment_id}`, the run's own environment), whose panes are
+bound to daemon truth through the owned Run Timeline projection
+(`apps/hypervisor/scripts/ioi-run-timeline.mjs` over
+`GET /v1/hypervisor/sessions/{ref}`, `…/events` and the receipts the record
+names): request and activity from the run, artifacts from the daemon's
+workspace diff, and a proof band that names the daemon session's lifecycle
+state, its `latest_receipt_refs`, the execute receipt with its capability lease,
+and the authority crossing. A run parked on the operator's approval carries its
+card here — the exact effect, both commitments, the daemon's grant audience,
+and the approve/deny endpoints under the operator's own session — so the
+decision is reachable from wherever the run was submitted, not only from
+Work / Sessions. The served `/__ioi/sessions` readout is the Operations-owned
+inspection lane over the same daemon records; it is demoted from product
+navigation, not deleted. Verifier: `check:session-truth-rebind`
+(`apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs`); the
+live approval card and the receipt binding after execution are asserted by
+`check:alpha-journey` (deployment mode).
+
+### Session authority profile
+
+> Declared 2026-09-07 (ADR 0052 Decision 3; the M13 session-authority binding).
+
+Every Session records at create a **closed authority profile**: the set of
+Connections-estate connectors (the objects the Connections cockpit owns, per
+[`connectors-tools/doctrine.md`](../connectors-tools/doctrine.md)
+§ *Connector Authority*) that the session's runtime tool surface may resolve.
+
+```text
+HypervisorSession.authority_profile:
+  schema_version: ioi.hypervisor.session_authority_profile.v1
+  connection_refs: [ "connector:<connector_id>", ... ]   # closed set; default []
+  declared_at: <iso8601>
+```
+
+Rules:
+
+- **Default is empty, not the workspace.** A session created without a
+  profile names no connection; the workspace's connector estate confers
+  nothing on it.
+- **Closed at create.** Each `connection_refs` entry must resolve to an
+  existing connector the caller may use at create time; an unknown or
+  already-revoked connector refuses the create with a typed reason. The set
+  is immutable for the session's lifetime.
+- **Admission narrows to the profile.** A connector invocation made on behalf
+  of a session (the request names `session_ref`) is admitted only when the
+  connector is in that session's profile; otherwise the daemon refuses with
+  `session_authority_out_of_profile` before any credential is resolved. The
+  refusal is the daemon's, independent of catalog filtering or any client.
+- **Widening is a new binding, never an in-run mutation.** To use another
+  connection, create a new session naming it, or attach it through the
+  Connections cockpit as a new binding record; no route mutates a live
+  profile.
+- **Revocation fences.** Deleting a connector or revoking its credential
+  refuses every subsequent invocation from every session that named it; the
+  fence survives daemon restart because both the profile and the connector's
+  state are durable records.
+- **No new primitive.** The profile is a binding of the existing Session
+  object to existing connector/lease objects; possession, admission, refusal
+  and receipts remain daemon truth, and the profile confers no authority the
+  named connector's own lease does not carry.
 
 Sessions are bounded execution truth windows. A Session view should be able to show
 the live or historical transcript, step graph, tool/model calls,
@@ -4474,8 +4549,11 @@ HypervisorWorkQueue:
   system_ref: system://... | null
   owner_ref: wallet://... | org://...
   queue_kind:
-    one_off_handoffs | automation_runs | goal_runs | review_queue |
+    one_off_handoffs | automation_runs | application_subjects | review_queue |
     incident_queue | service_requests | custom
+  # application_subjects: a queue whose items carry an owner-registered
+  # subject attachment (e.g. the ioi.ai goal family); the platform names no
+  # application family as a queue kind (ADR 0022 sub-ruling 4, ADR 0052).
   intake_policy_ref: policy://...
   default_environment_profile_ref: hypervisor_environment_ops:... | null
   default_harness_selection_ref: harness_selection:... | null
@@ -4491,12 +4569,16 @@ HypervisorWorkItem:
   project_ref: project://... | null
   system_ref: system://... | null
   automation_run_ref: automation-run://... | null
-  goal_run_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
-  work_claim_ref: work-claim://... | null
+  # Application-owned subjects (the ioi.ai goal/room/claim family among them)
+  # attach through the typed seam, never as named core fields (ADR 0022
+  # sub-ruling 7; the same seam HypervisorSession uses):
+  subject_attachments:
+    - subject_kind: <owner-registered>
+      subject_ref: <owner scheme>://...
+      attachment_role: primary | context | claim
   source_kind:
     new_session | automation_trigger | pull_request | issue_event |
-    webhook | schedule | human_comment | api | collaborative_outcome
+    webhook | schedule | human_comment | api | application_subject
   original_request_ref: artifact://... | null
   normalized_intent_ref: intent://... | null
   code_context:
@@ -4521,11 +4603,12 @@ HypervisorWorkRun:
   session_ref: session://...
   system_ref: system://... | null
   automation_run_ref: automation-run://... | null
-  goal_run_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
-  room_participant_lease_ref: participant-lease://... | null
-  work_claim_ref: work-claim://... | null
-  attempt_ref: attempt://... | null
+  # Application-owned subjects and their leases/attempts attach through the
+  # typed seam (ADR 0022 sub-ruling 7); the run itself is generic execution truth.
+  subject_attachments:
+    - subject_kind: <owner-registered>
+      subject_ref: <owner scheme>://...
+      attachment_role: primary | context | claim | attempt
   runtime_assignment_ref: runtime-assignment://... | null
   workflow_action_ref: workflow_action:... | null
   accountable_actor_ref:
@@ -4669,19 +4752,11 @@ it serves, not a direct Work subject. Fleet allocation and other domain leases
 remain facets or linked domain objects unless they acquire an independently
 owned work lifecycle and canonical detail route.
 
-HypervisorOutcomeRoomProjection:
-  projection_id: hypervisor_outcome_room_projection:...
-  outcome_room_ref: outcome-room://...
-  objective_and_acceptance_ref: outcome-room://...
-  work_frontier_projection_ref: projection://...
-  participant_projection_ref: projection://...
-  attempts_findings_projection_ref: projection://...
-  evaluation_challenge_projection_ref: projection://...
-  authority_privacy_projection_ref: projection://...
-  budget_spend_projection_ref: projection://...
-  contribution_lineage_projection_ref: projection://...
-  replay_ref: replay://...
-  read_model_only: true
+# Application-contributed read models (the ioi.ai HypervisorOutcomeRoomProjection
+# among them) are owned by their application canon — see
+# domains/ioi-ai/collaborative-outcome-pattern.md § Minimal Implementation
+# Objects (moved 2026-09-07, ADR 0052 Decision 4). Work / detail renders them
+# through the typed subject-attachment seam, never through a core field.
 
 SessionAccessToken:
   token_id: session_access_token:...

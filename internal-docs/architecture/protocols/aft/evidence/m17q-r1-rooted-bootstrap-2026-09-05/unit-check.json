@@ -1,0 +1,85 @@
+{
+  "status": "LOCAL_UNIT_AND_COMPILE_PASS_PROCESS_RUNNING",
+  "utc": "2026-09-05T03:21:20.609659+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-types",
+        "--lib",
+        "quv_policy_requires_exact_authority_and_durable_roots"
+      ],
+      "log": "types-tests.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::tests"
+      ],
+      "log": "validator-tests.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--test",
+        "aft_e2e",
+        "--features",
+        "consensus-aft,vm-wasm,state-iavl"
+      ],
+      "log": "cli-check.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "query_unanimity"
+      ],
+      "log": "final-consensus-tests.log",
+      "exit_code": 0
+    }
+  ],
+  "source_sha256": {
+    "crates/types/src/app/query_unanimity.rs": "7b5c50b7ec1f7d8ac1f270633bbf4cca5c414030b44e950085e37b49d16749cc",
+    "crates/types/src/config/mod.rs": "3623782b66f6829a0beeb20b0f3d500ad225818b7b7983dc2550651a9d811d75",
+    "crates/types/src/config/tests.rs": "c7ea26c9f402bf02841fb5bc4ad0153852b653300dabc2402a99390aa085894e",
+    "crates/consensus/src/aft/query_unanimity.rs": "87f1f9b508702f2df3ddc8e342933593504db8ae140769b8e1fadcdc14fe2018",
+    "crates/validator/src/standard/orchestration/quv.rs": "787ca69e6ddbc96861f6d9c5be3311a0cb54973fe6124beefaa524a15a80c73b",
+    "crates/cli/tests/aft_e2e.rs": "6a51e742781c65563e343bf51676e2f7cd103bd10c01a807828d65ec91ce7f6e",
+    "crates/cli/src/testing/cluster.rs": "56ac9c06adbe29a3650d2e1c331466cfd7d90f40376d51a81282c8ae3b454e03",
+    ".github/scripts/run_aft_m16q_qualification.sh": "af3a1c4d238885f3dc2a80aee9944e28f8f88d598a69fb8b295647c370af11ae",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md": "2584077da83d756b95084d3cc99bd6dcd6a1fc9856a0e9fbbad0dd3fbf459cbe",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_head_state_design.md": "074258f50ca56acc03f4894780cb668b2c6ecb52f510ee93f3577f046502b376",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "f519bfabf3bedda278b5ee89284e50a7528613ff52f7b0ef9570ac8714b5d8cb",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_end_to_end_theorems.md": "26d9feba7198e67ed395208b7ada86dbd41700b535d295489921eaf1f69bd7ca",
+    "internal-docs/architecture/protocols/aft/specs/p4_claim_adjudication.md": "6e366eade1d333da3019c0f109b2611a4cdd09c13bbd40d8c492c285b026c161",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-rooted-bootstrap-2026-09-05/run_process_checks.py": "4c3a0e70e2651398aa2f163e539e9c90bf5c9a4969526302d70bd7835389bad8"
+  },
+  "compatibility": "Required bootstrap configuration; policy hash domain changed to v1-bootstrap. No old policy fallback or state/history migration.",
+  "scope": "Rooted bootstrap commitment and initial-coordinate admission; exact typed handoff source/boundary required. No durable expected-head/next-slot enforcement for later Fixed slots, no stored-bootstrap recovery comparison, no complete R1 closure.",
+  "process_session_id": 87640
+}

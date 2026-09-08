@@ -6,6 +6,7 @@ use ioi_types::app::consensus::{
 };
 use ioi_types::app::{EffectManifestVersionV1, EffectResourceKeyV1, ExternalResourceContractV1};
 use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
 #[derive(Clone, Copy)]
@@ -20,12 +21,13 @@ struct AtomicRegister {
     records: BTreeMap<String, ExternalResourceRecordV1>,
     invocations: u32,
     mutations: u32,
+    lookups: u32,
     mode: InvocationMode,
     ambiguous_lookup: bool,
     forced_conflict: Option<ExternalResourceRecordV1>,
 }
 
-struct TestOnlineAuthorization(OnlineEffectAuthorizationBindingV1);
+struct TestOnlineAuthorization(OnlineEffectAuthorizationBindingV1, Instant);
 
 impl ImmediateOnlineEffectAuthorizationV1 for TestOnlineAuthorization {
     fn consume(self) -> Result<ConsumedOnlineEffectAuthorizationV1, ConsequenceError> {
@@ -43,6 +45,7 @@ impl ImmediateOnlineEffectAuthorizationV1 for TestOnlineAuthorization {
                 protocol_evidence,
             },
             binding,
+            expires_at: self.1,
         })
     }
 }
@@ -54,6 +57,7 @@ impl AtomicRegister {
             records: BTreeMap::new(),
             invocations: 0,
             mutations: 0,
+            lookups: 0,
             mode: InvocationMode::Normal,
             ambiguous_lookup: false,
             forced_conflict: None,
@@ -109,6 +113,7 @@ impl ExternalResourceV1 for AtomicRegister {
         _resource_id: &str,
         idempotency_key: &str,
     ) -> Result<Option<ExternalResourceRecordV1>, ResourceLookupErrorV1> {
+        self.lookups += 1;
         if let Some(conflict) = self.forced_conflict.clone() {
             return Err(ResourceLookupErrorV1::Conflict(conflict));
         }
@@ -144,6 +149,8 @@ fn manifest(effect_id: impl Into<String>, profile: ExternalResourceProfileV1) ->
         conflict_slot: 1,
         authorization_mode: ioi_types::app::EffectAuthorizationModeV1::Portable,
         online_authorization_policy_root: None,
+        online_authorization_predecessor: None,
+        online_authorization_authority_mode: None,
         read_set: vec![EffectResourceKeyV1 {
             key: "account/source".into(),
             predecessor: Some([1; 32]),
@@ -208,6 +215,59 @@ fn accepted_for(
 }
 
 #[test]
+fn receipt_hash_view_preserves_canonical_bytes_and_optional_fields() {
+    let temp = TempDir::new().unwrap();
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let baseline = authorize(&mut store, manifest("hash-view", profile));
+    for attempts in [0, 1, u32::MAX] {
+        for with_audit in [false, true] {
+            let mut receipt = baseline.clone();
+            receipt.reconciliation_attempts = attempts;
+            if with_audit {
+                receipt.online_authorization_audit = Some(
+                    TestOnlineAuthorization(
+                        OnlineEffectAuthorizationBindingV1 {
+                            mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+                            payload_hash: [1; 32],
+                            configuration_root: [2; 32],
+                            conflict_domain_hash: [3; 32],
+                            conflict_slot: u64::MAX,
+                            policy_root: [4; 32],
+                            predecessor: [5; 32],
+                            authority_mode: ioi_types::app::QuvAuthorityModeV0::Unowned,
+                        },
+                        Instant::now(),
+                    )
+                    .consume()
+                    .unwrap()
+                    .audit,
+                );
+                receipt
+                    .online_authorization_audit
+                    .as_mut()
+                    .unwrap()
+                    .protocol_evidence = (0..=255_u8).cycle().take(16 * 1024).collect();
+            }
+            // These are serializer-shape probes, not valid authorization claims.
+            let before = receipt.clone();
+            let mut legacy = receipt.clone();
+            legacy.receipt_root = [0; 32];
+            let bytes = serde_jcs::to_vec(&legacy).unwrap();
+            assert_eq!(
+                receipt_root(&receipt).unwrap(),
+                hash_parts(RECEIPT_DOMAIN, &[&bytes])
+            );
+            assert_ne!(
+                receipt_root(&receipt).unwrap(),
+                hash_parts(b"wrong-domain", &[&bytes])
+            );
+            assert_eq!(receipt, before);
+        }
+    }
+}
+
+#[test]
 fn clear_execution_and_duplicate_delivery_mutate_the_resource_once() {
     let temp = TempDir::new().unwrap();
     let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
@@ -238,6 +298,9 @@ fn query_unanimity_effect_requires_matching_immediate_online_authorization() {
     let mut manifest = manifest("quv", profile.clone());
     manifest.authorization_mode = ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
     manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
     manifest.fence = EffectFenceV1::ProtocolHeight {
         configuration_hash: [88; 32],
         minimum_height: 10,
@@ -253,6 +316,9 @@ fn query_unanimity_effect_requires_matching_immediate_online_authorization() {
     };
     let conflict_domain_hash = manifest.conflict_domain_commitment().unwrap();
     let conflict_slot = manifest.conflict_slot;
+    let predecessor = manifest.online_authorization_predecessor.unwrap();
+    let resource_predecessor = manifest.predecessor_root;
+    assert_ne!(predecessor, resource_predecessor);
     let mut resource = AtomicRegister::new(profile);
     let mut store = ConsequenceStore::open(temp.path()).unwrap();
     authorize(&mut store, manifest);
@@ -268,19 +334,569 @@ fn query_unanimity_effect_requires_matching_immediate_online_authorization() {
         conflict_domain_hash,
         conflict_slot,
         policy_root: [19; 32],
+        predecessor,
+        authority_mode: ioi_types::app::QuvAuthorityModeV0::Unowned,
     };
     assert_eq!(
         store.online_authorization_requirement("quv").unwrap(),
         binding
     );
+    for wrong_authority in [false, true] {
+        let mut mismatch = store.online_authorization_requirement("quv").unwrap();
+        if wrong_authority {
+            mismatch.authority_mode = ioi_types::app::QuvAuthorityModeV0::Owned;
+        } else {
+            mismatch.predecessor = resource_predecessor;
+        }
+        assert!(matches!(
+            store.execute_with_online_authorization(
+                "quv",
+                &mut resource,
+                TestOnlineAuthorization(mismatch, Instant::now() + Duration::from_secs(10)),
+                10,
+            ),
+            Err(ConsequenceError::InvalidOnlineAuthorization)
+        ));
+        assert_eq!(resource.invocations, 0);
+        assert_eq!(resource.mutations, 0);
+        assert_eq!(
+            store.load("quv").unwrap().state.phase(),
+            ConsequencePhaseV1::Authorized
+        );
+    }
     let executed = store
-        .execute_with_online_authorization("quv", &mut resource, TestOnlineAuthorization(binding))
+        .execute_with_online_authorization(
+            "quv",
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(1)),
+            10,
+        )
         .unwrap();
     assert_eq!(executed.state.phase(), ConsequencePhaseV1::Executed);
     let audit = executed.online_authorization_audit.unwrap();
     assert!(!audit.portable_final_receipt);
     assert_eq!(audit.profile, "aft_quv_v0");
     assert_eq!(resource.mutations, 1);
+    assert!(matches!(
+        store.online_authorization_requirement("quv"),
+        Err(ConsequenceError::WrongState(ConsequencePhaseV1::Executed))
+    ));
+}
+
+#[test]
+fn nonexecutable_online_retry_preserves_audit_without_consuming_continuation() {
+    struct MustNotConsume;
+    impl ImmediateOnlineEffectAuthorizationV1 for MustNotConsume {
+        fn consume(self) -> Result<ConsumedOnlineEffectAuthorizationV1, ConsequenceError> {
+            panic!("non-executable retry consumed its continuation")
+        }
+    }
+
+    fn check(store: &mut ConsequenceStore, resource: &mut AtomicRegister) {
+        let before = store.load("quv-nonexecutable-retry").unwrap();
+        let path = store.receipt_path("quv-nonexecutable-retry");
+        let bytes = std::fs::read(&path).unwrap();
+        let calls = resource.invocations;
+        let mutations = resource.mutations;
+        assert!(matches!(
+            store.execute_with_online_authorization(
+                "quv-nonexecutable-retry", resource, MustNotConsume, 10,
+            ),
+            Err(ConsequenceError::WrongState(phase)) if phase == before.state.phase()
+        ));
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+        assert_eq!(store.load("quv-nonexecutable-retry").unwrap(), before);
+        assert_eq!(resource.invocations, calls);
+        assert_eq!(resource.mutations, mutations);
+    }
+
+    for crash_before_call in [false, true] {
+        let temp = TempDir::new().unwrap();
+        let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+        let mut manifest = manifest("quv-nonexecutable-retry", profile.clone());
+        manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+        manifest.online_authorization_policy_root = Some([19; 32]);
+        manifest.online_authorization_predecessor = Some([77; 32]);
+        manifest.online_authorization_authority_mode =
+            Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+        manifest.fence = EffectFenceV1::ProtocolHeight {
+            configuration_hash: [88; 32],
+            minimum_height: 10,
+            maximum_height: 10,
+        };
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+        let mut resource = AtomicRegister::new(profile);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        authorize(&mut store, manifest);
+        let binding = store
+            .online_authorization_requirement("quv-nonexecutable-retry")
+            .unwrap();
+        if crash_before_call {
+            store.arm_crash(ConsequenceCrashPoint::AfterInFlight);
+        }
+        let result = store.execute_with_online_authorization(
+            "quv-nonexecutable-retry",
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(10)),
+            10,
+        );
+        if crash_before_call {
+            assert!(matches!(
+                result,
+                Err(ConsequenceError::InjectedCrash(
+                    ConsequenceCrashPoint::AfterInFlight
+                ))
+            ));
+            assert_eq!(
+                store.load("quv-nonexecutable-retry").unwrap().state.phase(),
+                ConsequencePhaseV1::InFlight
+            );
+        } else {
+            assert_eq!(result.unwrap().state.phase(), ConsequencePhaseV1::Executed);
+        }
+        check(&mut store, &mut resource);
+        drop(store);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        check(&mut store, &mut resource);
+        if crash_before_call {
+            assert_eq!(
+                store
+                    .recover("quv-nonexecutable-retry")
+                    .unwrap()
+                    .state
+                    .phase(),
+                ConsequencePhaseV1::Unknown
+            );
+            check(&mut store, &mut resource);
+        }
+        assert_eq!(
+            store
+                .reconcile("quv-nonexecutable-retry", &mut resource)
+                .unwrap()
+                .state
+                .phase(),
+            ConsequencePhaseV1::Reconciled
+        );
+        check(&mut store, &mut resource);
+        assert_eq!(resource.invocations, u32::from(!crash_before_call));
+        assert_eq!(resource.mutations, u32::from(!crash_before_call));
+    }
+}
+
+#[test]
+fn online_readmission_returns_terminal_results_or_reconciles_without_reinvocation() {
+    for scenario in 0..3 {
+        let temp = TempDir::new().unwrap();
+        let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+        let mut manifest = manifest("quv-result-retry", profile.clone());
+        manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+        manifest.online_authorization_policy_root = Some([19; 32]);
+        manifest.online_authorization_predecessor = Some([77; 32]);
+        manifest.online_authorization_authority_mode =
+            Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+        manifest.fence = EffectFenceV1::ProtocolHeight {
+            configuration_hash: [88; 32],
+            minimum_height: 10,
+            maximum_height: 10,
+        };
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+        let mut resource = AtomicRegister::new(profile);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        authorize(&mut store, manifest.clone());
+        assert!(store
+            .online_retry_result("quv-result-retry", &mut resource)
+            .unwrap()
+            .is_none());
+        let binding = store.online_effect_binding("quv-result-retry").unwrap();
+        if scenario == 1 {
+            resource.mode = InvocationMode::AmbiguousAfterMutation;
+        }
+        if scenario == 2 {
+            store.arm_crash(ConsequenceCrashPoint::AfterInFlight);
+        }
+        let executed = store.execute_with_online_authorization(
+            "quv-result-retry",
+            &mut resource,
+            TestOnlineAuthorization(
+                store.online_effect_binding("quv-result-retry").unwrap(),
+                Instant::now() + Duration::from_secs(10),
+            ),
+            10,
+        );
+        match scenario {
+            0 => {
+                assert!(executed.is_ok());
+            }
+            1 => assert!(matches!(executed, Err(ConsequenceError::Ambiguous))),
+            _ => assert!(matches!(
+                executed,
+                Err(ConsequenceError::InjectedCrash(
+                    ConsequenceCrashPoint::AfterInFlight
+                ))
+            )),
+        }
+        drop(store);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        let before = store.load("quv-result-retry").unwrap();
+        let bytes = std::fs::read(store.receipt_path("quv-result-retry")).unwrap();
+        let verified = verified_for(&manifest.resource_profile);
+        let accepted = accepted_for(&manifest, &verified);
+        let mut changed = accepted.clone();
+        changed.authorization_receipt_root = [43; 32];
+        assert!(matches!(
+            store.authorize(manifest.clone(), &verified, &changed, 10),
+            Err(ConsequenceError::ReplayConflict)
+        ));
+        assert!(matches!(
+            store.authorize(manifest.clone(), &verified, &accepted, 11),
+            Err(ConsequenceError::FenceExpired)
+        ));
+        assert_eq!(
+            std::fs::read(store.receipt_path("quv-result-retry")).unwrap(),
+            bytes
+        );
+        assert_eq!(
+            store
+                .authorize(manifest.clone(), &verified, &accepted, 10)
+                .unwrap(),
+            before
+        );
+        assert_eq!(
+            store.online_effect_binding("quv-result-retry").unwrap(),
+            binding
+        );
+        assert!(matches!(
+            store.prepare_online_effect(manifest.clone(), &verified, &changed, 11),
+            Err(ConsequenceError::ReplayConflict)
+        ));
+        assert_eq!(
+            store
+                .prepare_online_effect(manifest.clone(), &verified, &accepted, 11)
+                .unwrap(),
+            before
+        );
+        let calls = resource.invocations;
+        let mutations = resource.mutations;
+        let result = store
+            .online_retry_result("quv-result-retry", &mut resource)
+            .unwrap()
+            .unwrap();
+        if scenario == 0 {
+            assert_eq!(result, before);
+            assert_eq!(
+                std::fs::read(store.receipt_path("quv-result-retry")).unwrap(),
+                bytes
+            );
+        } else {
+            assert_eq!(result.state.phase(), ConsequencePhaseV1::Reconciled);
+        }
+        assert_eq!(resource.lookups, 1);
+        assert_eq!(resource.invocations, calls);
+        assert_eq!(resource.mutations, mutations);
+        assert_eq!(
+            store
+                .online_retry_result("quv-result-retry", &mut resource)
+                .unwrap(),
+            Some(result)
+        );
+        assert_eq!(resource.lookups, 2);
+        assert_eq!(resource.invocations, calls);
+        let terminal_bytes = std::fs::read(store.receipt_path("quv-result-retry")).unwrap();
+        resource.ambiguous_lookup = true;
+        assert!(matches!(
+            store.online_retry_result("quv-result-retry", &mut resource),
+            Err(ConsequenceError::Ambiguous)
+        ));
+        resource.ambiguous_lookup = false;
+        let saved = resource.records.clone();
+        if scenario == 2 {
+            resource.records.insert(
+                manifest.idempotency_key.clone(),
+                AtomicRegister::expected_record(&manifest),
+            );
+        } else {
+            resource.records.clear();
+        }
+        assert!(matches!(
+            store.online_retry_result("quv-result-retry", &mut resource),
+            Err(ConsequenceError::ReplayConflict)
+        ));
+        resource.records = saved;
+        assert_eq!(
+            std::fs::read(store.receipt_path("quv-result-retry")).unwrap(),
+            terminal_bytes
+        );
+        assert_eq!(resource.invocations, calls);
+        assert_eq!(resource.mutations, mutations);
+    }
+}
+
+#[test]
+fn expired_result_preparation_preserves_authority_identity_and_execution_fences() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let mut manifest = manifest("epoch-result", profile.clone());
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.fence = EffectFenceV1::AuthorityEpoch {
+        authority_snapshot_hash: [88; 32],
+        authority_epoch: 1,
+        expires_at_height: 10,
+    };
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let verified = verified_for(&profile);
+    let mut accepted = accepted_for(&manifest, &verified);
+    accepted.authority_epoch = 1;
+    accepted.authority_snapshot_root = [88; 32];
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    let mut resource = AtomicRegister::new(profile);
+    assert!(matches!(
+        store.prepare_online_effect(manifest.clone(), &verified, &accepted, 11),
+        Err(ConsequenceError::FenceExpired)
+    ));
+    assert!(!store.receipt_path("epoch-result").exists());
+    store
+        .prepare_online_effect(manifest.clone(), &verified, &accepted, 10)
+        .unwrap();
+    assert!(matches!(
+        store.prepare_online_effect(manifest.clone(), &verified, &accepted, 11),
+        Err(ConsequenceError::FenceExpired)
+    ));
+    let binding = store
+        .online_authorization_requirement("epoch-result")
+        .unwrap();
+    let executed = store
+        .execute_with_online_authorization(
+            "epoch-result",
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(10)),
+            10,
+        )
+        .unwrap();
+    let bytes = std::fs::read(store.receipt_path("epoch-result")).unwrap();
+    drop(store);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    for wrong_epoch in [false, true] {
+        let mut wrong = accepted.clone();
+        if wrong_epoch {
+            wrong.authority_epoch = 2;
+        } else {
+            wrong.authority_snapshot_root = [89; 32];
+        }
+        assert!(matches!(
+            store.prepare_online_effect(manifest.clone(), &verified, &wrong, 11),
+            Err(ConsequenceError::FenceExpired)
+        ));
+    }
+    assert_eq!(
+        store
+            .prepare_online_effect(manifest.clone(), &verified, &accepted, 11)
+            .unwrap(),
+        executed
+    );
+    assert_eq!(
+        store
+            .online_retry_result("epoch-result", &mut resource)
+            .unwrap(),
+        Some(executed)
+    );
+    assert_eq!(
+        std::fs::read(store.receipt_path("epoch-result")).unwrap(),
+        bytes
+    );
+    assert_eq!(resource.invocations, 1);
+    assert_eq!(resource.mutations, 1);
+    assert!(matches!(
+        store.authorize(manifest, &verified, &accepted, 11),
+        Err(ConsequenceError::FenceExpired)
+    ));
+}
+
+#[test]
+fn online_effect_rechecks_height_fence_after_live_quv() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let mut manifest = manifest("quv-expired-fence", profile.clone());
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.fence = EffectFenceV1::ProtocolHeight {
+        configuration_hash: [88; 32],
+        minimum_height: 10,
+        maximum_height: 10,
+    };
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let mut resource = AtomicRegister::new(profile);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    authorize(&mut store, manifest);
+    let binding = store
+        .online_authorization_requirement("quv-expired-fence")
+        .unwrap();
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            "quv-expired-fence",
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(1)),
+            11,
+        ),
+        Err(ConsequenceError::FenceExpired)
+    ));
+    assert_eq!(resource.mutations, 0);
+    assert_eq!(
+        store.load("quv-expired-fence").unwrap().state.phase(),
+        ConsequencePhaseV1::Authorized
+    );
+}
+
+#[test]
+fn online_effect_rechecks_process_local_deadline_at_claim_transition() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let mut manifest = manifest("quv-expired-continuation", profile.clone());
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.fence = EffectFenceV1::ProtocolHeight {
+        configuration_hash: [88; 32],
+        minimum_height: 10,
+        maximum_height: 10,
+    };
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let mut resource = AtomicRegister::new(profile);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    authorize(&mut store, manifest);
+    let binding = store
+        .online_authorization_requirement("quv-expired-continuation")
+        .unwrap();
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            "quv-expired-continuation",
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() - Duration::from_millis(1)),
+            10,
+        ),
+        Err(ConsequenceError::InvalidOnlineAuthorization)
+    ));
+    assert_eq!(resource.mutations, 0);
+    assert_eq!(
+        store
+            .load("quv-expired-continuation")
+            .unwrap()
+            .state
+            .phase(),
+        ConsequencePhaseV1::Authorized
+    );
+}
+
+#[test]
+fn claimed_online_retry_requires_a_live_fence_and_continuation() {
+    for (height, live_continuation) in [(11, true), (10, false), (10, true)] {
+        let temp = TempDir::new().unwrap();
+        let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+        let mut manifest = manifest("quv-claimed-retry", profile.clone());
+        manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+        manifest.online_authorization_policy_root = Some([19; 32]);
+        manifest.online_authorization_predecessor = Some([77; 32]);
+        manifest.online_authorization_authority_mode =
+            Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+        manifest.fence = EffectFenceV1::ProtocolHeight {
+            configuration_hash: [88; 32],
+            minimum_height: 10,
+            maximum_height: 10,
+        };
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+        let mut resource = AtomicRegister::new(profile);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        authorize(&mut store, manifest);
+        let binding = store
+            .online_authorization_requirement("quv-claimed-retry")
+            .unwrap();
+        store.arm_crash(ConsequenceCrashPoint::AfterClaimed);
+        assert!(matches!(
+            store.execute_with_online_authorization(
+                "quv-claimed-retry",
+                &mut resource,
+                TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(10)),
+                10,
+            ),
+            Err(ConsequenceError::InjectedCrash(
+                ConsequenceCrashPoint::AfterClaimed
+            ))
+        ));
+        assert_eq!(resource.invocations, 0);
+        let receipt = store.load("quv-claimed-retry").unwrap();
+        assert_eq!(receipt.state.phase(), ConsequencePhaseV1::Claimed);
+        drop(store);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        let verified = verified_for(&receipt.manifest.resource_profile);
+        let accepted = accepted_for(&receipt.manifest, &verified);
+        let durable_before = std::fs::read(store.receipt_path("quv-claimed-retry")).unwrap();
+        let mut changed_admission = accepted.clone();
+        changed_admission.authorization_receipt_root = [43; 32];
+        assert!(matches!(
+            store.authorize(receipt.manifest.clone(), &verified, &changed_admission, 10),
+            Err(ConsequenceError::ReplayConflict)
+        ));
+        assert_eq!(
+            std::fs::read(store.receipt_path("quv-claimed-retry")).unwrap(),
+            durable_before
+        );
+        // Use the public admission/requirement path used by both executors.
+        // The process-level live network retry remains a separate gate.
+        assert!(matches!(
+            store.prepare_online_effect(receipt.manifest.clone(), &verified, &accepted, 11),
+            Err(ConsequenceError::FenceExpired)
+        ));
+        let readmitted = store
+            .authorize(receipt.manifest.clone(), &verified, &accepted, 10)
+            .unwrap();
+        assert_eq!(readmitted, receipt);
+        assert!(matches!(
+            store.execute("quv-claimed-retry", &mut resource),
+            Err(ConsequenceError::OnlineAuthorizationRequired)
+        ));
+        assert_eq!(resource.invocations, 0);
+        let retry_binding = store
+            .online_authorization_requirement("quv-claimed-retry")
+            .unwrap();
+        let deadline = if live_continuation {
+            Instant::now() + Duration::from_secs(10)
+        } else {
+            Instant::now() - Duration::from_secs(1)
+        };
+        let result = store.execute_with_online_authorization(
+            "quv-claimed-retry",
+            &mut resource,
+            TestOnlineAuthorization(retry_binding, deadline),
+            height,
+        );
+        if height > 10 {
+            assert!(matches!(result, Err(ConsequenceError::FenceExpired)));
+        } else if !live_continuation {
+            assert!(matches!(
+                result,
+                Err(ConsequenceError::InvalidOnlineAuthorization)
+            ));
+        } else {
+            assert_eq!(result.unwrap().state.phase(), ConsequencePhaseV1::Executed);
+        }
+        let expected_calls = u32::from(height == 10 && live_continuation);
+        assert_eq!(resource.invocations, expected_calls);
+        assert_eq!(resource.mutations, expected_calls);
+        if expected_calls == 0 {
+            assert_eq!(
+                store.load("quv-claimed-retry").unwrap().state.phase(),
+                ConsequencePhaseV1::Claimed
+            );
+        }
+    }
 }
 
 #[test]
@@ -462,6 +1078,7 @@ fn every_persistence_and_invocation_boundary_is_restart_safe() {
         ConsequenceCrashPoint::AfterInvocation,
         ConsequenceCrashPoint::AfterExecuted,
         ConsequenceCrashPoint::AfterUnknown,
+        ConsequenceCrashPoint::AfterLookupReserved,
         ConsequenceCrashPoint::AfterLookup,
         ConsequenceCrashPoint::AfterReconciled,
     ];
@@ -490,7 +1107,9 @@ fn every_persistence_and_invocation_boundary_is_restart_safe() {
             store.arm_crash(point);
             if matches!(
                 point,
-                ConsequenceCrashPoint::AfterLookup | ConsequenceCrashPoint::AfterReconciled
+                ConsequenceCrashPoint::AfterLookupReserved
+                    | ConsequenceCrashPoint::AfterLookup
+                    | ConsequenceCrashPoint::AfterReconciled
             ) {
                 store.execute(&effect_id, &mut resource).unwrap();
                 assert!(matches!(
@@ -637,6 +1256,130 @@ fn runtime_traces_conform_to_the_formal_clear_and_ambiguous_paths() {
 }
 
 #[test]
+fn reconciliation_reserves_attempts_across_crashes_before_and_after_lookup() {
+    for unknown in [false, true] {
+        for point in [
+            ConsequenceCrashPoint::AfterLookupReserved,
+            ConsequenceCrashPoint::AfterLookup,
+        ] {
+            let temp = TempDir::new().unwrap();
+            let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+            let manifest = manifest("reserved-reconciliation", profile.clone());
+            let mut resource = AtomicRegister::new(profile);
+            if unknown {
+                resource.mode = InvocationMode::AmbiguousWithoutMutation;
+            }
+            let mut store = ConsequenceStore::open(temp.path()).unwrap();
+            authorize(&mut store, manifest);
+            let initial = store.execute("reserved-reconciliation", &mut resource);
+            if unknown {
+                assert!(matches!(initial, Err(ConsequenceError::Ambiguous)));
+            } else {
+                assert!(initial.is_ok());
+            }
+            for attempt in 1..=3 {
+                store.arm_crash(point);
+                assert!(
+                    matches!(store.reconcile("reserved-reconciliation", &mut resource),
+                    Err(ConsequenceError::InjectedCrash(actual)) if actual == point)
+                );
+                drop(store);
+                store = ConsequenceStore::open(temp.path()).unwrap();
+                assert_eq!(
+                    store
+                        .load("reserved-reconciliation")
+                        .unwrap()
+                        .reconciliation_attempts,
+                    attempt
+                );
+                assert_eq!(
+                    resource.lookups,
+                    if point == ConsequenceCrashPoint::AfterLookup {
+                        attempt
+                    } else {
+                        0
+                    }
+                );
+            }
+            let before = std::fs::read(store.receipt_path("reserved-reconciliation")).unwrap();
+            assert!(matches!(
+                store.reconcile("reserved-reconciliation", &mut resource),
+                Err(ConsequenceError::ReconciliationExhausted)
+            ));
+            assert_eq!(
+                std::fs::read(store.receipt_path("reserved-reconciliation")).unwrap(),
+                before
+            );
+            assert_eq!(resource.invocations, 1);
+            assert_eq!(resource.mutations, u32::from(!unknown));
+        }
+    }
+}
+
+#[test]
+fn reconciliation_legacy_counter_and_known_execution_are_preserved() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let manifest = manifest("legacy-reconciliation", profile.clone());
+    let mut resource = AtomicRegister::new(profile);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    let authorized = authorize(&mut store, manifest);
+    let encoded = serde_jcs::to_vec(&authorized).unwrap();
+    assert!(!String::from_utf8(encoded.clone())
+        .unwrap()
+        .contains("reconciliation_attempts"));
+    assert_eq!(
+        serde_json::from_slice::<ConsequenceReceiptV1>(&encoded).unwrap(),
+        authorized
+    );
+    store
+        .execute("legacy-reconciliation", &mut resource)
+        .unwrap();
+    resource.ambiguous_lookup = true;
+    assert!(matches!(
+        store.reconcile("legacy-reconciliation", &mut resource),
+        Err(ConsequenceError::Ambiguous)
+    ));
+    let executed = store.load("legacy-reconciliation").unwrap();
+    assert_eq!(executed.state.phase(), ConsequencePhaseV1::Executed);
+    assert_eq!(executed.reconciliation_attempts, 1);
+
+    // Model a legacy receipt with two recorded ambiguous observations and
+    // no reservation field; upgrading must not grant three additional attempts.
+    // Build the legacy trace through the normal ambiguity path.
+    drop(store);
+    let legacy_temp = TempDir::new().unwrap();
+    let mut store = ConsequenceStore::open(legacy_temp.path()).unwrap();
+    authorize(&mut store, executed.manifest.clone());
+    resource.mode = InvocationMode::AmbiguousWithoutMutation;
+    resource.records.clear();
+    assert!(matches!(
+        store.execute("legacy-reconciliation", &mut resource),
+        Err(ConsequenceError::Ambiguous)
+    ));
+    for _ in 0..2 {
+        assert!(matches!(
+            store.reconcile("legacy-reconciliation", &mut resource),
+            Err(ConsequenceError::Ambiguous)
+        ));
+    }
+    let mut old = store.load("legacy-reconciliation").unwrap();
+    old.reconciliation_attempts = 0;
+    persist_receipt(&store.receipt_path("legacy-reconciliation"), &mut old).unwrap();
+    assert!(matches!(
+        store.reconcile("legacy-reconciliation", &mut resource),
+        Err(ConsequenceError::ReconciliationExhausted)
+    ));
+    let mut exhausted = store.load("legacy-reconciliation").unwrap();
+    assert_eq!(exhausted.reconciliation_attempts, 3);
+    exhausted.reconciliation_attempts = 4;
+    assert!(matches!(
+        exhausted.validate(),
+        Err(ConsequenceError::CorruptReceipt)
+    ));
+}
+
+#[test]
 fn reconciliation_is_bounded_and_never_becomes_mutation_authority() {
     let temp = TempDir::new().unwrap();
     let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
@@ -661,6 +1404,86 @@ fn reconciliation_is_bounded_and_never_becomes_mutation_authority() {
             std::mem::discriminant(&expected)
         );
     }
+    assert_eq!(resource.lookups, 3);
+    let exhausted = store.load("bounded-reconciliation").unwrap();
+    assert_eq!(
+        exhausted.trace.len() as u64,
+        receipt_trace_limit(&exhausted.manifest)
+    );
+    let bytes = std::fs::read(store.receipt_path("bounded-reconciliation")).unwrap();
+    // Clearing the transient resource fault cannot reset the durable budget.
+    resource.ambiguous_lookup = false;
+    for _ in 0..2 {
+        assert!(matches!(
+            store.reconcile("bounded-reconciliation", &mut resource),
+            Err(ConsequenceError::ReconciliationExhausted)
+        ));
+    }
+    drop(store);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    assert!(matches!(
+        store.reconcile("bounded-reconciliation", &mut resource),
+        Err(ConsequenceError::ReconciliationExhausted)
+    ));
+    assert_eq!(resource.lookups, 3);
+    assert_eq!(store.load("bounded-reconciliation").unwrap(), exhausted);
+    assert_eq!(
+        std::fs::read(store.receipt_path("bounded-reconciliation")).unwrap(),
+        bytes
+    );
+    assert_eq!(resource.invocations, 1);
+    assert_eq!(resource.mutations, 0);
+}
+
+#[test]
+fn receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let manifest = manifest("trace-bound", profile.clone());
+    let mut resource = AtomicRegister::new(profile);
+    resource.mode = InvocationMode::AmbiguousWithoutMutation;
+    resource.ambiguous_lookup = true;
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    authorize(&mut store, manifest);
+    assert!(matches!(
+        store.execute("trace-bound", &mut resource),
+        Err(ConsequenceError::Ambiguous)
+    ));
+    for attempt in 1..=3 {
+        let result = store.reconcile("trace-bound", &mut resource);
+        if attempt < 3 {
+            assert!(matches!(result, Err(ConsequenceError::Ambiguous)));
+        } else {
+            assert!(matches!(
+                result,
+                Err(ConsequenceError::ReconciliationExhausted)
+            ));
+        }
+    }
+    let mut receipt = store.load("trace-bound").unwrap();
+    let before = receipt.clone();
+    let next = receipt.state.clone();
+    assert!(matches!(
+        transition(&mut receipt, next),
+        Err(ConsequenceError::CorruptReceipt)
+    ));
+    assert_eq!(receipt, before);
+    // A synthetic extra legal phase edge with a recomputed receipt hash must
+    // still fail recovery: a content hash is not a proof of a reachable budget.
+    let mut extra = receipt.trace.last().unwrap().clone();
+    extra.sequence += 1;
+    extra.from = Some(ConsequencePhaseV1::Unknown);
+    receipt.trace.push(extra);
+    receipt.generation += 1;
+    receipt.receipt_root = receipt_root(&receipt).unwrap();
+    let raw = serde_jcs::to_vec(&receipt).unwrap();
+    let path = store.receipt_path("trace-bound");
+    fs::write(&path, &raw).unwrap();
+    assert!(matches!(
+        store.load("trace-bound"),
+        Err(ConsequenceError::CorruptReceipt)
+    ));
+    assert_eq!(fs::read(&path).unwrap(), raw);
     assert_eq!(resource.invocations, 1);
     assert_eq!(resource.mutations, 0);
 }
@@ -699,6 +1522,147 @@ fn evidence_hash(evidence: &[u8]) -> ConsequenceHash {
 }
 
 #[test]
+fn online_receipt_bound_covers_named_resource_execution_and_complete_budget() {
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    let mut manifest = manifest("bounded-online-receipt", profile);
+    assert_eq!(online_receipt_byte_bound(&manifest).unwrap(), None);
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let bound = online_receipt_byte_bound(&manifest).unwrap().unwrap();
+    let mut maximum = manifest.clone();
+    maximum.reconciliation = ReconciliationPolicyV1::LookupByIdempotencyKey {
+        maximum_observations: u32::MAX,
+    };
+    let extra_manifest_bytes =
+        serde_jcs::to_vec(&maximum).unwrap().len() - serde_jcs::to_vec(&manifest).unwrap().len();
+    assert_eq!(
+        online_receipt_byte_bound(&maximum).unwrap().unwrap() - bound,
+        extra_manifest_bytes as u64 + 512 * (u64::from(u32::MAX) - 3)
+    );
+    let mut resource =
+        DurablePqAtomicRegisterV1::open(temp.path().join("resource"), endpoint).unwrap();
+    let mut store = ConsequenceStore::open(temp.path().join("consequence")).unwrap();
+    let authorized = authorize(&mut store, manifest.clone());
+    assert!(serde_jcs::to_vec(&authorized).unwrap().len() as u64 <= bound);
+    resource.prepare(&manifest).unwrap();
+    store.prepare_online_storage(&manifest.effect_id).unwrap();
+    let binding = store
+        .online_authorization_requirement(&manifest.effect_id)
+        .unwrap();
+    eprintln!("AFT_RECEIPT_LIVE_BEGIN");
+    let executed = store
+        .execute_with_online_authorization(
+            &manifest.effect_id,
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(5)),
+            10,
+        )
+        .unwrap();
+    eprintln!("AFT_RECEIPT_LIVE_END");
+    assert!(serde_jcs::to_vec(&executed).unwrap().len() as u64 <= bound);
+    let mut bad_record = match &executed.state {
+        ConsequenceStateV1::Executed {
+            resource_record, ..
+        } => resource_record.clone(),
+        _ => panic!("expected completed resource mutation"),
+    };
+    let excess = vec![0; PQ_REGISTER_EVIDENCE_MAX_BYTES + 1];
+    bad_record.evidence_hash = Some(evidence_hash(&excess));
+    bad_record.evidence = Some(excess);
+    assert!(matches!(
+        validate_resource_record(&manifest, &bad_record),
+        Err(ConsequenceError::CorruptReceipt)
+    ));
+    let reconciled = store.reconcile(&manifest.effect_id, &mut resource).unwrap();
+    assert!(serde_jcs::to_vec(&reconciled).unwrap().len() as u64 <= bound);
+    drop(store);
+    let reopened = ConsequenceStore::open(temp.path().join("consequence")).unwrap();
+    assert_eq!(reopened.load(&manifest.effect_id).unwrap(), reconciled);
+}
+
+#[test]
+fn pq_resource_format_bounds_cover_maximum_tokens_and_refuse_noncanonical_evidence() {
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let resource = DurablePqAtomicRegisterV1::open(temp.path(), endpoint).unwrap();
+    let record = resource
+        .sign_record(ExternalResourceRecordV1 {
+            resource_id: "\\".repeat(512),
+            idempotency_key: "\\".repeat(512),
+            request_root: [255; 32],
+            predecessor_root: [255; 32],
+            outcome_root: [255; 32],
+            mutation_sequence: u64::MAX,
+            evidence: None,
+            evidence_hash: None,
+        })
+        .unwrap();
+    let evidence = record.evidence.as_ref().unwrap();
+    assert!(evidence.len() <= PQ_REGISTER_EVIDENCE_MAX_BYTES);
+    let envelope: DurablePqRegisterEvidenceV1 = serde_json::from_slice(evidence).unwrap();
+    assert_eq!(
+        BASE64
+            .decode(&envelope.statement.endpoint_public_key_base64)
+            .unwrap()
+            .len(),
+        1312
+    );
+    assert_eq!(
+        BASE64.decode(&envelope.signature_base64).unwrap().len(),
+        2420
+    );
+    assert!(resource.verify_record_evidence(&record));
+    let raw = serde_jcs::to_vec(&record).unwrap();
+    assert!(raw.len() <= PQ_REGISTER_RECORD_MAX_BYTES);
+    let path = resource.record_path(&record.resource_id, &record.idempotency_key);
+    fs::write(&path, &raw).unwrap();
+    assert_eq!(
+        resource
+            .read_record(&record.resource_id, &record.idempotency_key)
+            .unwrap(),
+        Some(record.clone())
+    );
+    let mut alternate = record.clone();
+    let mut whitespace = vec![b' '];
+    whitespace.extend_from_slice(evidence);
+    alternate.evidence_hash = Some(evidence_hash(&whitespace));
+    alternate.evidence = Some(whitespace);
+    assert!(!resource.verify_record_evidence(&alternate));
+    let mut oversized = raw.clone();
+    oversized.resize(PQ_REGISTER_RECORD_MAX_BYTES + 1, b' ');
+    fs::write(&path, &oversized).unwrap();
+    assert!(matches!(
+        resource.read_record(&record.resource_id, &record.idempotency_key),
+        Err(ConsequenceError::CorruptReceipt)
+    ));
+    assert_eq!(fs::read(&path).unwrap(), oversized);
+    fs::write(&path, &raw).unwrap();
+    assert_eq!(
+        resource
+            .read_record(&record.resource_id, &record.idempotency_key)
+            .unwrap(),
+        Some(record)
+    );
+    let other_suite = MldsaScheme::new(SecurityLevel::Level3)
+        .generate_keypair()
+        .unwrap();
+    assert!(matches!(
+        DurablePqAtomicRegisterV1::profile_for(&other_suite),
+        Err(ConsequenceError::Invalid(_))
+    ));
+}
+
+#[test]
 fn durable_pq_register_is_cross_instance_at_most_once_and_evidence_verified() {
     let temp = TempDir::new().unwrap();
     let endpoint = MldsaScheme::new(SecurityLevel::Level2)
@@ -719,4 +1683,1438 @@ fn durable_pq_register_is_cross_instance_at_most_once_and_evidence_verified() {
     };
     assert_eq!(existing, inserted);
     assert!(second.verify_record_evidence(&existing));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn online_pq_endpoint_consumes_reserved_inode_and_retains_active_authority() {
+    use std::os::unix::fs::MetadataExt;
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    let mut manifest = manifest("reserved-endpoint", profile);
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    manifest.validate().unwrap();
+    let mut resource = DurablePqAtomicRegisterV1::open(temp.path(), endpoint.clone()).unwrap();
+    let active = resource.record_path(&manifest.resource_id, &manifest.idempotency_key);
+    let pending = resource_reservation::staged(&active).unwrap();
+    // An online call cannot allocate missing capacity after its live interaction.
+    assert_eq!(
+        resource.invoke_atomic(&manifest),
+        Err(ResourceInvocationErrorV1::Ambiguous)
+    );
+    assert!(!active.exists());
+    assert!(!pending.exists());
+    assert!(matches!(
+        resource.prepare(&manifest),
+        Err(ConsequenceError::ResourceRequiresReopen)
+    ));
+    drop(resource);
+    let mut resource = DurablePqAtomicRegisterV1::open(temp.path(), endpoint.clone()).unwrap();
+    resource.prepare(&manifest).unwrap();
+    let reserved = File::open(&pending).unwrap();
+    assert_eq!(
+        reserved.metadata().unwrap().len(),
+        PQ_REGISTER_RECORD_MAX_BYTES as u64
+    );
+    assert_eq!(
+        reserved.allocated_size().unwrap(),
+        PQ_REGISTER_RECORD_MAX_BYTES as u64
+    );
+    let inode = reserved.metadata().unwrap().ino();
+    eprintln!("AFT_ENDPOINT_LIVE_BEGIN");
+    let record = match resource.invoke_atomic(&manifest).unwrap() {
+        AtomicMutationResultV1::Inserted(record) => record,
+        other => panic!("expected one insertion: {other:?}"),
+    };
+    eprintln!("AFT_ENDPOINT_LIVE_END");
+    assert!(!pending.exists());
+    assert_eq!(fs::metadata(&active).unwrap().ino(), inode);
+    assert_eq!(
+        File::open(&active).unwrap().allocated_size().unwrap(),
+        PQ_REGISTER_RECORD_MAX_BYTES as u64
+    );
+    assert_eq!(
+        resource.invoke_atomic(&manifest).unwrap(),
+        AtomicMutationResultV1::Existing(record.clone())
+    );
+    let active_bytes = fs::read(&active).unwrap();
+    // An interrupted spare is never selected over the signed active value.
+    fs::write(&pending, b"interrupted spare").unwrap();
+    resource.prepare(&manifest).unwrap();
+    assert_eq!(fs::read(&pending).unwrap(), b"interrupted spare");
+    let mut conflict = manifest.clone();
+    conflict.request_root = [91; 32];
+    resource.prepare(&conflict).unwrap();
+    assert_eq!(
+        resource.invoke_atomic(&conflict),
+        Err(ResourceInvocationErrorV1::Conflict(record.clone()))
+    );
+    assert_eq!(fs::read(&active).unwrap(), active_bytes);
+    drop(resource);
+    let mut resource = DurablePqAtomicRegisterV1::open(temp.path(), endpoint).unwrap();
+    assert_eq!(
+        resource
+            .lookup(&manifest.resource_id, &manifest.idempotency_key)
+            .unwrap(),
+        Some(record)
+    );
+    fs::write(&active, b"corrupt active").unwrap();
+    assert!(resource.prepare(&manifest).is_err());
+    assert!(resource
+        .lookup(&manifest.resource_id, &manifest.idempotency_key)
+        .is_err());
+    assert_eq!(fs::read(&active).unwrap(), b"corrupt active");
+    assert_eq!(fs::read(&pending).unwrap(), b"interrupted spare");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn endpoint_reservation_refuses_lost_capacity_and_recovers_only_uncommitted_staging() {
+    let temp = TempDir::new().unwrap();
+    let active = temp.path().join("record.json");
+    let pending = resource_reservation::staged(&active).unwrap();
+    resource_reservation::prepare(&active).unwrap();
+    let file = OpenOptions::new().write(true).open(&pending).unwrap();
+    // Truncating zero length is insufficient on Linux: first expose a byte,
+    // then truncate, so the regression actually releases reserved extents.
+    file.set_len(1).unwrap();
+    file.set_len(0).unwrap();
+    assert_eq!(file.allocated_size().unwrap(), 0);
+    assert!(matches!(
+        resource_reservation::commit(&active, b"{}"),
+        Err(ConsequenceError::ResourceCapacityNotPrepared)
+    ));
+    assert!(!active.exists());
+    assert_eq!(fs::read(&pending).unwrap(), b"");
+    resource_reservation::prepare(&active).unwrap();
+    OpenOptions::new()
+        .write(true)
+        .open(&pending)
+        .unwrap()
+        .write_all(b"partial")
+        .unwrap();
+    assert!(matches!(
+        resource_reservation::commit(&active, b"{}"),
+        Err(ConsequenceError::ResourceCapacityNotPrepared)
+    ));
+    assert_eq!(&fs::read(&pending).unwrap()[..7], b"partial");
+    resource_reservation::prepare(&active).unwrap();
+    assert_eq!(
+        fs::metadata(&pending).unwrap().len(),
+        PQ_REGISTER_RECORD_MAX_BYTES as u64
+    );
+    assert_eq!(
+        File::open(&pending).unwrap().allocated_size().unwrap(),
+        PQ_REGISTER_RECORD_MAX_BYTES as u64
+    );
+    resource_reservation::commit(&active, b"{}").unwrap();
+    let stored = fs::read(&active).unwrap();
+    assert_eq!(&stored[..2], b"{}");
+    assert!(stored[2..].iter().all(|byte| *byte == b' '));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn receipt_reserved_exchange_preserves_capacity_and_payload_when_length_shrinks() {
+    use std::os::unix::fs::MetadataExt;
+    let temp = TempDir::new().unwrap();
+    let active = temp.path().join("receipt.json");
+    let spare = resource_reservation::staged(&active).unwrap();
+    let original = br#"{"value":"a longer original value"}"#;
+    fs::write(&active, original).unwrap();
+    receipt_reservation::prepare(&active, 16384).unwrap();
+    let first = fs::metadata(&active).unwrap().ino();
+    let second = fs::metadata(&spare).unwrap().ino();
+    assert_ne!(first, second);
+    for (index, bytes) in [
+        br#"{"value":1}"#.as_slice(),
+        br#"{"value":2}"#,
+        br#"{"value":3}"#,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        receipt_reservation::commit(&active, bytes, 16384).unwrap();
+        assert_eq!(
+            fs::metadata(&active).unwrap().ino(),
+            if index % 2 == 0 { second } else { first }
+        );
+        assert_eq!(fs::metadata(&active).unwrap().len(), 20480);
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(
+                &receipt_reservation::read(&active).unwrap().0
+            )
+            .unwrap(),
+            serde_json::from_slice::<serde_json::Value>(bytes).unwrap()
+        );
+        for path in [&active, &spare] {
+            assert_eq!(File::open(path).unwrap().allocated_size().unwrap(), 20480);
+        }
+    }
+    let before = fs::read(&active).unwrap();
+    OpenOptions::new()
+        .write(true)
+        .open(&spare)
+        .unwrap()
+        .set_len(0)
+        .unwrap();
+    assert!(matches!(
+        receipt_reservation::commit(&active, b"{}", 16384),
+        Err(ConsequenceError::ResourceCapacityNotPrepared)
+    ));
+    assert_eq!(fs::read(&active).unwrap(), before);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn receipt_preparation_reuses_valid_pair_and_repairs_only_incomplete_spare() {
+    use std::os::unix::fs::MetadataExt;
+    let temp = TempDir::new().unwrap();
+    let active = temp.path().join("receipt.json");
+    let spare = resource_reservation::staged(&active).unwrap();
+    fs::write(&active, b"original receipt").unwrap();
+    receipt_reservation::prepare(&active, 16384).unwrap();
+    // Leave the spare at an older payload, as a real commit does. It is
+    // capacity for the next write, never an alternative authority source.
+    receipt_reservation::commit(&active, b"current receipt", 16384).unwrap();
+    let before =
+        [&active, &spare].map(|path| (fs::metadata(path).unwrap().ino(), fs::read(path).unwrap()));
+    eprintln!("AFT_RECEIPT_REUSE_BEGIN");
+    receipt_reservation::prepare(&active, 16384).unwrap();
+    receipt_reservation::prepare(&active, 16384).unwrap();
+    eprintln!("AFT_RECEIPT_REUSE_END");
+    let after =
+        [&active, &spare].map(|path| (fs::metadata(path).unwrap().ino(), fs::read(path).unwrap()));
+    assert!(
+        before == after,
+        "valid prepared files must not be rewritten or exchanged"
+    );
+    assert_eq!(
+        receipt_reservation::read(&active).unwrap().0,
+        b"current receipt"
+    );
+
+    // Interrupted, non-authoritative staging is repairable before live work.
+    fs::write(&spare, b"partial").unwrap();
+    receipt_reservation::prepare(&active, 16384).unwrap();
+    assert_eq!(
+        receipt_reservation::read(&active).unwrap().0,
+        b"current receipt"
+    );
+    receipt_reservation::commit(&active, b"next receipt", 16384).unwrap();
+    assert_eq!(
+        receipt_reservation::read(&active).unwrap().0,
+        b"next receipt"
+    );
+
+    // A valid spare never repairs or substitutes for corrupt active authority.
+    let mut corrupt = fs::read(&active).unwrap();
+    corrupt[8..16].copy_from_slice(&u64::MAX.to_le_bytes());
+    fs::write(&active, &corrupt).unwrap();
+    let spare_before = fs::read(&spare).unwrap();
+    assert!(matches!(
+        receipt_reservation::prepare(&active, 16384),
+        Err(ConsequenceError::CorruptReceipt)
+    ));
+    assert_eq!(fs::read(&active).unwrap(), corrupt);
+    assert_eq!(fs::read(&spare).unwrap(), spare_before);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn online_receipt_lost_reservation_refuses_before_claim_and_requires_reopen() {
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    let mut manifest = manifest("reserved-receipt", profile);
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let mut resource =
+        DurablePqAtomicRegisterV1::open(temp.path().join("resource"), endpoint).unwrap();
+    let store_root = temp.path().join("consequence");
+    let mut store = ConsequenceStore::open(&store_root).unwrap();
+    let authorized = authorize(&mut store, manifest.clone());
+    resource.prepare(&manifest).unwrap();
+    store.prepare_online_storage(&manifest.effect_id).unwrap();
+    let active = store.receipt_path(&manifest.effect_id);
+    let spare = resource_reservation::staged(&active).unwrap();
+    let bytes = fs::read(&active).unwrap();
+    OpenOptions::new()
+        .write(true)
+        .open(&spare)
+        .unwrap()
+        .set_len(0)
+        .unwrap();
+    let binding = store
+        .online_authorization_requirement(&manifest.effect_id)
+        .unwrap();
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            &manifest.effect_id,
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(5)),
+            10
+        ),
+        Err(ConsequenceError::ResourceCapacityNotPrepared)
+    ));
+    assert_eq!(fs::read(&active).unwrap(), bytes);
+    assert!(resource
+        .lookup(&manifest.resource_id, &manifest.idempotency_key)
+        .unwrap()
+        .is_none());
+    assert!(matches!(
+        store.load(&manifest.effect_id),
+        Err(ConsequenceError::ResourceRequiresReopen)
+    ));
+    drop(store);
+    let mut store = ConsequenceStore::open(&store_root).unwrap();
+    assert_eq!(store.load(&manifest.effect_id).unwrap(), authorized);
+    store.prepare_online_storage(&manifest.effect_id).unwrap();
+    let binding = store
+        .online_authorization_requirement(&manifest.effect_id)
+        .unwrap();
+    let executed = store
+        .execute_with_online_authorization(
+            &manifest.effect_id,
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(5)),
+            10,
+        )
+        .unwrap();
+    assert!(matches!(
+        executed.state,
+        ConsequenceStateV1::Executed { .. }
+    ));
+    let spare_bytes = fs::read(&spare).unwrap();
+    fs::write(&active, b"corrupt authoritative receipt").unwrap();
+    assert!(store.prepare_online_storage(&manifest.effect_id).is_err());
+    assert_eq!(fs::read(&active).unwrap(), b"corrupt authoritative receipt");
+    assert_eq!(fs::read(&spare).unwrap(), spare_bytes);
+}
+
+#[test]
+fn checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing() {
+    use std::future::Future;
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Wake, Waker};
+    struct Noop;
+    impl Wake for Noop {
+        fn wake(self: Arc<Self>) {}
+    }
+    fn ready<F: Future>(future: F) -> F::Output {
+        let waker = Waker::from(Arc::new(Noop));
+        let mut context = Context::from_waker(&waker);
+        match std::pin::pin!(future).as_mut().poll(&mut context) {
+            Poll::Ready(value) => value,
+            Poll::Pending => panic!("test preflight must complete synchronously"),
+        }
+    }
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    let mut manifest = manifest("checked-preparation", profile);
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let verified = verified_for(&manifest.resource_profile);
+    let authorization = accepted_for(&manifest, &verified);
+    let mut store = ConsequenceStore::open(temp.path().join("consequence")).unwrap();
+    let binding = || OnlineEffectAuthorizationBindingV1::from_manifest(&manifest).unwrap();
+    assert!(store
+        .inspect_online_effect(manifest.clone(), &verified, &authorization, 10, binding())
+        .unwrap());
+    assert!(!store.contains(&manifest.effect_id));
+    let mut uncommitted = authorization.clone();
+    uncommitted.manifest_root[0] ^= 1;
+    assert!(matches!(
+        store.inspect_online_effect(manifest.clone(), &verified, &uncommitted, 10, binding()),
+        Err(ConsequenceError::ReplayConflict)
+    ));
+    assert_eq!(
+        fs::read_dir(temp.path().join("consequence/effects"))
+            .unwrap()
+            .count(),
+        0
+    );
+    let mut wrong = binding();
+    wrong.predecessor[0] ^= 1;
+    assert!(matches!(
+        ready(store.prepare_online_effect_checked(
+            manifest.clone(),
+            &verified,
+            &authorization,
+            10,
+            wrong,
+            std::future::ready(Ok(()))
+        )),
+        Err(ConsequenceError::InvalidOnlineAuthorization)
+    ));
+    assert!(!store.contains(&manifest.effect_id));
+    assert!(matches!(
+        ready(store.prepare_online_effect_checked(
+            manifest.clone(),
+            &verified,
+            &authorization,
+            10,
+            binding(),
+            std::future::ready(Err(ConsequenceError::Invalid(
+                "rooted candidate rejected".into()
+            )))
+        )),
+        Err(ConsequenceError::Invalid(_))
+    ));
+    assert_eq!(
+        fs::read_dir(temp.path().join("consequence/effects"))
+            .unwrap()
+            .count(),
+        0
+    );
+    assert!(ready(store.prepare_online_effect_checked(
+        manifest.clone(),
+        &verified,
+        &authorization,
+        10,
+        binding(),
+        std::future::ready(Ok(()))
+    ))
+    .unwrap());
+    let mut resource =
+        DurablePqAtomicRegisterV1::open(temp.path().join("resource"), endpoint).unwrap();
+    resource.prepare(&manifest).unwrap();
+    // Successful preparation still cannot execute without this executor's own
+    // separately supplied live continuation.
+    assert!(matches!(
+        store.execute(&manifest.effect_id, &mut resource),
+        Err(ConsequenceError::OnlineAuthorizationRequired)
+    ));
+    assert!(resource
+        .lookup(&manifest.resource_id, &manifest.idempotency_key)
+        .unwrap()
+        .is_none());
+    store.arm_crash(ConsequenceCrashPoint::AfterClaimed);
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            &manifest.effect_id,
+            &mut resource,
+            TestOnlineAuthorization(binding(), Instant::now() + Duration::from_secs(5)),
+            10
+        ),
+        Err(ConsequenceError::InjectedCrash(
+            ConsequenceCrashPoint::AfterClaimed
+        ))
+    ));
+    let claimed = fs::read(store.receipt_path(&manifest.effect_id)).unwrap();
+    assert!(matches!(
+        ready(store.prepare_online_effect_checked(
+            manifest.clone(),
+            &verified,
+            &authorization,
+            10,
+            binding(),
+            std::future::ready(Err(ConsequenceError::Invalid(
+                "claimed retry preflight rejected".into()
+            )))
+        )),
+        Err(ConsequenceError::Invalid(_))
+    ));
+    assert_eq!(
+        fs::read(store.receipt_path(&manifest.effect_id)).unwrap(),
+        claimed
+    );
+    assert!(resource
+        .lookup(&manifest.resource_id, &manifest.idempotency_key)
+        .unwrap()
+        .is_none());
+    let receipt = store
+        .execute_with_online_authorization(
+            &manifest.effect_id,
+            &mut resource,
+            TestOnlineAuthorization(binding(), Instant::now() + Duration::from_secs(5)),
+            10,
+        )
+        .unwrap();
+    assert!(matches!(receipt.state, ConsequenceStateV1::Executed { .. }));
+    let never_poll = std::future::poll_fn(|_| -> Poll<Result<(), ConsequenceError>> {
+        panic!("terminal readmission must not require a new candidate preflight")
+    });
+    let terminal_path = store.receipt_path(&manifest.effect_id);
+    let terminal_bytes = fs::read(&terminal_path).unwrap();
+    let spare_path = resource_reservation::staged(&terminal_path).unwrap();
+    let spare_bytes = fs::read(&spare_path).unwrap();
+    #[cfg(unix)]
+    let terminal_inode = {
+        use std::os::unix::fs::MetadataExt;
+        fs::metadata(&terminal_path).unwrap().ino()
+    };
+    assert!(!ready(store.prepare_online_effect_checked(
+        manifest.clone(),
+        &verified,
+        &authorization,
+        999,
+        binding(),
+        never_poll
+    ))
+    .unwrap());
+    assert_eq!(fs::read(&terminal_path).unwrap(), terminal_bytes);
+    assert_eq!(fs::read(&spare_path).unwrap(), spare_bytes);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        assert_eq!(fs::metadata(&terminal_path).unwrap().ino(), terminal_inode);
+    }
+    assert!(store
+        .online_retry_result(&manifest.effect_id, &mut resource)
+        .unwrap()
+        .is_some());
+    let before = fs::read(store.receipt_path(&manifest.effect_id)).unwrap();
+    assert!(!store
+        .inspect_online_effect(manifest.clone(), &verified, &authorization, 999, binding())
+        .unwrap());
+    assert_eq!(
+        fs::read(store.receipt_path(&manifest.effect_id)).unwrap(),
+        before
+    );
+    let mut forged = accepted_for(&manifest, &verified);
+    forged.manifest_root = [91; 32];
+    assert!(matches!(
+        ready(store.prepare_online_effect_checked(
+            manifest.clone(),
+            &verified,
+            &forged,
+            999,
+            binding(),
+            std::future::ready(Ok(()))
+        )),
+        Err(ConsequenceError::ReplayConflict)
+    ));
+    assert_eq!(
+        fs::read(store.receipt_path(&manifest.effect_id)).unwrap(),
+        before
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn receipt_admission_preserves_invalid_active_and_staging_aliases() {
+    use std::os::unix::fs::symlink;
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    for case in ["active-dangling", "staging-symlink", "staging-hardlink"] {
+        let temp = TempDir::new().unwrap();
+        let root = temp.path().join("consequence");
+        let mut store = ConsequenceStore::open(&root).unwrap();
+        let mut manifest = manifest(
+            case,
+            DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap(),
+        );
+        manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+        manifest.online_authorization_policy_root = Some([19; 32]);
+        manifest.online_authorization_predecessor = Some([77; 32]);
+        manifest.online_authorization_authority_mode =
+            Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+        let verified = verified_for(&manifest.resource_profile);
+        let authorization = accepted_for(&manifest, &verified);
+        let active = store.receipt_path(&manifest.effect_id);
+        let spare = resource_reservation::staged(&active).unwrap();
+        let target = temp.path().join("fixture-target");
+        let alias = if case == "active-dangling" {
+            symlink(&target, &active).unwrap();
+            active.clone()
+        } else {
+            fs::write(&target, b"preserve this fixture").unwrap();
+            if case == "staging-symlink" {
+                symlink(&target, &spare).unwrap();
+            } else {
+                fs::hard_link(&target, &spare).unwrap();
+            }
+            spare.clone()
+        };
+        let result = store.prepare_online_effect(manifest.clone(), &verified, &authorization, 10);
+        assert!(
+            matches!(
+                result,
+                Err(ConsequenceError::Io(_)) | Err(ConsequenceError::CorruptReceipt)
+            ),
+            "{case}: {result:?}"
+        );
+        if case == "active-dangling" {
+            assert!(store.contains(&manifest.effect_id));
+            assert!(fs::symlink_metadata(&active)
+                .unwrap()
+                .file_type()
+                .is_symlink());
+            assert!(!target.exists());
+        } else {
+            assert_eq!(fs::read(&target).unwrap(), b"preserve this fixture");
+            assert!(fs::symlink_metadata(&alias).is_ok());
+            assert!(!active.exists());
+        }
+        drop(store);
+        // Removing the test's invalid alias and reopening restores ordinary
+        // preparation; refusal must not invent an authoritative receipt.
+        fs::remove_file(alias).unwrap();
+        let mut reopened = ConsequenceStore::open(&root).unwrap();
+        let receipt = reopened
+            .prepare_online_effect(manifest.clone(), &verified, &authorization, 10)
+            .unwrap();
+        assert_eq!(reopened.load(&manifest.effect_id).unwrap(), receipt);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn consequence_lock_refuses_aliases_and_retains_exclusive_ownership() {
+    for hard_link in [false, true] {
+        let temp = TempDir::new().unwrap();
+        let root = temp.path().join("consequence");
+        fs::create_dir(&root).unwrap();
+        let target = temp.path().join("fixture-lock-target");
+        fs::write(&target, b"unchanged lock fixture").unwrap();
+        let lock = root.join("consequence.lock");
+        if hard_link {
+            fs::hard_link(&target, &lock).unwrap();
+        } else {
+            std::os::unix::fs::symlink(&target, &lock).unwrap();
+        }
+        assert!(matches!(
+            ConsequenceStore::open(&root),
+            Err(ConsequenceError::Io(_)) | Err(ConsequenceError::CorruptReceipt)
+        ));
+        assert_eq!(fs::read(&target).unwrap(), b"unchanged lock fixture");
+        assert!(fs::symlink_metadata(&lock).is_ok());
+        fs::remove_file(&lock).unwrap();
+        let store = ConsequenceStore::open(&root).unwrap();
+        assert!(matches!(
+            ConsequenceStore::open(&root),
+            Err(ConsequenceError::StoreBusy)
+        ));
+        drop(store);
+        assert!(ConsequenceStore::open(&root).is_ok());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// M17Q R2 consequence claim guard, claim-time clock, substituted receipts and
+// fenced Authorized receipts.
+// ---------------------------------------------------------------------------
+
+/// One `online_query_unanimity_v0` manifest whose idempotency key is the
+/// stable QUV slot key. `resource_id` and `conflict_slot` are the two fields
+/// the tests below vary.
+fn online_manifest(
+    effect_id: &str,
+    profile: ExternalResourceProfileV1,
+    resource_id: &str,
+    conflict_slot: u64,
+) -> EffectManifestV1 {
+    let mut manifest = manifest(effect_id, profile);
+    manifest.resource_id = resource_id.into();
+    manifest.conflict_slot = conflict_slot;
+    manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.online_authorization_predecessor = Some([77; 32]);
+    manifest.online_authorization_authority_mode =
+        Some(ioi_types::app::QuvAuthorityModeV0::Unowned);
+    manifest.fence = EffectFenceV1::ProtocolHeight {
+        configuration_hash: [88; 32],
+        minimum_height: 10,
+        maximum_height: 10,
+    };
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    manifest
+}
+
+fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Wake, Waker};
+    struct Noop;
+    impl Wake for Noop {
+        fn wake(self: Arc<Self>) {}
+    }
+    let waker = Waker::from(Arc::new(Noop));
+    let mut context = Context::from_waker(&waker);
+    match std::pin::pin!(future).as_mut().poll(&mut context) {
+        Poll::Ready(value) => value,
+        Poll::Pending => panic!("test preflight must complete synchronously"),
+    }
+}
+
+/// Admit and reserve one online effect exactly as the validator does before
+/// its live operation: inspect, checked preparation, endpoint preparation.
+fn admit_online(
+    store: &mut ConsequenceStore,
+    resource: &mut dyn ExternalResourceV1,
+    manifest: &EffectManifestV1,
+) -> (VerifiedGuaranteeV1, AcceptedEffectAuthorizationV1) {
+    let verified = verified_for(&manifest.resource_profile);
+    let authorization = accepted_for(manifest, &verified);
+    let binding = OnlineEffectAuthorizationBindingV1::from_manifest(manifest).unwrap();
+    assert!(store
+        .inspect_online_effect(manifest.clone(), &verified, &authorization, 10, binding)
+        .unwrap());
+    let binding = OnlineEffectAuthorizationBindingV1::from_manifest(manifest).unwrap();
+    assert!(poll_ready(store.prepare_online_effect_checked(
+        manifest.clone(),
+        &verified,
+        &authorization,
+        10,
+        binding,
+        std::future::ready(Ok(()))
+    ))
+    .unwrap());
+    resource.prepare(manifest).unwrap();
+    (verified, authorization)
+}
+
+fn live_authorization(store: &ConsequenceStore, effect_id: &str) -> TestOnlineAuthorization {
+    TestOnlineAuthorization(
+        store.online_authorization_requirement(effect_id).unwrap(),
+        Instant::now() + Duration::from_secs(30),
+    )
+}
+
+/// Counts external invocations of the real durable register.
+struct CountingRegister {
+    inner: DurablePqAtomicRegisterV1,
+    invocations: u32,
+}
+
+impl ExternalResourceV1 for CountingRegister {
+    fn profile(&self) -> &ExternalResourceProfileV1 {
+        self.inner.profile()
+    }
+    fn prepare(&mut self, manifest: &EffectManifestV1) -> Result<(), ConsequenceError> {
+        self.inner.prepare(manifest)
+    }
+    fn invoke_atomic(
+        &mut self,
+        manifest: &EffectManifestV1,
+    ) -> Result<AtomicMutationResultV1, ResourceInvocationErrorV1> {
+        self.invocations += 1;
+        self.inner.invoke_atomic(manifest)
+    }
+    fn lookup(
+        &mut self,
+        resource_id: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<ExternalResourceRecordV1>, ResourceLookupErrorV1> {
+        self.inner.lookup(resource_id, idempotency_key)
+    }
+    fn verify_record_evidence(&self, record: &ExternalResourceRecordV1) -> bool {
+        self.inner.verify_record_evidence(record)
+    }
+}
+
+fn claim_path_of(store: &ConsequenceStore, manifest: &EffectManifestV1) -> PathBuf {
+    claim_index::path_for(
+        store.path(),
+        &manifest.query_unanimity_idempotency_key().unwrap(),
+    )
+}
+
+fn read_claim_effect(store: &ConsequenceStore, manifest: &EffectManifestV1) -> Option<String> {
+    claim_index::read(
+        &claim_path_of(store, manifest),
+        &manifest.query_unanimity_idempotency_key().unwrap(),
+    )
+    .unwrap()
+    .map(|record| record.effect_id)
+}
+
+fn record_file_count(register_root: &Path) -> usize {
+    fs::read_dir(register_root.join("records"))
+        .unwrap()
+        .filter(|entry| {
+            !entry
+                .as_ref()
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with('.')
+        })
+        .count()
+}
+
+#[test]
+fn stable_key_claim_guard_refuses_second_effect_for_same_conflict_slot_before_invocation() {
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    // Same conflict domain and slot, hence the same stable QUV key, but
+    // independently chosen resource identities and therefore two distinct
+    // physical register record paths.
+    let first = online_manifest("slot-claim-a", profile.clone(), "resource://test/a", 7);
+    let second = online_manifest("slot-claim-b", profile, "resource://test/b", 7);
+    assert_eq!(first.idempotency_key, second.idempotency_key);
+    assert_ne!(first.resource_id, second.resource_id);
+    let register_root = temp.path().join("register");
+    let mut resource = CountingRegister {
+        inner: DurablePqAtomicRegisterV1::open(&register_root, endpoint).unwrap(),
+        invocations: 0,
+    };
+    let mut store = ConsequenceStore::open(temp.path().join("consequence")).unwrap();
+    // Both effects are admitted and reserved before either runs QUV.
+    let (first_verified, first_authorization) = admit_online(&mut store, &mut resource, &first);
+    let (second_verified, second_authorization) = admit_online(&mut store, &mut resource, &second);
+    assert!(read_claim_effect(&store, &first).is_none());
+
+    let executed = store
+        .execute_with_online_authorization(
+            &first.effect_id,
+            &mut resource,
+            live_authorization(&store, &first.effect_id),
+            10,
+        )
+        .unwrap();
+    assert!(matches!(
+        executed.state,
+        ConsequenceStateV1::Executed { .. }
+    ));
+    assert_eq!(resource.invocations, 1);
+    assert_eq!(
+        read_claim_effect(&store, &first).as_deref(),
+        Some("slot-claim-a")
+    );
+
+    // The second effect reaches the claim boundary with its own fresh
+    // continuation and is refused there with zero mutation.
+    let second_path = store.receipt_path(&second.effect_id);
+    let second_bytes = fs::read(&second_path).unwrap();
+    let error = store
+        .execute_with_online_authorization(
+            &second.effect_id,
+            &mut resource,
+            live_authorization(&store, &second.effect_id),
+            10,
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            &error,
+            ConsequenceError::ConflictSlotAlreadyClaimed { effect_id, claimed_by }
+                if effect_id == "slot-claim-b" && claimed_by == "slot-claim-a"
+        ),
+        "{error:?}"
+    );
+    assert_eq!(resource.invocations, 1);
+    assert_eq!(fs::read(&second_path).unwrap(), second_bytes);
+    assert_eq!(
+        store.load(&second.effect_id).unwrap().state.phase(),
+        ConsequencePhaseV1::Authorized
+    );
+    assert!(resource
+        .lookup(&second.resource_id, &second.idempotency_key)
+        .unwrap()
+        .is_none());
+    assert_eq!(record_file_count(&register_root), 1);
+    // Re-admission of the loser now refuses before any per-effect mutation,
+    // in inspect, checked preparation and plain preparation alike.
+    let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&second).unwrap();
+    assert!(matches!(
+        store.inspect_online_effect(
+            second.clone(),
+            &second_verified,
+            &second_authorization,
+            10,
+            binding
+        ),
+        Err(ConsequenceError::ConflictSlotAlreadyClaimed { .. })
+    ));
+    let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&second).unwrap();
+    assert!(matches!(
+        poll_ready(store.prepare_online_effect_checked(
+            second.clone(),
+            &second_verified,
+            &second_authorization,
+            10,
+            binding,
+            std::future::ready(Ok(()))
+        )),
+        Err(ConsequenceError::ConflictSlotAlreadyClaimed { .. })
+    ));
+    assert!(matches!(
+        store.prepare_online_effect(second.clone(), &second_verified, &second_authorization, 10),
+        Err(ConsequenceError::ConflictSlotAlreadyClaimed { .. })
+    ));
+    assert_eq!(fs::read(&second_path).unwrap(), second_bytes);
+    // The winner's own readmission is unaffected by its claim.
+    let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&first).unwrap();
+    assert!(!store
+        .inspect_online_effect(
+            first.clone(),
+            &first_verified,
+            &first_authorization,
+            10,
+            binding
+        )
+        .unwrap());
+    assert_eq!(resource.invocations, 1);
+}
+
+#[test]
+fn claim_index_crash_before_claimed_persist_binds_slot_to_that_effect_across_reopen() {
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    let first = online_manifest("crash-claim-a", profile.clone(), "resource://test/a", 3);
+    let second = online_manifest("crash-claim-b", profile, "resource://test/b", 3);
+    let register_root = temp.path().join("register");
+    let mut resource = CountingRegister {
+        inner: DurablePqAtomicRegisterV1::open(&register_root, endpoint).unwrap(),
+        invocations: 0,
+    };
+    let root = temp.path().join("consequence");
+    let mut store = ConsequenceStore::open(&root).unwrap();
+    admit_online(&mut store, &mut resource, &first);
+    let (second_verified, second_authorization) = admit_online(&mut store, &mut resource, &second);
+
+    store.arm_crash(ConsequenceCrashPoint::AfterClaimIndexed);
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            &first.effect_id,
+            &mut resource,
+            live_authorization(&store, &first.effect_id),
+            10,
+        ),
+        Err(ConsequenceError::InjectedCrash(
+            ConsequenceCrashPoint::AfterClaimIndexed
+        ))
+    ));
+    // Crash window: claim written, Claimed not persisted.
+    assert_eq!(
+        store.load(&first.effect_id).unwrap().state.phase(),
+        ConsequencePhaseV1::Authorized
+    );
+    assert_eq!(
+        read_claim_effect(&store, &first).as_deref(),
+        Some("crash-claim-a")
+    );
+    assert_eq!(resource.invocations, 0);
+    drop(store);
+
+    let mut store = ConsequenceStore::open(&root).unwrap();
+    // Reopen retains the claim; the other effect is refused everywhere.
+    assert_eq!(
+        read_claim_effect(&store, &first).as_deref(),
+        Some("crash-claim-a")
+    );
+    let second_bytes = fs::read(store.receipt_path(&second.effect_id)).unwrap();
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            &second.effect_id,
+            &mut resource,
+            live_authorization(&store, &second.effect_id),
+            10,
+        ),
+        Err(ConsequenceError::ConflictSlotAlreadyClaimed { .. })
+    ));
+    let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&second).unwrap();
+    assert!(matches!(
+        store.inspect_online_effect(
+            second.clone(),
+            &second_verified,
+            &second_authorization,
+            10,
+            binding
+        ),
+        Err(ConsequenceError::ConflictSlotAlreadyClaimed { .. })
+    ));
+    assert_eq!(resource.invocations, 0);
+    assert_eq!(
+        fs::read(store.receipt_path(&second.effect_id)).unwrap(),
+        second_bytes
+    );
+    // Only the claimant continues, with its own fresh continuation.
+    let executed = store
+        .execute_with_online_authorization(
+            &first.effect_id,
+            &mut resource,
+            live_authorization(&store, &first.effect_id),
+            10,
+        )
+        .unwrap();
+    assert!(matches!(
+        executed.state,
+        ConsequenceStateV1::Executed { .. }
+    ));
+    assert_eq!(resource.invocations, 1);
+    assert_eq!(record_file_count(&register_root), 1);
+    drop(store);
+    let mut store = ConsequenceStore::open(&root).unwrap();
+    assert!(matches!(
+        store.execute_with_online_authorization(
+            &second.effect_id,
+            &mut resource,
+            live_authorization(&store, &second.effect_id),
+            10,
+        ),
+        Err(ConsequenceError::ConflictSlotAlreadyClaimed { .. })
+    ));
+    assert_eq!(resource.invocations, 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn corrupt_or_aliased_claim_index_refuses_execution_without_mutation() {
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    for case in ["symlink", "hardlink", "garbage", "oversize", "wrong-key"] {
+        let temp = TempDir::new().unwrap();
+        let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+        let manifest = online_manifest("claim-corrupt", profile, "resource://test/a", 5);
+        let mut resource = CountingRegister {
+            inner: DurablePqAtomicRegisterV1::open(temp.path().join("register"), endpoint.clone())
+                .unwrap(),
+            invocations: 0,
+        };
+        let mut store = ConsequenceStore::open(temp.path().join("consequence")).unwrap();
+        let (verified, authorization) = admit_online(&mut store, &mut resource, &manifest);
+        let claim = claim_path_of(&store, &manifest);
+        let target = temp.path().join("fixture-target");
+        fs::write(&target, b"preserve this fixture").unwrap();
+        match case {
+            "symlink" => std::os::unix::fs::symlink(&target, &claim).unwrap(),
+            "hardlink" => fs::hard_link(&target, &claim).unwrap(),
+            "garbage" => fs::write(&claim, b"{not a claim record").unwrap(),
+            "oversize" => fs::write(&claim, vec![b' '; claim_index::MAX_BYTES + 1]).unwrap(),
+            "wrong-key" => {
+                let other = claim_index::record_for(
+                    "aft-quv-v0:other",
+                    &manifest.effect_id,
+                    manifest.commitment().unwrap(),
+                )
+                .unwrap();
+                fs::write(&claim, claim_index::encode(&other).unwrap()).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        let receipt_path = store.receipt_path(&manifest.effect_id);
+        let before = fs::read(&receipt_path).unwrap();
+        let planted = fs::symlink_metadata(&claim).unwrap();
+        let result = store.execute_with_online_authorization(
+            &manifest.effect_id,
+            &mut resource,
+            live_authorization(&store, &manifest.effect_id),
+            10,
+        );
+        assert!(
+            matches!(result, Err(ConsequenceError::CorruptClaimIndex)),
+            "{case}: {result:?}"
+        );
+        let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&manifest).unwrap();
+        let result =
+            store.inspect_online_effect(manifest.clone(), &verified, &authorization, 10, binding);
+        assert!(
+            matches!(result, Err(ConsequenceError::CorruptClaimIndex)),
+            "{case}: {result:?}"
+        );
+        assert_eq!(resource.invocations, 0, "{case}");
+        assert_eq!(fs::read(&receipt_path).unwrap(), before, "{case}");
+        assert_eq!(
+            store.load(&manifest.effect_id).unwrap().state.phase(),
+            ConsequencePhaseV1::Authorized
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"preserve this fixture");
+        let after = fs::symlink_metadata(&claim).unwrap();
+        assert_eq!(after.file_type(), planted.file_type(), "{case}");
+        assert_eq!(after.len(), planted.len(), "{case}");
+        // Removing the planted entry restores ordinary execution; refusal
+        // never invented a claim for this or any other effect.
+        fs::remove_file(&claim).unwrap();
+        let executed = store
+            .execute_with_online_authorization(
+                &manifest.effect_id,
+                &mut resource,
+                live_authorization(&store, &manifest.effect_id),
+                10,
+            )
+            .unwrap();
+        assert!(matches!(
+            executed.state,
+            ConsequenceStateV1::Executed { .. }
+        ));
+        assert_eq!(resource.invocations, 1);
+        assert_eq!(
+            read_claim_effect(&store, &manifest).as_deref(),
+            Some("claim-corrupt")
+        );
+    }
+}
+
+#[test]
+fn portable_manifests_do_not_touch_the_claim_index() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let mut resource = AtomicRegister::new(profile.clone());
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    // Two portable manifests for one conflict domain/slot with distinct
+    // resource identities keep their existing, independent behaviour.
+    let mut first = manifest("portable-a", profile.clone());
+    first.resource_id = "resource://test/a".into();
+    let mut second = manifest("portable-b", profile);
+    second.resource_id = "resource://test/b".into();
+    assert_eq!(first.conflict_slot, second.conflict_slot);
+    authorize(&mut store, first.clone());
+    authorize(&mut store, second.clone());
+    assert!(matches!(
+        store.execute("portable-a", &mut resource).unwrap().state,
+        ConsequenceStateV1::Executed { .. }
+    ));
+    assert!(matches!(
+        store.execute("portable-b", &mut resource).unwrap().state,
+        ConsequenceStateV1::Executed { .. }
+    ));
+    assert_eq!(resource.invocations, 2);
+    assert_eq!(fs::read_dir(temp.path().join("claims")).unwrap().count(), 0);
+    assert!(claim_index::key_for(&first).unwrap().is_none());
+}
+
+thread_local! {
+    static SCRIPTED_CLOCK: std::cell::RefCell<std::collections::VecDeque<Instant>> =
+        std::cell::RefCell::new(std::collections::VecDeque::new());
+}
+
+fn scripted_clock() -> Instant {
+    SCRIPTED_CLOCK.with(|clock| clock.borrow_mut().pop_front().unwrap_or_else(Instant::now))
+}
+
+fn script_clock(readings: &[Instant]) {
+    SCRIPTED_CLOCK.with(|clock| {
+        let mut clock = clock.borrow_mut();
+        clock.clear();
+        clock.extend(readings.iter().copied());
+    });
+}
+
+#[test]
+fn continuation_deadline_is_inclusive_and_rechecked_after_claimed_persist() {
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    // Equality at both claim-transition reads is inside the interval.
+    {
+        let temp = TempDir::new().unwrap();
+        let manifest = online_manifest("deadline-equal", profile.clone(), "resource://test/a", 1);
+        let mut resource = AtomicRegister::new(profile.clone());
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        store.set_clock(scripted_clock);
+        authorize(&mut store, manifest.clone());
+        let binding = store
+            .online_authorization_requirement("deadline-equal")
+            .unwrap();
+        let expires_at = Instant::now() + Duration::from_secs(3600);
+        script_clock(&[expires_at, expires_at]);
+        let executed = store
+            .execute_with_online_authorization(
+                "deadline-equal",
+                &mut resource,
+                TestOnlineAuthorization(binding, expires_at),
+                10,
+            )
+            .unwrap();
+        assert!(matches!(
+            executed.state,
+            ConsequenceStateV1::Executed { .. }
+        ));
+        assert_eq!(resource.invocations, 1);
+        assert!(SCRIPTED_CLOCK.with(|clock| clock.borrow().is_empty()));
+    }
+    // The clock crosses `expires_at` between the Claimed persist and the
+    // InFlight check: typed refusal, state stays Claimed, no invocation.
+    {
+        let temp = TempDir::new().unwrap();
+        let manifest = online_manifest("deadline-crossed", profile.clone(), "resource://test/a", 1);
+        let mut resource = AtomicRegister::new(profile.clone());
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        store.set_clock(scripted_clock);
+        authorize(&mut store, manifest.clone());
+        let binding = store
+            .online_authorization_requirement("deadline-crossed")
+            .unwrap();
+        let expires_at = Instant::now() + Duration::from_secs(3600);
+        script_clock(&[expires_at, expires_at + Duration::from_millis(1)]);
+        assert!(matches!(
+            store.execute_with_online_authorization(
+                "deadline-crossed",
+                &mut resource,
+                TestOnlineAuthorization(binding, expires_at),
+                10,
+            ),
+            Err(ConsequenceError::InvalidOnlineAuthorization)
+        ));
+        assert!(SCRIPTED_CLOCK.with(|clock| clock.borrow().is_empty()));
+        assert_eq!(resource.invocations, 0);
+        assert_eq!(resource.mutations, 0);
+        assert_eq!(
+            store.load("deadline-crossed").unwrap().state.phase(),
+            ConsequencePhaseV1::Claimed
+        );
+        assert_eq!(
+            read_claim_effect(&store, &manifest).as_deref(),
+            Some("deadline-crossed")
+        );
+        // A later live retry with a fresh consumed continuation, still inside
+        // its own expiry, completes from Claimed without a second claim.
+        let binding = store
+            .online_authorization_requirement("deadline-crossed")
+            .unwrap();
+        let executed = store
+            .execute_with_online_authorization(
+                "deadline-crossed",
+                &mut resource,
+                TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(30)),
+                10,
+            )
+            .unwrap();
+        assert!(matches!(
+            executed.state,
+            ConsequenceStateV1::Executed { .. }
+        ));
+        assert_eq!(resource.invocations, 1);
+        assert_eq!(resource.mutations, 1);
+    }
+    // Strictly past the deadline at the first read is refused before Claimed.
+    {
+        let temp = TempDir::new().unwrap();
+        let manifest = online_manifest("deadline-past", profile.clone(), "resource://test/a", 1);
+        let mut resource = AtomicRegister::new(profile);
+        let mut store = ConsequenceStore::open(temp.path()).unwrap();
+        store.set_clock(scripted_clock);
+        authorize(&mut store, manifest.clone());
+        let binding = store
+            .online_authorization_requirement("deadline-past")
+            .unwrap();
+        let expires_at = Instant::now() + Duration::from_secs(3600);
+        script_clock(&[expires_at + Duration::from_millis(1)]);
+        assert!(matches!(
+            store.execute_with_online_authorization(
+                "deadline-past",
+                &mut resource,
+                TestOnlineAuthorization(binding, expires_at),
+                10,
+            ),
+            Err(ConsequenceError::InvalidOnlineAuthorization)
+        ));
+        assert_eq!(resource.invocations, 0);
+        assert_eq!(
+            store.load("deadline-past").unwrap().state.phase(),
+            ConsequencePhaseV1::Authorized
+        );
+        assert!(read_claim_effect(&store, &manifest).is_none());
+        script_clock(&[]);
+    }
+}
+
+#[test]
+fn substituted_receipt_for_unadmitted_manifest_is_refused_before_quv_and_invocation() {
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    // M is the committed manifest. M' keeps its effect ID and resource
+    // profile but selects a different conflict slot, predecessor and request.
+    let committed = online_manifest("substituted", profile.clone(), "resource://test/a", 2);
+    let mut substituted = online_manifest("substituted", profile, "resource://test/a", 1);
+    substituted.request_root = [12; 32];
+    substituted.predecessor_root = [13; 32];
+    assert_ne!(
+        committed.commitment().unwrap(),
+        substituted.commitment().unwrap()
+    );
+    let bound = online_receipt_byte_bound(&substituted).unwrap().unwrap();
+    for phase in [
+        ConsequencePhaseV1::Authorized,
+        ConsequencePhaseV1::Claimed,
+        ConsequencePhaseV1::Executed,
+    ] {
+        // Build a canonical, self-consistent M' receipt in that phase.
+        let forge = TempDir::new().unwrap();
+        let forged_bytes = {
+            let mut forge_store = ConsequenceStore::open(forge.path().join("consequence")).unwrap();
+            let mut forge_register =
+                DurablePqAtomicRegisterV1::open(forge.path().join("register"), endpoint.clone())
+                    .unwrap();
+            admit_online(&mut forge_store, &mut forge_register, &substituted);
+            if phase != ConsequencePhaseV1::Authorized {
+                if phase == ConsequencePhaseV1::Claimed {
+                    forge_store.arm_crash(ConsequenceCrashPoint::AfterClaimed);
+                }
+                let result = forge_store.execute_with_online_authorization(
+                    "substituted",
+                    &mut forge_register,
+                    live_authorization(&forge_store, "substituted"),
+                    10,
+                );
+                assert_eq!(result.is_ok(), phase == ConsequencePhaseV1::Executed);
+            }
+            let receipt = forge_store.load("substituted").unwrap();
+            assert_eq!(receipt.state.phase(), phase);
+            serde_jcs::to_vec(&receipt).unwrap()
+        };
+
+        let temp = TempDir::new().unwrap();
+        let mut store = ConsequenceStore::open(temp.path().join("consequence")).unwrap();
+        let mut resource = CountingRegister {
+            inner: DurablePqAtomicRegisterV1::open(temp.path().join("register"), endpoint.clone())
+                .unwrap(),
+            invocations: 0,
+        };
+        let path = store.receipt_path("substituted");
+        atomic_write(&path, &forged_bytes).unwrap();
+        receipt_reservation::prepare(&path, bound).unwrap();
+        let loaded = store.load("substituted").unwrap();
+        assert_eq!(loaded.manifest, substituted);
+        assert_eq!(loaded.state.phase(), phase);
+        let before = fs::read(&path).unwrap();
+
+        let verified = verified_for(&committed.resource_profile);
+        let authorization = accepted_for(&committed, &verified);
+        let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&committed).unwrap();
+        let result =
+            store.inspect_online_effect(committed.clone(), &verified, &authorization, 10, binding);
+        assert!(
+            matches!(result, Err(ConsequenceError::ReplayConflict)),
+            "{phase:?}: {result:?}"
+        );
+        let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&committed).unwrap();
+        let result = poll_ready(store.prepare_online_effect_checked(
+            committed.clone(),
+            &verified,
+            &authorization,
+            10,
+            binding,
+            std::future::ready(Ok(())),
+        ));
+        assert!(
+            matches!(result, Err(ConsequenceError::ReplayConflict)),
+            "{phase:?}: {result:?}"
+        );
+        assert!(matches!(
+            store.prepare_online_effect(committed.clone(), &verified, &authorization, 10),
+            Err(ConsequenceError::ReplayConflict)
+        ));
+        // A live continuation bound to the committed manifest cannot drive
+        // the substituted receipt: executable phases fail the binding check,
+        // the terminal phase is not executable at all.
+        let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&committed).unwrap();
+        let result = store.execute_with_online_authorization(
+            "substituted",
+            &mut resource,
+            TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(30)),
+            10,
+        );
+        match phase {
+            ConsequencePhaseV1::Executed => assert!(
+                matches!(
+                    result,
+                    Err(ConsequenceError::WrongState(ConsequencePhaseV1::Executed))
+                ),
+                "{result:?}"
+            ),
+            _ => assert!(
+                matches!(result, Err(ConsequenceError::InvalidOnlineAuthorization)),
+                "{phase:?}: {result:?}"
+            ),
+        }
+        assert_eq!(resource.invocations, 0, "{phase:?}");
+        assert_eq!(fs::read(&path).unwrap(), before, "{phase:?}");
+        assert!(resource
+            .lookup(&committed.resource_id, &committed.idempotency_key)
+            .unwrap()
+            .is_none());
+        assert!(resource
+            .lookup(&substituted.resource_id, &substituted.idempotency_key)
+            .unwrap()
+            .is_none());
+    }
+}
+
+#[test]
+fn cached_authorized_receipt_beyond_fence_is_refused_on_inspect_prepare_and_execute() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let manifest = online_manifest("fenced-cached", profile.clone(), "resource://test/a", 1);
+    let mut resource = AtomicRegister::new(profile);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    let verified = verified_for(&manifest.resource_profile);
+    let authorization = accepted_for(&manifest, &verified);
+    // Admitted inside the fence at height 10, then the fence passes.
+    store
+        .prepare_online_effect(manifest.clone(), &verified, &authorization, 10)
+        .unwrap();
+    let path = store.receipt_path("fenced-cached");
+    let before = fs::read(&path).unwrap();
+    for height in [9, 11, 1_000] {
+        let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&manifest).unwrap();
+        assert!(matches!(
+            store.inspect_online_effect(
+                manifest.clone(),
+                &verified,
+                &authorization,
+                height,
+                binding
+            ),
+            Err(ConsequenceError::FenceExpired)
+        ));
+        let binding = OnlineEffectAuthorizationBindingV1::from_manifest(&manifest).unwrap();
+        assert!(matches!(
+            poll_ready(store.prepare_online_effect_checked(
+                manifest.clone(),
+                &verified,
+                &authorization,
+                height,
+                binding,
+                std::future::ready(Ok(()))
+            )),
+            Err(ConsequenceError::FenceExpired)
+        ));
+        assert!(matches!(
+            store.prepare_online_effect(manifest.clone(), &verified, &authorization, height),
+            Err(ConsequenceError::FenceExpired)
+        ));
+        let binding = store
+            .online_authorization_requirement("fenced-cached")
+            .unwrap();
+        assert!(matches!(
+            store.execute_with_online_authorization(
+                "fenced-cached",
+                &mut resource,
+                TestOnlineAuthorization(binding, Instant::now() + Duration::from_secs(30)),
+                height,
+            ),
+            Err(ConsequenceError::FenceExpired)
+        ));
+        // Fail-closed in place: still Authorized, never advanced, bytes intact.
+        assert_eq!(
+            store.recover("fenced-cached").unwrap().state.phase(),
+            ConsequencePhaseV1::Authorized
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert_eq!(resource.invocations, 0);
+        assert!(read_claim_effect(&store, &manifest).is_none());
+    }
 }

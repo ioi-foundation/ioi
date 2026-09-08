@@ -1,0 +1,26 @@
+Diff in /home/heathledger/Documents/ioi/repos/ioi/crates/validator/src/standard/orchestration/mod.rs:491:
+             .map_err(anyhow::Error::new)?;
+         let result = authorization.with_continuation(|authorization| {
+             consequence_store
+[31m-                .execute_with_online_authorization(effect_id, resource, authorization, current_height)
+[m[32m+                .execute_with_online_authorization(
+[m[32m+                    effect_id,
+[m[32m+                    resource,
+[m[32m+                    authorization,
+[m[32m+                    current_height,
+[m[32m+                )
+[m                 .map_err(anyhow::Error::new)
+         });
+         drop(finality);
+Diff in /home/heathledger/Documents/ioi/repos/ioi/crates/validator/src/standard/orchestration/quv.rs:2629:
+     if !service_budget_met {
+         tracing::warn!(target: "quv", event = "operation_service_expired", nonce = %hex::encode(nonce), phase = "finalization");
+     }
+[31m-    let outcome = outcome.map(|authorization| {
+[m[31m-        QuvAdmittedAuthorizationV0::new(authorization, admission.clone())
+[m[31m-    });
+[m[32m+    let outcome = outcome
+[m[32m+        .map(|authorization| QuvAdmittedAuthorizationV0::new(authorization, admission.clone()));
+[m     drop(admission);
+     tracing::debug!(target: "quv", event = "operation_finished", service_budgeted, service_budget_met, nonce = %hex::encode(nonce), accepted = outcome.is_ok(), error = ?outcome.as_ref().err());
+     let _ = completion.send(outcome);

@@ -70,6 +70,8 @@ mod device_custody_routes;
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/download_intent_routes.rs"]
 mod download_intent_routes;
+#[path = "hypervisor_daemon_routes/release_change_plan_routes.rs"]
+mod release_change_plan_routes;
 #[path = "hypervisor_daemon_routes/durable_fs.rs"]
 mod durable_fs;
 #[path = "hypervisor_daemon_routes/economics_routes.rs"]
@@ -1667,6 +1669,21 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/backups/:id/restore-plans",
             post(managed_runtime_routes::handle_restore_plan_prepare),
+        )
+        // Release change plans (bounded-alpha step 12): admitted update/rollback of the packaged
+        // release, observed by the daemon's OWN executable digest after the installer's restart.
+        .route(
+            "/v1/hypervisor/release-change-plans",
+            get(release_change_plan_routes::handle_release_change_plan_list)
+                .post(release_change_plan_routes::handle_release_change_plan_admit),
+        )
+        .route(
+            "/v1/hypervisor/release-change-plans/:id",
+            get(release_change_plan_routes::handle_release_change_plan_get),
+        )
+        .route(
+            "/v1/hypervisor/release-change-plans/:id/:action",
+            post(release_change_plan_routes::handle_release_change_plan_action),
         )
         .route(
             "/v1/hypervisor/restore-plans/:plan_id/:action",

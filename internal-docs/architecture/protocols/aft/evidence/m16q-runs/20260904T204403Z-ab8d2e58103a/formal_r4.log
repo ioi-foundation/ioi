@@ -1,0 +1,36 @@
+census OK: 46 modules = 33 executed + 13 manifest-marked (manual)
+honest    sync             cases=   24576 conflicts=     0
+dishonest sync             cases= 2281472 conflicts=     0
+unowned   sync             cases= 2281472 conflicts=     0
+dishonest oneway           cases= 2281472 conflicts= 33328
+  first: {'initial_correct': (), 'initial_byzantine': ('X', 'Y'), 'candidates': ('X', 'Y'), 'starts': (0, 0), 'delays': ((0, 0, 0), (0, 0, 1)), 'skews': (0, 1), 'tie_order': (0, 1), 'byzantine_replies': ((), ('Y',)), 'crash_tick': None, 'replay_choices': (None, None), 'accepted': {0: 'X', 1: 'Y'}}
+dishonest volatile         cases=13688832 conflicts= 47104
+  first: {'initial_correct': (), 'initial_byzantine': ('X', 'Y'), 'candidates': ('X', 'Y'), 'starts': (0, 0), 'delays': ((0, 0, 0), (0, 0, 0)), 'skews': (0, 0), 'tie_order': (0, 1), 'byzantine_replies': ((), ()), 'crash_tick': None, 'replay_choices': (None, None), 'accepted': {0: 'X', 1: 'Y'}}
+unowned   oneway           cases= 2281472 conflicts=172192
+  first: {'initial_correct': (), 'initial_byzantine': ('X', 'Y'), 'candidates': ('X', 'Y'), 'starts': (0, 0), 'delays': ((0, 0, 0), (0, 0, 1)), 'skews': (0, 1), 'tie_order': (0, 1), 'byzantine_replies': ((), ('Y',)), 'crash_tick': None, 'replay_choices': (None, None), 'accepted': {0: 'X', 1: 'Y'}}
+dishonest replay_unbound   cases= 1283328 conflicts= 16384
+  first: {'initial_correct': (), 'initial_byzantine': ('X', 'Y'), 'candidates': ('X', 'Y'), 'starts': (0, 0), 'delays': ((0, 0, 0), (0, 0, 0)), 'skews': (0, 0), 'tie_order': (0, 1), 'byzantine_replies': ((), ()), 'crash_tick': None, 'replay_choices': (None, 1), 'accepted': {0: 'X', 1: 'Y'}}
+dishonest replay_same_slot cases= 1283328 conflicts=     0
+honest    sync_exactly_one_candidate   cases=   32768 failures=     0
+dishonest sync_exactly_one_candidate   cases=   32768 failures=     0
+unowned   sync_exactly_one_candidate   cases=   32768 failures=     0
+dishonest all_correct_timely           correct=2 cases=   4 conflicts=   0
+unowned   all_correct_timely           correct=2 cases=   4 conflicts=   0
+dishonest all_correct_timely           correct=3 cases=   8 conflicts=   0
+unowned   all_correct_timely           correct=3 cases=   8 conflicts=   0
+dishonest split_witness_mutation       correct=2 cases=  16 conflicts=   2
+  first: {'orders': ((0, 1), (1, 0)), 'witnesses': (0, 1), 'snapshots': [{0: ('X',), 1: ('X', 'Y')}, {1: ('Y',), 0: ('Y', 'X')}], 'accepted': {0: 'X', 1: 'Y'}}
+unowned   split_witness_mutation       correct=2 cases=  16 conflicts=   2
+  first: {'orders': ((0, 1), (1, 0)), 'witnesses': (0, 1), 'snapshots': [{0: ('X',), 1: ('X', 'Y')}, {1: ('Y',), 0: ('Y', 'X')}], 'accepted': {0: 'X', 1: 'Y'}}
+{
+  "sync_safe_all_authorities": true,
+  "universal_solo_liveness": true,
+  "all_correct_timely_multi_correct_safe": true,
+  "split_witness_mutation_breaks": true,
+  "oneway_bound_mutation_breaks": true,
+  "unbound_reply_replay_mutation_breaks": true,
+  "same_slot_stale_replay_is_harmless": true,
+  "reply_before_durable_mutation_breaks": true
+}
+ALL EXPECTATIONS MET
+QUV R4 OK: generated JSON matches committed expectation

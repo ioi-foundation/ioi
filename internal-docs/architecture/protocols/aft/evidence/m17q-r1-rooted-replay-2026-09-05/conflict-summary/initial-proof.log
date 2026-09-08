@@ -1,0 +1,42 @@
+(* created new ".tlacache/QuvConflictSummaryProof.tlaps/QuvConflictSummaryProof.thy" *)
+(* fingerprints written in ".tlacache/QuvConflictSummaryProof.tlaps/fingerprints" *)
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvConflictSummaryProof.tla", line 29, characters 5-6:
+[ERROR]: Could not prove or check:
+           ASSUME Uniform(s, n, wanted) == \A i \in 1..n : s[i] = wanted,
+                  NEW CONSTANT n \in Nat,
+                  NEW CONSTANT s,
+                  NEW CONSTANT wanted,
+                  Unique(s, n) ,
+                  <2>1 ,
+                  SMT 
+           PROVE  ~Uniform(s, n, wanted)
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvConflictSummaryProof.tla", line 27, characters 5-6:
+[ERROR]: Could not prove or check:
+           ASSUME Unique(s, n) == \A i, j \in 1..n : s[i] = s[j] => i = j,
+                  NEW CONSTANT n \in Nat,
+                  NEW CONSTANT s,
+                  NEW CONSTANT wanted,
+                  Unique(s, n) ,
+                  SMT 
+           PROVE  s[1] # s[2]
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvConflictSummaryProof.tla", line 24, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME SummaryLength(n) == IF n < 2 THEN n ELSE 2,
+                  NEW CONSTANT n \in Nat,
+                  NEW CONSTANT s,
+                  NEW CONSTANT wanted,
+                  Unique(s, n) ,
+                  SMT 
+           PROVE  Uniform(s, n, wanted)
+                  <=> Uniform(s, SummaryLength(n), wanted)
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvConflictSummaryProof.tla", line 1, character 1 to line 41, character 77:
+[ERROR]: 3/22 obligations failed.
+There were backend errors processing module `"QuvConflictSummaryProof"`.
+ tlapm ending abnormally with Failure("backend errors: there are unproved obligations")
+Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+Called from Tlapm_lib.process_module in file "src/tlapm_lib.ml", line 492, characters 12-77
+Called from Tlapm_lib.main.f in file "src/tlapm_lib.ml", line 621, characters 23-43
+Called from Stdlib__List.fold_left in file "list.ml", line 123, characters 24-34
+Called from Tlapm_lib.main in file "src/tlapm_lib.ml", line 624, characters 13-40
+Called from Tlapm_lib.init in file "src/tlapm_lib.ml", line 641, characters 8-59
+

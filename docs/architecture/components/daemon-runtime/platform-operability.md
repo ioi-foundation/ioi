@@ -612,6 +612,26 @@ authority status, temporal sources, outside-domain floors, and resource fence
 before readiness. A floor that cannot be retained or freshly re-established
 narrows the posture or fails closed; restore never lowers it silently.
 
+### Release change plans
+
+Updating or rolling back the packaged release is itself a `HypervisorChangePlan`
+with one asymmetry the daemon states rather than hides: a running daemon cannot
+replace its own executable, so the effect (activate a verified release under
+`<prefix>/current`, restart) is performed by the installer under the host's
+authority — the pre-daemon trust bridge — while the daemon owns admission and
+the observed outcome. A plan is admitted only with an exact target (version,
+manifest digest, daemon digest, signer public key, and the verifier that
+checked the signature against the operator-pinned key), records the daemon's
+own executable digest at admission, refuses a target that is already running
+and a second in-flight plan, and is observed after the restart by the daemon
+that came back hashing its own executable: equal to the target → `completed`,
+different → `failed`; a plan never observed stays `admitted`, which is the
+honest state of an update whose restart never returned. Admission, completion,
+failure and cancellation each write a durable receipt the served App and the
+headless client read from the daemon. Rollback is the same plan with the prior
+release as target; the installer's activation history is evidence beside the
+daemon's records, never a substitute for them.
+
 Migration preflight is read-only, reports all independent checks rather than
 mutating until the first failure, binds its exact inputs and evidence horizon,
 and is rechecked at apply. Every affected secret or credential declares one
@@ -807,7 +827,10 @@ rollback, and receipt path before activation.
 
 The standalone startup, blocked-diagnostic, attach/detach, and dependency-
 closure consequences are specified by
-`sovereign-local-completeness.md`.
+[`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
+minimum-L0 proof profile* and
+[`core-clients-surfaces.md`](../hypervisor/core-clients-surfaces.md)
+§ *Standalone Local Completeness*.
 
 ## Conformance
 

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "consequence::tests::pq_resource_format_bounds_cover_maximum_tokens_and_refuse_noncanonical_evidence",
+    "--",
+    "--exact"
+  ],
+  "baseline_sha256": "5585871514698d4c9e49837bc3c8c04d8e32e659f6cb7dfc704e2f88399f9349",
+  "mutant_sha256": "b0a05316b90792e40a9928f4ef18d9499a229a2790c0dd10608c0b8b4243726f",
+  "exit_code": 101,
+  "expected_failure": true,
+  "restored": true
+}

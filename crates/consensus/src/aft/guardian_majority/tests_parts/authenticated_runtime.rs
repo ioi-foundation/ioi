@@ -1206,6 +1206,27 @@ async fn finalized_event_carries_the_committed_certificate_and_drains_exactly_on
 }
 
 #[tokio::test]
+async fn classic_native_drain_promotes_a_ready_commit_without_a_decision_round() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine(&validators, &[1, 2]);
+    engine.safety = SafetyGadget::new().with_guard_duration(Duration::ZERO);
+    let (parent_qc, child_qc) = seed_two_chain(&mut engine, &validators);
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
+        &mut engine,
+        child_qc,
+    )
+    .await
+    .unwrap();
+
+    let events = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::drain_finalized_native_quorums(
+        &mut engine,
+    );
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].quorum_certificate, parent_qc);
+}
+
+#[tokio::test]
 async fn asymptote_withholds_the_finalized_event_until_the_collapse_gate_passes() {
     let validators = AuthenticatedValidators::new(BFT_MEMBERS);
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);

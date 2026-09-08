@@ -1,0 +1,63 @@
+{
+  "results": [
+    {
+      "name": "identity",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::runtime_finality::tests::manifest_locator_rederives_one_block_and_preserves_duplicate_and_restart_refusal",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "f6a651a82a39526ea81a9b27ee39e3e8970245a20e7bf99ee939313e8d166fc3"
+    },
+    {
+      "name": "duplicate",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::runtime_finality::tests::manifest_locator_rederives_one_block_and_preserves_duplicate_and_restart_refusal",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "a3cfb4c8827a63d957aef45ec72b50ed0d6f61d65547256ebd441337aa352ef4"
+    },
+    {
+      "name": "recovery",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::runtime_finality::tests::manifest_locator_rederives_one_block_and_preserves_duplicate_and_restart_refusal",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "2c0be6c8aa9d2c938aefa1754d98a586e40ed38ca87a7218db9a86cc7e61126b"
+    }
+  ],
+  "baseline_sha256": "c715c0b6d89b6a7a7436c6e1164b6e605c90ed0ed89c14e205087dc43dd339c9",
+  "restored": true
+}

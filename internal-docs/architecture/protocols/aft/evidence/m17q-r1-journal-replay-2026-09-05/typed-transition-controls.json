@@ -1,0 +1,41 @@
+{
+  "restored_source_sha256": "86713c13c617b92f920d2e5ae5ab8186495040770cf503b04e5aa9b1717291d2",
+  "controls": [
+    {
+      "control": "missing-retained-candidate",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests::journal_replay_tests::authenticated_pending_record_cannot_advance_anchor_if_typed_replay_refuses",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_assertion_failure": true,
+      "source_sha256": "9b1f610b3c34547d192d3a1f4e002c2425592b1432509733dd4dd2ab546316b5"
+    },
+    {
+      "control": "missing-counter-sequence",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests::journal_replay_tests::typed_replay_refuses_invalid_order_scope_and_counters_without_mutation",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_assertion_failure": true,
+      "source_sha256": "b2dc449da0aaa89bd47b4763f7892c7a1888e0c713d002dc1d9d78e2bec45472"
+    }
+  ]
+}

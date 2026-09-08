@@ -1,0 +1,73 @@
+{
+  "validator-20000-orch.log": {
+    "listening": 3,
+    "pq_channel_strict_mode_enabled": 3,
+    "outgoing_conn_error": 41,
+    "redial_after_outbound_failure_failed": 41,
+    "connected": 7,
+    "peer_connected": 7,
+    "pq_consensus_waiting_for_enrollment": 3,
+    "disconnected": 1,
+    "redial_after_disconnect_failed": 1,
+    "outbound_failure": 3,
+    "peer_disconnected": 1
+  },
+  "validator-20000-workload.log": {
+    "Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests": 1,
+    "nonce record missing for signer 76c4811105ecf780dc90401ad546e4225b0f70d858457015bf3eea2d0794c386; allowing nonce=0 for bootstrap": 1
+  },
+  "validator-20100-orch.log": {
+    "listening": 3,
+    "connected": 6,
+    "pq_channel_strict_mode_enabled": 3,
+    "peer_connected": 6,
+    "outgoing_conn_error": 31,
+    "redial_after_outbound_failure_failed": 31,
+    "pq_client_hello_refused": 1,
+    "pq_consensus_waiting_for_enrollment": 3,
+    "disconnected": 1,
+    "redial_after_disconnect_failed": 1
+  },
+  "validator-20100-workload.log": {
+    "Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests": 1,
+    "nonce record missing for signer 76c4811105ecf780dc90401ad546e4225b0f70d858457015bf3eea2d0794c386; allowing nonce=0 for bootstrap": 1
+  },
+  "validator-20200-orch.log": {
+    "listening": 2,
+    "connected": 6,
+    "pq_channel_strict_mode_enabled": 2,
+    "peer_connected": 6,
+    "outgoing_conn_error": 13,
+    "redial_after_outbound_failure_failed": 13,
+    "pq_channel_start_deferred": 2,
+    "outbound_failure": 2,
+    "disconnected": 3,
+    "redial_after_disconnect_failed": 3,
+    "peer_disconnected": 3,
+    "pq_consensus_waiting_for_enrollment": 6
+  },
+  "validator-20200-workload.log": {
+    "Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests": 1,
+    "nonce record missing for signer 76c4811105ecf780dc90401ad546e4225b0f70d858457015bf3eea2d0794c386; allowing nonce=0 for bootstrap": 1
+  },
+  "validator-20300-orch.log": {
+    "listening": 2,
+    "connected": 7,
+    "pq_channel_strict_mode_enabled": 2,
+    "peer_connected": 7,
+    "outbound_failure": 6,
+    "pq_channel_start_deferred": 4,
+    "pq_client_hello_refused": 1,
+    "disconnected": 2,
+    "redial_after_disconnect_failed": 2,
+    "peer_disconnected": 2,
+    "outgoing_conn_error": 21,
+    "redial_after_outbound_failure_failed": 21,
+    "pq_consensus_waiting_for_enrollment": 3
+  },
+  "validator-20300-workload.log": {
+    "Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests": 1,
+    "Rolled back a bounded unrecognized AFT workload branch under exact projection fences": 4,
+    "nonce record missing for signer 76c4811105ecf780dc90401ad546e4225b0f70d858457015bf3eea2d0794c386; allowing nonce=0 for bootstrap": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_quv_handoff_evidence.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-final-admission-release-2026-09-05/disjoint-process/process.log",
+    "--components",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-final-admission-release-2026-09-05/disjoint-process/components"
+  ],
+  "exit_code": 1,
+  "stderr": "Traceback (most recent call last):\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_quv_handoff_evidence.py\", line 173, in <module>\n    result = validate(args.log.read_text(), records)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_quv_handoff_evidence.py\", line 20, in validate\n    raise ValueError('require exactly one passing nonignored test')\nValueError: require exactly one passing nonignored test\n",
+  "checker_sha256": "9338fc66e949ed4c0f91be486a98e452e7e21cabee3462814219d41c4bb788d8"
+}

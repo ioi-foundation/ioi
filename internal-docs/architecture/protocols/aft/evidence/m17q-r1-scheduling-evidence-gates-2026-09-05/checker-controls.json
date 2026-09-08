@@ -1,0 +1,54 @@
+[
+  {
+    "source": ".github/scripts/check_aft_quv_handoff_evidence.py",
+    "case": "positive",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"negative_cases\": 21, \"positive_cases\": 1}\n",
+    "stderr": "",
+    "source_sha256": "f956afe8112dc676069f45c0d191138926aaa1ff985e423d9ec4a0b9591cc536"
+  },
+  {
+    "source": ".github/scripts/check_aft_quv_handoff_evidence.py",
+    "case": "negative_missing_failure_gate",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Traceback (most recent call last):\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_quv_handoff_evidence.py\", line 130, in <module>\n    print(json.dumps(self_test(), sort_keys=True))\n                     ^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_quv_handoff_evidence.py\", line 119, in self_test\n    raise AssertionError('invalid handoff evidence accepted')\nAssertionError: invalid handoff evidence accepted\n",
+    "source_sha256": "d61b903132b3c40dd4f48ad173bd658efda7b670635761d64decbe45acfe0e97"
+  },
+  {
+    "source": ".github/scripts/check_aft_m16q_process_evidence.py",
+    "case": "positive",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"negative_cases\": 26, \"overlap\": {\"negative_cases\": 26, \"positive_cases\": 1}, \"positive_cases\": 2}\n",
+    "stderr": "",
+    "source_sha256": "d8677acfbd775b3161680e76bd29871749718fa0450b737afd6fca14b7340865"
+  },
+  {
+    "source": ".github/scripts/check_aft_m16q_process_evidence.py",
+    "case": "negative_missing_failure_gate",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Traceback (most recent call last):\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 276, in <module>\n    print(json.dumps(self_test(), sort_keys=True))\n                     ^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 265, in self_test\n    \"overlap\": overlap_self_test()}\n               ^^^^^^^^^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 226, in overlap_self_test\n    raise AssertionError(f\"invalid overlap evidence sample {index} was accepted\")\nAssertionError: invalid overlap evidence sample 16 was accepted\n",
+    "source_sha256": "a2e38e8dbe2d6de75ad62cdba5834af50c40109ef48d063df6b0d49eb70c2c48"
+  }
+]

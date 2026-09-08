@@ -1,0 +1,213 @@
+# Path: Cargo.toml
+
+[workspace]
+resolver = "2"
+exclude = [
+    "crates/cli/tests/fixtures/mock-verifier",
+    # AFT M1: an intentionally separate Rust-1.85+ interoperability oracle.
+    # Keeping it out of the workspace preserves the workspace's Rust 1.78 MSRV.
+    "tools/aft-pq-interop",
+    "fuzz/aft-pq-crypto",
+    # [FIX] Updated exclusion path to match new directory structure
+    "crates/plugins/sp1-guests",
+    # AFT-CB P2.5: the real recursive-backend workspace builds with the
+    # succinct toolchain in its own nightly lane; the root build never
+    # touches it.
+    "crates/aft-proofs",
+]
+members = [
+    "crates/aft-c8-verifier",
+    "crates/ioi-finality",
+    "crates/agentgres",
+    "crates/node",
+    "crates/cli",
+    "crates/execution",
+    "crates/memory",
+    "crates/state",
+    "crates/consensus",
+    "crates/api",
+    "crates/types",
+    "crates/ontology-census",
+    "crates/crypto",
+    "crates/networking",
+    "crates/services",
+    "crates/storage",
+    "crates/system",
+    "crates/telemetry",
+    "crates/tx",
+    "crates/validator",
+    "crates/vm/wasm",
+    "crates/ipc",
+    "crates/drivers",
+    "crates/pii",
+    "crates/macros",
+    
+    # [FIX] All heavy extensions live here now:
+    # - zk-types
+    # - zk-driver-succinct
+    # - transport-verifier (formerly ibc-host)
+    # - http-rpc-gateway
+    "crates/plugins/*", 
+]
+[workspace.package]
+license = "Apache-2.0"
+
+[workspace.dependencies]
+# --- Networking & HTTP ---
+libp2p = { version = "0.53", features = [
+    "tokio",
+    "gossipsub",
+    "mdns",
+    "macros",
+    "request-response",
+    "identify",
+    "yamux",
+    "tcp",
+    "noise",
+] }
+reqwest = { version = "0.11", features = ["json"] }
+axum = "0.7"
+hyper = "1"
+# Tower updated for Axum 0.7 compat
+tower = "0.4"
+tower-http = { version = "0.5", features = ["limit", "trace", "catch-panic"] }
+
+# --- Metrics ---
+prometheus = { version = "0.13" }
+
+# --- RPC Hardening ---
+ipnetwork = { version = "0.20" }
+
+# --- Async ---
+tokio = { version = "1", features = ["full"] }
+futures = { version = "0.3" }
+async-trait = { version = "0.1" }
+arc-swap = "1.6"
+futures-util = "0.3"
+
+# --- Serialization ---
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+serde_jcs = "0.1"
+toml = { version = "0.8" }
+bytes = { version = "1" }
+hex = { version = "0.4" }
+serde_bytes = { version = "0.11" }
+# [FIX] Bumped to match ibc-proto requirements
+prost = "0.13"
+base64 = { version = "0.21" }
+bincode = { version = "1.3.3" }
+zeroize = { version = "1.5", features = ["zeroize_derive"] }
+
+# --- mTLS ---
+tokio-rustls = { version = "0.26" }
+rustls = { version = "0.23", features = ["ring"] }
+rcgen = { version = "0.13" }
+webpki-roots = { version = "0.26" }
+rustls-pemfile = { version = "2.1" }
+# [FIX] Bumped to match prost 0.13
+tonic = { version = "0.12", features = ["tls", "transport"] }
+
+# --- Cryptography ---
+rand = { version = "0.8" }
+dcrypt = { version = "4.0.1", features = ["full"] }
+slh-dsa = { version = "=0.2.0-rc.5", features = ["zeroize"] }
+
+# --- CLI & Logging ---
+clap = { version = "4", features = ["derive"] }
+log = { version = "0.4" }
+env_logger = { version = "0.10" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "fmt",
+    "json",
+    "time",
+] }
+tracing-log = "0.2"
+
+# --- Error Handling ---
+thiserror = { version = "1.0" }
+anyhow = { version = "1.0" }
+
+# --- VM ---
+wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
+wasmtime-wasi = { version = "21.0.0" }
+wit-bindgen = "0.25.0"
+wit-component = "0.201.0"
+
+# --- Codecs ---
+parity-scale-codec = { version = "3", features = ["derive"] }
+
+# --- Caching & Utils ---
+lru = { version = "0.12.3" }
+dashmap = { version = "5.5" }
+once_cell = { version = "1.19" }
+ahash = { version = "0.8" }
+bitflags = { version = "2", features = ["serde"] }
+portpicker = "0.1"
+bollard = "0.16"
+tar = "0.4"
+cfg-if = "1.0"
+regex = "1.10"
+libc = "0.2"
+bcs = "0.1"
+tempfile = "3.10"
+fs2 = "0.4"
+uuid = { version = "1.8", features = ["v4"] }
+http-body-util = "0.1"
+
+# =============================================================================
+# IBC Ecosystem (Modern Stable)
+# =============================================================================
+
+# Latest stable ibc-rs (v0.57.0)
+ibc = { version = "0.57.0", default-features = false }
+ibc-proto = { version = "0.51.0", features = ["serde"] }
+ibc-primitives = { version = "0.57.0", features = ["serde"] }
+
+# Core components
+ibc-core-client = { version = "0.57.0", features = ["serde"] }
+ibc-core-client-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-client-context = { version = "0.57.0", features = ["serde"] }
+ibc-core-connection = { version = "0.57.0", features = ["serde"] }
+ibc-core-connection-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-channel = { version = "0.57.0", features = ["serde"] }
+ibc-core-channel-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-handler-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-host = { version = "0.57.0", features = ["serde"] }
+ibc-core-host-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-router = { version = "0.57.0", features = ["serde"] }
+ibc-core-router-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-commitment-types = { version = "0.57.0", features = ["serde"] }
+
+# Tendermint Client
+ibc-client-tendermint = { version = "0.57.0", features = ["serde"] }
+
+# CometBFT / Tendermint v0.40 compatibility
+tendermint = { version = "0.40.0", features = ["secp256k1"] }
+tendermint-proto = "0.40.0"
+tendermint-testgen = "0.40.0"
+
+# ICS-23 Proofs - Bumped to 0.12.0 to match ibc-rs dependencies
+ics23 = { version = "0.12.0", default-features = false, features = [
+    "host-functions",
+] }
+
+time = { version = "0.3.36", features = ["formatting", "macros", "parsing", "serde"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+debug = false
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[patch.crates-io]
+imap-proto = { path = "third_party/cargo-patches/imap-proto-0.10.2" }
+xcap = { path = "third_party/cargo-patches/xcap-0.0.14" }

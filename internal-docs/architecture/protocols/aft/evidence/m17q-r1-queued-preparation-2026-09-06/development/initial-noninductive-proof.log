@@ -1,0 +1,115 @@
+census OK: 87 modules = 74 executed + 13 manifest-marked (manual)
+(* created new ".tlacache/QuvQueuedEffectPreparationProof.tlaps/QuvQueuedEffectPreparationProof.thy" *)
+(* fingerprints written in ".tlacache/QuvQueuedEffectPreparationProof.tlaps/fingerprints" *)
+File "./QuvQueuedEffectPreparationProof.tla", line 12, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME NEW CONSTANT WriteDuringInspect,
+                  NEW CONSTANT HoldStoreWhileWaiting,
+                  NEW CONSTANT SkipRevalidation,
+                  NEW VARIABLE phase,
+                  NEW VARIABLE storeLocked,
+                  NEW VARIABLE lease,
+                  NEW VARIABLE acquired,
+                  NEW VARIABLE valid,
+                  NEW VARIABLE prepared,
+                  NEW VARIABLE preparedCorrect,
+                  NEW VARIABLE grant,
+                  NEW VARIABLE called,
+                  NEW VARIABLE callCorrect,
+                  vars ==
+                    <<phase, storeLocked, lease, acquired, valid, prepared,
+                      preparedCorrect, grant, called, callCorrect>>,
+                  Inspect ==
+                    /\ phase = "Inspect" /\ phase' = "Waiting"
+                    /\ storeLocked' = HoldStoreWhileWaiting
+                    /\ prepared' = WriteDuringInspect
+                       /\ preparedCorrect' = valid
+                    /\ UNCHANGED <<lease, acquired, valid, grant, called,
+                                   callCorrect>>,
+                  Acquire ==
+                    /\ phase = "Waiting" /\ phase' = "Recheck"
+                    /\ lease' = TRUE /\ acquired' = TRUE
+                       /\ storeLocked' = TRUE
+                    /\ UNCHANGED <<valid, prepared, preparedCorrect, grant,
+                                   called, callCorrect>>,
+                  ChangeContext ==
+                    /\ phase \in {"Waiting", "Query"} /\ valid' = FALSE
+                    /\ UNCHANGED <<phase, storeLocked, lease, acquired,
+                                   prepared, preparedCorrect, grant, called,
+                                   callCorrect>>,
+                  Recheck ==
+                    /\ phase = "Recheck" /\ (valid \/ SkipRevalidation)
+                    /\ phase' = "Prepare" /\ preparedCorrect' = valid
+                    /\ UNCHANGED <<storeLocked, lease, acquired, valid,
+                                   prepared, grant, called, callCorrect>>,
+                  Prepare ==
+                    /\ phase = "Prepare" /\ phase' = "Query"
+                    /\ prepared' = TRUE /\ storeLocked' = FALSE
+                    /\ UNCHANGED <<lease, acquired, valid, preparedCorrect,
+                                   grant, called, callCorrect>>,
+                  OwnLive ==
+                    /\ phase = "Query" /\ valid /\ phase' = "Claim"
+                    /\ grant' = TRUE /\ storeLocked' = TRUE
+                    /\ UNCHANGED <<lease, acquired, valid, prepared,
+                                   preparedCorrect, called, callCorrect>>,
+                  Call ==
+                    /\ phase = "Claim" /\ valid /\ grant /\ phase' = "Done"
+                    /\ called' = TRUE
+                       /\ callCorrect' = (valid /\ grant /\ lease)
+                    /\ grant' = FALSE /\ lease' = FALSE
+                       /\ storeLocked' = FALSE
+                    /\ UNCHANGED <<acquired, valid, prepared,
+                                   preparedCorrect>>,
+                  Abort ==
+                    /\ phase
+                       \in {"Waiting", "Recheck", "Prepare", "Query", "Claim"}
+                    /\ phase' = "Done" /\ storeLocked' = FALSE
+                       /\ lease' = FALSE /\ 
+                       grant' = FALSE
+                    /\ UNCHANGED <<acquired, valid, prepared,
+                                   preparedCorrect, called, callCorrect>>,
+                  Next ==
+                    Inspect \/ Acquire \/ ChangeContext \/ Recheck \/ Prepare
+                    \/ OwnLive \/ Call \/ Abort,
+                  TypeOK ==
+                    /\ phase
+                       \in {"Inspect", "Waiting", "Recheck", "Prepare",
+                            "Query", "Claim", "Done"}
+                    /\ storeLocked \in BOOLEAN /\ lease \in BOOLEAN
+                       /\ acquired \in BOOLEAN
+                    /\ valid \in BOOLEAN /\ prepared \in BOOLEAN
+                       /\ preparedCorrect \in BOOLEAN
+                    /\ grant \in BOOLEAN /\ called \in BOOLEAN
+                       /\ callCorrect \in BOOLEAN,
+                  QueueReleasesStore == phase = "Waiting" => ~storeLocked,
+                  PreparedAfterAdmission == prepared => acquired,
+                  PreparationRevalidated == prepared => preparedCorrect,
+                  WorkOwnsAdmission ==
+                    phase \in {"Recheck", "Prepare", "Query", "Claim"}
+                    => lease,
+                  PreparationCheck == phase = "Prepare" => preparedCorrect,
+                  GrantOwnsAdmission == grant => lease,
+                  CallWasAuthorized == called => callCorrect,
+                  Profile ==
+                    /\ WriteDuringInspect = FALSE
+                       /\ HoldStoreWhileWaiting = FALSE
+                    /\ SkipRevalidation = FALSE,
+                  Inv ==
+                    TypeOK /\ QueueReleasesStore /\ PreparedAfterAdmission
+                    /\ PreparationRevalidated /\ WorkOwnsAdmission
+                    /\ PreparationCheck /\ GrantOwnsAdmission
+                    /\ CallWasAuthorized,
+                  Profile ,
+                  SMT 
+           PROVE  Inv /\ [Next]_vars => Inv'
+File "./QuvQueuedEffectPreparationProof.tla", line 1, character 1 to line 16, character 65:
+[ERROR]: 1/9 obligations failed.
+There were backend errors processing module `"QuvQueuedEffectPreparationProof"`.
+ tlapm ending abnormally with Failure("backend errors: there are unproved obligations")
+Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+Called from Tlapm_lib.process_module in file "src/tlapm_lib.ml", line 492, characters 12-77
+Called from Tlapm_lib.main.f in file "src/tlapm_lib.ml", line 621, characters 23-43
+Called from Stdlib__List.fold_left in file "list.ml", line 123, characters 24-34
+Called from Tlapm_lib.main in file "src/tlapm_lib.ml", line 624, characters 13-40
+Called from Tlapm_lib.init in file "src/tlapm_lib.ml", line 641, characters 8-59
+

@@ -1,0 +1,59 @@
+[
+  {
+    "case": "Owned",
+    "command": [
+      "java",
+      "-Xmx256m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-workers",
+      "1",
+      "-metadir",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-triggered-preparation-2026-09-05/states-Owned",
+      "-config",
+      "QuvHeadTriggeredPreparationOwned.cfg",
+      "QuvHeadTriggeredPreparation.tla"
+    ],
+    "exit_code": 0,
+    "expected_result_observed": true
+  },
+  {
+    "case": "Unowned",
+    "command": [
+      "java",
+      "-Xmx256m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-workers",
+      "1",
+      "-metadir",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-triggered-preparation-2026-09-05/states-Unowned",
+      "-config",
+      "QuvHeadTriggeredPreparationUnowned.cfg",
+      "QuvHeadTriggeredPreparation.tla"
+    ],
+    "exit_code": 0,
+    "expected_result_observed": true
+  },
+  {
+    "case": "Disabled",
+    "command": [
+      "java",
+      "-Xmx256m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-workers",
+      "1",
+      "-metadir",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-triggered-preparation-2026-09-05/states-Disabled",
+      "-config",
+      "QuvHeadTriggeredPreparationDisabled.cfg",
+      "QuvHeadTriggeredPreparation.tla"
+    ],
+    "exit_code": 13,
+    "expected_result_observed": true
+  }
+]

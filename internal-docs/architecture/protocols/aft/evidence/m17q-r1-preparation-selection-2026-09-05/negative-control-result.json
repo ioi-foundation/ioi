@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::preparation_selection_recovers_and_rotates_without_advancing_history",
+    "--",
+    "--exact"
+  ],
+  "mutation": "select historical initial slot instead of next unaccepted slot",
+  "original_sha256": "a6c81400b4ad1df800dcb50a8d53668174fc4751cfc17d398d93f996d9a12cd6",
+  "mutant_sha256": "74edb045a75b05645da4119b78050dd22444e5013612a43612f9abef87e22703",
+  "exit_code": 101,
+  "source_restored": true
+}

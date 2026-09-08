@@ -1,0 +1,87 @@
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T05:33:39.827696804Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20300"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:39.828408369Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:39.82937344Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20301
+{"timestamp":"2026-09-06T05:33:40.094344191Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094426645Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094434787Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094444527Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094450169Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.679797352Z","level":"INFO","fields":{"event":"pq_channel_strict_mode_enabled"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.681043099Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+ORCHESTRATION_STARTUP_COMPLETE
+{"timestamp":"2026-09-06T05:33:41.700183111Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.701149235Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.874105188Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.874123478Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.874138649Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:42.035835774Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"peer has no rooted PQ channel enrollment"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.841941981Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.841994476Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.842020459Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.842041172Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.842086743Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.863368703Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.863385794Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.86339161Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:11.863407293Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T05:39:18.264809173Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20300"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.264900291Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.264915208Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.267369906Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.268262999Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.274861655Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20301
+{"timestamp":"2026-09-06T05:39:18.435542508Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.583836166Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.880366264Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:19.049943567Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:19.498651785Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:19.808337874Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:19.898076644Z","level":"INFO","fields":{"event":"pq_channel_strict_mode_enabled"},"target":"network"}
+ORCHESTRATION_STARTUP_COMPLETE
+{"timestamp":"2026-09-06T05:39:19.918001832Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:19.918056767Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:19.918806314Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T05:39:27.469652528Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20300"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.469755233Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20000/p2p/12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.469788663Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.469887989Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.469954202Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.470495031Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.470502495Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.470510364Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20000/p2p/12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.470521468Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.471185222Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.478134209Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.478552083Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20301
+{"timestamp":"2026-09-06T05:39:27.637757382Z","level":"WARN","fields":{"event":"pq_client_hello_refused","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","error":"strict PQ channels are not configured"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.107143013Z","level":"INFO","fields":{"event":"pq_channel_strict_mode_enabled"},"target":"network"}
+ORCHESTRATION_STARTUP_COMPLETE
+{"timestamp":"2026-09-06T05:39:29.12135423Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.121368107Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.121372071Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129242333Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129254278Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129259179Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129263107Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129265644Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129268064Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.129293857Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWLPHrh2CiaUMPRaotbfdYsA84biby11yVozxwpzdfizyj"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237828079Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237874477Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237898332Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237915988Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237929496Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237941894Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:39:29.237991419Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}

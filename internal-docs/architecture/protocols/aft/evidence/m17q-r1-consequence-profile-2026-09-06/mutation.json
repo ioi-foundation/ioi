@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 101,
+  "expected_failure": true,
+  "restored": true,
+  "baseline_sha256": "33ba3a295a71aad9d5085d9dea103123ae7be2e8ddd6f533c60a0e17cd95e17b",
+  "mutant_sha256": "18ae391e2689290e0b4fd6f3055d70bee58617f65fbb3be3ac34b2074c035e00"
+}

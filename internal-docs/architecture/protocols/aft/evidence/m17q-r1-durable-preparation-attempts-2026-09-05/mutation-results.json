@@ -1,0 +1,51 @@
+{
+  "negative_controls": [
+    {
+      "removed_rule": "budget-check",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "preparation_attempts_are_rooted_durable_and_retire_only_on_advance"
+      ],
+      "exit_code": 101
+    },
+    {
+      "removed_rule": "attempt-authentication",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "preparation_attempts_preflight_authenticate_and_recover_uncertain_write"
+      ],
+      "exit_code": 101
+    },
+    {
+      "removed_rule": "policy-binding",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "preparation_attempts_are_rooted_durable_and_retire_only_on_advance"
+      ],
+      "exit_code": 101
+    }
+  ],
+  "restored_exit": 0,
+  "restored_sha256": "b1f4405ce53ad3093ca9374111ac31aea434452f5b564af1cb53bfbda0b0998e"
+}

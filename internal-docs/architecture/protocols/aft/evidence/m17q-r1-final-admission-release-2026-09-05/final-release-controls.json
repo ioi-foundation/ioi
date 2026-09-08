@@ -1,0 +1,54 @@
+[
+  {
+    "name": "final-observation-order",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::admission_release_is_observed_after_semaphore_release",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "mutant_sha256": "6a173fe75d0c3106a0703a5fe74faae17505ba4ea4f22a0a8b7439e84f2026ab"
+  },
+  {
+    "name": "release-deadline-equality",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::admission_release_is_observed_after_semaphore_release",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "mutant_sha256": "ce186e136db05b006e9d3cadd3d88468a66dc0206f5ae64966156b6c9eb67f99"
+  },
+  {
+    "name": "final-runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "exit_code": 0,
+    "source_sha256": "cad4c8b8ba7536f7a13ed20b19d559650c62937a9c8fc81006f203fb0417bce4"
+  }
+]

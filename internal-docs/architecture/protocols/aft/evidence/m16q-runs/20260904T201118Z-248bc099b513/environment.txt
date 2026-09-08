@@ -1,0 +1,12 @@
+schema=ioi.aft.m16q.qualification-run.v1
+commit=248bc099b51387a4b3a4cf4afebe56e78b2cf5eb
+tree_dirty=false
+quick=false
+started_utc=2026-09-04T20:11:18Z
+uname=Linux pop-os 6.17.9-76061709-generic #202511241048~1764607909~24.04~df6b2b6 SMP PREEMPT_DYNAMIC Mon D x86_64 x86_64 x86_64 GNU/Linux
+rustc=rustc 1.93.1 (01f6ddf75 2026-02-11)
+cargo=cargo 1.93.1 (083ac5135 2025-12-15)
+python=Python 3.12.3
+node=v22.22.0
+npm=10.9.4
+cpu_count=24

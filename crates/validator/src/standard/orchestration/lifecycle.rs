@@ -488,52 +488,56 @@ where
         }
     }
 
-    /// Drain timing-critical QUV traffic independently of the general node
-    /// event loop. Expensive block, transaction, sync, or operator handling
-    /// therefore cannot occupy the scheduler queue ahead of an online
-    /// authorization request or its nonce-bound reply.
+    /// One bounded admission worker keeps a PUSHQUERY waiting for the main
+    /// context from blocking reply observation. This is not a timing bound.
     async fn run_quv_loop(
-        mut receiver: mpsc::Receiver<ioi_networking::libp2p::QuvNetworkEvent>,
-        mut shutdown_receiver: watch::Receiver<bool>,
+        receiver: mpsc::Receiver<ioi_networking::libp2p::QuvNetworkEvent>,
+        shutdown_receiver: watch::Receiver<bool>,
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     ) {
-        loop {
-            tokio::select! {
-                biased;
-                _ = shutdown_receiver.changed() => {
-                    if *shutdown_receiver.borrow() {
-                        break;
-                    }
-                }
-                event = receiver.recv() => match event {
-                    Some(ioi_networking::libp2p::QuvNetworkEvent::PushQueryReceived {
-                        query,
-                        authenticated_account,
-                        from,
-                    }) => {
-                        super::quv::dispatch_push_query(
-                            &context_arc,
-                            authenticated_account,
-                            from,
-                            query,
-                        ).await;
-                    }
-                    Some(ioi_networking::libp2p::QuvNetworkEvent::ReplyReceived {
-                        reply,
-                        authenticated_account,
-                        from,
-                    }) => {
-                        super::quv::handle_reply(
-                            &context_arc,
-                            authenticated_account,
-                            from,
-                            reply,
-                        ).await;
-                    }
-                    None => break,
-                }
+        use ioi_networking::libp2p::{QuvNetworkEvent, SwarmCommand};
+        let (operations, commander) = {
+            let context = context_arc.lock().await;
+            if context.config.aft_quv_domain_policies.is_empty() {
+                return;
             }
-        }
+            (
+                context.aft_quv_operations.clone(),
+                context.quv_swarm_commander.clone(),
+            )
+        };
+        // This finite cap covers the protocol-capped old/successor union.
+        // Transport still admits at most one PUSHQUERY per authenticated account.
+        let capacity = 2 * ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0;
+        super::quv::event_dispatch::run(
+            receiver, shutdown_receiver, capacity,
+            move |event| {
+                let context = context_arc.clone();
+                async move {
+                    if let QuvNetworkEvent::PushQueryReceived { query, authenticated_account, from } = event {
+                        super::quv::dispatch_push_query(&context, authenticated_account, from, query).await;
+                    }
+                }
+            },
+            move |event| {
+                let operations = operations.clone();
+                async move {
+                    if let QuvNetworkEvent::ReplyReceived { reply, authenticated_account, from } = event {
+                        super::quv::handle_reply(&operations, authenticated_account, from, reply).await;
+                    }
+                }
+            },
+            move |event| {
+                if let QuvNetworkEvent::PushQueryReceived { query, authenticated_account, .. } = event {
+                    tracing::error!(target: "quv", event = "push_admission_overflow", nonce = %hex::encode(query.verifier_nonce), ?authenticated_account, capacity, "QUV push admission refused; timing qualification failed");
+                    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvPush {
+                        requester: authenticated_account, nonce: query.verifier_nonce,
+                    }) {
+                        tracing::error!(target: "quv", %error, "Failed to retire refused QUV admission lane");
+                    }
+                }
+            },
+        ).await;
     }
 
     pub(crate) async fn start_internal(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
@@ -1100,6 +1104,39 @@ where
                         .iter()
                         .any(|validator| validator.account_id == local_pq_account)
                 });
+                if quv_recovery_required && !local_is_successor {
+                    return Err(ValidatorError::Config(
+                        super::consensus::QUV_RETIRED_SIGNER_REFUSAL.into(),
+                    ));
+                }
+                // The admitted tip can trail the workload's durable executed
+                // projection. If that projection already crossed the staged
+                // activation height, this process followed successor-root
+                // history without a successor identity; it is retired and
+                // must not restart as an old member on the strength of a
+                // lower admitted height.
+                if quv_handoff_enabled {
+                    let executed_height = workload_client
+                        .get_execution_status()
+                        .await
+                        .map(|status| status.height)
+                        .map_err(|error| {
+                            ValidatorError::Other(format!(
+                                "failed to read the durable executed projection at startup: {error}"
+                            ))
+                        })?;
+                    if super::consensus::quv_successor_root_gate(
+                        quv_handoff_enabled,
+                        staged_successor,
+                        local_is_successor,
+                        executed_height,
+                    ) == super::consensus::QuvSuccessorRootGate::RefuseRetired
+                    {
+                        return Err(ValidatorError::Config(
+                            super::consensus::QUV_RETIRED_SIGNER_REFUSAL.into(),
+                        ));
+                    }
+                }
                 if quv_handoff_enabled && local_is_successor {
                     // The live-install gate is permanently scoped by the old
                     // root even after the canonical workload projection has
@@ -1182,6 +1219,18 @@ where
                             &async_paths.quv_member_state,
                             &async_paths.quv_member_anchor,
                             *custody_key,
+                            super::quv::member_provisioning_root(
+                                self.genesis_hash,
+                                configuration_hash,
+                                &self.config.aft_quv_domain_policies,
+                            )
+                            .map_err(|error| ValidatorError::Config(error.to_string()))?,
+                            super::quv::member_provisioned_domains(
+                                self.genesis_hash,
+                                configuration_hash,
+                                &self.config.aft_quv_domain_policies,
+                            )
+                            .map_err(|error| ValidatorError::Config(error.to_string()))?,
                         )
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
                         aft_quv_member = Some(Arc::new(Mutex::new(member)));
@@ -1224,6 +1273,17 @@ where
                             identity: pq_identity,
                             identity_key_hash,
                             outbox_path,
+                            rooted_accounts: pq_rooted_set
+                                .validators
+                                .iter()
+                                .chain(
+                                    staged_successor
+                                        .filter(|_| quv_enabled)
+                                        .into_iter()
+                                        .flat_map(|set| set.validators.iter()),
+                                )
+                                .map(|member| member.account_id)
+                                .collect(),
                         },
                         enrollments: Vec::new(),
                         handoff_only,
@@ -1334,19 +1394,21 @@ where
         .map_err(|error| {
             ValidatorError::Other(format!("runtime finality startup refusal: {error}"))
         })?;
-        let last_admitted_block = runtime_finality
-            .last_admitted_block()
-            .map_err(|error| {
-                ValidatorError::Other(format!(
-                    "runtime finality canonical-tip recovery refusal: {error}"
-                ))
-            })?
-            .or_else(|| initial_block.clone());
+        let agentgres_admitted_block = runtime_finality.last_admitted_block().map_err(|error| {
+            ValidatorError::Other(format!(
+                "runtime finality canonical-tip recovery refusal: {error}"
+            ))
+        })?;
         if matches!(
             self.config.consensus_type,
             ioi_types::config::ConsensusType::Aft
         ) {
-            let admitted_height = last_admitted_block
+            // Only an Agentgres commit advances the safety gadget's admitted
+            // floor. A pre-active QUV successor can have a synchronized
+            // workload cursor while its fresh consequence spine still names
+            // the zero genesis head. Treating that cursor as admitted lets a
+            // later child QC skip the missing predecessor consequence.
+            let admitted_height = agentgres_admitted_block
                 .as_ref()
                 .map(|block| block.header.height)
                 .unwrap_or(0);
@@ -1361,6 +1423,7 @@ where
                 )));
             }
         }
+        let last_admitted_block = agentgres_admitted_block.or_else(|| initial_block.clone());
         let runtime_finality = Arc::new(Mutex::new(runtime_finality));
 
         let mut context = MainLoopContext::<CS, ST, CE, V> {
@@ -1388,10 +1451,18 @@ where
             aft_quv_handoff_envelope,
             aft_quv_certified_handoff: None,
             aft_quv_certified_handoff_block: None,
+            aft_quv_certified_handoff_parent_block: None,
             aft_quv_handoff_store,
             aft_quv_push_inflight: HashSet::new(),
-            aft_quv_starting: false,
-            aft_quv_operations: HashMap::new(),
+            aft_quv_push_admission: BTreeMap::new(),
+            aft_quv_admission: Arc::new(super::quv::admission::QuvOperationAdmissionV0::new(
+                self.config
+                    .aft_quv_domain_policies
+                    .iter()
+                    .map(|policy| policy.domain_id),
+            )),
+            aft_quv_preparation_notify: Arc::new(tokio::sync::Notify::new()),
+            aft_quv_operations: Arc::new(Mutex::new(HashMap::new())),
             aft_async_sessions: BTreeMap::new(),
             aft_async_finalized: BTreeMap::new(),
             aft_async_finalized_batches: BTreeMap::new(),
@@ -1402,9 +1473,11 @@ where
             genesis_hash: self.genesis_hash,
             genesis_root,
             is_quarantined: self.is_quarantined.clone(),
+            aft_quv_retired: false,
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: last_admitted_block,
             last_executed_block: initial_block,
+            recent_executed_headers: std::collections::BTreeMap::new(),
             last_tip_vote_replay: None,
             last_production_attempt: None,
             rejected_aft_replacements: LruCache::new(
@@ -1487,6 +1560,10 @@ where
             quv_receiver,
             shutdown_rx.clone(),
             context_arc.clone(),
+        )));
+        handles.push(tokio::spawn(super::quv::run_preparation_worker(
+            context_arc.clone(),
+            shutdown_rx.clone(),
         )));
         handles.push(tokio::spawn(super::quv::run_handoff_coordinator(
             context_arc.clone(),

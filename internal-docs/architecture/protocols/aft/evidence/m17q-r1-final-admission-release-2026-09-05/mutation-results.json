@@ -1,0 +1,74 @@
+[
+  {
+    "name": "startup-retention-removed",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::pending_removal_keeps_admission_until_dispatch_returns_or_is_canceled",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "mutant_sha256": "587ecf1be98ff97f2064f627a3ed9786ddeecdb3ec8d6ab79e5af78836fdb5fe"
+  },
+  {
+    "name": "startup-retention-restored",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::pending_removal_keeps_admission_until_dispatch_returns_or_is_canceled",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "source_sha256": "305eff15b4381c2fda949444c50d5f516d6e4d3e51d2c930c474b72548b0f62c"
+  },
+  {
+    "name": "observation-order-removed",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::admission_release_is_observed_after_semaphore_release",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101,
+    "mutant_sha256": "1d6556fb9b44d429f3226b1fd66dd91b6461efdcf5390e958e480bb131424226"
+  },
+  {
+    "name": "observation-order-restored",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::admission::tests::admission_release_is_observed_after_semaphore_release",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "source_sha256": "305eff15b4381c2fda949444c50d5f516d6e4d3e51d2c930c474b72548b0f62c"
+  }
+]

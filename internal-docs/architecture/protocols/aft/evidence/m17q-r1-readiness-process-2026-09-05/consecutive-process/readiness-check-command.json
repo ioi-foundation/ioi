@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_quv_readiness_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-readiness-process-2026-09-05/consecutive-process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-readiness-process-2026-09-05/consecutive-process/components"
+  ],
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_quv_readiness_evidence.py\", line 165, in <module>\n    result = validate(args.log.read_text(), records)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_quv_readiness_evidence.py\", line 20, in validate\n    raise ValueError(\"require one passing nonignored process test\")\nValueError: require one passing nonignored process test\n"
+}

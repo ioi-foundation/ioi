@@ -163,8 +163,10 @@ The daemon is the execution and authority-enforcement substrate inside that
 node. Hypervisor App, Hypervisor Web, CLI/headless, optional TUI views, and
 application surfaces such as Developer Workspace, Foundry, and Environments
 views are operator clients/projections. Agentgres is the local operational
-truth substrate. Native L0 GoalRun, HarnessInvocation, RuntimeAssignment, and
-member-node contracts handle local and same-system routing. AIIP begins only
+truth substrate. Native L0 Session, WorkRun, HarnessInvocation,
+RuntimeAssignment, and member-node contracts handle local and same-system
+routing; application objects such as the ioi.ai GoalRun compose them and never
+replace them ([ADR 0031](../../../decisions/0031-goalrun-execution-composes-thread-orchestration.md)). AIIP begins only
 at an independently governed boundary and carries external autonomous-system
 handoffs.
 Authority providers and local/domain governance authorize as required.
@@ -461,9 +463,11 @@ from this canonical contract:
   contracted, not vibes: the external agent is admitted as an
   `AgentHarnessAdapter` revision
   ([`default-harness-profile.md`](./default-harness-profile.md)); its work
-  enters the work spine through `GoalRunActivationEnvelope` with
-  `source_kind: gateway_adapter_context`
-  ([`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md)); attach-lane
+  enters the work spine as a Session with a typed subject attachment naming
+  the requesting application's subject — for the ioi.ai application, a
+  `GoalRunActivationEnvelope` with `source_kind: gateway_adapter_context`
+  ([`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md)); a direct
+  session attaches no application subject at all; attach-lane
   receipts remain valid, linkable evidence and are never re-minted; and no
   attach-lane approval or credential carries into the run-on lane implicitly —
   the run-on lane requests its own scopes (INV-1). An adopter who leaves keeps
@@ -472,10 +476,11 @@ from this canonical contract:
   [`economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md).
 
   The gateway owner supplies the exact adapter/profile/request/receipt evidence
-  and the no-carryover boundary. The live activation crossing itself is admitted
-  by the GoalRun owner as part of general source/profile admission; it is not a
-  gateway route and must not duplicate the currently narrow application-owned
-  GoalRun activation path.
+  and the no-carryover boundary. Where an application subject is attached, the
+  live activation crossing is admitted by that application's owner as part of
+  its general source/profile admission (for ioi.ai, the GoalRun owner); it is
+  not a gateway route and must not duplicate an application-owned activation
+  path. The gateway itself is application-neutral.
 
 #### ActionRequestEnvelope
 

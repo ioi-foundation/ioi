@@ -1,0 +1,28 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib",
+      "consequence::tests"
+    ],
+    "exit_code": 0,
+    "log_sha256": "2848e8acf9ac27c42b15f25d1fa4e523349879cf7f9cb34be5f06af3dbabdee6"
+  },
+  {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft"
+    ],
+    "exit_code": 0,
+    "log_sha256": "b86b736f9bc78298823076f3fef373f629f2c13b333834609c197795c9d4e624"
+  }
+]

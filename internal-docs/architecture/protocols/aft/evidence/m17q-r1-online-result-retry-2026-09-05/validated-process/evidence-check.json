@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-online-result-retry-2026-09-05/validated-process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-online-result-retry-2026-09-05/validated-process/components"
+  ],
+  "exit_code": 0
+}

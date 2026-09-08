@@ -1,0 +1,41 @@
+{
+  "build_command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::journal::tests::bootstrap_interruption_recovers_only_the_provisioned_initial_record",
+    "--",
+    "--exact"
+  ],
+  "build_exit": 0,
+  "trace_command": [
+    "strace",
+    "-f",
+    "-yy",
+    "-e",
+    "trace=fsync,rename,openat,mkdir",
+    "-o",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/missing-ancestry-sync.strace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/ioi_consensus-332e553035381bf6",
+    "aft::query_unanimity::journal::tests::bootstrap_interruption_recovers_only_the_provisioned_initial_record",
+    "--exact",
+    "--nocapture"
+  ],
+  "test_exit": 0,
+  "checker_command": [
+    "python3",
+    ".github/scripts/check_aft_quv_journal_sync.py",
+    "--trace",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/missing-ancestry-sync.strace",
+    "--result",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/missing-ancestry-sync-test.log"
+  ],
+  "checker_exit": 1,
+  "expected_missing_sync_refusal": true,
+  "control_source_sha256": "821c1d5f10c0bbba900c7706ad40250f889b862e7e53ac3d47c3a598a7c88d8b"
+}

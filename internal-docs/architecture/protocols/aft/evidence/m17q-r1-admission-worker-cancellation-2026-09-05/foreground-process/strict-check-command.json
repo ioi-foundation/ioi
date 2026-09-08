@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-worker-cancellation-2026-09-05/foreground-process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-worker-cancellation-2026-09-05/foreground-process/components"
+  ],
+  "checker_sha256": "d8677acfbd775b3161680e76bd29871749718fa0450b737afd6fca14b7340865",
+  "exit_code": 0,
+  "stderr": ""
+}

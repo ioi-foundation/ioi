@@ -1,0 +1,14 @@
+commit 4826d4bdb394ce3863fd5762ed9d9fd43248abbe
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Mon Sep 7 07:48:37 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Mon Sep 7 07:48:37 2026 -0400
+
+    docs(aft): retain the quiet-host flood preflight on the resized budget
+    
+    Standalone flood campaign on 2080d09d6 after five quiet minutes: exit 0 in
+    637.62 s, flood evidence checker PASS, 63 budgeted releases with maximum
+    10.78 s (p90 8.03 s) against the 16 s budget, reply maxima 977/3009/1122 ms
+    against the 4500 ms envelope, recovery 5284 ms against 120 000 ms.
+    
+    Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

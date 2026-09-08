@@ -1,0 +1,117 @@
+[
+  {
+    "name": "api",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-api",
+      "--lib"
+    ],
+    "started": "2026-09-06T08:33:28.163095+00:00",
+    "completed": "2026-09-06T08:34:45.230141+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "registry",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-services",
+      "--lib",
+      "aft_effect_registry"
+    ],
+    "started": "2026-09-06T08:34:45.234428+00:00",
+    "completed": "2026-09-06T08:35:19.570133+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "transaction-write-cleanup",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-execution",
+      "--lib",
+      "mv_memory::tests::clear_tx_writes_removes_stale_keys_from_prior_incarnation",
+      "--",
+      "--exact"
+    ],
+    "started": "2026-09-06T08:35:19.571341+00:00",
+    "completed": "2026-09-06T08:35:51.902098+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime-finality",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::runtime_finality::tests::"
+    ],
+    "started": "2026-09-06T08:35:51.902767+00:00",
+    "completed": "2026-09-06T08:36:41.639886+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T08:36:41.645029+00:00",
+    "completed": "2026-09-06T08:37:07.180547+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T08:37:07.180800+00:00",
+    "completed": "2026-09-06T08:37:15.617935+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T08:37:15.618182+00:00",
+    "completed": "2026-09-06T08:37:15.621889+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-manifest-locator-only"
+    ],
+    "started": "2026-09-06T08:37:15.622020+00:00",
+    "completed": "2026-09-06T08:37:19.100511+00:00",
+    "exit_code": 0
+  }
+]

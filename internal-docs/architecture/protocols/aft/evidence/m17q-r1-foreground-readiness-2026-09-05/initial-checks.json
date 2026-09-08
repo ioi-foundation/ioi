@@ -1,0 +1,32 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 101
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "exit_code": 0
+  }
+]

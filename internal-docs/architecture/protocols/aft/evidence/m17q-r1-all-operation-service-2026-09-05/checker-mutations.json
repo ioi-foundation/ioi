@@ -1,0 +1,42 @@
+[
+  {
+    "name": "process-removed",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "process-restored",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "output": "{\"negative_cases\": 26, \"overlap\": {\"negative_cases\": 31, \"positive_cases\": 1}, \"positive_cases\": 2}\n",
+    "sha256": "0d61506d3b224753b7cdf10f70400f8c86e67b87afcfdcdf1cd1746c4e55b692"
+  },
+  {
+    "name": "handoff-removed",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "handoff-restored",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "output": "{\"negative_cases\": 26, \"positive_cases\": 1}\n",
+    "sha256": "9fcf9527e6413dadba77cfd577f3c78089ddd458951a72ec592e7e8b8c3f6fcd"
+  }
+]

@@ -10,6 +10,7 @@ import {
   resolveV2Route,
   retiredUiRouteFor,
   renderV2RouteShellPage,
+  renderRouteLedgerPage,
   retiredUiRouteRefusal,
 } from "./v2-route-shell.mjs";
 
@@ -97,10 +98,10 @@ const compiledStub = {
 test("render: a deep link is named honestly on the page and in the data attributes", () => {
   const row = v2RouteFor("/ontology");
   const html = renderV2RouteShellPage(row, compiledStub, { subpath: "objects/obj_1", query: "tab=schema" });
-  assert.match(html, /Requested deep link/);
+  assert.match(html, /Requested link/);
   assert.match(html, /\/ontology\/objects\/obj_1\?tab=schema/);
   assert.match(html, /data-ioi-surface-subpath="objects\/obj_1"/);
-  assert.match(html, /Deep-link state/);
+  assert.match(html, /Where it resolves/);
 });
 
 test("render: embed omits estate chrome but keeps the same truth — no nav band, no footer", () => {
@@ -117,8 +118,42 @@ test("render: embed omits estate chrome but keeps the same truth — no nav band
 test("render: no fabricated serving lanes — an empty serving_today renders honest absence", () => {
   const reserved = V2_ROUTE_TABLE.find((r) => r.disposition === "reserved");
   const html = renderV2RouteShellPage(reserved, compiledStub, {});
-  assert.match(html, /Nothing serves this surface today/);
-  assert.match(html, /nonlaunchable/);
+  assert.match(html, /Nothing is available here yet/);
+  assert.match(html, /not yet available/);
+});
+
+// ADR 0052 Decision 5: implementation narrative leaves ordinary product screens.
+test("render: an ordinary landing prints no build waves, build state, retirement history or source files", () => {
+  for (const row of V2_ROUTE_TABLE.filter((r) => r.disposition !== "vendor_spa")) {
+    const html = renderV2RouteShellPage(row, compiledStub, {});
+    assert.doesNotMatch(html, /Wave assignments|Build state|COCKPIT RETIREMENT|v2 route shell|surface-compiler\.mjs|v2-route-shell\.mjs/, `${row.route} leaks implementation narrative`);
+    assert.match(html, /Where to go|Status/);
+    assert.match(html, /\/__ioi\/route-ledger/, `${row.route} must link to the developer route ledger`);
+  }
+});
+
+test("ledger: the developer route ledger carries every row's waves, build state, serving lanes and how it is served", () => {
+  const html = renderRouteLedgerPage(compiledStub);
+  for (const row of V2_ROUTE_TABLE) {
+    assert.match(html, new RegExp(row.route.replace(/[/.]/g, "\\$&")), `${row.route} missing from the ledger`);
+    assert.ok(html.includes(row.waves.slice(0, 12)), `${row.route} waves missing from the ledger`);
+  }
+  assert.match(html, /302 → \/ai/);
+  assert.match(html, /serves \/__ioi\/sessions at the canonical route/);
+  assert.match(html, /data-ioi-surface-route="\/__ioi\/route-ledger"/);
+});
+
+test("serve: every served canonical lane is declared honestly — a rewrite names the heading its lane renders and never points at a canonical route", () => {
+  for (const row of V2_ROUTE_TABLE.filter((r) => r.serve)) {
+    assert.ok(["rewrite", "redirect"].includes(row.serve.kind), `${row.route} serve.kind`);
+    assert.ok(typeof row.serve.to === "string" && row.serve.to.startsWith("/"), `${row.route} serve.to`);
+    assert.equal(v2RouteFor(row.serve.to.split("#")[0]), null, `${row.route} serve.to must not be another canonical route (no loops)`);
+    if (row.serve.kind === "rewrite") {
+      assert.ok(row.serve.to.startsWith("/__ioi/"), `${row.route} rewrite lanes are serve-owned /__ioi/* lanes`);
+      assert.ok(typeof row.serve.heading === "string" && row.serve.heading.length > 0, `${row.route} rewrite must declare the lane's real heading`);
+    }
+    assert.ok((row.serving_today || []).some((s) => s.href.split("#")[0] === row.serve.to.split("#")[0]), `${row.route} serve.to must be one of its declared serving lanes`);
+  }
 });
 
 // ------------------------------ table integrity ------------------------------

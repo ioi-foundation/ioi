@@ -388,13 +388,18 @@ where
     /// A transcript or cached success indication cannot call this path: only
     /// the non-serializable token returned by this process's live operation is
     /// accepted by `ConsequenceStore`.
+    /// Takes ownership of the store so neither fair queueing nor the online
+    /// network wait holds its exclusive filesystem lock. Callers may reopen
+    /// the same path after completion; every reopen revalidates durable state.
     pub async fn execute_query_unanimity_effect(
         &self,
-        consequence_store: &mut agentgres::consequence::ConsequenceStore,
+        consequence_store: agentgres::consequence::ConsequenceStore,
         effect_id: &str,
         resource: &mut dyn agentgres::consequence::ExternalResourceV1,
         candidate: QuvCandidateV0,
     ) -> Result<agentgres::consequence::ConsequenceReceiptV1> {
+        let consequence_root = consequence_store.path().to_path_buf();
+        drop(consequence_store);
         let context = self
             .main_loop_context
             .lock()
@@ -402,70 +407,192 @@ where
             .as_ref()
             .cloned()
             .ok_or_else(|| anyhow!("orchestrator is not running"))?;
-        if !consequence_store.contains(effect_id) {
-            let runtime_finality = {
-                let context = context.lock().await;
-                context.runtime_finality.clone()
-            };
-            let (admission, current_height) = {
-                let finality = runtime_finality.lock().await;
-                let admission = finality.committed_consequence_manifest(effect_id)?;
-                let current_height = finality
-                    .last_admitted_block()?
-                    .map(|block| block.header.height)
-                    .unwrap_or(admission.admitted_height);
-                (admission, current_height)
-            };
-            if resource.profile() != &admission.manifest.resource_profile {
-                return Err(anyhow!(
-                    "executor resource differs from the Agentgres-admitted manifest"
-                ));
-            }
-            let (authorization, achieved) = agentgres::consequence::AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
-                &admission.committed,
-                &admission.manifest,
+        let (runtime_finality, receipt_gate) = {
+            let context = context.lock().await;
+            (
+                context.runtime_finality.clone(),
+                context.aft_quv_admission.clone(),
             )
+        };
+        let mut admission = runtime_finality
+            .lock()
+            .await
+            .committed_consequence_manifest(effect_id)?;
+        let mut current_height;
+        let receipt_domain = admission
+            .manifest
+            .conflict_domain_commitment()
             .map_err(anyhow::Error::new)?;
-            consequence_store
-                .authorize(
-                    admission.manifest,
-                    &achieved,
-                    &authorization,
-                    current_height,
-                )
+        let mut receipt_access = receipt_gate
+            .receipt_access(receipt_domain, candidate.authorizer)
+            .await?;
+        let mut consequence_store =
+            agentgres::consequence::ConsequenceStore::open(&consequence_root)
                 .map_err(anyhow::Error::new)?;
-        }
-        let requirement = consequence_store
-            .online_authorization_requirement(effect_id)
-            .map_err(anyhow::Error::new)?;
-        if candidate.payload_hash != requirement.payload_hash
-            || candidate.slot.configuration_root != requirement.configuration_root
-            || candidate.slot.policy_root != requirement.policy_root
-            || candidate.slot.domain_id != requirement.conflict_domain_hash
-            || candidate.slot.slot != requirement.conflict_slot
         {
+            let finality = runtime_finality.lock().await;
+            admission = finality.committed_consequence_manifest(effect_id)?;
+            current_height = finality
+                .last_admitted_block()?
+                .map(|block| block.header.height)
+                .unwrap_or(admission.admitted_height);
+            if admission
+                .manifest
+                .conflict_domain_commitment()
+                .map_err(anyhow::Error::new)?
+                != receipt_domain
+            {
+                return Err(anyhow!("queued receipt domain changed"));
+            }
+        }
+        if resource.profile() != &admission.manifest.resource_profile {
             return Err(anyhow!(
-                "QUV candidate does not match the durable effect manifest"
+                "executor resource differs from the Agentgres-admitted manifest"
             ));
         }
-
-        let mut verifier_nonce = [0_u8; 32];
-        OsRng.fill_bytes(&mut verifier_nonce);
-        let receiver = quv::begin_online_authorization(
-            &context,
-            QuvPushQueryV0 {
-                verifier_nonce,
-                candidate,
-            },
+        let (authorization, achieved) = agentgres::consequence::AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+            &admission.committed,
+            &admission.manifest,
         )
-        .await?;
+        .map_err(anyhow::Error::new)?;
+        let needs_live = consequence_store
+            .inspect_online_effect(
+                admission.manifest.clone(),
+                &achieved,
+                &authorization,
+                current_height,
+                quv::effect_candidate_binding(&candidate),
+            )
+            .map_err(anyhow::Error::new)?;
+        let reserved = if needs_live {
+            let mut verifier_nonce = [0_u8; 32];
+            OsRng.fill_bytes(&mut verifier_nonce);
+            drop(consequence_store);
+            drop(receipt_access);
+            let reserved = quv::reserve_online_authorization(
+                &context,
+                QuvPushQueryV0 {
+                    verifier_nonce,
+                    candidate: candidate.clone(),
+                },
+            )
+            .await?;
+            receipt_access = receipt_gate.owned_receipt_access().await?;
+            consequence_store = agentgres::consequence::ConsequenceStore::open(&consequence_root)
+                .map_err(anyhow::Error::new)?;
+            let finality = runtime_finality.lock().await;
+            admission = finality.committed_consequence_manifest(effect_id)?;
+            current_height = finality
+                .last_admitted_block()?
+                .map(|block| block.header.height)
+                .unwrap_or(0);
+            Some(reserved)
+        } else {
+            None
+        };
+        if resource.profile() != &admission.manifest.resource_profile {
+            return Err(anyhow!(
+                "executor resource differs from the Agentgres-admitted manifest"
+            ));
+        }
+        let (authorization, achieved) = agentgres::consequence::AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+            &admission.committed, &admission.manifest,
+        ).map_err(anyhow::Error::new)?;
+        let needs_live = consequence_store
+            .prepare_online_effect_checked(
+                admission.manifest.clone(),
+                &achieved,
+                &authorization,
+                current_height,
+                quv::effect_candidate_binding(&candidate),
+                async {
+                    reserved
+                        .as_ref()
+                        .ok_or_else(|| {
+                            agentgres::consequence::ConsequenceError::Invalid(
+                                "executable receipt appeared without operation admission".into(),
+                            )
+                        })?
+                        .check_service()
+                        .map_err(|error| {
+                            agentgres::consequence::ConsequenceError::Invalid(error.to_string())
+                        })?;
+                    quv::preflight_effect_candidate(&context, &candidate)
+                        .await
+                        .map_err(|error| {
+                            agentgres::consequence::ConsequenceError::Invalid(error.to_string())
+                        })
+                },
+            )
+            .await
+            .map_err(anyhow::Error::new)?;
+        if needs_live {
+            reserved
+                .as_ref()
+                .ok_or_else(|| anyhow!("missing operation admission"))?
+                .check_service()?;
+            resource
+                .prepare(&admission.manifest)
+                .map_err(anyhow::Error::new)?;
+        }
+
+        if let Some(receipt) = consequence_store
+            .online_retry_result(effect_id, resource)
+            .map_err(anyhow::Error::new)?
+        {
+            return Ok(receipt);
+        }
+
+        let reserved = reserved.ok_or_else(|| anyhow!("missing operation admission"))?;
+        drop(consequence_store);
+        drop(receipt_access);
+        let receiver = quv::start_reserved_authorization(&context, reserved).await?;
         let authorization = receiver
             .await
-            .map_err(|_| anyhow!("QUV online operation terminated without a decision"))?
-            .map_err(anyhow::Error::msg)?;
+            .map_err(|_| anyhow!("QUV online operation terminated without a decision"))??;
+        let _receipt_access = receipt_gate.owned_receipt_access().await?;
+        let mut consequence_store =
+            agentgres::consequence::ConsequenceStore::open(&consequence_root)
+                .map_err(anyhow::Error::new)?;
+        // Re-derive from committed admission after the network wait, and keep
+        // that admission/height stable through the synchronous claim/call.
+        let finality = runtime_finality.lock().await;
+        let admission = finality.committed_consequence_manifest(effect_id)?;
+        let current_height = finality
+            .last_admitted_block()?
+            .map(|block| block.header.height)
+            .unwrap_or(0);
+        let (admitted_authorization, achieved) = agentgres::consequence::AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+            &admission.committed,
+            &admission.manifest,
+        )
+        .map_err(anyhow::Error::new)?;
         consequence_store
-            .execute_with_online_authorization(effect_id, resource, authorization)
-            .map_err(anyhow::Error::new)
+            .prepare_online_effect(
+                admission.manifest,
+                &achieved,
+                &admitted_authorization,
+                current_height,
+            )
+            .map_err(anyhow::Error::new)?;
+        let result = match consequence_store
+            .online_retry_result(effect_id, resource)
+            .map_err(anyhow::Error::new)?
+        {
+            Some(receipt) => Ok(receipt),
+            None => authorization.with_continuation(|authorization| {
+                consequence_store
+                    .execute_with_online_authorization(
+                        effect_id,
+                        resource,
+                        authorization,
+                        current_height,
+                    )
+                    .map_err(anyhow::Error::new)
+            }),
+        };
+        drop(finality);
+        result
     }
 
     /// Sets the `Chain` and `WorkloadClient` references initialized after container creation.

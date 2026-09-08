@@ -10,6 +10,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::time::{interval, Duration};
 
 use crate::metrics::metrics;
+use ioi_types::app::{AccountId, QuvNonce, QuvPushQueryV0, QuvReplyV0};
 use ioi_types::codec;
 
 use super::behaviour::{SyncBehaviour, SyncBehaviourEvent};
@@ -21,6 +22,80 @@ const PENDING_BLOCK_OUTBOX_MAX: usize = 128;
 const PENDING_TX_OUTBOX_MAX: usize = 65_536;
 const PENDING_VOTE_OUTBOX_MAX: usize = 256;
 const BLOCK_SYNC_MAX_BYTES: u32 = 64 * 1024 * 1024;
+/// How many times one connection may report an erased provisional PQ
+/// enrollment. Each report asks the validator for one status-driven
+/// re-enrollment; the session manager's provisional lifetime and per-account
+/// caps still bound what such a re-enrollment can hold.
+const PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION: u32 = 4;
+
+/// What the transport owes the sender for one authenticated protected record.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PqRecordAdmission {
+    /// The record reached its handler; acknowledge on the transport now.
+    ///
+    /// An admitted QUV PUSHQUERY is acknowledged here too, right after the
+    /// mpsc forward. Withholding that ACK until durable member processing
+    /// was tried and reverted: it serialized the member's own QUV reply
+    /// behind the requester's push on the single-in-flight peer lane and
+    /// missed the rooted decision cutoff under saturation, while a member
+    /// that crashes between ACK and processing is outside the theorem's
+    /// timely-correct-member premise for that operation (the verifier
+    /// aborts by deadline; no authority is minted from the loss).
+    AckNow,
+}
+
+/// Releases the requester's timing lane for this exact push. Returns whether
+/// a lane was released.
+fn complete_quv_push(
+    quv_push_inflight: &mut HashMap<AccountId, QuvNonce>,
+    requester: AccountId,
+    nonce: QuvNonce,
+) -> bool {
+    if quv_push_inflight.get(&requester) == Some(&nonce) {
+        quv_push_inflight.remove(&requester);
+        true
+    } else {
+        false
+    }
+}
+
+/// A NACK names a record the member refused without durable admission (lane
+/// occupied by another nonce, or nonce-stale). Only the transport attempt is
+/// over: the durable record stays queued and the next tick may resend it.
+/// Returns whether the NACK matched the request in flight for that peer.
+fn release_nacked_pq_record(
+    inflight: &mut HashMap<PeerId, InflightPqRequest>,
+    peer: PeerId,
+    request_id: libp2p::request_response::OutboundRequestId,
+) -> bool {
+    let matched = inflight
+        .get(&peer)
+        .is_some_and(|pending| pending.request_id == request_id);
+    if matched {
+        inflight.remove(&peer);
+    }
+    matched
+}
+
+/// Decides whether an erased provisional enrollment is reported to the
+/// validator. Only a still-connected carrier is worth a status refresh (a
+/// disconnected one is re-derived on reconnect), and each connection may ask
+/// at most `PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION` times.
+fn pq_enrollment_lost_report(
+    lost_reports: &mut HashMap<PeerId, u32>,
+    peer: PeerId,
+    connected: bool,
+) -> Option<SwarmInternalEvent> {
+    if !connected {
+        return None;
+    }
+    let reports = lost_reports.entry(peer).or_insert(0);
+    if *reports >= PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION {
+        return None;
+    }
+    *reports += 1;
+    Some(SwarmInternalEvent::PqEnrollmentLost(peer))
+}
 
 fn addressed_peer(addr: &Multiaddr) -> Option<PeerId> {
     addr.iter().find_map(|protocol| match protocol {
@@ -174,6 +249,33 @@ fn start_pq_handshake(
     }
 }
 
+/// Recovery after a handshake or protected-record failure. Ephemeral keys are
+/// dropped so a retry uses a fresh transcript. A still-enrolled (authenticated
+/// or provisional-and-live) peer retries in place, exactly as before. An
+/// enrollment the disconnect erased cannot be retried locally, because
+/// `start` requires one; the caller forwards the returned event so the
+/// validator re-derives it from a fresh status exchange.
+fn recover_pq_peer_after_failure(
+    swarm: &mut Swarm<SyncBehaviour>,
+    manager: &mut PqChannelSessionManager,
+    inflight: &mut HashMap<libp2p::PeerId, InflightPqHandshake>,
+    lost_reports: &mut HashMap<PeerId, u32>,
+    peer: libp2p::PeerId,
+) -> Option<SwarmInternalEvent> {
+    manager.disconnect(&peer);
+    if manager.enrolled_peers().any(|enrolled| enrolled == peer) {
+        start_pq_handshake(swarm, manager, inflight, peer);
+        return None;
+    }
+    tracing::info!(
+        target: "network",
+        event = "pq_provisional_enrollment_lost",
+        %peer,
+        connected = swarm.is_connected(&peer)
+    );
+    pq_enrollment_lost_report(lost_reports, peer, swarm.is_connected(&peer))
+}
+
 fn flush_pq_peer(
     swarm: &mut Swarm<SyncBehaviour>,
     manager: &mut PqChannelSessionManager,
@@ -281,13 +383,13 @@ fn queue_pq_consensus_for_account(
 async fn deliver_pq_record(
     event_sender: &mpsc::Sender<SwarmInternalEvent>,
     quv_event_sender: &mpsc::Sender<SwarmInternalEvent>,
-    quv_push_inflight: &mut HashSet<ioi_types::app::AccountId>,
+    quv_push_inflight: &mut HashMap<ioi_types::app::AccountId, QuvNonce>,
     quv_reply_inflight: &mut HashSet<ioi_types::app::AccountId>,
-    quv_operation_active: bool,
+    active_quv_operation: Option<QuvNonce>,
     manager: &mut PqChannelSessionManager,
     peer: libp2p::PeerId,
     record: ioi_crypto::transport::pq_authenticated_channel::PqChannelRecordV1,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<PqRecordAdmission> {
     let declared_type = record.content_type;
     let plaintext = manager.open(&peer, &record)?;
     let authenticated_account = manager
@@ -301,27 +403,70 @@ async fn deliver_pq_record(
     if !manager.permits_received_payload(&peer, &payload) {
         anyhow::bail!("protected consensus payload exceeds the rooted PQ endpoint capability");
     }
-    let admitted_quv_push = matches!(&payload, PqConsensusPayloadV1::QuvPushQuery(_));
-    if admitted_quv_push && !quv_push_inflight.insert(authenticated_account) {
-        tracing::warn!(
-            target: "quv",
-            ?authenticated_account,
-            "Dropped QUV PUSHQUERY because this authenticated account already occupies its timing-lane slot"
-        );
-        return Ok(());
-    }
-    let admitted_quv_reply = matches!(&payload, PqConsensusPayloadV1::QuvReply(_));
-    if admitted_quv_reply
-        && (!quv_operation_active || !quv_reply_inflight.insert(authenticated_account))
-    {
-        tracing::warn!(
-            target: "quv",
-            ?authenticated_account,
-            active_operation = quv_operation_active,
-            "Dropped QUV reply outside the live operation or after this member's first admitted response"
-        );
-        return Ok(());
-    }
+    let push_nonce = match &payload {
+        PqConsensusPayloadV1::QuvPushQuery(bytes) => Some(
+            codec::from_bytes_canonical::<QuvPushQueryV0>(bytes)
+                .map_err(anyhow::Error::msg)?
+                .verifier_nonce,
+        ),
+        _ => None,
+    };
+    let reply_nonce = match &payload {
+        PqConsensusPayloadV1::QuvReply(bytes) => Some(
+            codec::from_bytes_canonical::<QuvReplyV0>(bytes)
+                .map_err(anyhow::Error::msg)?
+                .verifier_nonce,
+        ),
+        _ => None,
+    };
+    let admitted_quv_push = if let Some(nonce) = push_nonce {
+        match quv_push_inflight.get(&authenticated_account).copied() {
+            None => {
+                quv_push_inflight.insert(authenticated_account, nonce);
+                true
+            }
+            Some(existing) if existing == nonce => {
+                // The push is already in member work; acknowledge the retry
+                // without forwarding it a second time.
+                tracing::debug!(
+                    target: "quv",
+                    ?authenticated_account,
+                    "Acknowledged a duplicate QUV PUSHQUERY after the push was admitted"
+                );
+                return Ok(PqRecordAdmission::AckNow);
+            }
+            Some(_) => {
+                anyhow::bail!(
+                    "authenticated QUV requester already occupies its timing lane with another nonce"
+                );
+            }
+        }
+    } else {
+        false
+    };
+    let admitted_quv_reply = if let Some(nonce) = reply_nonce {
+        if active_quv_operation != Some(nonce) {
+            // Retire the sender's stale durable record without letting it
+            // occupy the current operation's per-member admission slot.
+            tracing::debug!(
+                target: "quv",
+                ?authenticated_account,
+                "Acknowledged a nonce-stale QUV reply outside the active verifier operation"
+            );
+            return Ok(PqRecordAdmission::AckNow);
+        }
+        if !quv_reply_inflight.insert(authenticated_account) {
+            tracing::debug!(
+                target: "quv",
+                ?authenticated_account,
+                "Acknowledged a duplicate QUV reply after the member's response was admitted"
+            );
+            return Ok(PqRecordAdmission::AckNow);
+        }
+        true
+    } else {
+        false
+    };
     let is_quv = matches!(
         &payload,
         PqConsensusPayloadV1::QuvPushQuery(_) | PqConsensusPayloadV1::QuvReply(_)
@@ -366,17 +511,29 @@ async fn deliver_pq_record(
     } else {
         event_sender
     };
+    if let Some(nonce) = reply_nonce {
+        tracing::debug!(target: "quv", event = "reply_network_admitted", nonce_bytes = ?nonce, ?authenticated_account);
+    }
     let sent = sender
         .send(event)
         .await
         .map_err(|_| anyhow::anyhow!("network event receiver closed"));
+    if let Some(nonce) = reply_nonce {
+        // These diagnostics delimit channel forwarding, not verifier observation.
+        tracing::debug!(target: "quv", event = "reply_event_forwarded", nonce_bytes = ?nonce, ?authenticated_account, succeeded = sent.is_ok());
+    }
     if sent.is_err() && admitted_quv_push {
-        quv_push_inflight.remove(&authenticated_account);
+        if let Some(nonce) = push_nonce {
+            if quv_push_inflight.get(&authenticated_account) == Some(&nonce) {
+                quv_push_inflight.remove(&authenticated_account);
+            }
+        }
     }
     if sent.is_err() && admitted_quv_reply {
         quv_reply_inflight.remove(&authenticated_account);
     }
-    sent
+    sent?;
+    Ok(PqRecordAdmission::AckNow)
 }
 
 async fn handle_quv_command(
@@ -385,14 +542,24 @@ async fn handle_quv_command(
     pq_channels: &mut Option<PqChannelSessionManager>,
     inflight_pq_handshakes: &mut HashMap<libp2p::PeerId, InflightPqHandshake>,
     inflight_pq_consensus: &mut HashMap<libp2p::PeerId, InflightPqRequest>,
-    quv_push_inflight: &mut HashSet<ioi_types::app::AccountId>,
+    quv_push_inflight: &mut HashMap<ioi_types::app::AccountId, QuvNonce>,
     quv_reply_inflight: &mut HashSet<ioi_types::app::AccountId>,
-    quv_operation_active: &mut bool,
+    active_quv_operation: &mut Option<QuvNonce>,
 ) {
     match command {
-        SwarmCommand::BeginQuvOperation { response } => {
+        SwarmCommand::BeginQuvOperation { nonce, response } => {
             quv_reply_inflight.clear();
-            *quv_operation_active = true;
+            if let Some(manager) = pq_channels.as_mut() {
+                match manager.retire_stale_quv_pushes(nonce) {
+                    Ok(retired) => inflight_pq_consensus
+                        .retain(|_, pending| !retired.contains(&pending.message_id)),
+                    Err(error) => {
+                        tracing::error!(target: "quv", %error, "Failed to retire stale durable QUV requests before operation admission");
+                        return;
+                    }
+                }
+            }
+            *active_quv_operation = Some(nonce);
             let _ = response.send(());
         }
         SwarmCommand::QueueQuvPushQuery {
@@ -418,26 +585,54 @@ async fn handle_quv_command(
         }
         SwarmCommand::QueueQuvReply { recipient, data } => {
             if let Some(manager) = pq_channels.as_mut() {
-                if let Err(error) = queue_pq_consensus_for_account(
-                    swarm,
-                    manager,
-                    inflight_pq_handshakes,
-                    inflight_pq_consensus,
-                    recipient,
-                    PqConsensusPayloadV1::QuvReply(data),
-                ) {
-                    tracing::error!(target: "network", event = "aft_quv_reply_enqueue_failed", ?recipient, %error);
+                match manager
+                    .enqueue_quv_reply_for_account(recipient, PqConsensusPayloadV1::QuvReply(data))
+                {
+                    Ok((_, retired)) => {
+                        inflight_pq_consensus
+                            .retain(|_, pending| !retired.contains(&pending.message_id));
+                        if let Some(peer) = manager.peer_for_account(recipient) {
+                            if manager.is_established(&peer) {
+                                flush_pq_peer(swarm, manager, inflight_pq_consensus, peer);
+                            } else {
+                                start_pq_handshake(swarm, manager, inflight_pq_handshakes, peer);
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        tracing::error!(target: "network", event = "aft_quv_reply_enqueue_failed", ?recipient, %error);
+                    }
                 }
             } else {
                 tracing::warn!(target: "network", event = "aft_quv_reply_refused", ?recipient, "QUV requires configured strict PQ channels");
             }
         }
-        SwarmCommand::CompleteQuvPush { requester } => {
-            quv_push_inflight.remove(&requester);
+        SwarmCommand::CompleteQuvPush { requester, nonce } => {
+            // The validator reports member processing (or a closed refusal)
+            // at every terminal point; the transport ACK was already sent at
+            // admission, so only the requester's timing lane is released.
+            if !complete_quv_push(quv_push_inflight, requester, nonce) {
+                tracing::debug!(
+                    target: "quv",
+                    ?requester,
+                    "CompleteQuvPush named a push that no longer holds the requester's lane"
+                );
+            }
         }
-        SwarmCommand::CompleteQuvOperation => {
-            *quv_operation_active = false;
-            quv_reply_inflight.clear();
+        SwarmCommand::CompleteQuvOperation { nonce } => {
+            if *active_quv_operation == Some(nonce) {
+                if let Some(manager) = pq_channels.as_mut() {
+                    match manager.retire_quv_operation(nonce) {
+                        Ok(retired) => inflight_pq_consensus
+                            .retain(|_, pending| !retired.contains(&pending.message_id)),
+                        Err(error) => {
+                            tracing::error!(target: "quv", %error, "Failed to retire completed durable QUV requests")
+                        }
+                    }
+                }
+                *active_quv_operation = None;
+                quv_reply_inflight.clear();
+            }
         }
         _ => {
             tracing::error!(target: "quv", "Non-QUV swarm command was sent through the isolated QUV lane");
@@ -586,9 +781,10 @@ pub async fn run_swarm_loop(
     let mut legacy_consensus_transport_allowed = true;
     let mut inflight_pq_handshakes: HashMap<libp2p::PeerId, InflightPqHandshake> = HashMap::new();
     let mut inflight_pq_consensus: HashMap<libp2p::PeerId, InflightPqRequest> = HashMap::new();
-    let mut quv_push_inflight: HashSet<ioi_types::app::AccountId> = HashSet::new();
+    let mut quv_push_inflight: HashMap<ioi_types::app::AccountId, QuvNonce> = HashMap::new();
     let mut quv_reply_inflight: HashSet<ioi_types::app::AccountId> = HashSet::new();
-    let mut quv_operation_active = false;
+    let mut pq_enrollment_lost_reports: HashMap<PeerId, u32> = HashMap::new();
+    let mut active_quv_operation = None;
     let mut dialing_peers: HashSet<PeerId> = HashSet::new();
 
     let mut retry_interval = interval(Duration::from_millis(500));
@@ -625,7 +821,7 @@ pub async fn run_swarm_loop(
                     &mut inflight_pq_consensus,
                     &mut quv_push_inflight,
                     &mut quv_reply_inflight,
-                    &mut quv_operation_active,
+                    &mut active_quv_operation,
                 ).await;
             },
             _ = retry_interval.tick() => {
@@ -633,6 +829,12 @@ pub async fn run_swarm_loop(
                 drain_pending_txs(&mut pending_txs, &mut swarm.behaviour_mut().gossipsub, &tx_topic);
                 drain_pending_votes(&mut pending_votes, &mut swarm.behaviour_mut().gossipsub);
                 if let Some(manager) = pq_channels.as_mut() {
+                    manager.expire_provisional_enrollments();
+                    let enrolled = manager.enrolled_peers().collect::<std::collections::HashSet<_>>();
+                    // Drop only ephemeral retry handles for expired/evicted
+                    // carriers. Protected outbox entries remain durable.
+                    inflight_pq_handshakes.retain(|peer, _| enrolled.contains(peer));
+                    inflight_pq_consensus.retain(|peer, _| enrolled.contains(peer));
                     for peer in manager.pending_peers() {
                         if manager.is_application_ready(&peer) {
                             flush_pq_peer(&mut swarm, manager, &mut inflight_pq_consensus, peer);
@@ -694,6 +896,7 @@ pub async fn run_swarm_loop(
                         }
                         inflight_pq_handshakes.remove(&peer_id);
                         inflight_pq_consensus.remove(&peer_id);
+                        pq_enrollment_lost_reports.remove(&peer_id);
                         if let Err(error) = swarm.dial(peer_id) {
                             tracing::debug!(
                                 target: "network",
@@ -857,13 +1060,18 @@ pub async fn run_swarm_loop(
                                     }
                                 }
                                 SyncRequest::PqChannelClientFinish(finish) => {
-                                    let result = pq_channels
-                                        .as_mut()
+                                    let result = pq_channels.as_mut()
                                         .ok_or_else(|| anyhow::anyhow!("strict PQ channels are not configured"))
-                                        .and_then(|manager| manager.complete(peer, finish));
+                                        .and_then(|manager| {
+                                            manager.complete(peer, finish)?;
+                                            manager.remote_account(&peer)
+                                                .ok_or_else(|| anyhow::anyhow!("completed PQ carrier lacks authenticated account"))
+                                        });
                                     match result {
-                                        Ok(()) => {
+                                        Ok(account) => {
                                             let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::PqChannelAck);
+                                            pq_enrollment_lost_reports.remove(&peer);
+                                            event_sender.send(SwarmInternalEvent::PqCarrierAuthenticated(peer, account)).await.ok();
                                             if let Some(manager) = pq_channels.as_mut() {
                                                 flush_pq_peer(&mut swarm, manager, &mut inflight_pq_consensus, peer);
                                             }
@@ -880,7 +1088,7 @@ pub async fn run_swarm_loop(
                                             &quv_event_sender,
                                             &mut quv_push_inflight,
                                             &mut quv_reply_inflight,
-                                            quv_operation_active,
+                                            active_quv_operation,
                                             manager,
                                             peer,
                                             record,
@@ -888,11 +1096,15 @@ pub async fn run_swarm_loop(
                                         None => Err(anyhow::anyhow!("strict PQ channels are not configured")),
                                     };
                                     match result {
-                                        Ok(()) => {
+                                        Ok(PqRecordAdmission::AckNow) => {
                                             let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::PqChannelAck);
                                         }
                                         Err(error) => {
+                                            // Refused without durable admission: tell the
+                                            // requester explicitly so it keeps its record
+                                            // and retries without a session teardown.
                                             tracing::warn!(target: "network", event = "pq_record_refused", %peer, %error);
+                                            let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::PqChannelNack);
                                         }
                                     }
                                 }
@@ -941,15 +1153,25 @@ pub async fn run_swarm_loop(
                                         Err(error) => {
                                             tracing::warn!(target: "network", event = "pq_server_hello_refused", %peer, %error);
                                             if let Some(manager) = pq_channels.as_mut() {
-                                                manager.disconnect(&peer);
-                                                start_pq_handshake(
+                                                let lost = recover_pq_peer_after_failure(
                                                     &mut swarm,
                                                     manager,
                                                     &mut inflight_pq_handshakes,
+                                                    &mut pq_enrollment_lost_reports,
                                                     peer,
                                                 );
+                                                if let Some(lost) = lost {
+                                                    event_sender.send(lost).await.ok();
+                                                }
                                             }
                                         }
+                                    }
+                                }
+                                SyncResponse::PqChannelNack => {
+                                    // Only the transport attempt ended; the durable
+                                    // record stays queued for the next retry tick.
+                                    if release_nacked_pq_record(&mut inflight_pq_consensus, peer, request_id) {
+                                        tracing::debug!(target: "network", event = "pq_record_nacked", %peer, "member refused the record without durable admission; retaining it for a later attempt");
                                     }
                                 }
                                 SyncResponse::PqChannelAck => {
@@ -962,17 +1184,29 @@ pub async fn run_swarm_loop(
                                             });
                                         if handshake_acknowledged {
                                             inflight_pq_handshakes.remove(&peer);
-                                            if let Err(error) = manager.confirm_application_ready(&peer) {
+                                            let authenticated = manager
+                                                .confirm_application_ready(&peer)
+                                                .and_then(|()| manager.remote_account(&peer)
+                                                    .ok_or_else(|| anyhow::anyhow!("confirmed PQ carrier lacks authenticated account")));
+                                            let account = match authenticated {
+                                                Ok(account) => account,
+                                                Err(error) => {
                                                 tracing::warn!(target: "network", event = "pq_channel_ack_refused", %peer, %error);
-                                                manager.disconnect(&peer);
-                                                start_pq_handshake(
+                                                let lost = recover_pq_peer_after_failure(
                                                     &mut swarm,
                                                     manager,
                                                     &mut inflight_pq_handshakes,
+                                                    &mut pq_enrollment_lost_reports,
                                                     peer,
                                                 );
+                                                if let Some(lost) = lost {
+                                                    event_sender.send(lost).await.ok();
+                                                }
                                                 continue;
-                                            }
+                                                }
+                                            };
+                                            pq_enrollment_lost_reports.remove(&peer);
+                                            event_sender.send(SwarmInternalEvent::PqCarrierAuthenticated(peer, account)).await.ok();
                                             flush_pq_peer(&mut swarm, manager, &mut inflight_pq_consensus, peer);
                                             continue;
                                         }
@@ -983,14 +1217,17 @@ pub async fn run_swarm_loop(
                                             if let Some(pending) = inflight_pq_consensus.remove(&peer) {
                                                 if let Err(error) = manager.acknowledge(&peer, pending.message_id) {
                                                     tracing::error!(target: "network", event = "pq_consensus_ack_persist_failed", %peer, %error);
-                                                    manager.disconnect(&peer);
                                                     inflight_pq_handshakes.remove(&peer);
-                                                    start_pq_handshake(
+                                                    let lost = recover_pq_peer_after_failure(
                                                         &mut swarm,
                                                         manager,
                                                         &mut inflight_pq_handshakes,
+                                                        &mut pq_enrollment_lost_reports,
                                                         peer,
                                                     );
+                                                    if let Some(lost) = lost {
+                                                        event_sender.send(lost).await.ok();
+                                                    }
                                                     continue;
                                                 }
                                             }
@@ -1031,13 +1268,19 @@ pub async fn run_swarm_loop(
                                     // The durable plaintext remains pending. Drop all
                                     // ephemeral keys so retry uses a fresh transcript
                                     // and starts its sequence at zero under a new key.
-                                    manager.disconnect(&peer);
-                                    start_pq_handshake(
+                                    // An unproven enrollment is erased by that drop and
+                                    // cannot be restarted here; report it instead so the
+                                    // validator re-derives it from a fresh status exchange.
+                                    let lost = recover_pq_peer_after_failure(
                                         &mut swarm,
                                         manager,
                                         &mut inflight_pq_handshakes,
+                                        &mut pq_enrollment_lost_reports,
                                         peer,
                                     );
+                                    if let Some(lost) = lost {
+                                        event_sender.send(lost).await.ok();
+                                    }
                                 }
                             }
                             event_sender.send(SwarmInternalEvent::OutboundFailure(peer)).await.ok();
@@ -1409,7 +1652,7 @@ pub async fn run_swarm_loop(
                     | SwarmCommand::QueueQuvReply { .. }
                     | SwarmCommand::CompleteQuvPush { .. }
                     | SwarmCommand::BeginQuvOperation { .. }
-                    | SwarmCommand::CompleteQuvOperation => {
+                    | SwarmCommand::CompleteQuvOperation { .. } => {
                         tracing::error!(target: "quv", "QUV command was sent through the general swarm lane and refused");
                     }
                     SwarmCommand::ConfigurePqChannels { config, enrollments, handoff_only, response } => {
@@ -1426,7 +1669,8 @@ pub async fn run_swarm_loop(
                         inflight_pq_consensus.clear();
                         quv_push_inflight.clear();
                         quv_reply_inflight.clear();
-                        quv_operation_active = false;
+                        pq_enrollment_lost_reports.clear();
+                        active_quv_operation = None;
                         if config.peer_id != *swarm.local_peer_id() {
                             let error = format!(
                                 "configured carrier identity {} does not match running swarm {}",
@@ -1642,6 +1886,9 @@ mod tests {
             identity,
             identity_key_hash,
             outbox_path,
+            rooted_accounts: (0..=255)
+                .map(|id| ioi_types::app::AccountId([id; 32]))
+                .collect(),
         }
     }
 
@@ -1688,8 +1935,9 @@ mod tests {
             established_managers();
         let (event_sender, mut event_receiver) = mpsc::channel(4);
         let (quv_event_sender, mut quv_event_receiver) = mpsc::channel(4);
-        let mut quv_push_inflight = HashSet::new();
+        let mut quv_push_inflight = HashMap::new();
         let mut quv_reply_inflight = HashSet::new();
+        let quv_nonce = [31; 32];
 
         let vote_payload = PqConsensusPayloadV1::Vote(b"canonical vote".to_vec());
         let vote_plaintext = codec::to_bytes_canonical(&vote_payload).unwrap();
@@ -1705,7 +1953,7 @@ mod tests {
             &quv_event_sender,
             &mut quv_push_inflight,
             &mut quv_reply_inflight,
-            true,
+            Some(quv_nonce),
             &mut responder,
             initiator_peer,
             vote_record,
@@ -1733,7 +1981,7 @@ mod tests {
             &quv_event_sender,
             &mut quv_push_inflight,
             &mut quv_reply_inflight,
-            true,
+            Some(quv_nonce),
             &mut responder,
             initiator_peer,
             fallback_record,
@@ -1761,7 +2009,7 @@ mod tests {
             &quv_event_sender,
             &mut quv_push_inflight,
             &mut quv_reply_inflight,
-            true,
+            Some(quv_nonce),
             &mut responder,
             initiator_peer,
             scoped_record,
@@ -1789,7 +2037,7 @@ mod tests {
             &quv_event_sender,
             &mut quv_push_inflight,
             &mut quv_reply_inflight,
-            true,
+            Some(quv_nonce),
             &mut responder,
             initiator_peer,
             async_record,
@@ -1803,12 +2051,47 @@ mod tests {
                     && account == responder.remote_account(&initiator_peer).unwrap()
         ));
 
-        for (payload, expected_request) in [
+        let slot = ioi_types::app::QuvSlotV0 {
+            configuration_root: [1; 32],
+            policy_root: [2; 32],
+            network_id: [3; 32],
+            domain_id: [4; 32],
+            slot: 1,
+            predecessor: [5; 32],
+            authority_mode: ioi_types::app::QuvAuthorityModeV0::Owned,
+        };
+        let candidate = ioi_types::app::QuvCandidateV0 {
+            slot: slot.clone(),
+            payload_hash: [6; 32],
+            authorizer: responder.remote_account(&initiator_peer).unwrap(),
+            authority_signature: vec![7],
+        };
+        let query = QuvPushQueryV0 {
+            verifier_nonce: quv_nonce,
+            candidate: candidate.clone(),
+        };
+        let reply = QuvReplyV0 {
+            verifier_nonce: quv_nonce,
+            member: responder.remote_account(&initiator_peer).unwrap(),
+            slot,
+            candidate_hash: [8; 32],
+            snapshot_hash: [9; 32],
+            complete_snapshot: vec![candidate],
+            signature: vec![10],
+        };
+        let query_bytes = codec::to_bytes_canonical(&query).unwrap();
+        let reply_bytes = codec::to_bytes_canonical(&reply).unwrap();
+        for (payload, expected_bytes, expected_request) in [
             (
-                PqConsensusPayloadV1::QuvPushQuery(b"quv push".to_vec()),
+                PqConsensusPayloadV1::QuvPushQuery(query_bytes.clone()),
+                query_bytes,
                 true,
             ),
-            (PqConsensusPayloadV1::QuvReply(b"quv reply".to_vec()), false),
+            (
+                PqConsensusPayloadV1::QuvReply(reply_bytes.clone()),
+                reply_bytes,
+                false,
+            ),
         ] {
             let plaintext = codec::to_bytes_canonical(&payload).unwrap();
             let record = initiator
@@ -1823,7 +2106,7 @@ mod tests {
                 &quv_event_sender,
                 &mut quv_push_inflight,
                 &mut quv_reply_inflight,
-                true,
+                Some(quv_nonce),
                 &mut responder,
                 initiator_peer,
                 record,
@@ -1835,11 +2118,10 @@ mod tests {
                 assert!(matches!(
                     event,
                     Some(SwarmInternalEvent::QuvPushQueryReceived(data, account, peer))
-                        if data == b"quv push" && peer == initiator_peer
+                        if data == expected_bytes && peer == initiator_peer
                             && account == responder.remote_account(&initiator_peer).unwrap()
                 ));
-                let duplicate_payload =
-                    PqConsensusPayloadV1::QuvPushQuery(b"duplicate quv push".to_vec());
+                let duplicate_payload = payload.clone();
                 let duplicate_plaintext = codec::to_bytes_canonical(&duplicate_payload).unwrap();
                 let duplicate_record = initiator
                     .seal(
@@ -1853,7 +2135,7 @@ mod tests {
                     &quv_event_sender,
                     &mut quv_push_inflight,
                     &mut quv_reply_inflight,
-                    true,
+                    Some(quv_nonce),
                     &mut responder,
                     initiator_peer,
                     duplicate_record,
@@ -1865,11 +2147,10 @@ mod tests {
                 assert!(matches!(
                     event,
                     Some(SwarmInternalEvent::QuvReplyReceived(data, account, peer))
-                        if data == b"quv reply" && peer == initiator_peer
+                        if data == expected_bytes && peer == initiator_peer
                             && account == responder.remote_account(&initiator_peer).unwrap()
                 ));
-                let duplicate_payload =
-                    PqConsensusPayloadV1::QuvReply(b"duplicate quv reply".to_vec());
+                let duplicate_payload = payload.clone();
                 let duplicate_plaintext = codec::to_bytes_canonical(&duplicate_payload).unwrap();
                 let duplicate_record = initiator
                     .seal(
@@ -1883,7 +2164,7 @@ mod tests {
                     &quv_event_sender,
                     &mut quv_push_inflight,
                     &mut quv_reply_inflight,
-                    true,
+                    Some(quv_nonce),
                     &mut responder,
                     initiator_peer,
                     duplicate_record,
@@ -1910,7 +2191,7 @@ mod tests {
             &quv_event_sender,
             &mut quv_push_inflight,
             &mut quv_reply_inflight,
-            true,
+            Some(quv_nonce),
             &mut responder,
             initiator_peer,
             mismatched_record,
@@ -1919,5 +2200,805 @@ mod tests {
         .is_err());
         assert!(event_receiver.try_recv().is_err());
         assert!(quv_event_receiver.try_recv().is_err());
+    }
+
+    fn quv_slot() -> ioi_types::app::QuvSlotV0 {
+        ioi_types::app::QuvSlotV0 {
+            configuration_root: [1; 32],
+            policy_root: [2; 32],
+            network_id: [3; 32],
+            domain_id: [4; 32],
+            slot: 1,
+            predecessor: [5; 32],
+            authority_mode: ioi_types::app::QuvAuthorityModeV0::Owned,
+        }
+    }
+
+    fn quv_push_payload(nonce: QuvNonce, authorizer: AccountId) -> PqConsensusPayloadV1 {
+        let query = QuvPushQueryV0 {
+            verifier_nonce: nonce,
+            candidate: ioi_types::app::QuvCandidateV0 {
+                slot: quv_slot(),
+                payload_hash: [6; 32],
+                authorizer,
+                authority_signature: vec![7],
+            },
+        };
+        PqConsensusPayloadV1::QuvPushQuery(codec::to_bytes_canonical(&query).unwrap())
+    }
+
+    fn quv_reply_payload(nonce: QuvNonce, member: AccountId) -> PqConsensusPayloadV1 {
+        let reply = QuvReplyV0 {
+            verifier_nonce: nonce,
+            member,
+            slot: quv_slot(),
+            candidate_hash: [8; 32],
+            snapshot_hash: [9; 32],
+            complete_snapshot: vec![ioi_types::app::QuvCandidateV0 {
+                slot: quv_slot(),
+                payload_hash: [6; 32],
+                authorizer: member,
+                authority_signature: vec![7],
+            }],
+            signature: vec![10],
+        };
+        PqConsensusPayloadV1::QuvReply(codec::to_bytes_canonical(&reply).unwrap())
+    }
+
+    /// Seals `payload` at the initiator and delivers it at the responder the
+    /// way the swarm loop does for `SyncRequest::PqChannelRecord`.
+    #[allow(clippy::too_many_arguments)]
+    async fn deliver(
+        initiator: &mut PqChannelSessionManager,
+        responder: &mut PqChannelSessionManager,
+        initiator_peer: libp2p::PeerId,
+        responder_peer: libp2p::PeerId,
+        payload: &PqConsensusPayloadV1,
+        active_quv_operation: Option<QuvNonce>,
+        senders: (
+            &mpsc::Sender<SwarmInternalEvent>,
+            &mpsc::Sender<SwarmInternalEvent>,
+        ),
+        lanes: (&mut HashMap<AccountId, QuvNonce>, &mut HashSet<AccountId>),
+    ) -> anyhow::Result<PqRecordAdmission> {
+        let plaintext = codec::to_bytes_canonical(payload).unwrap();
+        let record = initiator
+            .seal(&responder_peer, payload.content_type(), &plaintext)
+            .unwrap();
+        deliver_pq_record(
+            senders.0,
+            senders.1,
+            lanes.0,
+            lanes.1,
+            active_quv_operation,
+            responder,
+            initiator_peer,
+            record,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn stale_reply_is_acked_without_holding_the_current_operation_lane() {
+        let (_temp, mut member, member_peer, mut verifier, verifier_peer) = established_managers();
+        let (event_sender, _event_receiver) = mpsc::channel(4);
+        let (quv_event_sender, mut quv_event_receiver) = mpsc::channel(4);
+        let mut push_lane = HashMap::new();
+        let mut reply_lane = HashSet::new();
+        let member_account = verifier.remote_account(&member_peer).unwrap();
+        let stale_nonce = [0; 32];
+        let current_nonce = [1; 32];
+
+        // (a) A reply for the retired operation N0 arrives while N1 is
+        // active: it is positively acknowledged (the sender retires it) but it
+        // never enters the current operation's per-member admission slot.
+        let stale = deliver(
+            &mut member,
+            &mut verifier,
+            member_peer,
+            verifier_peer,
+            &quv_reply_payload(stale_nonce, member_account),
+            Some(current_nonce),
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(stale, PqRecordAdmission::AckNow);
+        assert!(reply_lane.is_empty());
+        assert!(quv_event_receiver.try_recv().is_err());
+
+        // The same member's current N1 reply is still forwarded.
+        let current_payload = quv_reply_payload(current_nonce, member_account);
+        let current = deliver(
+            &mut member,
+            &mut verifier,
+            member_peer,
+            verifier_peer,
+            &current_payload,
+            Some(current_nonce),
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(current, PqRecordAdmission::AckNow);
+        assert_eq!(reply_lane, HashSet::from([member_account]));
+        assert!(matches!(
+            quv_event_receiver.try_recv(),
+            Ok(SwarmInternalEvent::QuvReplyReceived(data, account, peer))
+                if PqConsensusPayloadV1::QuvReply(data.clone()) == current_payload
+                    && account == member_account
+                    && peer == member_peer
+        ));
+
+        // (c) A duplicate delivery of the admitted N1 reply is acknowledged and
+        // not forwarded twice.
+        let duplicate = deliver(
+            &mut member,
+            &mut verifier,
+            member_peer,
+            verifier_peer,
+            &current_payload,
+            Some(current_nonce),
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(duplicate, PqRecordAdmission::AckNow);
+        assert_eq!(reply_lane, HashSet::from([member_account]));
+        assert!(quv_event_receiver.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn current_push_is_refused_without_ack_while_a_stale_push_holds_the_lane() {
+        let (_temp, mut verifier, verifier_peer, mut member, member_peer) = established_managers();
+        let (event_sender, _event_receiver) = mpsc::channel(4);
+        let (quv_event_sender, mut quv_event_receiver) = mpsc::channel(4);
+        let mut push_lane = HashMap::new();
+        let mut reply_lane = HashSet::new();
+        let requester = member.remote_account(&verifier_peer).unwrap();
+        let stale_nonce = [0; 32];
+        let current_nonce = [1; 32];
+
+        // (b) A crash-recovered stale push N0 is admitted first, acknowledged
+        // at admission, and holds the requester's lane until the member
+        // reports completion.
+        let stale = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &quv_push_payload(stale_nonce, requester),
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(stale, PqRecordAdmission::AckNow);
+        assert_eq!(push_lane.get(&requester), Some(&stale_nonce));
+        assert!(quv_event_receiver.try_recv().is_ok());
+
+        // The current push N1 from the same requester is refused outright: no
+        // positive ACK, nothing forwarded, so the requester keeps its record.
+        let current_payload = quv_push_payload(current_nonce, requester);
+        let refused = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &current_payload,
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await;
+        assert!(refused.is_err());
+        assert_eq!(push_lane.get(&requester), Some(&stale_nonce));
+        assert!(quv_event_receiver.try_recv().is_err());
+
+        // CompleteQuvPush(N0) releases the lane; N1 is then admitted on its
+        // own retry.
+        assert!(complete_quv_push(&mut push_lane, requester, stale_nonce));
+        assert!(push_lane.is_empty());
+        let admitted = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &current_payload,
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(admitted, PqRecordAdmission::AckNow);
+        assert_eq!(push_lane.get(&requester), Some(&current_nonce));
+        assert!(matches!(
+            quv_event_receiver.try_recv(),
+            Ok(SwarmInternalEvent::QuvPushQueryReceived(data, account, peer))
+                if PqConsensusPayloadV1::QuvPushQuery(data.clone()) == current_payload
+                    && account == requester
+                    && peer == verifier_peer
+        ));
+    }
+
+    #[tokio::test]
+    async fn admitted_push_is_acked_on_admission_and_completion_releases_lane() {
+        let (_temp, mut verifier, verifier_peer, mut member, member_peer) = established_managers();
+        let (event_sender, _event_receiver) = mpsc::channel(4);
+        let (quv_event_sender, mut quv_event_receiver) = mpsc::channel(4);
+        let mut push_lane = HashMap::new();
+        let mut reply_lane = HashSet::new();
+        let requester = member.remote_account(&verifier_peer).unwrap();
+        let nonce = [21; 32];
+        let other_nonce = [22; 32];
+        let payload = quv_push_payload(nonce, requester);
+
+        // Forwarded to member work and acknowledged at admission; the
+        // requester's timing lane is held by this nonce.
+        let admission = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &payload,
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(admission, PqRecordAdmission::AckNow);
+        assert!(quv_event_receiver.try_recv().is_ok());
+        assert_eq!(push_lane.get(&requester), Some(&nonce));
+
+        // A requester retry of the same nonce while the lane is held is
+        // acknowledged now and not forwarded a second time.
+        let duplicate = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &payload,
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(duplicate, PqRecordAdmission::AckNow);
+        assert!(quv_event_receiver.try_recv().is_err());
+        assert_eq!(push_lane.get(&requester), Some(&nonce));
+
+        // A different nonce while the lane is held is refused (NACK path):
+        // nothing forwarded, lane unchanged.
+        let refused = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &quv_push_payload(other_nonce, requester),
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await;
+        assert!(refused.is_err());
+        assert!(quv_event_receiver.try_recv().is_err());
+        assert_eq!(push_lane.get(&requester), Some(&nonce));
+
+        // CompleteQuvPush releases exactly this lane, once.
+        assert!(complete_quv_push(&mut push_lane, requester, nonce));
+        assert!(push_lane.is_empty());
+        assert!(!complete_quv_push(&mut push_lane, requester, nonce));
+
+        // The next push from the requester is admitted and forwarded.
+        let next_payload = quv_push_payload(other_nonce, requester);
+        let next = deliver(
+            &mut verifier,
+            &mut member,
+            verifier_peer,
+            member_peer,
+            &next_payload,
+            None,
+            (&event_sender, &quv_event_sender),
+            (&mut push_lane, &mut reply_lane),
+        )
+        .await
+        .unwrap();
+        assert_eq!(next, PqRecordAdmission::AckNow);
+        assert_eq!(push_lane.get(&requester), Some(&other_nonce));
+        assert!(matches!(
+            quv_event_receiver.try_recv(),
+            Ok(SwarmInternalEvent::QuvPushQueryReceived(data, account, peer))
+                if PqConsensusPayloadV1::QuvPushQuery(data.clone()) == next_payload
+                    && account == requester
+                    && peer == verifier_peer
+        ));
+    }
+
+    #[tokio::test]
+    async fn nack_keeps_the_senders_durable_record() {
+        let (_temp, mut verifier, _verifier_peer, _member, member_peer) = established_managers();
+        let requester_account = verifier.remote_account(&member_peer).unwrap();
+        let payload = quv_push_payload([5; 32], requester_account);
+        let message_id = verifier.enqueue(member_peer, payload.clone()).unwrap();
+        let mut swarm = crate::libp2p::transport::build_swarm(Keypair::generate_ed25519()).unwrap();
+        let request_id = swarm
+            .behaviour_mut()
+            .request_response
+            .send_request(&member_peer, SyncRequest::GetStatus);
+        let other_request_id = swarm
+            .behaviour_mut()
+            .request_response
+            .send_request(&member_peer, SyncRequest::GetStatus);
+        let mut inflight = HashMap::from([(
+            member_peer,
+            InflightPqRequest {
+                request_id,
+                message_id,
+            },
+        )]);
+
+        // A NACK for another request leaves the attempt in flight.
+        assert!(!release_nacked_pq_record(
+            &mut inflight,
+            member_peer,
+            other_request_id
+        ));
+        assert!(inflight.contains_key(&member_peer));
+        // The matching NACK ends only the transport attempt: the durable
+        // record is untouched and is the next record to flush.
+        assert!(release_nacked_pq_record(
+            &mut inflight,
+            member_peer,
+            request_id
+        ));
+        assert!(inflight.is_empty());
+        assert_eq!(
+            verifier.pending_front(&member_peer),
+            Some((message_id, payload))
+        );
+    }
+
+    #[test]
+    fn enrollment_loss_reports_are_bounded_per_connection_and_skip_disconnected_peers() {
+        let peer = Keypair::generate_ed25519().public().to_peer_id();
+        let mut reports = HashMap::new();
+        assert!(pq_enrollment_lost_report(&mut reports, peer, false).is_none());
+        assert!(reports.is_empty());
+        for _ in 0..PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION {
+            assert!(matches!(
+                pq_enrollment_lost_report(&mut reports, peer, true),
+                Some(SwarmInternalEvent::PqEnrollmentLost(reported)) if reported == peer
+            ));
+        }
+        assert!(pq_enrollment_lost_report(&mut reports, peer, true).is_none());
+        assert_eq!(
+            reports.get(&peer),
+            Some(&PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION)
+        );
+        // A new connection (the loop clears the entry) starts over.
+        reports.remove(&peer);
+        assert!(pq_enrollment_lost_report(&mut reports, peer, true).is_some());
+    }
+
+    #[tokio::test]
+    async fn recovery_keeps_authenticated_enrollment_and_erases_provisional_claims() {
+        let (temp, mut verifier, _verifier_peer, _member, member_peer) = established_managers();
+        let mut swarm = crate::libp2p::transport::build_swarm(Keypair::generate_ed25519()).unwrap();
+        let mut handshakes = HashMap::new();
+        let mut reports = HashMap::new();
+        let claimed = local_config(12, temp.path().join("claimed.outbox"));
+        let squatter = Keypair::generate_ed25519().public().to_peer_id();
+        verifier
+            .enroll_peer(PqPeerEnrollment {
+                peer_id: squatter,
+                account_id: claimed.account_id,
+                identity_key_hash: claimed.identity_key_hash,
+            })
+            .unwrap();
+
+        // Authenticated carrier: keys are dropped, the enrollment stays, and a
+        // handshake retry is attempted in place (a no-op without a connection).
+        assert!(recover_pq_peer_after_failure(
+            &mut swarm,
+            &mut verifier,
+            &mut handshakes,
+            &mut reports,
+            member_peer
+        )
+        .is_none());
+        assert!(verifier.enrolled_peers().any(|peer| peer == member_peer));
+        assert!(!verifier.is_established(&member_peer));
+
+        // Provisional claim: erased; not reported while disconnected because
+        // reconnection re-derives status on its own.
+        assert!(recover_pq_peer_after_failure(
+            &mut swarm,
+            &mut verifier,
+            &mut handshakes,
+            &mut reports,
+            squatter
+        )
+        .is_none());
+        assert!(!verifier.enrolled_peers().any(|peer| peer == squatter));
+        assert!(reports.is_empty());
+    }
+
+    struct LiveSwarm {
+        peer: PeerId,
+        address: Multiaddr,
+        commands: mpsc::Sender<SwarmCommand>,
+        quv_commands: mpsc::Sender<SwarmCommand>,
+        events: mpsc::Receiver<SwarmInternalEvent>,
+        quv_events: mpsc::Receiver<SwarmInternalEvent>,
+        _shutdown: watch::Sender<bool>,
+    }
+
+    async fn spawn_live_swarm(keypair: Keypair) -> LiveSwarm {
+        let peer = keypair.public().to_peer_id();
+        let mut swarm = crate::libp2p::transport::build_swarm(keypair).unwrap();
+        swarm
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let address = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = swarm.select_next_some().await {
+                break address.with(Protocol::P2p(peer));
+            }
+        };
+        let (commands, command_receiver) = mpsc::channel(64);
+        let (quv_commands, quv_command_receiver) = mpsc::channel(64);
+        let (event_sender, events) = mpsc::channel(512);
+        let (quv_event_sender, quv_events) = mpsc::channel(64);
+        let (shutdown, shutdown_receiver) = watch::channel(false);
+        tokio::spawn(run_swarm_loop(
+            swarm,
+            command_receiver,
+            quv_command_receiver,
+            event_sender,
+            quv_event_sender,
+            shutdown_receiver,
+        ));
+        LiveSwarm {
+            peer,
+            address,
+            commands,
+            quv_commands,
+            events,
+            quv_events,
+            _shutdown: shutdown,
+        }
+    }
+
+    fn keypair_ordered_after(reference: &PeerId) -> Keypair {
+        loop {
+            let candidate = Keypair::generate_ed25519();
+            if candidate.public().to_peer_id().to_bytes() > reference.to_bytes() {
+                return candidate;
+            }
+        }
+    }
+
+    fn local_config_for_peer(
+        account: u8,
+        outbox_path: std::path::PathBuf,
+        peer_id: PeerId,
+    ) -> PqChannelLocalConfig {
+        let mut config = local_config(account, outbox_path);
+        config.peer_id = peer_id;
+        config
+    }
+
+    fn enrollment_of(config: &PqChannelLocalConfig) -> PqPeerEnrollment {
+        PqPeerEnrollment {
+            peer_id: config.peer_id,
+            account_id: config.account_id,
+            identity_key_hash: config.identity_key_hash,
+        }
+    }
+
+    async fn configure_strict(swarm: &LiveSwarm, config: PqChannelLocalConfig) {
+        let (response, configured) = tokio::sync::oneshot::channel();
+        swarm
+            .commands
+            .send(SwarmCommand::ConfigurePqChannels {
+                config,
+                enrollments: Vec::new(),
+                handoff_only: false,
+                response,
+            })
+            .await
+            .unwrap();
+        configured.await.unwrap().unwrap();
+    }
+
+    async fn next_live_event(
+        receiver: &mut mpsc::Receiver<SwarmInternalEvent>,
+    ) -> SwarmInternalEvent {
+        tokio::time::timeout(Duration::from_secs(30), receiver.recv())
+            .await
+            .expect("timed out waiting for a swarm event")
+            .expect("swarm loop ended")
+    }
+
+    async fn wait_connected(swarm: &mut LiveSwarm, peer: PeerId) {
+        loop {
+            if let SwarmInternalEvent::ConnectionEstablished(connected) =
+                next_live_event(&mut swarm.events).await
+            {
+                if connected == peer {
+                    return;
+                }
+            }
+        }
+    }
+
+    /// Plays the validator for a pair of live swarms: answers every
+    /// `PqEnrollmentLost` with the status-derived re-enrollment, refuses to
+    /// ever accept an authentication for `forbidden`, and returns once `local`
+    /// reports an authenticated carrier for `expected_peer`.
+    async fn drive_until_authenticated(
+        local: &mut LiveSwarm,
+        local_enrollment: PqPeerEnrollment,
+        remote: &mut LiveSwarm,
+        remote_enrollment: PqPeerEnrollment,
+        expected_peer: PeerId,
+        forbidden: PeerId,
+    ) -> AccountId {
+        let deadline = tokio::time::sleep(Duration::from_secs(45));
+        tokio::pin!(deadline);
+        loop {
+            tokio::select! {
+                _ = &mut deadline => panic!("timed out waiting for PQ carrier authentication"),
+                event = local.events.recv() => match event.expect("local swarm loop ended") {
+                    SwarmInternalEvent::PqCarrierAuthenticated(peer, account) => {
+                        assert_ne!(peer, forbidden, "an unproven claim must never authenticate");
+                        if peer == expected_peer {
+                            return account;
+                        }
+                    }
+                    SwarmInternalEvent::PqEnrollmentLost(peer) => {
+                        assert_ne!(peer, forbidden);
+                        local
+                            .commands
+                            .send(SwarmCommand::EnrollPqPeer(remote_enrollment.clone()))
+                            .await
+                            .unwrap();
+                    }
+                    _ => {}
+                },
+                event = remote.events.recv() => match event.expect("remote swarm loop ended") {
+                    SwarmInternalEvent::PqEnrollmentLost(_) => {
+                        remote
+                            .commands
+                            .send(SwarmCommand::EnrollPqPeer(local_enrollment.clone()))
+                            .await
+                            .unwrap();
+                    }
+                    _ => {}
+                },
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn live_squatter_enrollment_never_authenticates_and_genuine_carrier_routes() {
+        let temp = tempfile::tempdir().unwrap();
+        let verifier_key = Keypair::generate_ed25519();
+        let verifier_peer = verifier_key.public().to_peer_id();
+        // The verifier is the deterministic initiator toward both carriers.
+        let genuine_key = keypair_ordered_after(&verifier_peer);
+        let squatter = keypair_ordered_after(&verifier_peer).public().to_peer_id();
+        let mut verifier = spawn_live_swarm(verifier_key).await;
+        let mut genuine = spawn_live_swarm(genuine_key).await;
+        let verifier_config =
+            local_config_for_peer(20, temp.path().join("verifier.outbox"), verifier.peer);
+        let genuine_config =
+            local_config_for_peer(21, temp.path().join("genuine.outbox"), genuine.peer);
+        let genuine_account = genuine_config.account_id;
+        let verifier_enrollment = enrollment_of(&verifier_config);
+        let genuine_enrollment = enrollment_of(&genuine_config);
+        configure_strict(&verifier, verifier_config).await;
+        configure_strict(&genuine, genuine_config).await;
+        genuine
+            .commands
+            .send(SwarmCommand::EnrollPqPeer(verifier_enrollment.clone()))
+            .await
+            .unwrap();
+
+        verifier
+            .commands
+            .send(SwarmCommand::Dial(genuine.address.clone()))
+            .await
+            .unwrap();
+        wait_connected(&mut verifier, genuine.peer).await;
+
+        // Status metadata from an unproven carrier claims the genuine account
+        // first; the genuine carrier's status arrives afterwards.
+        verifier
+            .commands
+            .send(SwarmCommand::EnrollPqPeer(PqPeerEnrollment {
+                peer_id: squatter,
+                account_id: genuine_enrollment.account_id,
+                identity_key_hash: genuine_enrollment.identity_key_hash,
+            }))
+            .await
+            .unwrap();
+        verifier
+            .commands
+            .send(SwarmCommand::EnrollPqPeer(genuine_enrollment.clone()))
+            .await
+            .unwrap();
+        let genuine_peer = genuine.peer;
+        let account = drive_until_authenticated(
+            &mut verifier,
+            verifier_enrollment,
+            &mut genuine,
+            genuine_enrollment,
+            genuine_peer,
+            squatter,
+        )
+        .await;
+        assert_eq!(account, genuine_account);
+
+        // Routing for the account follows the proven carrier: a QUV request
+        // queued by rooted account reaches the genuine member over its
+        // authenticated channel.
+        let nonce = [40; 32];
+        let (response, begun) = tokio::sync::oneshot::channel();
+        verifier
+            .quv_commands
+            .send(SwarmCommand::BeginQuvOperation { nonce, response })
+            .await
+            .unwrap();
+        begun.await.unwrap();
+        let PqConsensusPayloadV1::QuvPushQuery(data) = quv_push_payload(nonce, account) else {
+            unreachable!()
+        };
+        let (response, queued) = tokio::sync::oneshot::channel();
+        verifier
+            .quv_commands
+            .send(SwarmCommand::QueueQuvPushQuery {
+                recipient: genuine_account,
+                data: data.clone(),
+                response,
+            })
+            .await
+            .unwrap();
+        queued.await.unwrap().unwrap();
+        let verifier_account = AccountId([20; 32]);
+        assert!(matches!(
+            next_live_event(&mut genuine.quv_events).await,
+            SwarmInternalEvent::QuvPushQueryReceived(received, requester, from)
+                if received == data && requester == verifier_account && from == verifier.peer
+        ));
+        genuine
+            .quv_commands
+            .send(SwarmCommand::CompleteQuvPush {
+                requester: verifier_account,
+                nonce,
+            })
+            .await
+            .unwrap();
+        verifier
+            .quv_commands
+            .send(SwarmCommand::CompleteQuvOperation { nonce })
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn live_outbound_failure_on_unproven_enrollment_reports_loss_and_status_reenrollment_recovers(
+    ) {
+        let temp = tempfile::tempdir().unwrap();
+        let verifier_key = Keypair::generate_ed25519();
+        let verifier_peer = verifier_key.public().to_peer_id();
+        let impostor_key = keypair_ordered_after(&verifier_peer);
+        let genuine_key = keypair_ordered_after(&verifier_peer);
+        let mut verifier = spawn_live_swarm(verifier_key).await;
+        // The impostor is a live carrier with no strict-PQ configuration: it
+        // refuses every client hello, which the initiator sees as an outbound
+        // failure of its handshake request.
+        let mut impostor = spawn_live_swarm(impostor_key).await;
+        let mut genuine = spawn_live_swarm(genuine_key).await;
+        let impostor_peer = impostor.peer;
+        let impostor_address = impostor.address.clone();
+        tokio::spawn(async move { while impostor.events.recv().await.is_some() {} });
+        let verifier_config =
+            local_config_for_peer(30, temp.path().join("verifier-loss.outbox"), verifier.peer);
+        let genuine_config =
+            local_config_for_peer(31, temp.path().join("genuine-loss.outbox"), genuine.peer);
+        let genuine_account = genuine_config.account_id;
+        let verifier_enrollment = enrollment_of(&verifier_config);
+        let genuine_enrollment = enrollment_of(&genuine_config);
+        configure_strict(&verifier, verifier_config).await;
+        configure_strict(&genuine, genuine_config).await;
+        genuine
+            .commands
+            .send(SwarmCommand::EnrollPqPeer(verifier_enrollment.clone()))
+            .await
+            .unwrap();
+
+        verifier
+            .commands
+            .send(SwarmCommand::Dial(impostor_address))
+            .await
+            .unwrap();
+        wait_connected(&mut verifier, impostor_peer).await;
+        let impostor_claim = PqPeerEnrollment {
+            peer_id: impostor_peer,
+            account_id: genuine_enrollment.account_id,
+            identity_key_hash: genuine_enrollment.identity_key_hash,
+        };
+
+        // Each status-driven re-enrollment of the unproven claim fails its
+        // handshake, is erased, and is reported so the validator can refresh
+        // status; the report is bounded per connection.
+        let mut reports = 0;
+        for attempt in 0..=PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION {
+            verifier
+                .commands
+                .send(SwarmCommand::EnrollPqPeer(impostor_claim.clone()))
+                .await
+                .unwrap();
+            let expected_report = attempt < PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION;
+            let wait = tokio::time::timeout(
+                Duration::from_secs(if expected_report { 30 } else { 2 }),
+                async {
+                    loop {
+                        match verifier.events.recv().await.expect("verifier loop ended") {
+                            SwarmInternalEvent::PqEnrollmentLost(peer) => {
+                                assert_eq!(peer, impostor_peer);
+                                break;
+                            }
+                            SwarmInternalEvent::PqCarrierAuthenticated(peer, _) => {
+                                panic!("unproven carrier {peer} must never authenticate");
+                            }
+                            _ => {}
+                        }
+                    }
+                },
+            )
+            .await;
+            if expected_report {
+                wait.expect("erased provisional enrollment was not reported");
+                reports += 1;
+            } else {
+                assert!(
+                    wait.is_err(),
+                    "loss reports must stop at the per-connection bound"
+                );
+            }
+        }
+        assert_eq!(reports, PQ_ENROLLMENT_LOST_REPORTS_PER_CONNECTION);
+
+        // The genuine carrier's status-driven enrollment then proves the key.
+        verifier
+            .commands
+            .send(SwarmCommand::Dial(genuine.address.clone()))
+            .await
+            .unwrap();
+        wait_connected(&mut verifier, genuine.peer).await;
+        verifier
+            .commands
+            .send(SwarmCommand::EnrollPqPeer(genuine_enrollment.clone()))
+            .await
+            .unwrap();
+        let genuine_peer = genuine.peer;
+        let account = drive_until_authenticated(
+            &mut verifier,
+            verifier_enrollment,
+            &mut genuine,
+            genuine_enrollment,
+            genuine_peer,
+            impostor_peer,
+        )
+        .await;
+        assert_eq!(account, genuine_account);
     }
 }

@@ -75,6 +75,8 @@
     "check:seed-provenance": "node scripts/verify-hypervisor-seed-provenance.mjs",
     "check:semantic-mapping-lifecycle": "node scripts/verify-hypervisor-semantic-mapping-lifecycle.mjs",
     "check:session-authority": "node scripts/verify-hypervisor-session-authority.mjs",
+    "check:session-authority-profile": "node scripts/verify-hypervisor-session-authority-profile.mjs",
+    "check:alpha-journey": "node scripts/verify-hypervisor-alpha-journey.mjs",
     "check:shell-parity": "node scripts/verify-hypervisor-shell-parity.mjs",
     "check:skill-contracts": "node scripts/verify-hypervisor-skill-contracts.mjs",
     "check:source-neutral": "node scripts/check-source-neutral.mjs",
@@ -121,7 +123,9 @@
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "soak:m4-room-participation-contribution-wallet-authority": "IOI_WALLET_FIXTURE_RELEASE=1 node scripts/verify-m4-room-participation-contribution-plane.mjs",
-    "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs"
+    "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
+    "authority:local": "node scripts/wallet-network-authority.mjs",
+    "check:session-truth-rebind": "node scripts/verify-hypervisor-session-truth-rebind.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

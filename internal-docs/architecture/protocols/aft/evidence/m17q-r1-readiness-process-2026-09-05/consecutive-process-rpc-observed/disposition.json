@@ -1,0 +1,8 @@
+{
+  "disposition": "FIXTURE_REPAIR_REQUIRED",
+  "process_exit_code": 101,
+  "changed_sources": [],
+  "failure": "slot 3 RPC ended before readiness wait: Failed to connect to public gRPC: transport error",
+  "source_cause": "ProcessBackend::restart_orchestration_process returns immediately after spawning; testing::rpc::connect makes one connection attempt. The fixture made its effect request without waiting for restarted RPC/context availability.",
+  "scope": "A connection/startup failure is not evidence that durable head or admission recovery failed. The complete campaign remains failed."
+}

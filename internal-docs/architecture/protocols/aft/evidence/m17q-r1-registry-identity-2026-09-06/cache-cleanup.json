@@ -1,0 +1,157 @@
+{
+  "time": "2026-09-06T08:15:29.544096+00:00",
+  "active_crates": [
+    "ioi_services"
+  ],
+  "scope": "inactive regenerable debug incremental caches only; source/evidence/active builds/release artifacts preserved",
+  "removed": [
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-0awqgqst1jcs7",
+      "bytes": 83206059
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-0tdil5s3vyu0s",
+      "bytes": 88623648
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-0tld8hdi4wlhn",
+      "bytes": 312475459
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-1ywa9pgszhfpf",
+      "bytes": 313333188
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-26gmon5ukv9hr",
+      "bytes": 244975213
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-27hqiv365x3fa",
+      "bytes": 79811351
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-2argy9gjqvjb4",
+      "bytes": 12008109
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-2c7pk9fckp2wq",
+      "bytes": 248698175
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-2gck5uvzjlx6i",
+      "bytes": 87657628
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-2khpl29o1xwjk",
+      "bytes": 42219589
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-2mm41xj2x6csv",
+      "bytes": 82812845
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-2r4680f9d5avc",
+      "bytes": 18903123
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-34zcybani07fn",
+      "bytes": 204990058
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-3dkqs0kdjrj23",
+      "bytes": 237693977
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-3g50mkwk6chjl",
+      "bytes": 89163938
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-3jm2i0iiqaarg",
+      "bytes": 44296202
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_consensus-3v4ua4uxdto4t",
+      "bytes": 137177866
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_validator-0b8s7d3fpzkw9",
+      "bytes": 318915925
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_validator-0x5g09i73b38s",
+      "bytes": 719011687
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_validator-1gcu1141wek42",
+      "bytes": 308960678
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_validator-2eoq0zcd56kx9",
+      "bytes": 291853443
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-0fg4oy6qsaevp",
+      "bytes": 62964099
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-0r4dcjxwp8iuu",
+      "bytes": 89867017
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-0vanjr09mf9cr",
+      "bytes": 145775322
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-15v9iuu1xmp09",
+      "bytes": 89898999
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-1yfo33iffpk13",
+      "bytes": 62799041
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-2vq8s5uz06mfg",
+      "bytes": 166927935
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-32gprcnaz9b1y",
+      "bytes": 89867061
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/agentgres-3korscn24wbxv",
+      "bytes": 89052723
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-0b1t1uh209vjx",
+      "bytes": 77960986
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-0etswtpnvwtk1",
+      "bytes": 207086759
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-1cf81lm029lq3",
+      "bytes": 38569298
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-20mb7bvlqybyf",
+      "bytes": 77967316
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-23mwatp3oyfvs",
+      "bytes": 77786923
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-2hgk3ona4f9mo",
+      "bytes": 77343156
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-3f9b4d131o18x",
+      "bytes": 76338771
+    },
+    {
+      "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/incremental/ioi_cli-3hcpljpfx8uuc",
+      "bytes": 218505257
+    }
+  ]
+}

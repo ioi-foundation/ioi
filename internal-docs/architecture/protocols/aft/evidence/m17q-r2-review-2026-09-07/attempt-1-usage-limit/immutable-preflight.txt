@@ -1,0 +1,8 @@
+tag=aft-quv-v0-m17q-candidate-r2-2026-09-07
+object_type=tag
+tag_object=f0932c71c630ab6c85676cda3606dc285a755070
+peeled_commit=0d8d50d4f22c4f02b98ed06b4066c7aefd6d5992
+status=## HEAD (no branch)
+clone=/tmp/ioi-m17q-r2-daybreak.gY8W3X/review-clone
+output=/tmp/ioi-m17q-r2-daybreak.gY8W3X/review-output
+started_utc=2026-09-07T17:33:02Z

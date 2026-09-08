@@ -1,0 +1,44 @@
+{
+  "status": "LOCAL_FINITE_MODEL_PASS_NOT_RUNTIME_REFINEMENT",
+  "utc": "2026-09-05T03:00:35.991959+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "command": "bash .github/scripts/run_aft_formal_checks.sh --quv-parent-boundary-only",
+  "exit_code": 0,
+  "unowned_two_correct_two_slots": {
+    "generated": 369031,
+    "distinct": 75249
+  },
+  "unowned_one_correct_two_slots": {
+    "generated": 392,
+    "distinct": 171
+  },
+  "owned_two_correct_two_slots": {
+    "generated": 132551,
+    "distinct": 27217
+  },
+  "reachability": "Owned and unowned independent two-slot completion traces; existential only",
+  "scope": "Explicit durable first-seen state and captured first values; first-seen retention and snapshot consistency. Fixed roots, silent Byzantine peers, complete correct observation, ideal routing and atomic non-rollback storage assumed. No production head enforcement or timing/fairness proof.",
+  "source_sha256": {
+    ".github/scripts/run_aft_formal_checks.sh": "895dbaaca1534c4d9206f18d03feb7540b17037ac88dcb26d841b5a4a52cf048",
+    ".github/scripts/run_aft_m16q_qualification.sh": "b7920a6cc012f3f8087c1c8aea39c01f82c2b37130e569c8c363fa809437a90a",
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    "crates/consensus/src/aft/query_unanimity.rs": "4110a3033b9c7f91eadfd9aa3ab3c179fecad29a010a6354dfc36385e166a720",
+    "internal-docs/architecture/protocols/aft/IMPLEMENTATION_LEDGER.md": "6a8dc2cb9d913605e64a08739c2b668526672152e1b850b878545e5554fd265d",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.cfg": "5852eafac46a796f718379b98196711b23facffa5fbd039e6bee72014c9698ea",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.tla": "1b04deefc971b81804e6a864b564add1ad4028228b3fd2f463035e6a8652af3e",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverificationPersistence.cfg": "b978302ef8c7761b876d694fab651bb9b3da7f019c392bbf2e42ae9abe8a7af7",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.cfg": "52735e9d65c434099ebd1156f8178f588f13f73fb453942ed004f45d7b10d6e3",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla": "103e953a641b71f6b0edb873cdd274e586fdda634359b6984c52a0a446966c97",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingReachable.cfg": "527251b27a61403a1fd1b119ab37f8e9dbf29f4e75dae0a4c8dd3a487f0a4304",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingTwoSlot.cfg": "e077336f4bbfdceee2447b6cbabe3322872fdf29960481b7c908547642e65315",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingUnowned.cfg": "037086593d27148de8b7f1598ce4eab64ca04b60075b6593b6561819c5ceac04",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingUnownedReachable.cfg": "889599ea2782c5f89ca8ec21f9c72ffcd0b10a974bd8f465dd14abffe91aec14",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingUnownedSolo.cfg": "016e64145b69f0cdffdb9dcc9b464c0562a8a6bda824aa1b6341a211f44eb58a",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.cfg": "3cf6a477adc80d88d95416f33957f7b0730467f451094fb104dd1ab8798d71e1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla": "c4f1d082acb95feaf03116a30f52f91519ddc897933ec8a123910cfe9abb6675",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationReachable.cfg": "c59d89e155a44dd6275db7194d86399232db47e0d8dce81e15f0f96a9e49091d",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationSolo.cfg": "ed49fda48dc3a63b9fd856654fbdb41641c70764b1c9439d42c7b896b3046098",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "2817038c1dee3b316fa4aebb9c7f2929f12ef095e07f74277ff37b0fcc04f624",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_head_state_design.md": "9c200e48f5a65e502384d5851a28e4a03f11de4ced18030956be42c7acb0ecae"
+  }
+}

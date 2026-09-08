@@ -1,0 +1,16 @@
+{
+  "disposition": "LOCAL_BOUNDED_ADMISSION_CAMPAIGN_PASSED",
+  "exit_code": 0,
+  "changed_sources": [],
+  "strict_process_check": "PASS",
+  "worker_service_check": "PASS",
+  "common_workload_overlap_ms": 4373.699,
+  "worker_starts": 16,
+  "accepted_worker_completions": 13,
+  "expired_result": {
+    "expiry_height": 65,
+    "observed_height": 66,
+    "receipt_unchanged": true
+  },
+  "scope": "Shared-host exact-source development evidence; forced outer-task abort remains uncovered, aggregate timing/full refinement/whole R1 closure/clean R2 remain open"
+}

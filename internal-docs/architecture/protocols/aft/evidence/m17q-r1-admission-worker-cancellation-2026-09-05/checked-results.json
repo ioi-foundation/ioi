@@ -1,0 +1,54 @@
+{
+  "results": [
+    {
+      "case": "runtime",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "aborting_event_drain_cancels_blocked_admission_worker"
+      ],
+      "exit_code": 0,
+      "source_sha256": "25f79997c2fb05cae51918556fc755ae67d31fcd5e2a7b616aa8fb3bc156407a"
+    },
+    {
+      "case": "negative_no_lifetime_guard",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "aborting_event_drain_cancels_blocked_admission_worker"
+      ],
+      "exit_code": 101,
+      "source_sha256": "981b1a0823aa98192638b01d66d43ba99e8a0ce555400f2f67be04fa568f9960"
+    },
+    {
+      "case": "restored",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "aborting_event_drain_cancels_blocked_admission_worker"
+      ],
+      "exit_code": 0,
+      "source_sha256": "25f79997c2fb05cae51918556fc755ae67d31fcd5e2a7b616aa8fb3bc156407a"
+    }
+  ],
+  "restored_sha256": "25f79997c2fb05cae51918556fc755ae67d31fcd5e2a7b616aa8fb3bc156407a",
+  "scope": "Local task-lifetime regression; not full restart/refinement or clean R2"
+}

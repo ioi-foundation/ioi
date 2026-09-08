@@ -1,0 +1,5 @@
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+{"timestamp":"2026-09-05T01:43:03.434822688Z","level":"WARN","fields":{"message":"Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests"},"target":"execution"}
+WORKLOAD_IPC_LISTENING_ON_127.0.0.1:20202
+{"timestamp":"2026-09-05T01:43:49.090969258Z","level":"WARN","fields":{"message":"nonce record missing for signer 05815f89d1d34b46df366f6fe7fc402fa1f3e57b2db70e9f92bb2673a29eca17; allowing nonce=0 for bootstrap"},"target":"ante"}

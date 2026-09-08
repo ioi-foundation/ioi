@@ -1,0 +1,43 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2021",
+      "--check",
+      "crates/agentgres/src/consequence.rs",
+      "crates/agentgres/src/consequence/tests.rs"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_claim_discipline.sh"
+    ],
+    "exit_code": 0,
+    "stdout": "PASS: no unqualified 99% tolerance spellings, and no bare flagship assertions, in the AFT specs/formal corpus.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_theorem_assumes.sh"
+    ],
+    "exit_code": 0,
+    "stdout": "theorem convention OK: 28 blocks; Assumes discipline (A5->T4a/T4b only, A9->T5b/T5d only, A10->T5d only), T8 probabilistic + quarantined, T1 timing-free, pairing table complete\n",
+    "stderr": ""
+  }
+]

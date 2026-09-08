@@ -1,0 +1,13 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "recorded_utc": "2026-09-05T01:59:56.891331+00:00",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+  "sources": {
+    "crates/agentgres/src/consequence.rs": "65d605aaf491e529a34593f6cdae21a76dfb524aba0eb6625f81852549715d0b",
+    "crates/agentgres/src/consequence/tests.rs": "91beb0387595c983e97adfcba01d1bacadf20a9c287a59b7eddf2960fc220db8",
+    "crates/validator/src/standard/orchestration/mod.rs": "83d51e59fda4ee79df475fe6d8f9cab7f6944330f070f74e871183df9d0696f1",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "409ed87ce7fa9c9366be99d5d94af99ea8f2ea2de574cb64373ea072d2b819d5",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  }
+}

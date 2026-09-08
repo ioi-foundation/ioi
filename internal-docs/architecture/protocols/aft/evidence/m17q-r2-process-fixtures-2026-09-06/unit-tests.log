@@ -1,0 +1,7 @@
+test quv_conflict_measurement_reports_observed_records_not_rpc_outcomes ... ok
+test quota_drop_parser_requires_exact_diagnostic_shape ... ok
+test quv_unexpected_head_assertion_requires_exact_typed_status ... ok
+test quv_operation_start_parser_requires_exact_diagnostic_shape ... ok
+test quv_conflict_assertion_requires_structured_refusal ... ok
+test member_store_inspection_finds_only_verbatim_hashes ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s

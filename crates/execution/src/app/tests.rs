@@ -28,6 +28,32 @@ fn aft_branch_rollback_window_is_bounded_above_agentgres_floor() {
     assert!(stale.to_string().contains("target 9, live 8"));
 }
 
+#[test]
+fn aft_projection_parent_hash_honors_only_the_height_one_bootstrap_sentinel() {
+    let ordinary_parent = [0xA5_u8; 32];
+
+    assert!(aft_projection_parent_hash_matches(
+        1,
+        &[0_u8; 32],
+        &ordinary_parent,
+    ));
+    assert!(!aft_projection_parent_hash_matches(
+        1,
+        &ordinary_parent,
+        &ordinary_parent,
+    ));
+    assert!(aft_projection_parent_hash_matches(
+        2,
+        &ordinary_parent,
+        &ordinary_parent,
+    ));
+    assert!(!aft_projection_parent_hash_matches(
+        2,
+        &[0_u8; 32],
+        &ordinary_parent,
+    ));
+}
+
 #[derive(Default)]
 struct MockState {
     data: BTreeMap<Vec<u8>, Vec<u8>>,

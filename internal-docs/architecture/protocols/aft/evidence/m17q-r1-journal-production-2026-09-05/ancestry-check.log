@@ -1,0 +1,11 @@
+{
+  "anchor": "/tmp/.tmpMoKklg/custody.anchor",
+  "pid": "831397",
+  "anchor_rename_line": 8271,
+  "ancestry_sync_lines": {
+    "/tmp/.tmpMoKklg": 8263,
+    "/tmp": 8265,
+    "/": 8267
+  },
+  "scope": "observed syscall order; power-loss durability still assumes filesystem fsync/rename semantics"
+}

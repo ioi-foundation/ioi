@@ -1,0 +1,40 @@
+{
+  "started_utc": "2026-09-05T19:06:37.352533+00:00",
+  "head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+  "source_scope": "retained subset of dirty worktree, not immutable R2",
+  "sources": [
+    {
+      "path": "crates/consensus/src/aft/query_unanimity.rs",
+      "sha256": "8ade2404f75b0780e86e7263b9efdcad1867d28383be826e3db23b736cdda38e"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/head.rs",
+      "sha256": "ebdc46327ece060dfa1320e2408c17cae9c6ca152e39d1bb5e98a21bbd180dd7"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/member_delta.rs",
+      "sha256": "54be906ba1dcfda067b218529e5776bc8bbf66c1b2a4d66955362dfa2b9d63d1"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/member_delta_tests.rs",
+      "sha256": "79c79a39c2cac82a6bc4213d5ae9c297247c6d0eb158d99d88c8c0fedf75abe1"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal.rs",
+      "sha256": "99d0e264399d605ad6f65668d62eaf3a391b178cc537018ad0d4eaee264cd28a"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal/tests.rs",
+      "sha256": "a633158a66286d263eec9d5e6095c56b15ef4b4be4502563835cda34fabc3521"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal/member_store.rs",
+      "sha256": "70e9989abe4ea14371448ea02b8564da668d2030d238b2729306d179b6cb4e3a"
+    },
+    {
+      "path": ".github/scripts/run_aft_m16q_qualification.sh",
+      "sha256": "42cb2080ea9fca5225ccfe2f74dea8f455e42b00bcb1b4841227942e2b79befe"
+    }
+  ]
+}

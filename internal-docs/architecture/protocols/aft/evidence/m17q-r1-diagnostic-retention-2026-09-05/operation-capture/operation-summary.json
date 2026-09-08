@@ -1,0 +1,1160 @@
+{
+  "scope": "diagnostic observations, not coverage proof or authorization",
+  "timing": "wall-clock log timestamps; not the protocol monotonic deadline",
+  "sources": {
+    "validator-20000-orch.log": {
+      "sha256": "2551869b339583ce0e15f0ea6506197923602c97ec920755fad09ad2a2708f2c",
+      "bytes": 52375
+    },
+    "validator-20100-orch.log": {
+      "sha256": "2736f44c2c69c2c139fc07be11087d1791530d062e9280e475f0e4ea9d79304b",
+      "bytes": 45054
+    },
+    "validator-20200-orch.log": {
+      "sha256": "17e9d424afa61f24441160309d9a24da12b89f3e21526666bc04c01e9653cb3b",
+      "bytes": 40526
+    },
+    "validator-20300-orch.log": {
+      "sha256": "a95c94d3781923191082d02a39909f1209bb22918c09aab44bfa4da63fe7dc48",
+      "bytes": 30447
+    }
+  },
+  "unparsed_lines": 207,
+  "malformed_json_lines": 0,
+  "operations": {
+    "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:56.190277697Z",
+          "event": "operation_started",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "payload": "cd1ffd4ab3d1afd984d651c2007ec3d22f0c676aa0497796ac6c250e0e81d312",
+          "local_endpoint": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.371064732Z",
+          "event": "member_work_queued",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 180.787
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:56.473081627Z",
+          "event": "member_work_queued",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 282.804
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:56.55162148Z",
+          "event": "member_work_queued",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 361.344
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:56.597521327Z",
+          "event": "member_work_queued",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 407.244
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:56.705393391Z",
+          "event": "member_work_completed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 515.116
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:56.824283359Z",
+          "event": "member_work_completed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 634.006
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:56.853838573Z",
+          "event": "member_work_completed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 663.561
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.870617811Z",
+          "event": "member_work_completed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 680.34
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:57.045705624Z",
+          "event": "reply_routed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "authenticated_member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 855.428
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:57.249852327Z",
+          "event": "reply_routed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "authenticated_member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1059.575
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:57.283004824Z",
+          "event": "reply_routed",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "authenticated_member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1092.727
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:55:02.346205673Z",
+          "event": "operation_finished",
+          "nonce": "0cac0a56a6cd158b453a62aa5a7b88b12ec02599674d03d39c888a2fcbc0b26c",
+          "accepted": false,
+          "error": "Some(a valid conflict was disclosed\n\nStack backtrace:\n   0: <unknown>\n   1: <unknown>\n   2: <unknown>\n   3: <unknown>\n   4: <unknown>\n   5: <unknown>\n   6: <unknown>\n   7: <unknown>\n   8: <unknown>\n   9: <unknown>\n  10: <unknown>)",
+          "wall_millis_from_start_log": 6155.928
+        }
+      ]
+    },
+    "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:04.545631845Z",
+          "event": "operation_started",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "payload": "1dfaeec08f97088f98b615d5ac9cb97655ddb61f3242abd74b100e3e13f9f7c1",
+          "local_endpoint": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:55:04.737437491Z",
+          "event": "member_work_queued",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 191.806
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:04.780043114Z",
+          "event": "member_work_queued",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 234.412
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:55:04.839078516Z",
+          "event": "member_work_queued",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 293.447
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:55:04.906834259Z",
+          "event": "member_work_queued",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 361.203
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:55:04.9721774Z",
+          "event": "member_work_completed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 426.546
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:05.035521282Z",
+          "event": "member_work_completed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 489.89
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:55:05.087362815Z",
+          "event": "member_work_completed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 541.731
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:55:05.165535325Z",
+          "event": "member_work_completed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 619.904
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:06.114194041Z",
+          "event": "reply_routed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "authenticated_member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1568.563
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:06.493006797Z",
+          "event": "reply_routed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "authenticated_member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1947.375
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:06.587800804Z",
+          "event": "reply_routed",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "authenticated_member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 2042.169
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:55:10.238740821Z",
+          "event": "operation_finished",
+          "nonce": "365584d5f73eca5084629444cdd1e35c13e7d272552423a2306cda18b3b214c2",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5693.109
+        }
+      ]
+    },
+    "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:43.69342468Z",
+          "event": "operation_started",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "payload": "859e235190bedaefe6aa37b116c4a912b665709c9831ee659b346768cdeb45a3",
+          "local_endpoint": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:43.847044949Z",
+          "event": "member_work_queued",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 153.62
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:43.91730374Z",
+          "event": "member_work_queued",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 223.879
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:44.009202922Z",
+          "event": "member_work_queued",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 315.778
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:44.074016343Z",
+          "event": "member_work_completed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 380.592
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:44.113748513Z",
+          "event": "member_work_queued",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 420.324
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:44.156108671Z",
+          "event": "member_work_completed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 462.684
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:44.245654316Z",
+          "event": "member_work_completed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 552.23
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:44.349779804Z",
+          "event": "member_work_completed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 656.355
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:45.04207781Z",
+          "event": "reply_routed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "authenticated_member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1348.653
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:45.042188789Z",
+          "event": "reply_routed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "authenticated_member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1348.764
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:45.053816173Z",
+          "event": "reply_routed",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "authenticated_member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1360.392
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:48.980583465Z",
+          "event": "operation_finished",
+          "nonce": "3dafbd37d596e72edd8de1ef87611ec4d6e6a67d42ee9a694ca2422c239e7fb2",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5287.159
+        }
+      ]
+    },
+    "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:55.222391229Z",
+          "event": "operation_started",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "payload": "ab81a82856cbc636e94b3896b336c64ec28a12bb5b7cfab70102fe3ccd31d9dc",
+          "local_endpoint": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:55.430794551Z",
+          "event": "member_work_queued",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 208.403
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:55.677656924Z",
+          "event": "member_work_completed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 455.265
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:56.14810308Z",
+          "event": "member_work_queued",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 925.712
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:56.282112296Z",
+          "event": "member_work_queued",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 1059.721
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.371005581Z",
+          "event": "member_work_queued",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 1148.614
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:56.395218846Z",
+          "event": "member_work_completed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 1172.827
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:56.519563512Z",
+          "event": "member_work_completed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 1297.172
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.611295374Z",
+          "event": "member_work_completed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 1388.904
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.722761748Z",
+          "event": "reply_routed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "authenticated_member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1500.37
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.722784917Z",
+          "event": "reply_routed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "authenticated_member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1500.393
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:56.977358466Z",
+          "event": "reply_routed",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "authenticated_member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1754.967
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:55:00.273338798Z",
+          "event": "operation_finished",
+          "nonce": "4046cdcb4ce850df61083756fa5e0feaf521b10ae274ed7056d7d4fa07997a14",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5050.947
+        }
+      ]
+    },
+    "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:45.652788636Z",
+          "event": "operation_started",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "payload": "e61deb4133372d7bcdd50bf2865474ad7fd137b283e6ea12868b2607f0e1e14a",
+          "local_endpoint": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:45.806641692Z",
+          "event": "member_work_queued",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 153.853
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:45.817776346Z",
+          "event": "member_work_queued",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 164.988
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:45.913319116Z",
+          "event": "member_work_queued",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 260.531
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:46.043775058Z",
+          "event": "member_work_completed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 390.987
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:46.065170438Z",
+          "event": "member_work_completed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 412.382
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:46.151436847Z",
+          "event": "member_work_completed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 498.648
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:47.254534285Z",
+          "event": "member_work_queued",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 1601.746
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:47.305557038Z",
+          "event": "reply_routed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "authenticated_member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1652.769
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:47.305588449Z",
+          "event": "reply_routed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "authenticated_member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1652.8
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:47.489083984Z",
+          "event": "member_work_completed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 1836.295
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:47.851111658Z",
+          "event": "reply_routed",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "authenticated_member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 2198.323
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:50.86921858Z",
+          "event": "operation_finished",
+          "nonce": "4a8d4c4dea1d196203104ad66ef45ba5e5270e70dfc13008c658db1f0bb67532",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5216.43
+        }
+      ]
+    },
+    "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 1,
+        "member_work_completed": 1,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:11.1568571Z",
+          "event": "operation_started",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "payload": "94ada1142a52b444ade6ab8c7407f8e19f433f35b5d279febd861bfa3c2f1735",
+          "local_endpoint": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:11.212526811Z",
+          "event": "member_work_queued",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 55.669
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:11.413487751Z",
+          "event": "member_work_completed",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 256.63
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:16.159371691Z",
+          "event": "operation_finished",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5002.514
+        }
+      ]
+    },
+    "6f64b2c3af892bf6535ae9b4626d687cc26f1400606a7aa447584540d2120ac2": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 1,
+        "member_work_completed": 1,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:18.367041899Z",
+          "event": "operation_started",
+          "nonce": "6f64b2c3af892bf6535ae9b4626d687cc26f1400606a7aa447584540d2120ac2",
+          "payload": "2ae9878c78195d8829686b50e21365cfa0509ed89746bfbd09011685bdaa9ed3",
+          "local_endpoint": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:18.436977944Z",
+          "event": "member_work_queued",
+          "nonce": "6f64b2c3af892bf6535ae9b4626d687cc26f1400606a7aa447584540d2120ac2",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 69.936
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:18.647887106Z",
+          "event": "member_work_completed",
+          "nonce": "6f64b2c3af892bf6535ae9b4626d687cc26f1400606a7aa447584540d2120ac2",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 280.846
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:23.375271883Z",
+          "event": "operation_finished",
+          "nonce": "6f64b2c3af892bf6535ae9b4626d687cc26f1400606a7aa447584540d2120ac2",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5008.23
+        }
+      ]
+    },
+    "c11e2d9d2a0a08a27c70f2c9ff4fb2011d054ddb70a9a3c17d1d8be355d4bb39": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 1,
+        "member_work_completed": 1,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:25.595635046Z",
+          "event": "operation_started",
+          "nonce": "c11e2d9d2a0a08a27c70f2c9ff4fb2011d054ddb70a9a3c17d1d8be355d4bb39",
+          "payload": "ef8bc410f00ffa458f68b37872a635937cc57789899fbfe84a6f00804a1c6cf8",
+          "local_endpoint": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:25.671747817Z",
+          "event": "member_work_queued",
+          "nonce": "c11e2d9d2a0a08a27c70f2c9ff4fb2011d054ddb70a9a3c17d1d8be355d4bb39",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 76.112
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:25.884291534Z",
+          "event": "member_work_completed",
+          "nonce": "c11e2d9d2a0a08a27c70f2c9ff4fb2011d054ddb70a9a3c17d1d8be355d4bb39",
+          "requester": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 288.656
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:30.599405119Z",
+          "event": "operation_finished",
+          "nonce": "c11e2d9d2a0a08a27c70f2c9ff4fb2011d054ddb70a9a3c17d1d8be355d4bb39",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5003.77
+        }
+      ]
+    },
+    "dc48d05e675ec3fc894c66a9152b9baf88aaa582f19f1df7ddd7ac997d218ab2": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 1,
+        "member_work_completed": 1,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:32.733133951Z",
+          "event": "operation_started",
+          "nonce": "dc48d05e675ec3fc894c66a9152b9baf88aaa582f19f1df7ddd7ac997d218ab2",
+          "payload": "e64f1e2a895cfd896692b70cf2b33ce42410837c81fb69427b2365fa4041b0c1",
+          "local_endpoint": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:32.790160359Z",
+          "event": "member_work_queued",
+          "nonce": "dc48d05e675ec3fc894c66a9152b9baf88aaa582f19f1df7ddd7ac997d218ab2",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 57.027
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:32.996709301Z",
+          "event": "member_work_completed",
+          "nonce": "dc48d05e675ec3fc894c66a9152b9baf88aaa582f19f1df7ddd7ac997d218ab2",
+          "requester": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 263.576
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:37.739680085Z",
+          "event": "operation_finished",
+          "nonce": "dc48d05e675ec3fc894c66a9152b9baf88aaa582f19f1df7ddd7ac997d218ab2",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5006.547
+        }
+      ]
+    },
+    "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:42.21559565Z",
+          "event": "operation_started",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "payload": "b1e1d93af3169560cb002fa5177363ae9bd6ec21ceb21a32738a4ab4f50e29d8",
+          "local_endpoint": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:42.462226201Z",
+          "event": "member_work_queued",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 246.631
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:42.485572255Z",
+          "event": "member_work_queued",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 269.977
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:42.565927157Z",
+          "event": "member_work_queued",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 350.332
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:42.694725852Z",
+          "event": "member_work_completed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 479.13
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:42.720746753Z",
+          "event": "member_work_completed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 505.151
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:42.804422013Z",
+          "event": "member_work_completed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 588.827
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:43.181575937Z",
+          "event": "member_work_queued",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 965.98
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:43.39883464Z",
+          "event": "member_work_completed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "requester": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 1183.239
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:43.730924008Z",
+          "event": "reply_routed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "authenticated_member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1515.329
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:43.730949823Z",
+          "event": "reply_routed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "authenticated_member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1515.354
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:43.829918993Z",
+          "event": "reply_routed",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "authenticated_member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 1614.323
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:47.263150227Z",
+          "event": "operation_finished",
+          "nonce": "e1c2782ec005e53f5cbf6d0f4d78cd84b5a4cbab62941991c9fe14fc4ea46ee9",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5047.555
+        }
+      ]
+    },
+    "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 4,
+        "member_work_completed": 4,
+        "reply_routed": 3,
+        "operation_finished": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:39.962881765Z",
+          "event": "operation_started",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "payload": "46c3e069f6bb7374963f3de6b00f50374da85bcc1fe9ce261f7bad81f1d5f89c",
+          "local_endpoint": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:40.018352245Z",
+          "event": "member_work_queued",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 55.471
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:40.222721948Z",
+          "event": "member_work_completed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 259.84
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:40.455963881Z",
+          "event": "member_work_queued",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "wall_millis_from_start_log": 493.082
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:40.633239846Z",
+          "event": "member_work_queued",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "wall_millis_from_start_log": 670.358
+        },
+        {
+          "node_log": "validator-20100-orch.log",
+          "timestamp": "2026-09-05T00:54:40.659455819Z",
+          "event": "member_work_completed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 696.574
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:40.739930644Z",
+          "event": "reply_routed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "authenticated_member": "AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 777.049
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:40.778399976Z",
+          "event": "member_work_queued",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "wall_millis_from_start_log": 815.518
+        },
+        {
+          "node_log": "validator-20200-orch.log",
+          "timestamp": "2026-09-05T00:54:40.869670293Z",
+          "event": "member_work_completed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 906.789
+        },
+        {
+          "node_log": "validator-20000-orch.log",
+          "timestamp": "2026-09-05T00:54:41.002732905Z",
+          "event": "member_work_completed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 1039.851
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:42.112405712Z",
+          "event": "reply_routed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "authenticated_member": "AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 2149.524
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:42.112455708Z",
+          "event": "reply_routed",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "authenticated_member": "AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30])",
+          "live_operation": true,
+          "wall_millis_from_start_log": 2149.574
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:45.030131021Z",
+          "event": "operation_finished",
+          "nonce": "f931e37faac43f42d059398e1a0b0bf962e78c28e3cc512a8bff7122b876ec45",
+          "accepted": true,
+          "error": "None",
+          "wall_millis_from_start_log": 5067.25
+        }
+      ]
+    }
+  }
+}

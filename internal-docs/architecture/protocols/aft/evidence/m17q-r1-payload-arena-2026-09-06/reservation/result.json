@@ -1,0 +1,6 @@
+{
+  "allocated_inode_reuse_and_sync_order": true,
+  "removed_sync_rejected": true,
+  "live_truncate_rejected": true,
+  "scope": "issued syscalls and reported allocated blocks; not physical power-loss or timing proof"
+}

@@ -1,0 +1,172 @@
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T05:31:14.679054484Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20000"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20001
+{"timestamp":"2026-09-06T05:31:17.978656666Z","level":"INFO","fields":{"event":"pq_channel_strict_mode_enabled"},"target":"network"}
+ORCHESTRATION_STARTUP_COMPLETE
+{"timestamp":"2026-09-06T05:31:24.67940214Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:24.679452544Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:24.679459507Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:24.67946612Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:24.679469938Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:24.679474507Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:36.679396097Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:36.679439477Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:36.679446148Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:36.679451313Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:36.679454774Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:36.679458933Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:48.679684457Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:48.679716043Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:48.679722549Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:48.679727815Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:48.679731728Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:48.67973586Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.343346578Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Right(Select(ProtocolError(IoError(Os { code: 104, kind: ConnectionReset, message: \"Connection reset by peer\" })))))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.343392801Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.679772188Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.679814077Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.929802164Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.92986581Z","level":"DEBUG","fields":{"event":"pq_channel_start_deferred","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","error":"peer has no rooted PQ channel enrollment"},"target":"network"}
+{"timestamp":"2026-09-06T05:31:56.929915229Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:00.679339017Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:00.679382218Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:00.679391596Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:00.679401242Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:12.680294101Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:12.680328356Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:12.680334785Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:12.680340641Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:24.680326422Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:24.680366056Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:24.680373306Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:24.680379087Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:36.680291286Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:36.680326892Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:36.680333432Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:36.680339221Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:48.679940374Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:48.679970057Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:48.679992236Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:48.680009235Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:56.518861226Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Right(Select(ProtocolError(IoError(Os { code: 104, kind: ConnectionReset, message: \"Connection reset by peer\" })))))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:56.51892501Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:56.679834982Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:56.679866816Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+[AFT-LEADER] local=dbd4c059 leader=2f542a27 validator_count=4 known_peer_count=1
+{"timestamp":"2026-09-06T05:32:57.101293225Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:57.101323022Z","level":"DEBUG","fields":{"event":"pq_channel_start_deferred","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","error":"peer has no rooted PQ channel enrollment"},"target":"network"}
+{"timestamp":"2026-09-06T05:32:57.1013423Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:00.785924689Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:00.786004286Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:12.679871688Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:12.679940505Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:24.679456536Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:24.679490756Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:36.696985831Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Timeout }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:36.697027776Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:39.391391342Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Right(Select(ProtocolError(IoError(Os { code: 104, kind: ConnectionReset, message: \"Connection reset by peer\" })))))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:39.391432018Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.093962868Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.09400806Z","level":"DEBUG","fields":{"event":"pq_channel_start_deferred","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","error":"peer has no rooted PQ channel enrollment"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094021533Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094026848Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094030725Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094034426Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","error":"ConnectionClosed","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094046343Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094052351Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:40.094065121Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","error":"DialFailure","pq_handshake":false,"pq_handshake_stage":"none","pq_protected_consensus":false},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.681153719Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.681192249Z","level":"DEBUG","fields":{"event":"pq_channel_start_deferred","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","error":"peer has no rooted PQ channel enrollment"},"target":"network"}
+{"timestamp":"2026-09-06T05:33:41.681214383Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T05:39:18.262991056Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20000"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.263208801Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.263285132Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.263300935Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.263319557Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.264076696Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20300/p2p/12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.264124525Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.264139191Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20200/p2p/12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.264157198Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.265842959Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.268243306Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:18.27413344Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20001
+{"timestamp":"2026-09-06T05:39:20.051324937Z","level":"INFO","fields":{"event":"pq_channel_strict_mode_enabled"},"target":"network"}
+ORCHESTRATION_STARTUP_COMPLETE
+{"timestamp":"2026-09-06T05:39:20.738671292Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:20.738695344Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:20.741667484Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T05:39:27.476825501Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20000"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.476923206Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3\"))","error":"Transport([(/ip4/127.0.0.1/tcp/20100/p2p/12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.476953187Z","level":"DEBUG","fields":{"event":"redial_after_outbound_failure_failed","peer":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3","redial_error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.478279139Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWLyaqtitfrnr1uEFtKiag8qBvRriY15DYw7XdJCACUqG3"},"target":"network"}
+{"timestamp":"2026-09-06T05:39:27.478309443Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWSLbBKgnAkJisLgsLiYcCceJNWBUMQJjNk8BcEjc3zCKr"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20001
+{"timestamp":"2026-09-06T05:39:27.637678469Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMQZCEzJZhcT94F9URJzBXGBHkvdLtLDpTQm6KtewURwg"},"target":"network"}

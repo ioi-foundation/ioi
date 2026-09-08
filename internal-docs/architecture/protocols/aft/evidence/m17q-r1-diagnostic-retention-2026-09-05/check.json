@@ -1,0 +1,22 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--lib",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "orchestration_restart_retains_diagnostics_and_refuses_unwritable_sink"
+  ],
+  "started_utc": "2026-09-05T00:36:27.849801+00:00",
+  "sources": {
+    "crates/cli/src/testing/backend.rs": "064e3977bf70941aa6461c577545d8ee6fb2dbdb2f431573297759cffd8b55e6",
+    "crates/cli/src/testing/validator.rs": "8d5170f4645e7c48de67851ead3deaf7b200d14273027dbbc82a30311361b817",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  },
+  "exit_code": 0,
+  "finished_utc": "2026-09-05T00:36:32.692458+00:00",
+  "log_sha256": "1045a63a7c960407f4a3df371a1657b77c5fda6ae184ecc3f14e5add2607ae34"
+}

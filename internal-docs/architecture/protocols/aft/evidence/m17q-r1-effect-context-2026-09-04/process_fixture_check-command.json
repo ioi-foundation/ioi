@@ -1,0 +1,15 @@
+{
+  "name": "process_fixture_check",
+  "command": [
+    "cargo",
+    "check",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl"
+  ],
+  "started_utc": "2026-09-04T23:44:38.531299+00:00"
+}

@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "standard::orchestration::quv::admission::tests::canceled_durable_waiter_retains_admission_until_work_finishes",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 0,
+  "source_sha256": "387299c6abd6c126cb93e8ed8cbf841b760ae9306d21ad922a3bfb5f1bcb65fd"
+}

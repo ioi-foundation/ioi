@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-reply-boundary-diagnostics-2026-09-05/analyze_reply_boundaries.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-verifier-operation-table-2026-09-05/process/components"
+  ],
+  "checker_sha256": "88effccd11b821a5859355651a88e233a3728cecb999529079e77e8ec0e60687",
+  "exit_code": 0,
+  "stderr": ""
+}

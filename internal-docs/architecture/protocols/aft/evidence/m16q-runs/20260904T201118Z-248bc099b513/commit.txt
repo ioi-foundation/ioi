@@ -1,0 +1,7 @@
+commit 248bc099b51387a4b3a4cf4afebe56e78b2cf5eb
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Fri Sep 4 16:11:07 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Fri Sep 4 16:11:07 2026 -0400
+
+    fix(aft): complete live QUV handoff recovery

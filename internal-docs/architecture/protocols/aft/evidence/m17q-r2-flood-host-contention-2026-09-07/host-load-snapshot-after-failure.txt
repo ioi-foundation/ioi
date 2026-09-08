@@ -1,0 +1,21 @@
+2026-09-07T11:19:55Z
+ 07:19:55 up 61 days, 22:36,  1 user,  load average: 7.76, 10.09, 9.52
+
+    PID %CPU %MEM     ELAPSED USER     COMMAND
+ 688120  111  1.8       00:17 heathle+ python
+1868248 31.1  5.5  1-21:57:58 heathle+ hypervisor-daem
+   2595 11.1  0.0 61-22:34:19 heathle+ cosmic-comp
+1934489  6.5  0.8  3-14:36:05 heathle+ firefox-bin
+ 707651  5.6  0.2  1-22:59:53 heathle+ code
+ 101331  4.1  0.0  5-04:29:24 heathle+ code
+  26156  4.0  0.8  2-20:22:14 heathle+ Isolated Web Co
+ 101429  3.2  0.3  5-04:29:23 heathle+ code
+ 779824  2.8  0.7    18:07:15 heathle+ Isolated Web Co
+ 498667  2.2  0.2  1-01:56:40 heathle+ codex
+ 392314  2.1  0.3  1-02:02:00 heathle+ claude
+ 500537  1.6  0.6  1-01:56:36 heathle+ code
+ 101080  1.6  0.1  5-04:29:24 heathle+ code
+3049448  1.2  0.1 13-15:50:05 heathle+ claude.exe
+
+7.76 10.09 9.52 4/4705 693614
+24

@@ -1,0 +1,7 @@
+{
+  "changed_since_collector": [
+    ".github/scripts/run_aft_m16q_qualification.sh"
+  ],
+  "reason": "added passing handoff trace as mandatory M16Q gate; see runner-followup",
+  "production_tests_and_proofs_unchanged": true
+}

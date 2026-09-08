@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-typed-refusal-2026-09-04/process-diagnostics/process.log"
+  ],
+  "exit_code": 0,
+  "log_sha256": "a3828ab6b8bf46e28eec01aea4beaac2dd0b9c77e6e40fbc3f5f8ec395f92d49"
+}

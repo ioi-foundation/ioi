@@ -1,0 +1,13 @@
+commit 9ce911fe798b94fab3112a6eb5c50adb932e73bd
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Mon Sep 7 11:16:13 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Mon Sep 7 11:16:13 2026 -0400
+
+    docs(aft): retain the quiet-host readiness preflight on the declared envelope
+    
+    Standalone consecutive-readiness campaign on 199ee3884 after five quiet
+    minutes: exit 0 in 260.48 s, readiness evidence checker PASS with the 4500 ms
+    pin; reply maxima 1608 / 2602 / 1315 ms.
+    
+    Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

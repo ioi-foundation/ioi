@@ -1,0 +1,133 @@
+census OK: 91 modules = 78 executed + 13 manifest-marked (manual)
+(* fingerprints file ".tlacache/QuvReceiptReuseProof.tlaps/fingerprints" removed *)
+(* created new ".tlacache/QuvReceiptReuseProof.tlaps/QuvReceiptReuseProof.thy" *)
+(* fingerprints written in ".tlacache/QuvReceiptReuseProof.tlaps/fingerprints" *)
+File "./QuvReceiptReuseProof.tla", line 1, character 1 to line 15, character 77:
+[INFO]: All 9 obligations proved.
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 51 and seed 1727088402212630851 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 4025058] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/consequence/QuvReceiptReuse.tla
+Parsing file /tmp/tlc-17389706234630996233/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-17389706234630996233/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-17389706234630996233/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-17389706234630996233/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-17389706234630996233/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-17389706234630996233/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-17389706234630996233/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvReceiptReuse
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvReceiptReuse
+Starting... (2026-09-06 04:50:17)
+Computing initial states...
+Computed 2 initial states...
+Finished computing initial states: 4 distinct states generated at 2026-09-06 04:50:17.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 4.3E-19
+6 states generated, 4 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 1.
+The average outdegree of the complete state graph is 0 (minimum is 0, the maximum 0 and the 95th percentile is 0).
+Finished in 00s at (2026-09-06 04:50:17)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 94 and seed 6878330465716698465 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 4025177] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.KqLI59dPBj/QuvReceiptReuse.tla
+Parsing file /tmp/tlc-1552387350436399168/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-1552387350436399168/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-1552387350436399168/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-1552387350436399168/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-1552387350436399168/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-1552387350436399168/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-1552387350436399168/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvReceiptReuse
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvReceiptReuse
+Starting... (2026-09-06 04:50:18)
+Computing initial states...
+Computed 2 initial states...
+Finished computing initial states: 4 distinct states generated at 2026-09-06 04:50:18.
+Error: Invariant ReusePreservesData is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ rewroteReady = FALSE
+/\ usedSpareAuthority = FALSE
+/\ spareReady = TRUE
+/\ activeValid = TRUE
+
+State 2: <Prepare line 8, col 12 to line 11, col 72 of module QuvReceiptReuse>
+/\ rewroteReady = TRUE
+/\ usedSpareAuthority = FALSE
+/\ spareReady = TRUE
+/\ activeValid = TRUE
+
+6 states generated, 5 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 2.
+Finished in 00s at (2026-09-06 04:50:18)
+Trace exploration spec path: ./QuvReceiptReuse_TTrace_1788684617.tla
+expected counterexample observed: QuvReceiptReuse.tla: Invariant ReusePreservesData is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 63 and seed 1633114854483508068 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 4025405] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.zdLJFuhYaz/QuvReceiptReuse.tla
+Parsing file /tmp/tlc-5494050764897729315/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-5494050764897729315/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-5494050764897729315/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-5494050764897729315/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-5494050764897729315/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-5494050764897729315/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-5494050764897729315/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvReceiptReuse
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvReceiptReuse
+Starting... (2026-09-06 04:50:18)
+Computing initial states...
+Computed 2 initial states...
+Finished computing initial states: 4 distinct states generated at 2026-09-06 04:50:18.
+Error: Invariant ActiveOnlyAuthority is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ rewroteReady = FALSE
+/\ usedSpareAuthority = FALSE
+/\ spareReady = TRUE
+/\ activeValid = FALSE
+
+State 2: <Prepare line 8, col 12 to line 11, col 72 of module QuvReceiptReuse>
+/\ rewroteReady = FALSE
+/\ usedSpareAuthority = TRUE
+/\ spareReady = TRUE
+/\ activeValid = TRUE
+
+5 states generated, 5 distinct states found, 2 states left on queue.
+The depth of the complete state graph search is 2.
+Finished in 00s at (2026-09-06 04:50:18)
+Trace exploration spec path: ./QuvReceiptReuse_TTrace_1788684618.tla
+expected counterexample observed: QuvReceiptReuse.tla: Invariant ActiveOnlyAuthority is violated

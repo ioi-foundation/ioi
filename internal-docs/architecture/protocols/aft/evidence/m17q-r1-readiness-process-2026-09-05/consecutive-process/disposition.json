@@ -1,0 +1,15 @@
+{
+  "disposition": "INVESTIGATION_REQUIRED",
+  "process_exit_code": 101,
+  "changed_sources": [],
+  "readiness_checker_exit_code": 1,
+  "passed_prefix": [
+    "parent slot 1 execution with all four replies",
+    "unchanged terminal parent replay during slot 2 wait",
+    "same-executor unrelated effect during slot 2 wait",
+    "slot 2 execution after 39.175024726s required wait with all four replies"
+  ],
+  "failure": "missing foreground_readiness_wait event for slot 3 after executor restart",
+  "evidence_limit": "The fixture awaited the event without observing the spawned RPC result, so it did not retain an early RPC error. Recovered executor logged height 1 and public RPC listening, but that alone does not establish the cause.",
+  "next_action": "Surface an early RPC completion/error instead of masking it behind the 90s event wait; retain this failed run."
+}

@@ -1,0 +1,1 @@
+[M16Q] START hypervisor_web: npm run build --workspace=@ioi/hypervisor-app 

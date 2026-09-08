@@ -1,0 +1,19 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-continuation-admission-2026-09-06/process-recovery/admission-diagnostic/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-continuation-admission-2026-09-06/process-recovery/admission-diagnostic/components"
+  ],
+  "exit_code": 0,
+  "source_sha256": "d51f3990a89ef7025b1d3f6f77f4bd7e28e222506fdc299eabac25622e0c8047",
+  "self_test": {
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0
+  }
+}

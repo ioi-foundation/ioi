@@ -1,0 +1,15 @@
+{
+  "started": "2026-09-06T08:20:23.763796+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-execution",
+    "--lib",
+    "mv_memory::tests::clear_tx_writes_removes_stale_keys_from_prior_incarnation",
+    "--",
+    "--exact"
+  ],
+  "reason": "initial compilation failed with ENOSPC; inactive caches removed and disk headroom restored; selected source unchanged"
+}

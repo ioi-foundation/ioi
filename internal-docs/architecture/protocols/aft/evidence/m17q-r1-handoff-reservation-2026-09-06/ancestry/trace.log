@@ -1,0 +1,2 @@
+usage: check_aft_quv_handoff_reservation.py [-h] --output OUTPUT
+check_aft_quv_handoff_reservation.py: error: unrecognized arguments: .github/scripts/check_aft_quv_record_reservation.py

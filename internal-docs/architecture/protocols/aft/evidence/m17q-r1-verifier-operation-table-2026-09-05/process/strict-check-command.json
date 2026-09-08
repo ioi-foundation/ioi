@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-verifier-operation-table-2026-09-05/process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-verifier-operation-table-2026-09-05/process/components"
+  ],
+  "checker_sha256": "1939e07c04dd78d1946379639b807172f9394943cd6f193f11d48d987d15714c",
+  "exit_code": 0,
+  "stderr": ""
+}

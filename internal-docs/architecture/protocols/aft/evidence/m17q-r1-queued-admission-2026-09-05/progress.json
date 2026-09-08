@@ -1,0 +1,60 @@
+{
+  "recorded_utc": "2026-09-05T06:54:14.105945+00:00",
+  "disposition": "SUPERSEDED_BY_FINAL_DISPOSITION",
+  "runtime_passed": 5,
+  "removed_rule_controls": 2,
+  "process_session_id": 81641,
+  "process_status": "Terminal exit 0; final disposition in disposition.json.",
+  "source_manifest": "process/started.json",
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/quv/admission.rs",
+        "crates/validator/src/standard/orchestration/context.rs",
+        "crates/validator/src/standard/orchestration/lifecycle.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "remaining": [
+    "process outcome and worker evidence",
+    "worker mutation/restart evidence",
+    "service and readiness enforcement",
+    "full R1 closure, clean R2, independent review and M18Q"
+  ]
+}

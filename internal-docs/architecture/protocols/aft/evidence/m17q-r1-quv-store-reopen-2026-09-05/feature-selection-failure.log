@@ -1,0 +1,2 @@
+error: the package 'ioi-consensus' does not contain this feature: consensus-aft
+help: packages with the missing feature: ioi-node, ioi-validator, ioi-cli

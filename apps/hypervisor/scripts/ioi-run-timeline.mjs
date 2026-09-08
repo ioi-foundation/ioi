@@ -18,9 +18,42 @@
 const PHASE_BY_STATUS = {
   waiting: "AGENT_EXECUTION_PHASE_PENDING",
   running: "AGENT_EXECUTION_PHASE_RUNNING",
+  awaiting_operator_approval: "AGENT_EXECUTION_PHASE_PENDING",
+  awaiting_wallet_authority: "AGENT_EXECUTION_PHASE_PENDING",
   done: "AGENT_EXECUTION_PHASE_STOPPED",
+  denied: "AGENT_EXECUTION_PHASE_STOPPED",
   failed: "AGENT_EXECUTION_PHASE_FAILED",
 };
+
+// M13.4 truth-rebind: the daemon's session record, its receipts and its workspace events are the
+// panes' source of truth. The serve's run cache contributes the request text, the activity log and
+// the parked-approval state; everything about lifecycle, receipts, leases and written files that
+// the daemon holds is projected FROM the daemon records passed in `extra` and labelled as such.
+function daemonReceiptSummary(receipt) {
+  if (!receipt || typeof receipt !== "object") return null;
+  return {
+    id: receipt.id || null,
+    kind: receipt.kind || null,
+    status: receipt.status || null,
+    exitStatus: receipt.exit_status ?? receipt.exitStatus ?? null,
+    lane: receipt.lane || null,
+    capabilityLeaseRef: receipt.capability_lease_ref || null,
+    authorityScopeRefs: Array.isArray(receipt.authority_scope_refs) ? receipt.authority_scope_refs : [],
+    startedAt: receipt.started_at || null,
+    recordedAt: receipt.recorded_at || receipt.finished_at || receipt.recovered_at || null,
+    source: "daemon-runtime",
+  };
+}
+
+function daemonChangedFiles(sessionEvents) {
+  const groups = sessionEvents?.workspace_diff?.changed_file_groups
+    || (sessionEvents?.events || []).find((e) => e?.changed_file_groups)?.changed_file_groups
+    || sessionEvents?.changed_file_groups
+    || [];
+  const files = [];
+  for (const group of groups) for (const f of group?.files || group?.paths || []) files.push({ path: typeof f === "string" ? f : (f.path || f.file || String(f)), group: group?.kind || group?.label || null, source: "daemon-runtime" });
+  return files;
+}
 
 // Classify a governed-work step so the UI can icon/colour it without re-parsing prose.
 function classifyActivity(text) {
@@ -72,8 +105,10 @@ function followUps(run) {
 
 export function projectRunTimeline(run, extra = {}) {
   if (!run) return null;
-  const { authorityReceipts = [], drafts = [], hasConnector = false } = extra;
-  const files = runFiles(run);
+  const { authorityReceipts = [], drafts = [], hasConnector = false, session = null, sessionReceipts = [], sessionEvents = null } = extra;
+  const cachedFiles = runFiles(run);
+  const daemonFiles = daemonChangedFiles(sessionEvents);
+  const files = cachedFiles.length ? cachedFiles : daemonFiles.map((f) => f.path);
   const publishReceipts = Array.isArray(run.publishReceipts) ? run.publishReceipts : [];
 
   // --- 2) activity: governed-work steps (timestamped history) ---
@@ -87,10 +122,22 @@ export function projectRunTimeline(run, extra = {}) {
            (run.authority?.policyHash && blob.includes(run.authority.policyHash)) ||
            (run.sessionRef && blob.includes(run.sessionRef));
   });
+  const daemonReceipts = (sessionReceipts || []).map(daemonReceiptSummary).filter(Boolean);
+  const executeReceipt = daemonReceipts.find((r) => r.kind === "hypervisor.session.execute") || null;
   const proof = {
+    // The session as the DAEMON holds it: lifecycle truth and the receipt refs on the record.
+    session: session ? {
+      ref: session.session_ref || run.sessionRef || null,
+      lifecycleState: session.lifecycle_state || null,
+      environmentRef: session.environment_ref || null,
+      latestReceiptRefs: Array.isArray(session.latest_receipt_refs) ? session.latest_receipt_refs : [],
+      authorityProfile: session.authority_profile || null,
+      source: "daemon-runtime",
+    } : null,
+    daemonReceipts,
     authority: run.authority || null,
     receipts: myReceipts,
-    leaseRef: run.capabilityLeaseRef || null,
+    leaseRef: run.capabilityLeaseRef || executeReceipt?.capabilityLeaseRef || null,
     proposalRefs: [run.proposalRef].filter(Boolean),
     publishReceipts: publishReceipts.map((p) => ({ branch: p.branch, remoteUrl: p.remote_url, commit: p.commit_sha, grantRef: p.grant_ref, at: p.published_at })),
     stateRoot: run.stateRoot || null, // #3 — tamper-evident handle of the durable daemon record
@@ -101,6 +148,7 @@ export function projectRunTimeline(run, extra = {}) {
   // --- 4) artifacts ---
   const artifacts = {
     files,
+    daemonFiles,
     drafts: (drafts || []).filter((d) => d?.environment_id === run.envId).map((d) => ({
       id: d.draft_id, title: d.title, reviewState: d.review_state, summary: d.artifact_refs?.summary,
       patch: d.artifact_refs?.patch, changedFiles: d.changed_files || [], remotePublish: d.remote_publish || null,
@@ -113,6 +161,24 @@ export function projectRunTimeline(run, extra = {}) {
     id: `${run.id}-t1`,
     request: run.prompt ? { text: run.prompt, at: run.createdAt, blockId: run.userInputBlockId } : null,
     activity,
+    // The parked operator decision, reachable from wherever the run was submitted: the exact
+    // effect and its commitments, and the serve's approve/deny endpoints under the operator's own
+    // session. Approving signs exactly this challenge; denying mints nothing.
+    approval: run.pendingApproval ? {
+      state: run.status === "awaiting_operator_approval" ? "awaiting" : (run.pendingApproval.decision || "decided"),
+      kind: run.pendingApproval.kind || null,
+      sessionRef: run.pendingApproval.session_ref || run.sessionRef || null,
+      intent: run.pendingApproval.intent || run.prompt || null,
+      policyHash: run.pendingApproval.policy_hash || null,
+      requestHash: run.pendingApproval.request_hash || null,
+      audience: run.pendingApproval.audience || null,
+      requiredScopes: run.pendingApproval.required_scopes || [],
+      requestedAt: run.pendingApproval.requested_at || null,
+      decision: run.pendingApproval.decision || null,
+      decidedAt: run.pendingApproval.decided_at || null,
+      approveUrl: run.status === "awaiting_operator_approval" ? `/__ioi/runs/${encodeURIComponent(run.id)}/approve` : null,
+      denyUrl: run.status === "awaiting_operator_approval" ? `/__ioi/runs/${encodeURIComponent(run.id)}/deny` : null,
+    } : null,
     response: (run.status === "done" || run.status === "failed")
       ? { text: run.status === "failed" ? (run.error || "Run failed.") : (run.summary || "Run complete."), at: run.updatedAt, failed: run.status === "failed" }
       : null,

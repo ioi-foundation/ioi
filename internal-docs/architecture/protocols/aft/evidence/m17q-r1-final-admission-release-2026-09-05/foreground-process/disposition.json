@@ -1,0 +1,11 @@
+{
+  "disposition": "PASS_SCOPED_CAMPAIGN",
+  "process_exit_code": 0,
+  "changed_sources": [],
+  "checker_exit_codes": {
+    "strict-check": 0,
+    "worker-service-check": 0,
+    "reply-boundaries": 0
+  },
+  "scope": "Selected foreground process assertions and host observations; not full R2, a worst-case bound or whole R1 closure."
+}

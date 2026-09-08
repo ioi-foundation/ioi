@@ -1,0 +1,33 @@
+[
+  {
+    "name": "types",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-types",
+      "--lib",
+      "app::consequence::tests"
+    ],
+    "exit_code": 0,
+    "passed": 7,
+    "log_sha256": "459110533f4d09c7857f3855b61cb0d3d1ad416e4370df46b1b710f5b1d79fe1",
+    "completion_observed_utc": "2026-09-04T23:36:28.868580+00:00"
+  },
+  {
+    "name": "agentgres",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib"
+    ],
+    "exit_code": 0,
+    "passed": 104,
+    "log_sha256": "240970d3d5f9125f120e12055c3c4eab9f7f602131d2c92c5e8568f0265394ef",
+    "completion_observed_utc": "2026-09-04T23:36:28.868662+00:00"
+  }
+]

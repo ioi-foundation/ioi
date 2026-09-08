@@ -1,0 +1,15 @@
+{
+  "disposition": "FAILED",
+  "test_exit_code": 101,
+  "runner_exit_code": 1,
+  "changed_sources_during_run": [],
+  "failed_assertion": "Interrupted successor node 1 timed out waiting for Recovered QUV successor authority from its durable local install gate",
+  "observed_activation": "validator-20100 reported Activated successor from its local live old-root QUV install at 2026-09-05T03:35:01.641960051Z",
+  "operation_observation": "Only one operation_started and one accepted operation_finished occurred in the interrupted successor log, before the post-crash activation",
+  "participation_failure": "Each successor logged only three routed replies; validator-20500 refused four requests because no certified handoff boundary was cached. This is an upper bound of three observed reply members, not a post-validation audit count.",
+  "not_run": [
+    "overlap-handoff",
+    "correct-member-campaign"
+  ],
+  "classification": "Local process failure. No clean R2 admission, target impossibility, or R1 closure. Origin reporting repair and source-QC/local-boundary validation require fresh qualification."
+}

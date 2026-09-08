@@ -1,0 +1,20 @@
+{
+  "utc": "2026-09-05T02:57:51.345961+00:00",
+  "status": "LOCAL_COMPONENT_PASS_NOT_R2_ADMISSION",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "command": "cargo test --locked -p ioi-consensus --features aft --lib query_unanimity",
+  "exit_code": 0,
+  "tests": {
+    "passed": 22,
+    "failed": 0,
+    "ignored": 1
+  },
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "scope": "Borrow existing slot during capacity preflight. Regression validates refusal, exact-fit growth after reopen, ordered complete snapshot and fresh-nonce duplicate without writes. No allocation instrumentation or flood/timing claim.",
+  "source_sha256": {
+    "crates/consensus/src/aft/query_unanimity.rs": "4110a3033b9c7f91eadfd9aa3ab3c179fecad29a010a6354dfc36385e166a720",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md": "3c1397ed69ffe1f165c5ca93d79efe09756d3993295ea6a3b0f3f06574e77520",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "54eb86ae4ef5de2485ddf5538a36cd353048ac6e3ace0c1b08de7b1dab5a308e",
+    "internal-docs/architecture/protocols/aft/IMPLEMENTATION_LEDGER.md": "b22315d9d7bab446c116dcf8e427613eb9ad7e2f2421de79b60a1fdac59a6262"
+  }
+}

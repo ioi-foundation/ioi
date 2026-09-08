@@ -1,0 +1,12 @@
+{
+  "completed_utc": "2026-09-05T06:44:41.361090+00:00",
+  "disposition": "PROCESS_CAMPAIGN_FAILED_OPERATION_CONTENTION",
+  "process_exit": 101,
+  "sole_correct_cases": 4,
+  "saturation_operations": 4,
+  "worker_completion_observed": true,
+  "failure": "Conflict case received generic one-live-operation refusal while preparation occupied the slot.",
+  "retention": "Early component records missing; 820 diagnostic write failures. Remaining logs retained. Not qualification evidence.",
+  "next_repair": "Bounded queued runtime admission with revalidation after waiting.",
+  "r1_closure": false
+}

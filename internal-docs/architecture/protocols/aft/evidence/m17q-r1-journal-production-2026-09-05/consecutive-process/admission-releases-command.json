@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/admission-release-analyzer.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/consecutive-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "a58f2e4e20db745fa37128e47e123891a1edc5e8109f6656cc204552c249b839"
+}

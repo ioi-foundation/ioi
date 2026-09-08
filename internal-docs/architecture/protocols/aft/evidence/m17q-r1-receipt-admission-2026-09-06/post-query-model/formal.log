@@ -1,0 +1,400 @@
+census OK: 87 modules = 74 executed + 13 manifest-marked (manual)
+(* fingerprints file ".tlacache/QuvQueuedEffectPreparationProof.tlaps/fingerprints" removed *)
+(* created new ".tlacache/QuvQueuedEffectPreparationProof.tlaps/QuvQueuedEffectPreparationProof.thy" *)
+(* fingerprints written in ".tlacache/QuvQueuedEffectPreparationProof.tlaps/fingerprints" *)
+File "./QuvQueuedEffectPreparationProof.tla", line 1, character 1 to line 16, character 65:
+[INFO]: All 9 obligations proved.
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 2 and seed 1866256874608329845 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2500717] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparation.tla
+Parsing file /tmp/tlc-4571348235656128959/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4571348235656128959/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4571348235656128959/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4571348235656128959/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-4571348235656128959/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4571348235656128959/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4571348235656128959/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvQueuedEffectPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvQueuedEffectPreparation
+Starting... (2026-09-06 03:35:19)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 03:35:19.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.4E-17
+33 states generated, 21 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 9.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 3).
+Finished in 00s at (2026-09-06 03:35:19)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 24 and seed 3681333246659013664 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2500809] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.IbyeM7XoQp/QuvQueuedEffectPreparation.tla
+Parsing file /tmp/tlc-14413319418874756912/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-14413319418874756912/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-14413319418874756912/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-14413319418874756912/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-14413319418874756912/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-14413319418874756912/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-14413319418874756912/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvQueuedEffectPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvQueuedEffectPreparation
+Starting... (2026-09-06 03:35:20)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 03:35:20.
+Error: Invariant PreparedAfterAdmission is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Inspect"
+/\ valid = TRUE
+/\ preparedCorrect = FALSE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 2: <Inspect line 11, col 12 to line 14, col 78 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = TRUE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Waiting"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = FALSE
+/\ lease = FALSE
+
+2 states generated, 2 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 2.
+Finished in 00s at (2026-09-06 03:35:20)
+Trace exploration spec path: ./QuvQueuedEffectPreparation_TTrace_1788680120.tla
+expected counterexample observed: QuvQueuedEffectPreparation.tla: Invariant PreparedAfterAdmission is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 72 and seed -9140487381133663568 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2501019] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.hYhZgPo7E0/QuvQueuedEffectPreparation.tla
+Parsing file /tmp/tlc-10739996969055832582/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-10739996969055832582/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-10739996969055832582/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-10739996969055832582/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-10739996969055832582/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-10739996969055832582/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-10739996969055832582/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvQueuedEffectPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvQueuedEffectPreparation
+Starting... (2026-09-06 03:35:20)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 03:35:20.
+Error: Invariant QueueReleasesStore is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Inspect"
+/\ valid = TRUE
+/\ preparedCorrect = FALSE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 2: <Inspect line 11, col 12 to line 14, col 78 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Waiting"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = FALSE
+
+2 states generated, 2 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 2.
+Finished in 00s at (2026-09-06 03:35:20)
+Trace exploration spec path: ./QuvQueuedEffectPreparation_TTrace_1788680120.tla
+expected counterexample observed: QuvQueuedEffectPreparation.tla: Invariant QueueReleasesStore is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 51 and seed 3541033421437163860 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2501209] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.8mrp4XKpnd/QuvQueuedEffectPreparation.tla
+Parsing file /tmp/tlc-14185330470105109975/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-14185330470105109975/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-14185330470105109975/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-14185330470105109975/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-14185330470105109975/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-14185330470105109975/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-14185330470105109975/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvQueuedEffectPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvQueuedEffectPreparation
+Starting... (2026-09-06 03:35:21)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 03:35:21.
+Error: Invariant PreparationCheck is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Inspect"
+/\ valid = TRUE
+/\ preparedCorrect = FALSE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 2: <Inspect line 11, col 12 to line 14, col 78 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Waiting"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 3: <ChangeContext line 18, col 18 to line 20, col 78 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Waiting"
+/\ valid = FALSE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 4: <Acquire line 15, col 12 to line 17, col 88 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Recheck"
+/\ valid = FALSE
+/\ preparedCorrect = TRUE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = TRUE
+
+State 5: <Recheck line 21, col 12 to line 23, col 101 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Prepare"
+/\ valid = FALSE
+/\ preparedCorrect = FALSE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = TRUE
+
+14 states generated, 11 distinct states found, 2 states left on queue.
+The depth of the complete state graph search is 5.
+Finished in 00s at (2026-09-06 03:35:21)
+Trace exploration spec path: ./QuvQueuedEffectPreparation_TTrace_1788680120.tla
+expected counterexample observed: QuvQueuedEffectPreparation.tla: Invariant PreparationCheck is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 95 and seed 5348578199242558552 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2501398] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.3EfNKW4dgW/QuvQueuedEffectPreparation.tla
+Parsing file /tmp/tlc-12134258443447841198/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-12134258443447841198/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-12134258443447841198/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-12134258443447841198/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-12134258443447841198/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-12134258443447841198/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-12134258443447841198/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvQueuedEffectPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvQueuedEffectPreparation
+Starting... (2026-09-06 03:35:21)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 03:35:21.
+Error: Invariant CallWasAuthorized is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Inspect"
+/\ valid = TRUE
+/\ preparedCorrect = FALSE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 2: <Inspect line 11, col 12 to line 14, col 78 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = FALSE
+/\ callCorrect = FALSE
+/\ phase = "Waiting"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = FALSE
+/\ lease = FALSE
+
+State 3: <Acquire line 15, col 12 to line 17, col 88 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Recheck"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = TRUE
+
+State 4: <Recheck line 21, col 12 to line 23, col 101 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = FALSE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Prepare"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = TRUE
+/\ grant = FALSE
+/\ lease = TRUE
+
+State 5: <Prepare line 24, col 12 to line 26, col 95 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = TRUE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Query"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = FALSE
+/\ lease = TRUE
+
+State 6: <OwnLive line 28, col 12 to line 30, col 98 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = TRUE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Reopen"
+/\ valid = TRUE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = TRUE
+/\ lease = TRUE
+
+State 7: <ChangeContext line 18, col 18 to line 20, col 78 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = TRUE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Reopen"
+/\ valid = FALSE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = TRUE
+/\ lease = TRUE
+
+State 8: <OpenReceipt line 33, col 16 to line 35, col 76 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = TRUE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Reopen"
+/\ valid = FALSE
+/\ preparedCorrect = TRUE
+/\ storeLocked = TRUE
+/\ grant = TRUE
+/\ lease = TRUE
+
+State 9: <LockFinality line 36, col 17 to line 38, col 77 of module QuvQueuedEffectPreparation>
+/\ called = FALSE
+/\ prepared = TRUE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Claim"
+/\ valid = FALSE
+/\ preparedCorrect = TRUE
+/\ storeLocked = TRUE
+/\ grant = TRUE
+/\ lease = TRUE
+
+State 10: <Call line 40, col 9 to line 43, col 67 of module QuvQueuedEffectPreparation>
+/\ called = TRUE
+/\ prepared = TRUE
+/\ acquired = TRUE
+/\ callCorrect = FALSE
+/\ phase = "Done"
+/\ valid = FALSE
+/\ preparedCorrect = TRUE
+/\ storeLocked = FALSE
+/\ grant = FALSE
+/\ lease = FALSE
+
+34 states generated, 22 distinct states found, 1 states left on queue.
+The depth of the complete state graph search is 10.
+Finished in 00s at (2026-09-06 03:35:21)
+Trace exploration spec path: ./QuvQueuedEffectPreparation_TTrace_1788680121.tla
+expected counterexample observed: QuvQueuedEffectPreparation.tla: Invariant CallWasAuthorized is violated

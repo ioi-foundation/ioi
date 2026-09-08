@@ -1,0 +1,57 @@
+{
+  "results": [
+    {
+      "name": "presence",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_admission_preserves_invalid_active_and_staging_aliases",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "69c66b46363e6f48214168f9d565eeafd4528c109e9c36835cdc4aee70e6d8af"
+    },
+    {
+      "name": "staging",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_admission_preserves_invalid_active_and_staging_aliases",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "41a5784954d0f877b26a0b11c72060e19fbbb13aebdd98a3429b8dc6a2e36b81"
+    },
+    {
+      "name": "lock",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::consequence_lock_refuses_aliases_and_retains_exclusive_ownership",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "2b90edf3d3ef5c771da41e63ebbb79d84c3b2b0f47834a19ac335ca04323d34f"
+    }
+  ],
+  "baseline_sha256": "955525821c2ed1a243417171801d1f8c69e3804d6ba1ba81c5a611b8e10c8c3e",
+  "restored": true
+}

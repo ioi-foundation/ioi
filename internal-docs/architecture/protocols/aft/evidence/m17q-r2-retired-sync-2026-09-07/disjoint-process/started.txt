@@ -1,0 +1,12 @@
+2026-09-07T07:32:08Z
+5ae464c1146ecff3079415e2e8da5b7daf00d253
+ M .github/scripts/run_aft_m16q_qualification.sh
+ M crates/validator/src/standard/orchestration/consensus.rs
+ M crates/validator/src/standard/orchestration/consensus/production/tests.rs
+ M crates/validator/src/standard/orchestration/context.rs
+ M crates/validator/src/standard/orchestration/gossip.rs
+ M crates/validator/src/standard/orchestration/lifecycle.rs
+ M crates/validator/src/standard/orchestration/sync.rs
+ M docs/architecture/_meta/canon-to-code-delta.md
+ M docs/architecture/components/hypervisor/providers-and-environments.md
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r2-retired-sync-2026-09-07/

@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-08-23.
+Last alignment pass: 2026-09-05 (workload-source and runtime-reuse boundary).
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, placement, the local hostile-guest provider path, and offline C8 v3 AFT admission built; DePIN/storage posture families vary)
 Implementation refs:
@@ -303,9 +303,9 @@ invalidate locally owned Systems, packages, Agentgres truth, receipts, restore
 material, or export paths.
 
 The isolated, attachment, detachment, and migration consequences are tested by
-the target
-`sovereign-local-completeness.md`
-contract; no current end-to-end evaluator is implied.
+the target sovereign-local fixture contract in
+[`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
+minimum-L0 proof profile*; no current end-to-end evaluator is implied.
 
 ## General VM And Runtime Lifecycle
 
@@ -433,6 +433,50 @@ Provider-native schedulers, orchestrators, volume controllers, ingress
 proxies, DNS, cache layers, image pullers, and autoscalers are implementation
 details. They may contribute observations and resource evidence, but they must
 not become the canonical state machine, authority path, or restore source.
+
+### Workload sources and runtime reuse
+
+Workload source and execution substrate are independent dimensions. An OCI
+image supplies packaged workload content and configuration; a Dockerfile
+describes a build; a devcontainer definition supplies development setup inputs.
+None selects or proves the workload's isolation boundary. The admitted recipe
+resolution selects a supported substrate under the applicable workload-isolation
+requirements. MicroVMs are one venue alongside the other runtime classes above.
+
+Hypervisor consumes existing builders, registries, container runtimes, and VMMs
+through adapters. Hypervisor owns environment admission, authority enforcement,
+lifecycle coordination, evidence, and recovery; Agentgres retains admitted
+truth. Reuse must preserve those owners and the provider's actual semantics.
+OCI image support does not require a replacement for Docker, containerd, runc,
+or their build and distribution ecosystem, and does not imply Docker API,
+CLI, Compose, or OCI runtime-spec compatibility.
+
+The target OCI workload-source capability resolves a source reference to an
+immutable platform-specific image digest and verified content, retaining its
+configuration and applicable provenance. Recipe resolution and launch admission
+must bind that exact content, effective command/configuration, selected isolation
+boundary, and applicable authority. Mutable tags must not silently select new
+content behind an admitted plan. Registry credentials follow existing custody
+and authority contracts.
+
+A supported launch profile must declare image platforms, entrypoint/command
+semantics, networking and ports, mounts, persistence, resource limits, readiness,
+and cleanup behavior. Unsupported requirements produce typed refusals before
+launch. Existing lifecycle, receipt, recovery, and workload-isolation contracts
+govern execution; source compatibility grants no authority or assurance itself.
+
+Dockerfile support adds a separately governed build step using an existing
+builder. Its exact source/build context and configuration, credential and network
+access, execution isolation, and output image digest require bound evidence.
+Discovery of a Dockerfile never executes it. The resulting image enters the
+same image-resolution and launch path.
+
+This is target doctrine. Existing Dockerfile detection and VM boot paths do not
+prove end-to-end OCI execution. The deferred capability and its acceptance gates
+are recorded in the [implementation index](../../_meta/canon-to-code-delta.md#deferred-oci-workload-source-to-governed-environment-execution).
+This clarification introduces no new wire object or generic authority path;
+shared-contract changes follow the owning recipe, resolution, startup,
+isolation, and lifecycle contracts when implementation is pulled.
 
 ## Autonomous Readiness And Setup Automation
 

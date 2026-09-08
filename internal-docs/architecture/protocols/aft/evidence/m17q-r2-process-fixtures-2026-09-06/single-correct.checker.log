@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py", line 816, in <module>
+    result = validate(text)
+             ^^^^^^^^^^^^^^
+  File "/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py", line 288, in validate
+    raise ValueError("missing, duplicate or reordered campaign phases")
+ValueError: missing, duplicate or reordered campaign phases
+exit=1

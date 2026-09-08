@@ -1,0 +1,23 @@
+Script started on 2026-09-04 17:59:31-04:00 [COMMAND="/usr/bin/time -f "FORMAL_WALL_SECONDS=%e\nFORMAL_MAX_RSS_KB=%M\nFORMAL_EXIT_STATUS=%x" bash .github/scripts/run_aft_formal_checks.sh --quv-theorem-only" <not executed on terminal>]
+census OK: 46 modules = 33 executed + 13 manifest-marked (manual)
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+100 4382k  100 4382k    0     0  14.0M      0 --:--:-- --:--:-- --:--:-- 14.0M
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  2  841M    2 21.4M    0     0  27.6M      0  0:00:30 --:--:--  0:00:30 27.6M  7  841M    7 63.4M    0     0  35.7M      0  0:00:23  0:00:01  0:00:22 42.0M 12  841M   12  106M    0     0  38.2M      0  0:00:21  0:00:02  0:00:19 42.3M 16  841M   16  136M    0     0  36.1M      0  0:00:23  0:00:03  0:00:20 38.2M 20  841M   20  171M    0     0  35.6M      0  0:00:23  0:00:04  0:00:19 37.2M 24  841M   24  204M    0     0  35.3M      0  0:00:23  0:00:05  0:00:18 36.5M 27  841M   27  235M    0     0  34.7M      0  0:00:24  0:00:06  0:00:18 34.3M 32  841M   32  269M    0     0  34.6M      0  0:00:24  0:00:07  0:00:17 32.7M 35  841M   35  297M    0     0  33.9M      0  0:00:24  0:00:08  0:00:16 32.2M 37  841M   37  311M    0     0  31.8M      0  0:00:26  0:00:09  0:00:17 28.2M 38  841M   38  327M    0     0  30.4M      0  0:00:27  0:00:10  0:00:17 24.7M 40  841M   40  343M    0     0  29.1M      0  0:00:28  0:00:11  0:00:17 21.6M 43  841M   43  366M    0     0  28.7M      0  0:00:29  0:00:12  0:00:17 19.3M 46  841M   46  390M    0     0  28.3M      0  0:00:29  0:00:13  0:00:16 18.4M 49  841M   49  419M    0     0  28.3M      0  0:00:29  0:00:14  0:00:15 21.4M 52  841M   52  445M    0     0  28.2M      0  0:00:29  0:00:15  0:00:14 23.5M 55  841M   55  471M    0     0  28.0M      0  0:00:29  0:00:16  0:00:13 25.5M 61  841M   61  515M    0     0  29.0M      0  0:00:29  0:00:17  0:00:12 29.7M 64  841M   64  544M    0     0  29.0M      0  0:00:28  0:00:18  0:00:10 30.9M 67  841M   67  569M    0     0  28.8M      0  0:00:29  0:00:19  0:00:10 30.1M 69  841M   69  587M    0     0  28.2M      0  0:00:29  0:00:20  0:00:09 28.3M 72  841M   72  612M    0     0  28.1M      0  0:00:29  0:00:21  0:00:08 28.3M 75  841M   75  637M    0     0  27.9M      0  0:00:30  0:00:22  0:00:08 24.4M 78  841M   78  661M    0     0  27.8M      0  0:00:30  0:00:23  0:00:07 23.4M 81  841M   81  685M    0     0  27.6M      0  0:00:30  0:00:24  0:00:06 23.1M 83  841M   83  705M    0     0  27.3M      0  0:00:30  0:00:25  0:00:05 23.4M 86  841M   86  728M    0     0  27.2M      0  0:00:30  0:00:26  0:00:04 23.1M 89  841M   89  753M    0     0  27.1M      0  0:00:30  0:00:27  0:00:03 23.2M 92  841M   92  777M    0     0  27.0M      0  0:00:31  0:00:28  0:00:03 23.1M 95  841M   95  803M    0     0  26.9M      0  0:00:31  0:00:29  0:00:02 23.5M 97  841M   97  818M    0     0  26.6M      0  0:00:31  0:00:30  0:00:01 22.7M 99  841M   99  835M    0     0  26.2M      0  0:00:32  0:00:31  0:00:01 21.2M100  841M  100  841M    0     0  26.2M      0  0:00:32  0:00:32 --:--:-- 20.2M
+(* created new ".tlacache/QueryUnanimityProof.tlaps/QueryUnanimityProof.thy" *)
+(* fingerprints written in ".tlacache/QueryUnanimityProof.tlaps/fingerprints" *)
+File "./QueryUnanimityProof.tla", line 1, character 1 to line 146, character 4:
+[INFO]: All 75 obligations proved.
+(* created new ".tlacache/QueryUnanimityCompositionProof.tlaps/QueryUnanimityCompositionProof.thy" *)
+(* fingerprints written in ".tlacache/QueryUnanimityCompositionProof.tlaps/fingerprints" *)
+File "./QueryUnanimityCompositionProof.tla", line 1, character 1 to line 58, character 4:
+[INFO]: All 16 obligations proved.
+FORMAL_WALL_SECONDS=44.52
+FORMAL_MAX_RSS_KB=50328
+FORMAL_EXIT_STATUS=0
+
+Script done on 2026-09-04 18:00:16-04:00 [COMMAND_EXIT_CODE="0"]

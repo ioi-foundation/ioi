@@ -1,0 +1,1 @@
+[M16Q] START quv_refusal_assertion: cargo test --locked -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl quv_conflict_assertion_requires_structured_refusal -- --exact 

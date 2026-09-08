@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "name": "inspection-write",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "bb49f19fcb58899f770671cdf46ebaac972e61596804896064e169bc0a09eddc"
+    }
+  ],
+  "baseline_sha256": "79e3167c3161f019cead6d11de37cc9cf32a95e3a01a7936d931d2bd9220972a",
+  "restored": true
+}

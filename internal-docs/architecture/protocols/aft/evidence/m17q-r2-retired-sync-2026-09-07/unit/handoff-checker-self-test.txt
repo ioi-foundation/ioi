@@ -1,0 +1,1 @@
+{"negative_cases": 34, "positive_cases": 2}

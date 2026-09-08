@@ -1,0 +1,4 @@
+{
+  "initial_failure": "KeyError: event while constructing negative self-test rows after adding RPC listener records",
+  "correction": "Negative self-test constructors use optional event lookup, as the runtime validator already does; no gate exemption added"
+}

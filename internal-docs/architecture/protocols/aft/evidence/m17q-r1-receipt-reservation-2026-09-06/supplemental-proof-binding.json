@@ -1,0 +1,33 @@
+{
+  "sources": {
+    "internal-docs/architecture/protocols/aft/formal/outbox/PqReservedIndex.tla": "8a7c4281939cf92f7fd5a996863e193489670174c88415ef3332cdd68479fd03",
+    "internal-docs/architecture/protocols/aft/formal/outbox/PqReservedIndexTruncate.cfg": "c9dc3045a2468afbb00ec1e4e6fa5cebfd24281672a585281af75976f5f4c1bc",
+    "internal-docs/architecture/protocols/aft/formal/outbox/PqReservedIndexProof.tla": "f948b08839e866745f5da9a718272ec7119be2ac6990a68458f719a5fa8a9d89",
+    "internal-docs/architecture/protocols/aft/formal/outbox/PqReservedIndex.cfg": "4cf5548bc303ac3068f5c320145aaa0a33cd2db5ae9a4332d5f6de7a8024f0ba",
+    "internal-docs/architecture/protocols/aft/formal/outbox/PqReservedIndexEarly.cfg": "cf871ff55e981fe16724945cd78018d70d8c4d0a9567eb3496223c40a1498712",
+    "internal-docs/architecture/protocols/aft/formal/resource_profile/QuvRecordReservation.tla": "f7f4c268e8a10356666c6431dc025c545a63f2bce021ad093bedff04f9a7e1fb",
+    "internal-docs/architecture/protocols/aft/formal/resource_profile/QuvRecordReservation.cfg": "b5d103fa26dcba3be45f11602246475b2e0633e47da006a95c2710dca7ca41c9",
+    "internal-docs/architecture/protocols/aft/formal/resource_profile/QuvRecordReservationTruncate.cfg": "7f9aa301e4a7833f76b04c2b6eb144c202f72e56d4bf5ac9e2457ab167d443e4",
+    "internal-docs/architecture/protocols/aft/formal/resource_profile/QuvRecordReservationProof.tla": "7c30911fec80621b671142a6d81d4dd042a6e339be6a035b5da6f3d6a2b0d251",
+    "internal-docs/architecture/protocols/aft/formal/resource_profile/QuvRecordReservationForget.cfg": "3397cee74e28a9fcd405e6ccec09c87675ab8b79df94de5c9cd842cf62767508"
+  },
+  "checks": [
+    {
+      "command": [
+        "bash",
+        ".github/scripts/run_aft_formal_checks.sh",
+        "--pq-reserved-index-only"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/run_aft_formal_checks.sh",
+        "--quv-record-reservation-only"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "unchanged": true
+}

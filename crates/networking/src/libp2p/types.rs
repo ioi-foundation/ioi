@@ -13,7 +13,7 @@ use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 // [FIX] Removed unused SyncRequest import
 use crate::libp2p::pq_channel::{PqChannelLocalConfig, PqPeerEnrollment};
 use crate::libp2p::sync::SyncResponse;
-use ioi_types::app::{QuvPushQueryV0, QuvReplyV0};
+use ioi_types::app::{QuvNonce, QuvPushQueryV0, QuvReplyV0};
 
 #[derive(Debug)]
 pub enum SwarmCommand {
@@ -69,15 +69,19 @@ pub enum SwarmCommand {
     /// requester after its durable PUSHQUERY has completed or failed closed.
     CompleteQuvPush {
         requester: AccountId,
+        nonce: QuvNonce,
     },
     /// Opens a fresh, process-local verifier admission epoch. Replies are
     /// admitted at most once per authenticated member until completion.
     BeginQuvOperation {
+        nonce: QuvNonce,
         response: tokio::sync::oneshot::Sender<()>,
     },
     /// Closes the current verifier admission epoch and discards its reply
     /// admission set. QUV transcripts remain non-authorizing audit material.
-    CompleteQuvOperation,
+    CompleteQuvOperation {
+        nonce: QuvNonce,
+    },
     /// Enables strict PQ consensus transport. Once configured, classical
     /// vote/QC/view-change gossip and relay paths are refused.
     ConfigurePqChannels {
@@ -141,6 +145,19 @@ pub enum SwarmCommand {
 pub enum NetworkEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
+    /// The strict-PQ handshake proved that `peer` controls the rooted ML-DSA
+    /// identity for `account`. Unauthenticated status claims never emit this.
+    PqCarrierAuthenticated {
+        peer: PeerId,
+        account: AccountId,
+    },
+    /// A provisional (never proven) PQ enrollment for `peer` was erased after
+    /// a handshake or transport failure. The swarm cannot restart a handshake
+    /// without an enrollment, so the validator should re-derive it from a
+    /// fresh status exchange. Emission is bounded per connection.
+    PqEnrollmentLost {
+        peer: PeerId,
+    },
     GossipBlock {
         block: Block<ChainTransaction>,
         mirror_id: u8,
@@ -261,6 +278,8 @@ pub enum QuvNetworkEvent {
 pub enum SwarmInternalEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
+    PqCarrierAuthenticated(PeerId, AccountId),
+    PqEnrollmentLost(PeerId),
     GossipBlock(Vec<u8>, PeerId, u8),
     GossipTransaction(Vec<u8>, PeerId),
     ConsensusVoteReceived(Vec<u8>, PeerId),

@@ -1,0 +1,65 @@
+# SyncResponse::PqChannelNack — networking wire variant + swarm arms.
+# Generated 2026-09-06T09:46:52Z against HEAD 24a9888e3 (dirty tree).
+# crates/networking/src/libp2p/sync.rs is outside the M17Q r2 slice ownership; apply with: git apply <this file>
+diff --git a/crates/networking/src/libp2p/sync.rs b/crates/networking/src/libp2p/sync.rs
+index e1a147421..3f0cfcec9 100644
+--- a/crates/networking/src/libp2p/sync.rs
++++ b/crates/networking/src/libp2p/sync.rs
+@@ -132,6 +132,11 @@ pub enum SyncResponse {
+     },
+     PqChannelServerHello(PqChannelServerHelloV1),
+     PqChannelAck,
++    /// The record was authenticated but refused without durable admission
++    /// (QUV requester lane occupied by another nonce, or a stale operation).
++    /// The sender keeps its durable record and retries on a later tick
++    /// instead of tearing the PQ session down on a dropped stream.
++    PqChannelNack,
+ }
+ 
+ #[derive(Debug, Clone, Default)]
+--- a/crates/networking/src/libp2p/swarm.rs
++++ b/crates/networking/src/libp2p/swarm.rs
+@@ -126,11 +126,6 @@
+ /// occupied by another nonce, or nonce-stale). Only the transport attempt is
+ /// over: the durable record stays queued and the next tick may resend it.
+ /// Returns whether the NACK matched the request in flight for that peer.
+-///
+-/// The response arm that calls this needs `SyncResponse::PqChannelNack`, a
+-/// wire variant owned by `sync.rs`; until that lands the refusal path drops
+-/// the channel and the requester observes an outbound failure instead.
+-#[cfg_attr(not(test), allow(dead_code))]
+ fn release_nacked_pq_record(
+     inflight: &mut HashMap<PeerId, InflightPqRequest>,
+     peer: PeerId,
+@@ -1205,13 +1200,11 @@
+                                             pending_quv_push_acks.hold(requester, nonce, channel);
+                                         }
+                                         Err(error) => {
+-                                            // Dropping `channel` closes the stream, so the
+-                                            // requester sees an immediate outbound failure
+-                                            // and keeps its durable record. An explicit
+-                                            // `SyncResponse::PqChannelNack` needs a wire
+-                                            // variant outside this module; see the M17Q
+-                                            // r2 evidence for the pending patch.
++                                            // Refused without durable admission: tell the
++                                            // requester explicitly so it keeps its record
++                                            // and retries without a session teardown.
+                                             tracing::warn!(target: "network", event = "pq_record_refused", %peer, %error);
++                                            let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::PqChannelNack);
+                                         }
+                                     }
+                                 }
+@@ -1274,6 +1267,13 @@
+                                         }
+                                     }
+                                 }
++                                SyncResponse::PqChannelNack => {
++                                    // Only the transport attempt ended; the durable
++                                    // record stays queued for the next retry tick.
++                                    if release_nacked_pq_record(&mut inflight_pq_consensus, peer, request_id) {
++                                        tracing::debug!(target: "network", event = "pq_record_nacked", %peer, "member refused the record without durable admission; retaining it for a later attempt");
++                                    }
++                                }
+                                 SyncResponse::PqChannelAck => {
+                                     if let Some(manager) = pq_channels.as_mut() {
+                                         let handshake_acknowledged = inflight_pq_handshakes

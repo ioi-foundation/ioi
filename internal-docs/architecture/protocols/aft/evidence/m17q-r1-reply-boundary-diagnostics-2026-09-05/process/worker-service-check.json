@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-active-service-2026-09-05/check_worker_service_observations.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-reply-boundary-diagnostics-2026-09-05/process/components"
+  ],
+  "checker_sha256": "35f51e4f27ffbdd01d8248b743266911635737e270bccba0332450d8d3aa62b8",
+  "exit_code": 0,
+  "stdout": "{\"accepted_worker_completions\": 14, \"components_sha256\": {\"validator-20000-orch.log\": \"b3bf2de6fea5fd78983c258eed0237647a35251115a404221be0e5c6af3256c2\", \"validator-20100-orch.log\": \"b6ae529fc815cb78012ebdf8f7542eb1b9b50a073fc3510eb45e33b455d46f1e\", \"validator-20200-orch.log\": \"bc53d8aa9a8a991e6ab9008bc230579f707cc2d1070e84e173d1b82d38b034cf\", \"validator-20300-orch.log\": \"3e72aba5eb128923db33713026897858487512b27bb1e58f1721d4d7b0b23661\"}, \"evidence_negative_controls\": 5, \"scope\": \"host diagnostics matched to own live acceptance and active-service checks; not aggregate readiness, storage/refinement or clean timing proof\", \"worker_starts\": 17, \"workers_with_accepted_completion\": 4}\n",
+  "stderr": ""
+}

@@ -1,0 +1,54 @@
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 8 and seed 4855181652787198674 with 1 worker on 2 cores with 24000MB heap and 64MB offheap memory [pid: 965425] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-order-model-2026-09-05/QuvAdmissionOrder.tla
+Parsing file /tmp/tlc-9861204705493203735/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-9861204705493203735/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-9861204705493203735/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-9861204705493203735/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-9861204705493203735/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-9861204705493203735/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-9861204705493203735/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvAdmissionOrder
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvAdmissionOrder
+Starting... (2026-09-05 08:33:46)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Computed 2 initial states...
+Computed 4 initial states...
+Computed 8 initial states...
+Finished computing initial states: 15 distinct states generated at 2026-09-05 08:33:46.
+Error: Deadlock reached.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ bypasses = 0
+/\ active = "idle"
+/\ served = FALSE
+/\ queue = <<"worker">>
+
+State 2: <Start line 30, col 10 to line 36, col 66 of module QuvAdmissionOrder>
+/\ bypasses = 0
+/\ active = "worker"
+/\ served = TRUE
+/\ queue = <<>>
+
+State 3: <Release line 28, col 12 to line 29, col 51 of module QuvAdmissionOrder>
+/\ bypasses = 0
+/\ active = "idle"
+/\ served = TRUE
+/\ queue = <<>>
+
+129 states generated, 54 distinct states found, 13 states left on queue.
+The depth of the complete state graph search is 4.
+Finished in 00s at (2026-09-05 08:33:46)
+Trace exploration spec path: ./QuvAdmissionOrder_TTrace_1788611626.tla

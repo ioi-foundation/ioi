@@ -1,0 +1,14 @@
+{
+  "completed": "2026-09-06T07:31:50.145860+00:00",
+  "exit_code": 0,
+  "checker_command": [
+    "python3",
+    ".github/scripts/check_aft_quv_readiness_evidence.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-receipt-admission-2026-09-06/pressure-process/process.log",
+    "--components",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-receipt-admission-2026-09-06/pressure-process/components"
+  ],
+  "checker_exit_code": 0,
+  "changed_sources": [],
+  "passing": true
+}

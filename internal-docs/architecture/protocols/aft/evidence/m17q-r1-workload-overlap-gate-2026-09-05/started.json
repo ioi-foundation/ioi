@@ -1,0 +1,50 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "started_utc": "2026-09-05T01:14:59.654731+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "environment_overrides": {
+    "IOI_TEST_ORCH_RUST_LOG": "quv=debug,network=debug",
+    "IOI_AFT_BENCH_TRACE_DIR": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-workload-overlap-gate-2026-09-05/components"
+  },
+  "sources": {
+    ".github/scripts/check_aft_m16q_process_evidence.py": "410ac3e11c38ae32acf732fc41914d01c70f1ca76c0b85da4f271d4a4e9cf820",
+    ".github/scripts/run_aft_m16q_qualification.sh": "ddaff6f6cd0926b0fcf95a8e609939ff337475cda74240c5b720ddee69fe784b",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+    "crates/agentgres/src/consequence.rs": "a6985fb50b5af99ddb44760f223efd56c0f43f7a296860d137930915695abe76",
+    "crates/agentgres/src/consequence/tests.rs": "8dd585a22909d44fd96456ebdcdc57e3d8f34576af0fecf8044c54b59df57b80",
+    "crates/agentgres/src/recognized_effect/tests.rs": "3fafa30fa8c25f0d67beebb700b0f7e15f0a54c5627e9b6daca3c73208fa686d",
+    "crates/cli/src/testing/backend.rs": "064e3977bf70941aa6461c577545d8ee6fb2dbdb2f431573297759cffd8b55e6",
+    "crates/cli/src/testing/validator.rs": "668b211aa31ad6df952ada475e2397f62733a633ae175d2ea22be5adeba3e622",
+    "crates/cli/tests/aft_e2e.rs": "2ebb2976e98b3f3c22bff94b389a8c64681bf258ea62079365eb767c979b0f9a",
+    "crates/consensus/src/aft/query_unanimity.rs": "f07bcd9b102cf0baa020e913cb3bba512f2a9f030bedbbd1306a43fef6295df1",
+    "crates/ioi-finality/src/portable_assurance/tests.rs": "9c591be6dd83ecb31f9ecb0849789a794eb4565f708f57a517f96e09c16774b0",
+    "crates/networking/src/libp2p/mod.rs": "3af0559f837f96756f4bfd4f1ef27f9e086c39f36ac817f7ff9b557e7ad25c51",
+    "crates/networking/src/libp2p/pq_channel.rs": "4bdee54d8ea6f4a5312f9f87d51db2080e069be0023e8c518353255454df90c9",
+    "crates/networking/src/libp2p/swarm.rs": "758f8f88d55ed56adc5946b7984531e9a2737163327754412546beb9119536bb",
+    "crates/networking/src/libp2p/types.rs": "2b1bb18f0169ba7004bd716e33352d4510533cc8e0920add16301f96b4caedf9",
+    "crates/node/src/bin/ioi-local.rs": "e4ab6a9f5c188784405238c88c446cb0818c047e4e9cfbe39685df360969df47",
+    "crates/services/src/aft_effect_registry.rs": "dda08d06568927a433ee29bb9fc573231d4d7a25749477641687a9a1fe32e778",
+    "crates/types/src/app/consequence.rs": "f27da3d042a2a1d0fbb594fa6cb217961a917bbd4a9580d205518397672a1945",
+    "crates/validator/src/standard/orchestration/events.rs": "3df4a0224d5b7338b864ab58cea068aa96324579a8597169357a11256f8e1312",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "115c9686ff2fdbe1f32748e35c3b6960a6576b59b66ec135c7cd3843704fdffe",
+    "crates/validator/src/standard/orchestration/mod.rs": "12b3160ea896d88525b9ae37bac089f01738d6ef722e09521f3c0f36a924192b",
+    "crates/validator/src/standard/orchestration/quv.rs": "dcd662301759b5b88f3a5708c3e7832b6b9feaaf520702f2e8fb4656c19481e8",
+    "crates/validator/src/standard/orchestration/runtime_finality.rs": "1e9f8dcf07b6ea88e124965f3adb572119c8cd3f1caba6b9659df4ea0972f143",
+    "crates/validator/src/standard/orchestration/sync.rs": "2f24c08c5619897492724e68242f31a3beffad4ef7dcf428187fecaf278e3dc3"
+  }
+}

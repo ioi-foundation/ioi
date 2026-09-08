@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-active-service-2026-09-05/check_worker_service_observations.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-foreground-readiness-2026-09-05/foreground-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "35f51e4f27ffbdd01d8248b743266911635737e270bccba0332450d8d3aa62b8"
+}

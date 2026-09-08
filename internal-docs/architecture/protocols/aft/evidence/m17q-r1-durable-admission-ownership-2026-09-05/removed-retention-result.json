@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "standard::orchestration::quv::admission::tests::canceled_durable_waiter_retains_admission_until_work_finishes",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 101,
+  "mutation": "Release blocking-task share before work; async caller remains sole admission owner, matching prior cancellation ownership",
+  "mutant_sha256": "e1817a610302c5c4f5919905d17e6ab3461e7117a53aa4789ad46da3b6b65b6f"
+}

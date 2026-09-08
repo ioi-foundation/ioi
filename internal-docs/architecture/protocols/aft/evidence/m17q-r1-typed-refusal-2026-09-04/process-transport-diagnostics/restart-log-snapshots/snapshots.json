@@ -1,0 +1,30 @@
+[
+  {
+    "source": "/tmp/.tmpf0Id6Q/orchestration-restart-events.log",
+    "file": "node-0-snapshot-000.log",
+    "observed_utc": "2026-09-05T00:33:40.592008+00:00",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/tmp/.tmpN6Vprk/orchestration-restart-events.log",
+    "file": "node-1-snapshot-001.log",
+    "observed_utc": "2026-09-05T00:33:40.592161+00:00",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/tmp/.tmptwnvLu/orchestration-restart-events.log",
+    "file": "node-2-snapshot-002.log",
+    "observed_utc": "2026-09-05T00:33:40.592316+00:00",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/tmp/.tmpzce3IM/orchestration-restart-events.log",
+    "file": "node-3-snapshot-003.log",
+    "observed_utc": "2026-09-05T00:33:40.592449+00:00",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

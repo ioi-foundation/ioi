@@ -1,0 +1,47 @@
+{
+  "negative_controls": [
+    {
+      "removed_rule": "exclusive-operation",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::admission::tests"
+      ],
+      "exit_code": 101
+    },
+    {
+      "removed_rule": "bounded-domain-waiter",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::admission::tests"
+      ],
+      "exit_code": 101
+    }
+  ],
+  "restored_command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "standard::orchestration::quv::"
+  ],
+  "restored_exit": 0,
+  "restored_sha256": "f1eef70ce3c4ad4292035acfa8f468433df36bae941b3d8ef89b884883ed69cb"
+}

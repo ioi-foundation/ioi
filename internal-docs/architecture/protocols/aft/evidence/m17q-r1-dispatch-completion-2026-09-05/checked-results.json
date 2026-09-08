@@ -1,0 +1,88 @@
+{
+  "sources": {
+    "crates/consensus/src/aft/query_unanimity.rs": "631f4f138fe8325d0b3af0ea0c786f2eff5cea2be6dd9e0034eb38be256904fc",
+    "crates/validator/src/standard/orchestration/quv.rs": "6745ebe17d7b42afc4267bc5e88bff55400a9adf222fb2466d22c956cf371e43",
+    "crates/validator/src/standard/orchestration/quv/dispatch.rs": "936c821dcc43fb11a9788bf28c8e680eae78844e0bf9eeeb45fecdcfdfbba4ed",
+    ".github/scripts/run_aft_m16q_qualification.sh": "836aee859bd9b98b71fed52656fb4804b927a49803ba2b773d4a9204db26c15b"
+  },
+  "negative_controls": [
+    {
+      "removed_rule": "complete-set",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::dispatch::tests"
+      ],
+      "exit_code": 101
+    },
+    {
+      "removed_rule": "dispatch-deadline",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::dispatch::tests"
+      ],
+      "exit_code": 101
+    }
+  ],
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::"
+      ],
+      "log": "restored-runtime-tests.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests"
+      ],
+      "log": "core-tests.log",
+      "exit_code": 0,
+      "changed_sources": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--features",
+        "consensus-aft"
+      ],
+      "log": "cli-check.log",
+      "exit_code": 0,
+      "changed_sources": []
+    }
+  ]
+}

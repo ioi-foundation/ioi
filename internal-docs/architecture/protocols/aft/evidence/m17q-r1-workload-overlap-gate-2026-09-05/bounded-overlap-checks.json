@@ -1,0 +1,37 @@
+{
+  "checker_sha256": "6aa28f2e7ee76ba8674a323d3be7933a7328d6495a538e2db0fdb537b435f654",
+  "checks": [
+    {
+      "command": [
+        "python3",
+        ".github/scripts/check_aft_m16q_process_evidence.py",
+        "--self-test"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"negative_cases\": 21, \"overlap\": {\"negative_cases\": 23, \"positive_cases\": 1}, \"positive_cases\": 2}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        ".github/scripts/check_aft_m16q_process_evidence.py",
+        "internal-docs/architecture/protocols/aft/evidence/m17q-r1-workload-overlap-gate-2026-09-05/process.log",
+        "--components",
+        "internal-docs/architecture/protocols/aft/evidence/m17q-r1-workload-overlap-gate-2026-09-05/components"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"conflict_accepts\": 1, \"log_sha256\": \"c973af3ce6f46ce19200ba424519681ec41da6dffbc544607df2411c22e0169e\", \"saturation_operations\": 4, \"sole_correct_placements\": 4, \"unrelated_executed\": true, \"workload_overlap\": {\"common_overlap_millis\": 4883.263, \"component_sha256\": {\"validator-20000-orch.log\": \"a70c3facd04652483df599c81a3a23ceff762c5bb97a7d833a07fd84c8f88688\", \"validator-20100-orch.log\": \"11a6b6a9b0efc5ffcaf4fb40e63c8f37bd552c2ecc97a562d1d8402aecee7183\", \"validator-20200-orch.log\": \"32572de3a1ebe2e50db552c81bd174801783b3babd2799245507b86fb6f96f6a\", \"validator-20300-orch.log\": \"a37162cc74b763dd5244ec44f5525cd74c84870d22feddf800d9a615cceb5df6\"}, \"four_way_overlap_observed\": true, \"scope\": \"same-host wall-clock workload observation, not protocol deadline proof\", \"start_span_millis\": 116.737, \"verifier_nonces\": [\"df05add833c58df59a643831ccb9733b516e8a33846f4dfd61f27aeb1848be48\", \"57157084f84132c090a5bf79ae7301395a5f39def64a57be267c953ebeface38\", \"5da01e6fcaaff9f3e24c8beaab882e3c31857a46c2ba6bd42a47da28bb3e2d1c\", \"ce84bc52b59c1c24f044d17683a52028390dabd1656a66007aa264b7e46ae34e\"]}}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

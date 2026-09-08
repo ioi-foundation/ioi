@@ -1,0 +1,3 @@
+CENSUS FAIL:
+  - module neither executed by the harness nor manifest-marked: consequence/QuvManifestLocator.tla
+  - module neither executed by the harness nor manifest-marked: consequence/QuvManifestLocatorProof.tla

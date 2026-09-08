@@ -1,0 +1,8 @@
+{
+  "recorded_source_copies": "Every source named in started.json retained with matching SHA-256",
+  "reconstructed_from_known_diagnostic_edit_and_verified": [
+    ".github/scripts/run_aft_m16q_qualification.sh",
+    "crates/cli/tests/aft_e2e_parts/quv_readiness.rs"
+  ],
+  "scope": "Recorded source subset; not a full immutable repository or clean R2 candidate"
+}

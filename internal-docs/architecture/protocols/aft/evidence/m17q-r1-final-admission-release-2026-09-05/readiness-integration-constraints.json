@@ -1,0 +1,17 @@
+{
+  "status": "DESIGN_CONSTRAINTS_NOT_IMPLEMENTED",
+  "sources_sha256": {
+    "crates/consensus/src/aft/query_unanimity/head.rs": "1144982b0d982d052ec2d8cec18b1d861fed39ea1151d5b18dda019955a73dac",
+    "crates/validator/src/standard/orchestration/quv.rs": "61b212648cec71af358a1ef48a33d9bed26f7696b566c89fcf07816bb3ae3049",
+    "crates/validator/src/standard/orchestration/lifecycle.rs": "63db2f426b133b96181387c9c044866fd4eac4edf038e02f67cc2de6aa84b60e"
+  },
+  "constraints": [
+    "Foreground child waiting must happen before exclusive operation admission, so it cannot hold the lane needed by independent preparation.",
+    "Retained-candidate preparation must bypass foreground waiting; the repeated-slot countermodel rejects applying the same wait to both roles.",
+    "A local readiness observation must be no earlier than successful durable own-head commit; authenticated reopen/store replacement must create a fresh conservative observation instead of restoring a serialized Instant.",
+    "Bind any wait to exact policy/domain/next-slot/predecessor. Repeat head/root validation after waiting and after operation admission. A stale observation cannot authorize a changed head.",
+    "Exact historical retry or refused mutation must not reset readiness and thereby indefinitely postpone the next child. Uncertain storage state must require authenticated reopen.",
+    "Per-attempt and per-operation service budgets do not derive the aggregate bound: candidate selection, rotation across enrolled domains, FIFO queue delay, scheduler resumption and restart remain required costs."
+  ],
+  "scope": "Source-grounded constraints for the pending readiness integration; no runtime implementation, queue-time derivation, qualification or R1 closure."
+}

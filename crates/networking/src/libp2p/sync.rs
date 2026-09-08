@@ -132,6 +132,11 @@ pub enum SyncResponse {
     },
     PqChannelServerHello(PqChannelServerHelloV1),
     PqChannelAck,
+    /// The record was authenticated but refused without durable admission
+    /// (QUV requester lane occupied by another nonce, or a stale operation).
+    /// The sender keeps its durable record and retries on a later tick
+    /// instead of tearing the PQ session down on a dropped stream.
+    PqChannelNack,
 }
 
 #[derive(Debug, Clone, Default)]

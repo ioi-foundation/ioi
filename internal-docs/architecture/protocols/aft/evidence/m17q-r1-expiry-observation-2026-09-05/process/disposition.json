@@ -1,0 +1,15 @@
+{
+  "disposition": "FAILED_UNRELATED_EXACT_PARTICIPATION",
+  "exit_code": 101,
+  "changed_sources": [],
+  "sole_correct_placements": 4,
+  "saturation_effects": 4,
+  "conflict_accepts": 0,
+  "conflict_rejections": 2,
+  "conflict_scope": "Safety only; no conflict-domain progress",
+  "expired_result": "NOT_REACHED",
+  "missing_audit_member": "f119c34f887cafe9b59d476c10fa9023acbfbea34f009c29f6d342b20d83cee3",
+  "reply_routed_approximately_ms_after_start": 5296.857,
+  "rooted_decision_millis": 5000,
+  "observation": "Missing member completed durable processing but reply was routed after the rooted interval and absent from accepted audit. Processing/network/queue/lock contributions to delay are not isolated. No all-correct timing qualification or impossibility under fixed assumptions is established."
+}

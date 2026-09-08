@@ -63,6 +63,11 @@
   .ioi-ns-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#878a93;margin-bottom:4px;font-weight:600;}
   .ioi-ns-field select,.ioi-ns-field input,.ioi-ns-field textarea{width:100%;box-sizing:border-box;background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:7px 10px;font:12.5px system-ui,sans-serif;resize:vertical;}
   .ioi-ns-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+  .ioi-ns-cx-list{display:flex;flex-direction:column;gap:4px;border:1px solid #2a2c33;border-radius:8px;background:#0c0d10;padding:6px 10px;max-height:140px;overflow:auto;}
+  .ioi-ns-cx{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#c9ccd4;cursor:pointer;text-transform:none;letter-spacing:0;}
+  .ioi-ns-cx span{color:#878a93;font-size:11.5px;}
+  .ioi-ns-cx-off{opacity:.6;cursor:not-allowed;}
+  .ioi-ns-cx-empty{font-size:12px;color:#878a93;padding:2px 0;}
   #ioi-ns-venues{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px;}
   .ioi-ns-venue-opt{border:1px solid #2a2c33;border-radius:9px;background:#101116;color:#c9ccd4;padding:7px 12px;font-size:12.5px;cursor:pointer;}
   .ioi-ns-venue-opt:hover{background:#15171c;}

@@ -1,0 +1,1 @@
+[M16Q] START pq_hash_async_process: env IOI_AFT_BENCH_TRACE_DIR=/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260907T152920Z-9ce911fe798b/pq_hash_async_process-components cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_pq_hash_fallback_executes_virtual_block -- --nocapture 

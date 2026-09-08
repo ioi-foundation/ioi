@@ -1,0 +1,10 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--post-commit-lock-order-only"
+  ],
+  "exit_code": 0,
+  "runner_sha256": "936a35af05e3f77a891825173ecf2689e82a84cfde72529bdd4835b4fd854792",
+  "scope": "One finite positive/fairness model and one required circular-wait witness; not full formal/R2"
+}

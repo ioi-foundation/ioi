@@ -1,0 +1,28 @@
+[
+  [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "--no-run",
+    "--message-format=json"
+  ],
+  [
+    "strace",
+    "-f",
+    "-y",
+    "-s",
+    "256",
+    "-e",
+    "trace=fsync,fallocate,ftruncate,rename,renameat2,openat,write,close",
+    "-o",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260907T152920Z-9ce911fe798b/quv-record-reservation/reservation.trace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/ioi_consensus-db277b1d9587ff30",
+    "--exact",
+    "aft::query_unanimity::journal::tests::reserved_records_preserve_allocation_and_inode_through_complete_lifetime"
+  ]
+]
