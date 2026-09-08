@@ -40,6 +40,10 @@
 //! provides as a loopback TLS front and records in `<state-dir>/daemon.env`. The JS launcher is
 //! the operator's entry point; this binary is what it runs.
 //!
+//! Relocation: `IOI_NODE_BINARY_DIR=<install>/node-bins` makes `serve` launch the packaged
+//! orchestration/workload/guardian/ioi-signer binaries with no cargo and no checkout; a missing
+//! binary is a typed `node_binaries_absent` refusal, never a build.
+//!
 //! Chain clock: by default the chain's deterministic clock starts at Unix second one, exactly as
 //! the qualified fixture profile does; grants and bindings are validated against that clock.
 //! `--wall-clock` seeds the tip from the host clock instead (15-second blocks, the fixture's
@@ -248,8 +252,16 @@ async fn serve(state_dir: &Path, principal_ref: &str, client_label: &str, wall_c
     let guardian_pass = guardian_pass()?;
     let keys = load_or_generate_keys(state_dir, &guardian_pass)?;
 
-    println!("--- wallet-network-local-authority: building node artifacts ---");
-    build_test_artifacts();
+    // A packaged deployment pins the node binaries (IOI_NODE_BINARY_DIR) and has no cargo: the
+    // launcher then builds nothing and refuses typed if a binary is absent. Only a checkout
+    // builds the (IBC-test-only) artifacts and, on demand, the node profile.
+    match ioi_cli::testing::build::pinned_node_binary_dir() {
+        Some(dir) => println!("--- wallet-network-local-authority: node binaries pinned to {} (no build) ---", dir.display()),
+        None => {
+            println!("--- wallet-network-local-authority: building node artifacts ---");
+            build_test_artifacts();
+        }
+    }
     if wall_clock {
         // Same seam the fixture's wall-clock profile uses: the height-zero parent clock starts one
         // second behind the host so the first block is already due.

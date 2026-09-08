@@ -600,11 +600,33 @@ impl TestValidator {
         let build_release = build_profile.eq_ignore_ascii_case("release");
         let node_target_dir = test_node_target_dir(&build_profile, &features);
         let node_binary_dir = test_node_binary_dir(&build_profile, &features);
-        let binaries_present = ["orchestration", "workload", "guardian", "ioi-signer"]
+        let required_binaries = ["orchestration", "workload", "guardian", "ioi-signer"];
+        let binaries_present = required_binaries
             .iter()
             .all(|bin| node_binary_dir.join(bin).exists());
 
-        let needs_build = node_profile_needs_build(&node_target_dir, binaries_present);
+        // A pinned binary directory (IOI_NODE_BINARY_DIR — a packaged deployment) is
+        // launched as-is: no source identity, no cargo, and a TYPED refusal when a
+        // binary is missing rather than a build the host cannot perform.
+        let needs_build = if super::build::pinned_node_binary_dir().is_some() {
+            if !binaries_present {
+                let missing: Vec<&str> = required_binaries
+                    .iter()
+                    .copied()
+                    .filter(|bin| !node_binary_dir.join(bin).exists())
+                    .collect();
+                return Err(anyhow!(
+                    "node_binaries_absent: {} pins node binaries to {} but {} {} missing; a pinned launcher never builds",
+                    super::build::NODE_BINARY_DIR_ENV,
+                    node_binary_dir.display(),
+                    missing.join(", "),
+                    if missing.len() == 1 { "is" } else { "are" }
+                ));
+            }
+            false
+        } else {
+            node_profile_needs_build(&node_target_dir, binaries_present)
+        };
         if needs_build {
             if node_profile_build_forbidden() {
                 return Err(anyhow!(

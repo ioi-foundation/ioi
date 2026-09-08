@@ -45,6 +45,12 @@
 //                                  Step 12 then admits an UPDATE plan to v2 on the daemon,
 //                                  activates v2, restarts, and the daemon observes its own digest
 //                                  (completed); then a ROLLBACK plan to v1 the same way.
+//   IOI_ALPHA_JOURNEY_NO_CHECKOUT  "1" (package mode) proves the release runs WITHOUT a source
+//                                  checkout: the installer, launcher, authority node, daemon,
+//                                  serve, signer and shim are the installed bytes, every child
+//                                  runs with cargo/rustup removed from PATH and cwd at the
+//                                  install root, and the evidence records the paths it observed.
+//                                  This verifier itself is only the driver.
 
 import { spawn, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -77,6 +83,26 @@ const AUTHORITY_MODE = ["none", "deployment", "fixture"].includes(process.env.IO
 const DEPLOYMENT_NODE_PRINCIPAL_REF = "domain://alpha-host";
 const AUTHORITY_PRESENT = AUTHORITY_MODE !== "none";
 const PACKAGE_MODE = process.env.IOI_ALPHA_JOURNEY_PACKAGE === "1";
+const NO_CHECKOUT = PACKAGE_MODE && process.env.IOI_ALPHA_JOURNEY_NO_CHECKOUT === "1";
+// A PATH with no cargo, rustup or the repository's own bin dirs: the packaged release must not be
+// able to build anything on the host.
+// Drop every PATH entry that can reach a `cargo` or `rustup` executable (a system /usr/bin/cargo
+// counts), then re-add a shim dir that keeps the basic tools reachable without them.
+const cargoFreePath = (source) => {
+  const kept = (source || "").split(":").filter((d) => d && !["cargo", "rustup", "rustc"].some((tool) => { try { return fs.statSync(path.join(d, tool)).isFile(); } catch { return false; } }));
+  const shim = path.join(workDir, "path-shim");
+  fs.mkdirSync(shim, { recursive: true });
+  for (const tool of ["node", "sh", "git", "openssl", "tar", "zstd", "env", "cat", "ls", "readlink", "uname"]) {
+    const found = (source || "").split(":").map((d) => path.join(d, tool)).find((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+    if (found && !fs.existsSync(path.join(shim, tool))) fs.symlinkSync(found, path.join(shim, tool));
+  }
+  return [shim, ...kept].join(":");
+};
+const childBaseEnv = () => {
+  const base = sanitizedVerifierBaseEnv(process.env);
+  if (!NO_CHECKOUT) return base;
+  return { ...base, PATH: cargoFreePath(base.PATH), CARGO: "/nonexistent/cargo", CARGO_HOME: "/nonexistent/cargo-home", RUSTUP_HOME: "/nonexistent/rustup" };
+};
 
 const results = [];
 const evidence = { schema: "ioi.hypervisor.alpha-journey-evidence.v1", started_at: new Date().toISOString(), steps: [] };
@@ -119,9 +145,10 @@ if (PACKAGE_MODE) {
   if (!trustPath || !v1 || !v2) { console.error("BLOCKED: package mode needs IOI_ALPHA_RELEASE_TRUST, IOI_ALPHA_RELEASE_V1 and IOI_ALPHA_RELEASE_V2"); process.exit(2); }
   pkg.prefix = path.join(workDir, "prefix");
   pkg.trust = path.resolve(trustPath);
-  pkg.installer = path.join(ROOT, "scripts", "install-hypervisor-alpha-release.mjs");
+  // In no-checkout mode the installer is the PACKAGE's own install.mjs, run outside the repo.
+  pkg.installer = NO_CHECKOUT ? path.join(path.resolve(v1), "install.mjs") : path.join(ROOT, "scripts", "install-hypervisor-alpha-release.mjs");
   const installer = (args) => {
-    const r = execFileSync(process.execPath, [pkg.installer, ...args], { cwd: ROOT, encoding: "utf8" });
+    const r = execFileSync(process.execPath, [pkg.installer, ...args], { cwd: NO_CHECKOUT ? os.tmpdir() : ROOT, encoding: "utf8", env: childBaseEnv() });
     return JSON.parse(r.slice(r.indexOf("{")));
   };
   try {
@@ -133,6 +160,7 @@ if (PACKAGE_MODE) {
     process.exit(2);
   }
   const current = path.join(pkg.prefix, "current");
+  pkg.current = current;
   daemonBinary = path.join(current, "bin", "hypervisor-daemon");
   serveScript = path.join(current, "apps", "hypervisor", "scripts", "serve-product-ui.mjs");
   packageEnv = {
@@ -140,6 +168,8 @@ if (PACKAGE_MODE) {
     IOI_HYPERVISOR_HARNESS_SHIM: path.join(current, "packages", "hypervisor-harness-shims", "generic-cli-local.mjs"),
     IOI_MINT_APPROVAL_GRANT_BINARY: path.join(current, "bin", "mint-approval-grant"),
     IOI_WALLET_AUTHORITY_BINARY: path.join(current, "bin", "wallet-network-local-authority"),
+    // The authority node launches the PACKAGED validator binaries and never builds.
+    IOI_NODE_BINARY_DIR: path.join(current, "node-bins"),
   };
   pkg.installerRun = installer;
 }
@@ -162,7 +192,7 @@ let serveLog = "";
 let daemonEnv = {};
 
 async function startDaemon() {
-  daemon = spawn(daemonBinary, [], { cwd: ROOT, env: daemonEnv, stdio: ["ignore", "pipe", "pipe"] });
+  daemon = spawn(daemonBinary, [], { cwd: NO_CHECKOUT ? pkg.current : ROOT, env: daemonEnv, stdio: ["ignore", "pipe", "pipe"] });
   daemon.stdout.on("data", (c) => { daemonLog = `${daemonLog}${c}`.slice(-200_000); });
   daemon.stderr.on("data", (c) => { daemonLog = `${daemonLog}${c}`.slice(-200_000); });
   await waitFor(`${DAEMON}/healthz`, 60_000);
@@ -176,7 +206,7 @@ async function stopDaemon(signal = "SIGKILL") {
 }
 let serveEnv = {};
 async function startServe() {
-  serve = spawn(process.execPath, [serveScript], { cwd: ROOT, env: serveEnv, stdio: ["ignore", "pipe", "pipe"] });
+  serve = spawn(process.execPath, [serveScript], { cwd: NO_CHECKOUT ? pkg.current : ROOT, env: serveEnv, stdio: ["ignore", "pipe", "pipe"] });
   serve.stdout.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-40_000); });
   serve.stderr.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-40_000); });
   try {
@@ -249,7 +279,14 @@ async function run() {
     // pinned TLS front and the daemon/serve env files — exactly what an operator runs.
     const stateDir = path.join(workDir, "authority");
     try {
-      authorityNode = await startLocalAuthority({ stateDir, principalRef: DEPLOYMENT_NODE_PRINCIPAL_REF, binary: packageEnv.IOI_WALLET_AUTHORITY_BINARY || undefined, log: () => {} });
+      // No-checkout mode launches through the PACKAGE's own launcher module (ROOT = the install
+      // root there), with the cargo-free environment applied to the launcher process itself.
+      let launch = startLocalAuthority;
+      if (NO_CHECKOUT) {
+        Object.assign(process.env, { PATH: cargoFreePath(process.env.PATH), CARGO: "/nonexistent/cargo", CARGO_HOME: "/nonexistent/cargo-home", RUSTUP_HOME: "/nonexistent/rustup", IOI_NODE_BINARY_DIR: packageEnv.IOI_NODE_BINARY_DIR });
+        ({ startLocalAuthority: launch } = await import(path.join(pkg.current, "apps", "hypervisor", "scripts", "lib", "wallet-network-local-authority.mjs")));
+      }
+      authorityNode = await launch({ stateDir, principalRef: DEPLOYMENT_NODE_PRINCIPAL_REF, binary: packageEnv.IOI_WALLET_AUTHORITY_BINARY || undefined, log: () => {} });
     } catch (error) {
       console.error(`BLOCKED: the deployment-local authority node did not come up — ${error?.message ?? error}`);
       cleanup();
@@ -268,6 +305,12 @@ async function run() {
       binding_v1: { ref: authorityRecord.binding_ref, version: authorityRecord.binding_version, status: authorityRecord.binding_status },
       approver_scope_allowlist: authorityRecord.approver_scope_allowlist,
     };
+    if (NO_CHECKOUT) {
+      const under = (p) => String(p || "").startsWith(pkg.prefix);
+      const whichCargo = (() => { try { return execFileSync("sh", ["-c", "command -v cargo || true"], { encoding: "utf8", env: childBaseEnv() }).trim(); } catch { return "?"; } })();
+      evidence.no_checkout = { prefix: pkg.prefix, prefix_has_git: fs.existsSync(path.join(pkg.prefix, ".git")), launcher_binary: authorityNode.binary, node_binary_dir: authorityNode.nodeBinaryDir, installer: pkg.installer, cargo_on_child_path: whichCargo || "none", child_path: childBaseEnv().PATH };
+      ok("2b-authority", "NO-CHECKOUT closure test: the installer, the authority control binary and the node binaries the launcher pinned are all under the install prefix, the prefix is not a git checkout, and cargo is absent from every child's PATH", under(pkg.installer) && under(authorityNode.binary) && under(authorityNode.nodeBinaryDir) && !evidence.no_checkout.prefix_has_git && !whichCargo, JSON.stringify(evidence.no_checkout).slice(0, 220));
+    }
     ok("2b-authority", "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env", keyMode === 0o600 && authorityRecord.binding_version === 1 && authorityRecord.binding_status === "active" && authorityNode.daemonEnv.IOI_WALLET_NETWORK_RPC_ADDR.startsWith("https://") && !fs.readFileSync(approverKeyPath, "utf8").includes(FIXTURE_APPROVER_SEED_HEX), `ready in ${Math.round((Date.now() - t0) / 1000)}s · ${authorityRecord.binding_ref} · key mode ${keyMode.toString(8)}`);
   } else if (AUTHORITY_MODE === "fixture") {
     fs.writeFileSync(approverKeyPath, `${FIXTURE_APPROVER_SEED_HEX}\n`, { mode: 0o600 });
@@ -312,7 +355,7 @@ async function run() {
   DAEMON = `http://127.0.0.1:${daemonPort}`;
   SERVE = `http://127.0.0.1:${servePort}`;
   daemonEnv = {
-    ...sanitizedVerifierBaseEnv(process.env),
+    ...childBaseEnv(),
     ...packageEnv,
     ...(fixture ? fixture.env : {}),
     ...(fixture ? { IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF } : {}),
@@ -325,7 +368,7 @@ async function run() {
   };
   delete daemonEnv.IOI_WALLET_TEST_SIGNER;
   serveEnv = {
-    ...sanitizedVerifierBaseEnv(process.env),
+    ...childBaseEnv(),
     ...packageEnv,
     IOI_HYPERVISOR_DAEMON_URL: DAEMON,
     PORT: String(servePort),
@@ -484,7 +527,8 @@ async function run() {
   if (process.env.IOI_ALPHA_JOURNEY_SKIP_BACKUP === "1") {
     record("10-backup", "backup/restore sub-verifier", "skipped by IOI_ALPHA_JOURNEY_SKIP_BACKUP=1 (no claim)");
   } else {
-    const br = spawn(process.execPath, [path.join(HERE, "verify-hypervisor-backup-restore.mjs")], { cwd: APP, env: sanitizedVerifierBaseEnv(process.env), stdio: ["ignore", "pipe", "pipe"] });
+    // In package mode the two-daemon backup verifier boots the INSTALLED daemon bytes.
+    const br = spawn(process.execPath, [path.join(HERE, "verify-hypervisor-backup-restore.mjs")], { cwd: APP, env: { ...childBaseEnv(), ...(PACKAGE_MODE ? { IOI_HYPERVISOR_DAEMON_BINARY: daemonBinary } : {}) }, stdio: ["ignore", "pipe", "pipe"] });
     let brOut = "";
     br.stdout.on("data", (c) => { brOut += c; });
     br.stderr.on("data", (c) => { brOut += c; });

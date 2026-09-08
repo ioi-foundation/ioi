@@ -31,7 +31,18 @@ const ROOT = path.resolve(HERE, "..", "..", "..", "..");
 const TLS_SERVER_NAME = "wallet-network.local";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const DEFAULT_BINARY = path.join(ROOT, "target", "debug", "wallet-network-local-authority");
+// Inside a packaged release ROOT is the install root: bin/ and node-bins/ sit beside apps/. In a
+// checkout ROOT is the repository and the binary comes from target/debug (built on demand).
+const PACKAGED_BINARY = path.join(ROOT, "bin", "wallet-network-local-authority");
+const PACKAGED_NODE_BINS = path.join(ROOT, "node-bins");
+export const DEFAULT_BINARY = fs.existsSync(PACKAGED_BINARY) ? PACKAGED_BINARY : path.join(ROOT, "target", "debug", "wallet-network-local-authority");
+
+/** The node binaries a pinned launch uses: IOI_NODE_BINARY_DIR, else the package's node-bins/. */
+export function pinnedNodeBinaryDir() {
+  if (process.env.IOI_NODE_BINARY_DIR) return path.resolve(process.env.IOI_NODE_BINARY_DIR);
+  if (fs.existsSync(path.join(PACKAGED_NODE_BINS, "orchestration"))) return PACKAGED_NODE_BINS;
+  return null;
+}
 
 export function resolveBinary(binary = process.env.IOI_WALLET_AUTHORITY_BINARY || DEFAULT_BINARY, { build = true } = {}) {
   if (fs.existsSync(binary)) return binary;
@@ -101,9 +112,10 @@ export async function startLocalAuthority({
 
   const args = ["serve", "--state-dir", stateDir, "--principal-ref", principalRef, ...(wallClock ? ["--wall-clock"] : [])];
   let output = "";
+  const nodeBins = pinnedNodeBinaryDir();
   const child = spawn(bin, args, {
     cwd: ROOT,
-    env: { ...process.env, IOI_GUARDIAN_KEY_PASS: pass, CARGO_TERM_COLOR: "never", RUST_MIN_STACK: String(32 * 1024 * 1024) },
+    env: { ...process.env, ...(nodeBins ? { IOI_NODE_BINARY_DIR: nodeBins } : {}), IOI_GUARDIAN_KEY_PASS: pass, CARGO_TERM_COLOR: "never", RUST_MIN_STACK: String(32 * 1024 * 1024) },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let exited = null;
@@ -165,7 +177,7 @@ export async function startLocalAuthority({
   }
   process.once("exit", () => { if (!stopped) { try { fs.writeFileSync(shutdownPath, "parent-exit\n"); } catch { /* best effort */ } try { child.kill("SIGTERM"); } catch { /* gone */ } tls.destroy(); } });
   return {
-    stateDir, ready, daemonEnv, serveEnv, binary: bin, pid: child.pid,
+    stateDir, ready, daemonEnv, serveEnv, binary: bin, nodeBinaryDir: nodeBins, pid: child.pid,
     approverKeyPath: ready.approver_key_path, authorityRecordPath: ready.authority_record_path,
     exitPromise, stop,
     readAuthorityRecord: () => JSON.parse(fs.readFileSync(ready.authority_record_path, "utf8")),

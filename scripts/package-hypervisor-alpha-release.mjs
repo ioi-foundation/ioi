@@ -3,7 +3,7 @@
 // alpha for the supported Linux x86_64 profile (bounded-alpha-profile.md step 1).
 //
 //   node scripts/package-hypervisor-alpha-release.mjs --out <dir> --signer-key <pkcs8.pem>
-//        [--version <v>] [--daemon target/debug/hypervisor-daemon] [--no-archive]
+//        [--version <v>] [--profile debug|release] [--daemon <path>] [--node-bins <dir>] [--no-archive]
 //   node scripts/package-hypervisor-alpha-release.mjs --generate-signer <dir>   (writes key pair)
 //
 // What goes in (and what does not): the daemon, the grant signer and the authority-node control
@@ -128,11 +128,12 @@ function cargoSbom() {
   return { available: true, roots: ["ioi-node", "ioi-cli"], crates };
 }
 
-function nodeBinsDir() {
+function nodeBinsDir(profile) {
   // The Solo/IAVL profile the authority node runs: the same resolution `TestValidator` performs
-  // (crates/cli/src/testing/validator.rs), matched by the binaries' presence.
+  // (crates/cli/src/testing/validator.rs), matched by the binaries' presence, for the requested
+  // cargo profile (debug-<hash>/debug or release-<hash>/release).
   const base = path.join(ROOT, "target", "test-node-builds");
-  const candidates = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => d.startsWith("debug-")).map((d) => path.join(base, d, "debug")) : [];
+  const candidates = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => d.startsWith(`${profile}-`)).map((d) => path.join(base, d, profile)) : [];
   const want = ["orchestration", "workload", "guardian", "ioi-signer"];
   const complete = candidates.filter((dir) => want.every((b) => fs.existsSync(path.join(dir, b))));
   // Prefer the most recently built complete profile dir.
@@ -164,12 +165,14 @@ async function main() {
   fs.mkdirSync(stage, { recursive: true });
 
   // bin/
-  const daemon = path.resolve(ROOT, options.daemon || "target/debug/hypervisor-daemon");
-  const bins = { "hypervisor-daemon": daemon, "mint-approval-grant": path.join(ROOT, "target/debug/mint-approval-grant"), "wallet-network-local-authority": path.join(ROOT, "target/debug/wallet-network-local-authority") };
+  const profile = options.profile || "debug";
+  if (!["debug", "release"].includes(profile)) throw new Error("--profile must be debug or release");
+  const daemon = path.resolve(ROOT, options.daemon || `target/${profile}/hypervisor-daemon`);
+  const bins = { "hypervisor-daemon": daemon, "mint-approval-grant": path.join(ROOT, `target/${profile}/mint-approval-grant`), "wallet-network-local-authority": path.join(ROOT, `target/${profile}/wallet-network-local-authority`) };
   for (const [n, src] of Object.entries(bins)) { if (!fs.existsSync(src)) throw new Error(`missing ${src}; build it first`); copyFile(src, path.join(stage, "bin", n), 0o755); }
   // node-bins/
-  const nodeBins = nodeBinsDir();
-  if (!nodeBins) throw new Error("no complete Solo/IAVL node build under target/test-node-builds; bring the authority node up once first");
+  const nodeBins = options["node-bins"] ? path.resolve(options["node-bins"]) : nodeBinsDir(profile);
+  if (!nodeBins) throw new Error(`no complete Solo/IAVL ${profile} node build under target/test-node-builds; build it first (or pass --node-bins)`);
   for (const b of ["orchestration", "workload", "guardian", "ioi-signer"]) copyFile(path.join(nodeBins, b), path.join(stage, "node-bins", b), 0o755);
   // app/
   const app = path.join(ROOT, "apps", "hypervisor");
@@ -206,7 +209,8 @@ async function main() {
       checkout: { head, dirty_paths: dirty, remote: git("remote", "get-url", "origin") },
       host: { platform: os.platform(), arch: os.arch(), release: os.release(), hostname_sha256: sha256Bytes(os.hostname()).slice(0, 16) },
       toolchain: { node: process.version, rustc: tool("rustc", ["--version"]), cargo: tool("cargo", ["--version"]) },
-      cargo_profile: "debug (unoptimized + debuginfo) — no release-profile build is qualified yet",
+      cargo_profile: options.profile || "debug",
+      cargo_profile_note: (options.profile || "debug") === "release" ? "release (optimized) binaries for the daemon, the signer, the authority control binary and the node binaries" : "debug (unoptimized + debuginfo) developer profile",
       node_bins_profile_dir: path.relative(ROOT, nodeBins),
     },
     components: {
@@ -222,10 +226,9 @@ async function main() {
       authority_node: {
         kind: "deployment-local wallet.network authority node",
         bring_up: "node apps/hypervisor/scripts/wallet-network-authority.mjs up --state-dir <dir> --principal-ref domain://<host> --binary <install>/bin/wallet-network-local-authority",
-        provided_by_package: "control binary and validator binaries only",
-        relocatable: false,
-        absence: "the authority node's validator launcher resolves its binaries and build directory from the source checkout it was compiled in (crates/cli/src/testing/validator.rs), so `up` must run inside a checkout of the same revision; the packaged node-bins/ are the same bytes it launches",
-        closure_test: "`wallet-network-authority.mjs up` from the unpacked package on a host WITHOUT a source checkout reaches READY and the alpha journey passes against it",
+        provided_by_package: "control binary (bin/) and validator binaries (node-bins/: orchestration, workload, guardian, ioi-signer)",
+        relocatable: "the launcher pins the node binaries to <install>/node-bins (IOI_NODE_BINARY_DIR) and never builds; a missing binary is a typed node_binaries_absent refusal. The claim is proved only by the closure test below on a host without a checkout or cargo; until that evidence is cited it is a design statement",
+        closure_test: "`node <install>/apps/hypervisor/scripts/wallet-network-authority.mjs up --state-dir <dir> --principal-ref <ref>` from the unpacked package on a host WITHOUT a source checkout and with no cargo on PATH reaches READY, and the alpha journey passes against it (check:alpha-journey deployment + package mode with IOI_ALPHA_JOURNEY_NO_CHECKOUT=1)",
       },
       node: { runtime: "node >= 22 for the served App, the launcher and the installer", provided_by_package: false },
     },

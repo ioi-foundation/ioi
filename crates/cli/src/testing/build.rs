@@ -35,7 +35,28 @@ pub fn test_node_target_dir(build_profile: &str, features: &str) -> PathBuf {
         ))
 }
 
+/// Pin the node binaries to a directory outside any cargo target tree.
+///
+/// A PACKAGED deployment (the Hypervisor bounded alpha's release, whose
+/// `node-bins/` carries orchestration, workload, guardian and ioi-signer) has
+/// no source checkout and no cargo. When this variable names a directory, every
+/// launcher resolves the four node binaries THERE for any build profile and
+/// feature set, never consults the checkout's source identity, and never
+/// builds: absent binaries are a typed refusal, not a cargo invocation. Unset
+/// keeps the historical per-profile target tree with on-demand builds, which
+/// is what the test fixtures rely on.
+pub const NODE_BINARY_DIR_ENV: &str = "IOI_NODE_BINARY_DIR";
+
+pub fn pinned_node_binary_dir() -> Option<PathBuf> {
+    env::var_os(NODE_BINARY_DIR_ENV)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
 pub fn test_node_binary_dir(build_profile: &str, features: &str) -> PathBuf {
+    if let Some(pinned) = pinned_node_binary_dir() {
+        return pinned;
+    }
     test_node_target_dir(build_profile, features).join(build_profile)
 }
 
