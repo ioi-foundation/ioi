@@ -206,7 +206,11 @@ function runOpenSsl(args, fixtureDir) {
   }
 }
 
-async function startPinnedTlsProxy(upstreamAddr, fixtureDir) {
+// Loopback TLS front over the node's plaintext gRPC endpoint with a per-life CA the daemon pins
+// (`IOI_WALLET_NETWORK_TLS_CA_PATH` + `IOI_WALLET_NETWORK_TLS_SERVER_NAME`). Exported so the
+// deployment bring-up (`wallet-network-local-authority.mjs`) fronts the real node the same way
+// the fixture fronts its test node — one TLS front, not two.
+export async function startPinnedTlsProxy(upstreamAddr, fixtureDir, serverName = "wallet-network.fixture") {
   runOpenSsl([
     "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
     "-keyout", "wallet-network-ca.key", "-out", "wallet-network-ca.pem",
@@ -217,13 +221,13 @@ async function startPinnedTlsProxy(upstreamAddr, fixtureDir) {
   runOpenSsl([
     "req", "-new", "-newkey", "rsa:2048", "-nodes",
     "-keyout", "wallet-network-server.key", "-out", "wallet-network-server.csr",
-    "-subj", "/CN=wallet-network.fixture",
+    "-subj", `/CN=${serverName}`,
   ], fixtureDir);
   writeFileSync(path.join(fixtureDir, "wallet-network-server.ext"), [
     "basicConstraints=critical,CA:FALSE",
     "keyUsage=critical,digitalSignature,keyEncipherment",
     "extendedKeyUsage=serverAuth",
-    "subjectAltName=DNS:wallet-network.fixture",
+    `subjectAltName=DNS:${serverName}`,
     "",
   ].join("\n"));
   runOpenSsl([
@@ -263,7 +267,7 @@ async function startPinnedTlsProxy(upstreamAddr, fixtureDir) {
   return {
     rpcAddr: `https://127.0.0.1:${server.address().port}`,
     caPath: path.join(fixtureDir, "wallet-network-ca.pem"),
-    serverName: "wallet-network.fixture",
+    serverName,
     destroy,
     async stop() {
       for (const socket of sockets) socket.destroy();
