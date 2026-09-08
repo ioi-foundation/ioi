@@ -76,7 +76,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
-    "check:work-items": "node scripts/check-architecture-docs.mjs --work-items"
+    "check:work-items": "node scripts/check-architecture-docs.mjs --work-items",
+    "test:hypervisor-alpha-release": "node --test scripts/lib/hypervisor-alpha-release.test.mjs",
+    "package:hypervisor-alpha": "node scripts/package-hypervisor-alpha-release.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

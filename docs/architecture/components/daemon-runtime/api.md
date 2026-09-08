@@ -2901,6 +2901,29 @@ POST /v1/threads/{thread_id}/workflow-edit-proposals
 POST /v1/threads/{thread_id}/workflow-edit-proposals/{proposal_id}/apply
 ```
 
+### Release Change Plans
+
+The packaged release's admitted update and rollback path
+(`HypervisorChangePlan` for the release itself; `core-clients-surfaces.md`
+§ *Zero-To-Operable Local Deployment*; `platform-operability.md` § *Release
+change plans*). The daemon cannot replace its own executable, so the effect
+actor is the installer under host authority; the daemon owns admission and the
+observed outcome, and never trusts the caller's word for which release is in
+charge — it hashes its own executable at admission and at observation.
+
+```http
+GET  /v1/hypervisor/release-change-plans
+POST /v1/hypervisor/release-change-plans                 kind update|rollback + exact target release (version, manifest_sha256, daemon_sha256, signer_public_key, signature_verified_by) → 201 admitted (+ receipt); 409 target_is_running | already_admitted; 422 target_invalid | signature_unverified
+GET  /v1/hypervisor/release-change-plans/{plan_id}
+POST /v1/hypervisor/release-change-plans/{plan_id}/observe  after the installer's activation + restart: running executable digest == target daemon digest → completed, else failed (both receipted; terminal plans replay)
+POST /v1/hypervisor/release-change-plans/{plan_id}/cancel   an admitted plan → cancelled (receipted)
+```
+
+Implementation: `crates/node/src/bin/hypervisor_daemon_routes/release_change_plan_routes.rs`;
+packager `scripts/package-hypervisor-alpha-release.mjs`; installer
+`scripts/install-hypervisor-alpha-release.mjs` (ships as `install.mjs`);
+qualified by `check:alpha-journey` in package mode.
+
 ## Artifact and Receipt API
 
 ```http
