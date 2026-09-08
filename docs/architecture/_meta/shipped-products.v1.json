@@ -17,7 +17,7 @@
       "owner": "Hypervisor application-surface owner",
       "owner_ref": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
       "disposition": "shipped",
-      "release_posture": "development_only",
+      "release_posture": "production_candidate",
       "root": "apps/hypervisor",
       "path_ownership": {
         "lane_roots": [
@@ -191,7 +191,8 @@
           "entry": "scripts/smoke-product-surfaces.mjs",
           "command": "node scripts/smoke-product-surfaces.mjs"
         }
-      ]
+      ],
+      "release_posture_ruling": "2026-09-08: bounded-alpha-profile.md § Release qualification — release-qualified on the release-profile packages without a checkout (44/44); production_candidate names a bounded alpha, not general availability"
     },
     {
       "id": "hypervisor-vite-workbench",

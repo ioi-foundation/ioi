@@ -52,16 +52,14 @@
     "scripts/lib/hypervisor-alpha-release.test.mjs",
     "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
     "docs/architecture/components/hypervisor/bounded-alpha-profile.md",
-    "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json"
+    "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json",
+    "docs/architecture/_meta/evidence/m12-alpha-journey-release-no-checkout-2026-09-08.v1.json"
   ],
   "pr": null,
   "adversarial_or_fault_proof": "test:hypervisor-alpha-release (4/4) proves tamper, unlisted, missing, wrong-key and manifest-edit refusals; release_change_plan_routes unit tests prove the self-digest is the executable's bytes and plan ids are shape-checked; the journey's package mode proves the no-op and double-admission refusals live and observes both the update and the rollback by the daemon's own digest.",
   "remaining_nonclaims": [
-    "The packaged build is the debug cargo profile; no release-profile build is qualified.",
-    "The second release in qualification differs from the first only by the daemon crate version (same sources).",
-    "The authority node's launcher is not relocatable outside a source checkout of the packaged revision (closure test in the manifest's prerequisites.authority_node).",
     "No update discovery/egress; material is supplied by the operator."
   ],
   "source_provenance": "Landed 2026-09-07 by the bounded-alpha closure program (see canon-to-code-delta.md § Journey verification XVI).",
-  "last_status_transaction": "2026-09-07"
+  "last_status_transaction": "2026-09-08"
 }

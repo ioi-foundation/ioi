@@ -48,15 +48,15 @@
     "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
     "docs/architecture/components/hypervisor/bounded-alpha-profile.md",
     "docs/architecture/_meta/canon-to-code-delta.md",
-    "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json"
+    "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json",
+    "docs/architecture/_meta/evidence/m12-alpha-journey-release-no-checkout-2026-09-08.v1.json"
   ],
   "pr": null,
   "adversarial_or_fault_proof": "Standalone drill 2026-09-07: up → status (v1 active) → rotate (v2 active, old key retired 0400) → revoke (v3 revoked) → stop → resume (chain resumed, control root verified against custodied keys, revoked head reported not re-issued) → rotate after revoke (v4 active). The journey's deployment mode asserts a run approved under the rotated key executes and a run after revocation fails closed with no execute receipt.",
   "remaining_nonclaims": [
     "The chain clock is the deterministic single-node clock unless --wall-clock is given.",
-    "The node's validator launcher resolves its binaries from the source checkout it was compiled in; `up` is not relocatable outside a checkout of the same revision.",
     "No claim about hosted wallet.network, standing envelopes or external approver devices."
   ],
   "source_provenance": "Landed 2026-09-07 by the bounded-alpha closure program; standalone drill and the deployment-mode alpha journey are the evidence; the deployment+package alpha journey passed 43/43 (evidence file tracked) (see canon-to-code-delta.md § Journey verification XVI).",
-  "last_status_transaction": "2026-09-07"
+  "last_status_transaction": "2026-09-08"
 }

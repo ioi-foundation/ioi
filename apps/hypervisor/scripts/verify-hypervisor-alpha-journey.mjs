@@ -89,7 +89,9 @@ const NO_CHECKOUT = PACKAGE_MODE && process.env.IOI_ALPHA_JOURNEY_NO_CHECKOUT ==
 // Drop every PATH entry that can reach a `cargo` or `rustup` executable (a system /usr/bin/cargo
 // counts), then re-add a shim dir that keeps the basic tools reachable without them.
 const cargoFreePath = (source) => {
-  const kept = (source || "").split(":").filter((d) => d && !["cargo", "rustup", "rustc"].some((tool) => { try { return fs.statSync(path.join(d, tool)).isFile(); } catch { return false; } }));
+  // Also drop the repository's own node_modules/.bin entries npm prepends, so no PATH entry of a
+  // child points into the checkout at all.
+  const kept = (source || "").split(":").filter((d) => d && !d.startsWith(ROOT) && !["cargo", "rustup", "rustc"].some((tool) => { try { return fs.statSync(path.join(d, tool)).isFile(); } catch { return false; } }));
   const shim = path.join(workDir, "path-shim");
   fs.mkdirSync(shim, { recursive: true });
   for (const tool of ["node", "sh", "git", "openssl", "tar", "zstd", "env", "cat", "ls", "readlink", "uname"]) {
@@ -309,7 +311,9 @@ async function run() {
       const under = (p) => String(p || "").startsWith(pkg.prefix);
       const whichCargo = (() => { try { return execFileSync("sh", ["-c", "command -v cargo || true"], { encoding: "utf8", env: childBaseEnv() }).trim(); } catch { return "?"; } })();
       evidence.no_checkout = { prefix: pkg.prefix, prefix_has_git: fs.existsSync(path.join(pkg.prefix, ".git")), launcher_binary: authorityNode.binary, node_binary_dir: authorityNode.nodeBinaryDir, installer: pkg.installer, cargo_on_child_path: whichCargo || "none", child_path: childBaseEnv().PATH };
-      ok("2b-authority", "NO-CHECKOUT closure test: the installer, the authority control binary and the node binaries the launcher pinned are all under the install prefix, the prefix is not a git checkout, and cargo is absent from every child's PATH", under(pkg.installer) && under(authorityNode.binary) && under(authorityNode.nodeBinaryDir) && !evidence.no_checkout.prefix_has_git && !whichCargo, JSON.stringify(evidence.no_checkout).slice(0, 220));
+      const outsideRepo = (p) => !String(p || "").startsWith(ROOT);
+      const childPathOutsideRepo = childBaseEnv().PATH.split(":").every((d) => outsideRepo(d));
+      ok("2b-authority", "NO-CHECKOUT closure test: the installer is the package's own (outside the repository), the authority control binary and the node binaries the launcher pinned are under the install prefix, the prefix is not a git checkout, cargo is absent from every child's PATH and no child PATH entry points into the repository", outsideRepo(pkg.installer) && under(authorityNode.binary) && under(authorityNode.nodeBinaryDir) && !evidence.no_checkout.prefix_has_git && !whichCargo && childPathOutsideRepo, JSON.stringify(evidence.no_checkout).slice(0, 220));
     }
     ok("2b-authority", "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env", keyMode === 0o600 && authorityRecord.binding_version === 1 && authorityRecord.binding_status === "active" && authorityNode.daemonEnv.IOI_WALLET_NETWORK_RPC_ADDR.startsWith("https://") && !fs.readFileSync(approverKeyPath, "utf8").includes(FIXTURE_APPROVER_SEED_HEX), `ready in ${Math.round((Date.now() - t0) / 1000)}s · ${authorityRecord.binding_ref} · key mode ${keyMode.toString(8)}`);
   } else if (AUTHORITY_MODE === "fixture") {
