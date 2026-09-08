@@ -1731,3 +1731,84 @@ main > .stack > .page-head + *, main .stack > .page-head { }
    still laid out its hidden content (unpainted, 66px tall) past the end of main and
    onto the foot bar, and the collision probe counted the rects. Closed means gone. */
 details:not([open]) > :not(summary) { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   THE DARK THEME — the same console on onyx.
+   Every colour on the face is a token variable, so the dark theme is a second
+   binding of the same names: the canvas goes to the substrate navy, paper to onyx,
+   the tint to grey-900, hairlines to the on-onyx rules the token file measured, ink
+   to white, and the link green to its on-dark step (8.78:1 on onyx). Meanings do not
+   move: green is live evidence, red is expired or failed, the gradient is identity.
+   It follows the system setting; the sun/moon in the bar overrides it for this
+   browser only (data-theme on the root, kept in localStorage).
+   ═══════════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --canvas: #000c26; --paper: #0a0e19; --surface: #1f1f1f; --ink: #ffffff;
+  --hairline: rgba(255, 255, 255, 0.14); --hairline-soft: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.38); --control-border: rgba(255, 255, 255, 0.5);
+  --label: rgba(255, 255, 255, 0.6); --muted: rgba(255, 255, 255, 0.5);
+  --live: #7bbd97; --pistachio: #1e3c2c; --bar: #000000;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #000c26; --paper: #0a0e19; --surface: #1f1f1f; --ink: #ffffff;
+    --hairline: rgba(255, 255, 255, 0.14); --hairline-soft: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.38); --control-border: rgba(255, 255, 255, 0.5);
+    --label: rgba(255, 255, 255, 0.6); --muted: rgba(255, 255, 255, 0.5);
+    --live: #7bbd97; --pistachio: #1e3c2c; --bar: #000000;
+    color-scheme: dark;
+  }
+}
+:root { --bar: #0a0e19; }
+.topbar, .footbar { background: var(--bar); }
+/* Blocks whose ground was ink now read ink-on-paper inverted; they take the tint. */
+:root[data-theme="dark"] pre.code, :root[data-theme="dark"] .hero,
+:root[data-theme="dark"] .button { background: var(--surface); color: var(--ink); border-color: var(--hairline); }
+:root[data-theme="dark"] .button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+:root[data-theme="dark"] .hero { color: var(--ink); }
+:root[data-theme="dark"] .hero-price, :root[data-theme="dark"] .hero-what { color: var(--ink); }
+:root[data-theme="dark"] .filter-btn.is-on { background: var(--ink); color: var(--paper); }
+:root[data-theme="dark"] .table-scroll { background: none; }
+:root[data-theme="dark"] .table-sticky thead > tr > th { background: var(--paper); }
+:root[data-theme="dark"] .widget, :root[data-theme="dark"] .panel, :root[data-theme="dark"] .deploy-field { box-shadow: none; }
+:root[data-theme="dark"] .rail-daemon-dot, :root[data-theme="dark"] .rail-dot.muted { background: var(--label); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) pre.code, :root:not([data-theme="light"]) .hero,
+  :root:not([data-theme="light"]) .button { background: var(--surface); color: var(--ink); border-color: var(--hairline); }
+  :root:not([data-theme="light"]) .button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  :root:not([data-theme="light"]) .hero, :root:not([data-theme="light"]) .hero-price, :root:not([data-theme="light"]) .hero-what { color: var(--ink); }
+  :root:not([data-theme="light"]) .filter-btn.is-on { background: var(--ink); color: var(--paper); }
+  :root:not([data-theme="light"]) .table-scroll { background: none; }
+  :root:not([data-theme="light"]) .table-sticky thead > tr > th { background: var(--paper); }
+  :root:not([data-theme="light"]) .widget, :root:not([data-theme="light"]) .panel, :root:not([data-theme="light"]) .deploy-field { box-shadow: none; }
+}
+
+/* The wordmark on the bars is white on both themes: paper is onyx in the dark theme. */
+.topbar .wordmark .wm-top, .topbar .wordmark .wm-bottom { fill: #ffffff; }
+
+/* ── THE SHEET — a surface's page on the canvas ─────────────────────────────────
+   One white container for the resource pages, the widget's skin at page size; the
+   hero's full-bleed band and Home's grid sit on the canvas directly. */
+.sheet { background: var(--paper); border: 1px solid var(--hairline); border-radius: 8px; padding: 22px 26px 30px;
+  box-shadow: 0 1px 1px rgba(10, 14, 25, 0.04); min-width: 0; }
+.sheet-none { min-width: 0; }
+.sheet .page-head { margin: -22px -26px 22px; padding: 18px 26px 14px; background: var(--paper); border-radius: 8px 8px 0 0; }
+@media (max-width: 700px) {
+  .sheet { padding: 16px 16px 24px; }
+  .sheet .page-head { margin: -16px -16px 16px; padding: 14px 16px 12px; }
+}
+/* Table edge fades take the sheet's ground. */
+.sheet .table-scroll { background:
+    linear-gradient(to right, var(--paper) 30%, rgba(255, 255, 255, 0)) left center,
+    linear-gradient(to left, var(--paper) 30%, rgba(255, 255, 255, 0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) right center;
+  background-repeat: no-repeat; background-size: 40px 100%, 40px 100%, 16px 100%, 16px 100%;
+  background-attachment: local, local, scroll, scroll; }
+:root[data-theme="dark"] .sheet { box-shadow: none; }
+:root[data-theme="dark"] .sheet .table-scroll { background: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sheet { box-shadow: none; }
+  :root:not([data-theme="light"]) .sheet .table-scroll { background: none; }
+}

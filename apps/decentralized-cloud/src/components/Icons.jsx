@@ -65,3 +65,9 @@ const S = {
   settings: <><circle cx="8" cy="8" r="2.2" /><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1" /></>,
 };
 export const SurfaceIcon = ({ id, ...p }) => <svg {...base} {...p}>{S[id] || <circle cx="8" cy="8" r="5" />}</svg>;
+export const IconSun = (p) => (
+  <svg {...base} {...p}><circle cx="8" cy="8" r="3" /><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M3.4 12.6l1.3-1.3M11.3 4.7l1.3-1.3" /></svg>
+);
+export const IconMoon = (p) => (
+  <svg {...base} {...p}><path d="M 13.5 9.5 A 6 6 0 0 1 6.5 2.5 a 6 6 0 1 0 7 7 z" /></svg>
+);

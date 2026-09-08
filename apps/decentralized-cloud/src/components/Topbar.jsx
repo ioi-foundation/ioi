@@ -5,7 +5,8 @@ import { recall } from "../logic/read.mjs";
 import { jobView } from "../logic/job-door.mjs";
 import { buildIndex, searchIndex, indexScope, kindWord } from "../logic/palette.mjs";
 import { useDaemonStatus } from "./DaemonBanner.jsx";
-import { IconGrid, IconSearch, IconTerminal, IconBell, IconHelp, IconGear, IconChevron, IconClose, SurfaceIcon } from "./Icons.jsx";
+import { IconGrid, IconSearch, IconTerminal, IconBell, IconHelp, IconGear, IconChevron, IconClose, IconSun, IconMoon, SurfaceIcon } from "./Icons.jsx";
+import { readTheme, applyTheme, saveTheme, effectiveTheme, nextTheme } from "../logic/theme.mjs";
 
 // THE TOP BAR — the shape a console user's hands already know.
 //
@@ -32,6 +33,14 @@ export default function Topbar({ go, announce, surface }) {
   const [active, setActive] = useState(0);
   const [menu, setMenu] = useState(false);
   const daemon = useDaemonStatus();
+  // The theme: a preference of this browser, applied to the document, never sent.
+  const [theme, setTheme] = useState(readTheme);
+  const shown = effectiveTheme(theme);
+  const cycleTheme = () => {
+    const t = nextTheme(theme);
+    setTheme(t); applyTheme(t); saveTheme(t);
+    announce(`Theme: ${t === "system" ? `system (${effectiveTheme(t)})` : t}`);
+  };
   const items = useMemo(() => buildIndex(recall), [open, query, surface, daemon]); // eslint-disable-line react-hooks/exhaustive-deps
   const results = useMemo(() => searchIndex(items, query), [items, query]);
   const scope = useMemo(() => indexScope(items), [items]);
@@ -223,6 +232,11 @@ export default function Topbar({ go, announce, surface }) {
         </a>
         <a className="bar-btn" href={hashForSurface("settings")} aria-label="Help — what this surface is configured to do" title="Help"><IconHelp /></a>
         <a className="bar-btn" href={hashForSurface("settings")} aria-label="Settings" title="Settings"><IconGear /></a>
+        <button type="button" id="theme-toggle" className="bar-btn" onClick={cycleTheme}
+          aria-label={`Theme: ${theme}${theme === "system" ? ` (${shown})` : ""} — press to change`}
+          title={`Theme · ${theme}${theme === "system" ? ` (${shown})` : ""}`}>
+          {shown === "dark" ? <IconMoon /> : <IconSun />}
+        </button>
         {/* Where a region selector stands: the placement posture, which lives on the
             intent and is not set here. Where the account stands: the principal, which
             is a wallet this face does not hold. Each is a door, drawn as the control. */}

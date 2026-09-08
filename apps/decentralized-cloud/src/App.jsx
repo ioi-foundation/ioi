@@ -138,11 +138,16 @@ export default function App() {
           {announcement}
         </p>
 
+        {/* THE SHEET. On the grey canvas a surface's tables and panels sit on one white
+            sheet, the way a console's resource pages do; Home is a grid of widgets and
+            the catalogue opens on its full-bleed hero, so neither takes it. */}
         <main id="surface" tabIndex={-1} ref={mainRef}>
           <DaemonBanner host={host} />
-          {missing
-            ? <NotFound address={missing} announce={setAnnouncement} />
-            : <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} jobId={jobId} />}
+          <div className={missing || !["home", "catalog"].includes(surface) ? "sheet" : "sheet-none"}>
+            {missing
+              ? <NotFound address={missing} announce={setAnnouncement} />
+              : <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} jobId={jobId} />}
+          </div>
         </main>
 
         <Footbar daemonHost={host} capabilityChip={CAPABILITY.chip} />

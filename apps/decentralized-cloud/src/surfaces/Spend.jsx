@@ -52,10 +52,7 @@ export default function Spend({ announce }) {
       />
 
       <section className="stack" style={{ gap: "10px" }} aria-labelledby="spend-budgets">
-        <div className="widget-head">
-          <h2 id="spend-budgets">Budgets</h2>
-          <Chip kind="live">wired · GET /api/budgets</Chip>
-        </div>
+        <h2 id="spend-budgets">Budgets</h2>
         <p className="meta">
           {budgets.length} external_spend budget{budgets.length === 1 ? "" : "s"}
           {others.length ? ` · ${others.length} of another scope, not shown` : ""} · read at {stamp(state.at)} in {duration(state.ms)}

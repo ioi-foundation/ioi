@@ -494,6 +494,34 @@ console people leave open at night wants one); the catalogue's hero page does no
 the shared header; the palette does not deep-link a venue into the Live prices filter;
 narration transcripts (item 10) still unmeasured.
 
+## Iteration 014 — the dark theme, and the sheet (2026-09-08)
+
+**Should look and feel like:** the same console on onyx — the owner's Vercel reference
+is dark throughout — following the system setting and overridable for this browser
+from a sun/moon in the bar; and, on both themes, every resource page on one white
+(or onyx) sheet the way the widgets are, instead of tables sitting bare on the grey
+canvas. **Routes:** none. The theme is a preference kept in this browser only.
+
+What landed: `logic/theme.mjs` (system · dark · light, `data-theme` on the root,
+`localStorage` key, applied before first render so a dark browser never flashes
+paper); `#theme-toggle` in the bar; a second binding of the same token names in
+`face.css` — canvas to the substrate navy, paper to onyx, the tint to grey-900,
+hairlines to the on-onyx rules, ink to white, the link green to its on-dark step
+(8.78:1) — with the ink-ground blocks (code, hero, primary button) inverted onto the
+tint; the wordmark white on both bars; the `.sheet` wrapper for every surface but Home
+and the catalogue. Every hex is a token; meanings do not move.
+
+Captures: scratch `e1-home-dark-1440.png`, `e1-deploy-dark-1440.png`,
+`e1-candidates-dark-1440.png` (served from a side build on :4241 while the 013
+capture set ran against :4240).
+
+What the captures show. Console Home on onyx keeps every relationship of the light
+page: white titles, green Info links and pills, the cards one step lighter than the
+canvas, the read lines at the same quiet weight; Deploy's lane and field read as
+panels; Live prices' kept-answer state carries its ink edge bar. Open: no blind
+reader has measured the dark contrasts on the face beyond the token file's own
+figures; the reduced-motion pass was not re-shot on the dark theme.
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.

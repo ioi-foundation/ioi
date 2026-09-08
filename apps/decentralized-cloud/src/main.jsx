@@ -7,6 +7,10 @@ import App from "./App.jsx";
 // catch. When the vanilla surface is retired this file moves; until then there is
 // exactly one of it.
 import "../public/face.css";
+import { readTheme, applyTheme } from "./logic/theme.mjs";
+
+// The theme is applied before the first render so a dark browser never flashes paper.
+applyTheme(readTheme());
 
 // StrictMode is ON, and it is load-bearing rather than boilerplate on this surface.
 // In development it double-invokes effects, which is exactly the condition the
