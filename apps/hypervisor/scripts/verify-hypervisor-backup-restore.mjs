@@ -436,6 +436,13 @@ const custodyMutationCensus = () => {
     "/v1/hypervisor/download-intents",
     "/v1/hypervisor/restore-plans",
     "/v1/hypervisor/storage-profiles",
+    // Re-pinned 2026-09-07 (bounded-alpha program): two newer snapshot families the router carries
+    // — media-snapshot revisions (policy-bound media datasets) and active-skill-set snapshots —
+    // are custody by the inventory's own reading of the word and were missing here, so the
+    // coverage assertion below was the one red in an otherwise 75/76 run. Listing them is the
+    // right closure: the census now asserts their POST doors refuse an unauthenticated caller.
+    "/v1/hypervisor/media-snapshot-revisions",
+    "/v1/hypervisor/active-skill-set-snapshots",
   ];
   const found = [];
   for (const chunk of src.split(".route(")) {
