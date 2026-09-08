@@ -7093,7 +7093,7 @@ const RUN_TIMELINE_HTML = `<!doctype html>
     var root=document.getElementById("rt-root"); root.textContent="";
     if(!tl){ root.appendChild(el("div","rt-error","Run not found.")); return; }
     ensureComposer();
-    var statusCls = tl.status==="done"?"rt-done":(tl.status==="failed"?"rt-failed":(tl.status==="running"?"rt-running":""));
+    var statusCls = tl.status==="done"?"rt-done":(tl.status==="failed"?"rt-failed":(tl.status==="running"||tl.status==="awaiting_operator_approval"?"rt-running":""));
 
     var head=el("div","rt-head");
     var left=el("div");
@@ -7211,6 +7211,36 @@ const RUN_TIMELINE_HTML = `<!doctype html>
       // 5) Proof (governance audit trail)
       var pf=turn.proof||{};
       var s5=el("div"); s5.appendChild(label(5,"Proof"));
+      // The parked operator decision — the exact effect and its commitments, decided HERE, from
+      // the session the run was submitted in (M13.4). Approve signs exactly this challenge.
+      var ap=turn.approval||null;
+      if(ap){
+        var apc=el("div","rt-proof"); apc.setAttribute("data-ioi-run-approval", ap.state||"");
+        var apkv=el("dl","rt-kv");
+        apkv.appendChild(el("dt",null,"operator decision")); apkv.appendChild(el("dd",null, ap.state==="awaiting" ? "AWAITING YOUR APPROVAL — the run will not execute until you decide" : ("decided: "+(ap.decision||ap.state)+(ap.decidedAt?" at "+ap.decidedAt:""))));
+        apkv.appendChild(el("dt",null,"exact effect")); apkv.appendChild(el("dd",null,(ap.kind||"session_execute")+" in "+(ap.sessionRef||"?")+" — "+trunc(ap.intent||"",160)));
+        apkv.appendChild(el("dt",null,"policy hash")); apkv.appendChild(el("dd",null,trunc(ap.policyHash||"",32)));
+        apkv.appendChild(el("dt",null,"request hash")); apkv.appendChild(el("dd",null,trunc(ap.requestHash||"",32)));
+        if(ap.audience){ apkv.appendChild(el("dt",null,"grant audience")); apkv.appendChild(el("dd",null,trunc(ap.audience,24)+" (this daemon's wallet account)")); }
+        if((ap.requiredScopes||[]).length){ apkv.appendChild(el("dt",null,"scopes")); apkv.appendChild(el("dd",null,ap.requiredScopes.join(", "))); }
+        apc.appendChild(apkv);
+        if(ap.state==="awaiting"&&ap.approveUrl){
+          var apacts=el("div","rt-acts");
+          var decide=function(url,labelText){ var b=el("button","rt-act",labelText); b.addEventListener("click",function(){ b.disabled=true; b.textContent=labelText+"…"; fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(function(r){return r.json();}).then(function(d){ b.textContent = d&&d.ok ? labelText+" ✓" : "Refused: "+((d&&d.error&&d.error.code)||"unknown"); setTimeout(load,600); }).catch(function(){ b.disabled=false; b.textContent=labelText; }); }); return b; };
+          apacts.appendChild(decide(ap.approveUrl,"Approve and run"));
+          apacts.appendChild(decide(ap.denyUrl,"Deny"));
+          apc.appendChild(apacts);
+        }
+        s5.appendChild(apc);
+      }
+      // The session as the DAEMON holds it, and the receipts the record names (daemon truth).
+      if(pf.session){
+        var sc=el("div","rt-proof"); sc.setAttribute("data-ioi-session-truth", pf.session.ref||""); var skv=el("dl","rt-kv");
+        skv.appendChild(el("dt",null,"session")); skv.appendChild(el("dd",null,(pf.session.ref||"?")+" · "+(pf.session.lifecycleState||"?")+" (daemon record)"));
+        (pf.daemonReceipts||[]).forEach(function(r){ skv.appendChild(el("dt",null,"receipt")); skv.appendChild(el("dd",null,(r.kind||"?")+" · "+(r.status||r.exitStatus||"")+(r.capabilityLeaseRef?" · lease "+trunc(r.capabilityLeaseRef,40):"")+" · "+trunc(r.id||"",48))); });
+        if(!(pf.daemonReceipts||[]).length){ skv.appendChild(el("dt",null,"receipts")); skv.appendChild(el("dd",null,(pf.session.latestReceiptRefs||[]).length? String(pf.session.latestReceiptRefs.length)+" named on the record (not readable)" : "none on the record yet")); }
+        sc.appendChild(skv); s5.appendChild(sc);
+      }
       if(pf.authority||pf.proposalRefs&&pf.proposalRefs.length||pf.receipts&&pf.receipts.length||pf.leaseRef||pf.stateRoot){
         var card=el("div","rt-proof"); var kv=el("dl","rt-kv");
         if(pf.stateRoot){ kv.appendChild(el("dt",null,"state root")); kv.appendChild(el("dd",null,pf.stateRoot+" · durable")); }
@@ -7293,7 +7323,7 @@ const RUN_TIMELINE_HTML = `<!doctype html>
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(tl){
         render(tl);
-        if(tl && (tl.status==="running"||tl.status==="waiting")) setTimeout(load, 1500);
+        if(tl && (tl.status==="running"||tl.status==="waiting"||tl.status==="awaiting_operator_approval")) setTimeout(load, 1500);
       })
       .catch(function(){ setTimeout(load, 2500); });
   }
@@ -14545,7 +14575,20 @@ async function handleEstateRequest(req, res, body) {
       // is a usable SCM connector registered? (gates the governed "Publish PR" follow-up)
       let hasConnector = false;
       try { const c = await djson("GET", "/v1/hypervisor/scm-connectors"); hasConnector = (c.body?.connectors || []).some((x) => x.auth_posture === "local-none"); } catch { /* */ }
-      const timeline = projectRunTimeline(run, { authorityReceipts, hasConnector });
+      // M13.4 truth-rebind: the daemon's session record, the receipts it names and its workspace
+      // events are read under the CALLER's identity and projected as the panes' truth. A daemon
+      // that cannot answer yields null (rendered as unavailable), never a fabricated record.
+      let session = null;
+      let sessionReceipts = [];
+      let sessionEvents = null;
+      if (run.sessionRef) {
+        const sessionPath = `/v1/hypervisor/sessions/${encodeURIComponent(run.sessionRef)}`;
+        try { const sr = await daemonFetch(sessionPath, { headers: timelineHeaders }).then((x) => x.json()); session = sr?.session || null; } catch { session = null; }
+        try { const ev = await daemonFetch(`${sessionPath}/events`, { headers: timelineHeaders }).then((x) => x.json()); sessionEvents = ev || null; } catch { sessionEvents = null; }
+        const refs = Array.isArray(session?.latest_receipt_refs) ? session.latest_receipt_refs.slice(-12) : [];
+        sessionReceipts = (await Promise.all(refs.map((ref) => daemonFetch(`/v1/model-mount/receipts/${encodeURIComponent(String(ref))}`, { headers: timelineHeaders }).then((x) => (x.ok ? x.json() : null)).catch(() => null)))).filter(Boolean);
+      }
+      const timeline = projectRunTimeline(run, { authorityReceipts, hasConnector, session, sessionReceipts, sessionEvents });
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(timeline));
       return;

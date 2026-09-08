@@ -244,6 +244,21 @@ and receipt checks before activation. App, Web where locally served, CLI,
 headless, SDK, and optional TUI projections resolve the same deployment state;
 none maintains separate lifecycle truth.
 
+Implementation (bounded alpha, 2026-09-07): the packaged release is built by
+`scripts/package-hypervisor-alpha-release.mjs` (daemon, grant signer,
+authority-node control binary and validator binaries, the served App with the
+node packages its import graph reaches, the harness shims, the installer; a
+manifest naming the checkout, toolchains, cargo profile, every file digest and
+the SBOM; an Ed25519 signature over the manifest). `install.mjs` verifies
+against an operator-PINNED signer key — never a key carried by the package —
+re-hashes every file, refuses unlisted or missing files, installs immutably
+under `<prefix>/releases/<version>`, and activates by symlink with a durable
+activation history; update and rollback go through the daemon's release change
+plans (`daemon-runtime/api.md` § *Release Change Plans*). What the package does
+not provide is stated in its manifest: the local model route, and the authority
+node's launcher, which still runs from a source checkout (typed absence with a
+closure test in `bounded-alpha-profile.md`).
+
 ## Hypervisor Lineage And Operator Entry Contract
 
 Hypervisor must not merely borrow the word "hypervisor" metaphorically. It must
@@ -2990,6 +3005,27 @@ A Session binds:
 - Agentgres refs and receipt obligations;
 - adapter targets;
 - replay and restore metadata.
+
+### Session surface: the SPA session lane and the operator readout (M13.4)
+
+The designated session landing is the reference-ported SPA session view
+(`/details/{environment_id}`, the run's own environment), whose panes are
+bound to daemon truth through the owned Run Timeline projection
+(`apps/hypervisor/scripts/ioi-run-timeline.mjs` over
+`GET /v1/hypervisor/sessions/{ref}`, `…/events` and the receipts the record
+names): request and activity from the run, artifacts from the daemon's
+workspace diff, and a proof band that names the daemon session's lifecycle
+state, its `latest_receipt_refs`, the execute receipt with its capability lease,
+and the authority crossing. A run parked on the operator's approval carries its
+card here — the exact effect, both commitments, the daemon's grant audience,
+and the approve/deny endpoints under the operator's own session — so the
+decision is reachable from wherever the run was submitted, not only from
+Work / Sessions. The served `/__ioi/sessions` readout is the Operations-owned
+inspection lane over the same daemon records; it is demoted from product
+navigation, not deleted. Verifier: `check:session-truth-rebind`
+(`apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs`); the
+live approval card and the receipt binding after execution are asserted by
+`check:alpha-journey` (deployment mode).
 
 ### Session authority profile
 
