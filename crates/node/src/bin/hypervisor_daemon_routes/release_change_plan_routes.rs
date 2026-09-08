@@ -204,7 +204,9 @@ pub(crate) async fn handle_release_change_plan_admit(
 /// GET /v1/hypervisor/release-change-plans
 pub(crate) async fn handle_release_change_plan_list(State(st): State<Arc<DaemonState>>) -> Response {
     let running = running_daemon_sha256().ok();
-    reply(StatusCode::OK, json!({ "ok": true, "running_daemon_sha256": running, "plans": list_plans(&st.data_dir) }))
+    // v2 of the family also reports the running daemon's crate version beside its digest, so a
+    // client can tell WHICH release answered without hashing anything itself.
+    reply(StatusCode::OK, json!({ "ok": true, "running_daemon_sha256": running, "running_daemon_crate_version": env!("CARGO_PKG_VERSION"), "plans": list_plans(&st.data_dir) }))
 }
 
 /// GET /v1/hypervisor/release-change-plans/:id
