@@ -8,17 +8,28 @@ split, and the journey-to-contract-to-implementation readiness matrix.
 Supersedes: readings of the flagship first-proof ruling as the platform's only
 product proof.
 Superseded by: none.
-Last alignment pass: 2026-09-07 (ADR 0052 adoption).
+Last alignment pass: 2026-09-07 (ADR 0052 adoption; closure program the same day).
 Doctrine status: canonical
-Implementation status: partial (see the readiness matrix; no packaged release,
-no update/rollback path, and no release-qualified journey pass exist yet)
+Implementation status: built for the profile as stated (every matrix row has a
+named check; the journey passed 43/43 on the packaged release with the
+deployment-local authority node — see § Release qualification for the exact
+claim and its bounded properties)
 Last implementation audit: 2026-09-07
 Implementation refs:
   - `crates/node/src/bin/hypervisor-daemon.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/release_change_plan_routes.rs`
+  - `crates/cli/src/bin/wallet_network_local_authority.rs`
   - `apps/hypervisor/scripts/serve-product-ui.mjs`
   - `apps/hypervisor/scripts/ioi-agent-runs.mjs`
+  - `apps/hypervisor/scripts/wallet-network-authority.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-backup-restore.mjs`
+  - `scripts/package-hypervisor-alpha-release.mjs`
+  - `scripts/install-hypervisor-alpha-release.mjs`
   - `packages/hypervisor-harness-shims/generic-cli-local.mjs`
 
 ## Purpose
@@ -97,21 +108,21 @@ basis says.
 
 | # | Journey step | Contract owner | Implementation anchor | Check / basis | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Install a supported release | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* | source build only: `cargo build -p ioi-node --bin hypervisor-daemon`, `npm ci` | none; `shipped-products.v1.json` posture `development_only` | not built (packaged release, signer, supply-chain evidence absent) |
+| 1 | Install a supported release | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* | `scripts/package-hypervisor-alpha-release.mjs` (signed manifest: checkout, toolchains, cargo profile, per-file digests, SBOM) → `install.mjs verify/install/activate` against an operator-pinned signer | `test:hypervisor-alpha-release` (4/4); `check:alpha-journey` package mode step 1 (the daemon, App, signer and shim under test are the installed bytes) | built (2026-09-07); bounded: debug cargo profile; the authority node's launcher runs from a source checkout of the packaged revision (typed absence, closure test in the manifest's `prerequisites.authority_node`) |
 | 2a | Bootstrap identity | `identity-access-and-metering.md` | `startup_auth_notice` prints a one-boot token; `POST /v1/hypervisor/auth/bootstrap` (accepts the operator's name and email); the sign-in page is the first-run setup form (`/__ioi/bootstrap`) while no operator exists | `check:session-authority` (bootstrap → operator session); `check:alpha-journey` step 2a | built (2026-09-07) |
-| 2b | Bootstrap authority | `wallet-network/doctrine.md`; `daemon-runtime/doctrine.md` | `IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF` + wallet.network resolution (`governed_authority.rs`); the deployment-local approver key (`IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH`) signs exactly one challenge per operator approval | wallet.network fixture in `apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs`; `check:alpha-journey` step 2b | partial (the operator approval interaction is built; the authority node used in qualification is the test fixture with a public approver seed, and no documented bring-up of a real node exists) |
+| 2b | Bootstrap authority | `wallet-network/doctrine.md`; `daemon-runtime/doctrine.md` | `wallet-network-authority.mjs up` (§ *Supported deployment bring-up*): generated control root, sealed capability client key and operator approver key, durable Solo chain, binding v1; `daemon.env`/`serve.env`; the approval act mints one one-use grant for the daemon's capability audience and RECORDS it on the node (`record-approval`) before the daemon consumes it; `rotate` / `revoke` | `check:alpha-journey` deployment mode steps 2b, 6, 2c-rotation, 2c-revocation; standalone drill (up → rotate → revoke → resume → rotate) | built (2026-09-07); bounded: deterministic chain clock unless `--wall-clock`; launcher not relocatable outside a checkout |
 | 3 | Establish readiness | `daemon-runtime/platform-operability.md` § *Readiness and Degraded States* | `/healthz`, `/readyz` (static), `/v1/doctor`, `/v1/hypervisor/substrate/status`, `ExecutionSubstrate::probe` at execute | inspection; `check:launch-chain` (no-model refusal is typed) | partial (readiness is component-specific only at execute time) |
 | 4 | Open a project or workspace | `core-clients-surfaces.md` § *Hypervisor Projects* | `/projects` (vendored SPA over `ioi-api-adapter.mjs`), `POST /v1/hypervisor/projects`, environments | `check:projects-saga`, `check:launch-chain` | built |
 | 5a | Select harness and model route | `core-clients-surfaces.md` § *Agent Harness Adapters*; `model-routes` owner | `agent-runner-profiles`, `model-routes`, new-session composer (`augmentation/50-new-session.js`) | `check:model-route-authority`, `check:launch-chain` | built |
 | 5b | Select the session's connections (closed authority profile) | `core-clients-surfaces.md` § *Hypervisor Sessions* § *Session authority profile* | `authority_profile.connection_refs` at session create (durable, projected); connector invoke admission in `handle_connector_invoke`; the New Session modal's closed picker | `check:session-authority-profile` (21/21, CI-gated, floor-pinned) | built (2026-09-07) |
-| 6 | Start useful work | `daemon-runtime/api.md` sessions; `default-harness-profile.md` | `POST /v1/hypervisor/sessions` → `POST /sessions/:id/execute` (`host_spawn`, `generic-cli-local`); the composer run parks on the operator's approval and Work / Sessions renders the exact effect with Approve / Deny | `check:launch-chain` (admission chain); `check:alpha-journey` step 6 (real execute after operator approval) | built (2026-09-07); qualification per the program-evidence table |
-| 7 | Inspect progress, artifacts, receipts, cost, approvals | `core-clients-surfaces.md` § *Hypervisor Sessions*, § *Receipts, Replay, And Improvement* | session record `latest_receipt_refs`, `sessions/:id/events`, `/__ioi/run-timeline`, `/__ioi/work-ledger`, `/v1/hypervisor/usage/consumption`, `/governance/approvals` | inspection; `check:launch-chain` events | partial (per-session cost not projected; approvals queue is the governance family, not the execute approval) |
+| 6 | Start useful work | `daemon-runtime/api.md` sessions; `default-harness-profile.md` | `POST /v1/hypervisor/sessions` → `POST /sessions/:id/execute` (`host_spawn`, `generic-cli-local`); the composer run parks on the operator's approval; Work / Sessions AND the SPA session pane render the exact effect with Approve / Deny; approving mints + records one grant and resumes the execute | `check:launch-chain` (admission chain); `check:alpha-journey` step 6 (real execute after operator approval: `done`, artifact written, 239 s on the qualification host) | built and qualified (2026-09-07) |
+| 7 | Inspect progress, artifacts, receipts, cost, approvals | `core-clients-surfaces.md` § *Hypervisor Sessions* § *Session surface*, § *Receipts, Replay, And Improvement* | the SPA session pane's Run Timeline bound to the daemon session record, its `latest_receipt_refs` (execute receipt with capability lease), `sessions/:id/events`, and the parked approval; `/__ioi/sessions` as the Operations readout; `/__ioi/work-ledger`; `/v1/hypervisor/usage/consumption` | `check:session-truth-rebind` (11/11); `check:alpha-journey` step 7 (artifact on disk, execute receipt binding the lease, proof band from daemon records) | built (2026-09-07); bounded: per-session cost is not projected |
 | 8 | Stop / revoke | `daemon-runtime/api.md`; `connectors-tools/doctrine.md` | thread cancel, `harness-session-launches/:id/stop`, `sessions/:id/ports/revoke`, connector delete / credential revoke, `authority/revoke` | `check:launch-chain`, `check:session-authority` | built |
 | 9 | Restart and recover | `daemon-runtime/doctrine.md` recovery; `managed_runtime_routes.rs` | session-create WAL, pending-execution recovery, launch-chain replay after daemon kill | `check:launch-chain` (kill/restart), `check:session-authority` (restart survival) | built |
 | 10 | Back up and restore | `providers-and-environments.md` archive/restore; `platform-operability.md` § *Checkpoint, Backup, Restore* | managed backup bundle export/import (8 MiB import ceiling), restore plans with writer fence | `check:backup-restore` (two real daemons) | built, bounded (import size disclosed; bundle issuer is not verified) |
 | 11 | Diagnostics | `platform-operability.md`; `operations-support` | `/v1/doctor`, support incidents, `/v1/hypervisor/audit/trail`, `/__ioi/operations` | inspection | partial |
-| 12 | Update / rollback | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* (`HypervisorChangePlan`) | none (no daemon self-update or release rollback path) | none | not built |
-| 13 | App and headless agree on durable state | `core-clients-surfaces.md` § *First-Class Clients* | both clients read daemon records; the headless client is the HTTP API | `check:session-authority` (served vs daemon reads) | partial (no dedicated CLI) |
+| 12 | Update / rollback | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* (`HypervisorChangePlan`); `daemon-runtime/api.md` § *Release Change Plans* | `POST /v1/hypervisor/release-change-plans` (admit; no-op and double-admission refused) → `install.mjs activate` / `rollback` + restart → `…/observe` (the daemon hashes its own executable against the target) → receipts | `check:alpha-journey` package mode step 12 (update to v2 completed, rollback to v1 completed, both observed by the daemon's own digest; durable state intact across both) | built (2026-09-07); bounded: v2 in qualification differs from v1 only by the daemon crate version |
+| 13 | App and headless agree on durable state | `core-clients-surfaces.md` § *First-Class Clients* | both clients read daemon records; the headless client is the HTTP API | `check:session-authority` (served vs daemon reads); `check:alpha-journey` step 13 and step 12 (plans listed by the headless client agree with the installer's activation history) | built for the two alpha clients (no dedicated CLI is claimed) |
 
 ## Supported deployment bring-up (authority node, keys, daemon, App)
 
@@ -161,9 +172,24 @@ The alpha may be called release-qualified only when, on the exact packaged
 build, safe qualification records steps 1–13 with the evidence named above,
 names the supported and unsupported profiles, records whether any uncertain
 external effect needs reconciliation, and never treats a restore as permission
-to repeat an effect. Steps 1 and 12 are `not built`; the alpha is therefore
-**not release-qualified**, and the shipped-products register keeps
-`development_only` until they are.
+to repeat an effect.
+
+**Ruling (2026-09-07, owner-reversible):** on the packaged build named in the
+program-evidence table, steps 1–13 are recorded 43/43 by `check:alpha-journey`
+in deployment + package mode, the supported and unqualified profiles are the
+tables above, no external effect outside the host was attempted (the journey's
+effects are files in a session workspace and records on the deployment's own
+authority node), and the restore leg is the backup verifier's separate
+two-daemon proof. The bounded alpha is therefore **release-qualified for the
+profile exactly as stated**, with these properties stated rather than hidden:
+the packaged build is the debug cargo profile; the authority node's launcher
+runs from a source checkout of the packaged revision (an operator cannot yet
+bring the node up from the package alone — closure test in the release
+manifest's `prerequisites.authority_node`); the second release in the
+update/rollback qualification differs from the first only by the daemon crate
+version; the qualification host was loaded by other work (the approved run
+took 239 s). The shipped-products register keeps `development_only` until the
+relocatability closure test passes; moving it is the register owner's act.
 
 ## Nonclaims
 
@@ -171,8 +197,13 @@ to repeat an effect. Steps 1 and 12 are `not built`; the alpha is therefore
   the selected ones is qualified.
 - No claim that host-spawn execution is workload-bound or hostile-guest
   isolation.
-- No claim that the wallet.network fixture used in qualification is a
-  production authority node; its approver seed is public test material.
+- No claim that the authority node is hosted or multi-party: it is one
+  deployment-local Solo node whose keys the operator generated and custodies.
+  The cargo test fixture (public `07…` seed) is no longer used for
+  qualification of steps 2b, 6 and 7; fixture mode remains available to the
+  journey for comparison only.
+- No claim that the packaged authority-node binaries can be launched without a
+  source checkout of the packaged revision (see § Release qualification).
 - No claim of an end-to-end standalone product pass; that remains the
   flagship class's `sovereign-local` claim under `execution-horizons.md`.
 
@@ -193,8 +224,14 @@ the command and the checkout it ran on; an absent row is an absent claim.
 | Browser smoke of all 65 owned-served routes (light context) | `IOI_PRODUCT_SMOKE_PRODUCT=hypervisor IOI_PRODUCT_SMOKE_MODE=light npm run smoke:product-surfaces` | `3bec178d1` | 65 route renders passed |
 | Architecture docs and contract projections | `npm run check:architecture-docs` · `npm run check:architecture-contracts` | `60ca5f95b` | green (181 files, 11 rules) |
 | **The essential journey WITHOUT a deployment authority node** (`IOI_ALPHA_JOURNEY_AUTHORITY=none`): first-run bootstrap through the served form (operator-named identity, one-shot token, sign-in again), readiness, project, harness/model/connections selection, closed profile bound at create + UI-bypass refusal, composer run fails CLOSED with the daemon's typed not-configured code (no execute receipt, nothing ran), stop/teardown, connection revocation fence, daemon kill + serve restart recovery, diagnostics, App/headless agreement; update/rollback recorded as a typed absence | `IOI_ALPHA_JOURNEY_AUTHORITY=none npm run check:alpha-journey --workspace=@ioi/hypervisor-app` — evidence [`m13-alpha-journey-no-authority-2026-09-07.v1.json`](../../_meta/evidence/m13-alpha-journey-no-authority-2026-09-07.v1.json) | `dc19e811e` + the run-lane fail-closed fix (daemon binary from `3bec178d1`) | 23/24 — the one red is the backup sub-verifier's pre-existing census-coverage drift (its 75 functional backup/restore assertions pass; the census omits the newer media-snapshot and skill-set-snapshot routes) |
-| **The essential journey WITH the deployment authority node** (`check:alpha-journey`, fixture mode): six attempts on 2026-09-07 — one reached the journey and failed at the first step on the serve header defect fixed in `dc19e811e`; one was blocked by the runner's own mirror-port collision (fixed in the same commit); four were BLOCKED by the wallet.network test fixture (readiness or setup-transaction commit timeouts on a host loaded by other work). Steps 6–7 (operator approval, execution, artifacts, execute receipt) are therefore **not qualified** by this program | `IOI_WALLET_FIXTURE_READY_TIMEOUT_MS=3600000 npm run check:alpha-journey --workspace=@ioi/hypervisor-app` on a quiet host | `dc19e811e`+ | blocked — closure test: that command exits 0 with steps 6–7 green and its evidence file committed beside this one |
-| **Limitation:** `npm run check:shipped-products` is red on master for a reason outside this program (`apps/decentralized-cloud` undispositioned); the CI smoke job runs after it | `npm run check:shipped-products` | `298b0b875` and after | red (pre-existing) |
+| **The essential journey WITH the deployment authority node** (`check:alpha-journey`, fixture mode): six attempts on 2026-09-07 — one reached the journey and failed at the first step on the serve header defect fixed in `dc19e811e`; one was blocked by the runner's own mirror-port collision (fixed in the same commit); four were BLOCKED by the wallet.network test fixture (readiness or setup-transaction commit timeouts on a host loaded by other work). Steps 6–7 were **not qualified** by that program | `IOI_WALLET_FIXTURE_READY_TIMEOUT_MS=3600000 npm run check:alpha-journey --workspace=@ioi/hypervisor-app` | `dc19e811e`+ | blocked (historical; both root causes found and fixed by the closure program below) |
+| **Closure program (2026-09-07), root cause 1 — the fixture blocks:** the fixture's DEFAULT ordering profile is the four-validator AFT (ML-DSA classic-BFT) cluster of debug binaries; its setup transactions needed BFT commits across four starved validators. The alpha names ONE node, so the journey now starts the fixture in the Solo single-validator profile (`IOI_M049_ORDERING_PROFILE=Solo`). Fixture mode then converged (readiness 416 s incl. a one-time node build) and reached the operator's approval for the first time | `npm run check:alpha-journey --workspace=@ioi/hypervisor-app` (fixture mode) | `11676cfcf` + the Solo change (daemon `3bec178d1`) | 25/29 — the reds were root cause 2 |
+| **Root cause 2 — the approved grant was refused by the chain:** the local approver minted the grant with no `audience`, and wallet.network consumes only when the audience is the consuming signer (the daemon's capability account); then, with the audience, the daemon's preflight found *no state for the exact approval grant* — the approval decision must be RECORDED on the node before consumption. Fixed: the challenge carries `approval.audience` + `approval.target_scope`; the approval act mints one one-use grant and records it (`record-approval`, or the fixture's command directory) before resuming the execute | direct reproduction against a fresh daemon + the standalone node (record committed at nonce 3, execute proceeded); the deployment-mode journey below | `ced3f1b9c`, `a1bf94cbc` | fixed |
+| **Deployment-local authority node bring-up** (generated keys, durable Solo chain, TLS front, env files; rotate → revoke → stop → resume → rotate) | `node apps/hypervisor/scripts/wallet-network-authority.mjs up|rotate|revoke|status` (standalone drill) | `15b19290f` | v1 active → v2 active (old key retired 0400) → v3 revoked → resumed with the revoked head reported → v4 active |
+| **Packaged release** (build, verify under the pinned signer, install, activate; the served App boots from the installed tree outside the checkout; archive form 1.56 GB verified from the tarball) | `npm run test:hypervisor-alpha-release` · `node scripts/package-hypervisor-alpha-release.mjs …` · `node <release>/install.mjs verify|install|activate` | `f4e3e9907` | 4/4 · 753 files · verified |
+| **THE ESSENTIAL JOURNEY on the PACKAGED RELEASE with the DEPLOYMENT-LOCAL AUTHORITY NODE** (`IOI_ALPHA_JOURNEY_AUTHORITY=deployment IOI_ALPHA_JOURNEY_PACKAGE=1`): signed packages v1/v2 verified + installed, v1 activated; node up with generated keys; first-run identity; readiness; project; closed authority profile + UI-bypass refusal; run parks → approval card on Work / Sessions AND the SPA session pane → operator approval (mint + record) → execute `done`, `ALPHA_JOURNEY.md` written, execute receipt binding the capability lease; rotation → second run approved under the new key executes; revocation → third run fails closed, no receipt; stop/revoke; daemon kill + restart recovery (`done`, 1 receipt); backup/restore 76/76; diagnostics; update plan to v2 → activate → restart → observed completed by the daemon's own digest; rollback plan to v1 → completed; App/headless agree | `IOI_ALPHA_JOURNEY_AUTHORITY=deployment IOI_ALPHA_JOURNEY_PACKAGE=1 IOI_ALPHA_RELEASE_TRUST=… IOI_ALPHA_RELEASE_V1=… IOI_ALPHA_RELEASE_V2=… npm run check:alpha-journey --workspace=@ioi/hypervisor-app` — evidence [`m13-alpha-journey-deployment-package-2026-09-07.v1.json`](../../_meta/evidence/m13-alpha-journey-deployment-package-2026-09-07.v1.json) | tree of `e83e9af93` = `7a23c3ca4` (the same tree re-committed as `a1bf94cbc` + `7a23c3ca4`; 17 dirty paths: this program's final journey/packager/canon edits committed next, and 13 `apps/decentralized-cloud/docs` deletions made outside this program); packaged daemon `bf52b030…` (v1) / `2fe951fd…` (v2) | **43/43** |
+| Standing gates on the final daemon build | `check:session-authority-profile` · `check:session-authority` · `check:launch-chain` · `check:session-truth-rebind` · `check:backup-restore` | `a1bf94cbc`+ | 21/21 · 24/24 · 58/58 · 11/11 · 76/76 |
+| `npm run check:shipped-products` is green again: `apps/decentralized-cloud` is dispositioned as a shipped lane at `development_only` (owner may refine) | `npm run check:shipped-products` · `npm run test:shipped-products` | `d9e9da0f5` | 7 lanes · 23/23 |
 
 ## Related Canon
 

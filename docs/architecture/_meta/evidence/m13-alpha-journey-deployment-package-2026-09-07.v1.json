@@ -1,0 +1,529 @@
+{
+  "schema": "ioi.hypervisor.alpha-journey-evidence.v1",
+  "started_at": "2026-09-08T00:40:47.769Z",
+  "steps": [
+    {
+      "step": "1-install",
+      "name": "build provenance",
+      "recorded": true,
+      "detail": "e83e9af931212c991824ba98ff275343d8eb55be (17 dirty paths) · daemon bf52b0304043daac · linux x64 6.17.9-76061709-generic",
+      "at": "2026-09-08T00:42:05.388Z"
+    },
+    {
+      "step": "1-install",
+      "name": "the release under test is the PACKAGED release: both packages verified under the operator-pinned signer (signature + every file digest), installed into a fresh prefix, v1 activated; the daemon binary about to run is the package's bytes (digest = v1 manifest daemon digest)",
+      "pass": true,
+      "detail": "v1 0.1.0-alpha.1 signer ed25519:b5e19627722954b82121a6c8d8ba5d11 · v2 0.1.0-alpha.2 · daemon bf52b0304043daac",
+      "at": "2026-09-08T00:42:05.388Z"
+    },
+    {
+      "step": "2b-authority",
+      "name": "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env",
+      "pass": true,
+      "detail": "ready in 98s · wallet.network://principal-authority-binding/4571dd5c0fa94bf82f9a8e7d38a742933788e5f9cb3e471d29b900b40acef0c3 · key mode 600",
+      "at": "2026-09-08T00:43:43.512Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the daemon printed a one-boot bootstrap token",
+      "pass": true,
+      "detail": "ioi_bootstrap_4c5846",
+      "at": "2026-09-08T00:43:45.951Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-08T00:43:45.955Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the first-run form creates the operator account and lands on the product with an operator session",
+      "pass": true,
+      "detail": "302 → /ai",
+      "at": "2026-09-08T00:43:48.382Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+      "pass": true,
+      "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+      "at": "2026-09-08T00:43:48.455Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+      "pass": true,
+      "detail": "200/409",
+      "at": "2026-09-08T00:43:48.513Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the operator can sign in again with the email and password they chose",
+      "pass": true,
+      "detail": "302",
+      "at": "2026-09-08T00:43:50.871Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "daemon health, doctor and substrate status answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-08T00:43:50.878Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "model route",
+      "recorded": true,
+      "detail": "qwen2.5:7b served at http://127.0.0.1:11434/v1 (verified via /api/tags before start)",
+      "at": "2026-09-08T00:43:50.878Z"
+    },
+    {
+      "step": "4-project",
+      "name": "a project can be created and listed",
+      "pass": true,
+      "detail": "201 project:alpha-journey · 1 project(s)",
+      "at": "2026-09-08T00:43:50.880Z"
+    },
+    {
+      "step": "5a-selection",
+      "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+      "pass": true,
+      "detail": "200 · 6 harness · 1 routes · 0 connections",
+      "at": "2026-09-08T00:43:51.737Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "the composer's launch binds the operator's selected connection as the session's CLOSED authority profile",
+      "pass": true,
+      "detail": "202 session:hyp-72a988798319186777b1202a3f2cf2a942575f909bc9521931cd030c3eb85090 [\"connector:conn_617696bb35b1503c\"]",
+      "at": "2026-09-08T00:43:51.995Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+      "pass": true,
+      "detail": "403/session_authority_out_of_profile",
+      "at": "2026-09-08T00:43:52.054Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the composer submit creates a real environment, a session and a registered run",
+      "pass": true,
+      "detail": "200 run agent_mtry55mx0 env env_8115b85cd5d84c8c8068f7f98fdbfc60f5e516dd5ed74373bdaecc6f5bb33532",
+      "at": "2026-09-08T00:43:52.294Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the run PARKS on the operator's approval with the daemon's exact commitments (no signer runs automatically)",
+      "pass": true,
+      "detail": "awaiting_operator_approval · sha256:1174493262e6e3f36",
+      "at": "2026-09-08T00:44:21.388Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the canonical Work / Sessions route shows the approval card with the exact effect and its commitments",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-08T00:44:21.438Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the SPA session pane (run timeline of the environment the run was submitted in) shows the SAME awaiting-approval card: exact commitments and the approve/deny endpoints",
+      "pass": true,
+      "detail": "200 · awaiting",
+      "at": "2026-09-08T00:44:21.568Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the operator's approval signs exactly that request with the deployment approver key and resumes execution",
+      "pass": true,
+      "detail": "202 \"approved\"",
+      "at": "2026-09-08T00:44:40.456Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the approved run completes on the qualified harness/model and writes at least one file (239s)",
+      "pass": true,
+      "detail": "done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devcontainer/\",\"group_ref\":\"changed-group:.de · ",
+      "at": "2026-09-08T00:48:39.194Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the written artifacts are in the session's workspace on disk",
+      "pass": true,
+      "detail": "/tmp/ioi-alpha-journey-t8JouB/data/environments/env_8115b85cd5d84c8c8068f7f98fdbfc60f5e516dd5ed74373bdaecc6f5bb33532/workspace · ALPHA_JOURNEY.md",
+      "at": "2026-09-08T00:48:39.235Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the session record carries the execute receipt and the durable receipt binds the consumed capability lease and the authority scopes",
+      "pass": true,
+      "detail": "1 receipt(s) · lease authority-admission-intents/aai_85b2763a",
+      "at": "2026-09-08T00:48:39.314Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "M13.4: the SPA session pane's proof band is bound to the DAEMON session record (ref + lifecycle) and names the execute receipt with its capability lease, read from the daemon",
+      "pass": true,
+      "detail": "200 · executed · 2 daemon receipt(s)",
+      "at": "2026-09-08T00:48:39.432Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the run's authority record names the operator's approval (approver = deployment-local operator, exact hashes)",
+      "pass": true,
+      "detail": "{\"approver\":\"deployment_local_operator\",\"expiresAt\":1850000000000,\"grantId\":null,\"mintedAt\":\"2026-09-08T00:44:40.455Z\",\"policyHash\":\"sha256:d17fe3be106b3b010646",
+      "at": "2026-09-08T00:48:39.432Z"
+    },
+    {
+      "step": "2c-rotation",
+      "name": "the operator rotates the approver key: a NEW key is custodied at the same path, the retired key is versioned read-only, and the chain holds an Active successor binding (version n+1) for the new authority",
+      "pass": true,
+      "detail": "ok · v1→v2 · wallet.network://principal-authority-binding/bfe389b891248fb",
+      "at": "2026-09-08T00:49:11.052Z"
+    },
+    {
+      "step": "2c-rotation",
+      "name": "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts",
+      "pass": true,
+      "detail": "202 · done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontain · ",
+      "at": "2026-09-08T00:54:12.760Z"
+    },
+    {
+      "step": "2c-revocation",
+      "name": "the operator revokes the principal's approval authority: the chain holds a Revoked successor that retains the exact prior authority snapshot",
+      "pass": true,
+      "detail": "ok · v3 revoked",
+      "at": "2026-09-08T00:54:38.228Z"
+    },
+    {
+      "step": "2c-revocation",
+      "name": "AFTER revocation a new run fails CLOSED with a typed authority error before any harness runs — no approval card, no execute receipt, nothing written",
+      "pass": true,
+      "detail": "failed · Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPE · 0 receipt(s)",
+      "at": "2026-09-08T00:55:18.645Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "cost/consumption, the run timeline and the work ledger answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-08T00:55:18.662Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
+      "pass": true,
+      "detail": "200 → torn_down",
+      "at": "2026-09-08T00:55:18.847Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "revoking a connection refuses every later use under the sessions that named it",
+      "pass": true,
+      "detail": "200 → 400",
+      "at": "2026-09-08T00:55:18.928Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (done), its execute receipts (1) and the Sessions surface are all recovered exactly as they were",
+      "pass": true,
+      "detail": "200 · run done · 1 receipt(s) · page 200",
+      "at": "2026-09-08T00:55:21.523Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "the operator's identity and session survive the restart",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-08T00:55:21.597Z"
+    },
+    {
+      "step": "10-backup",
+      "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
+      "pass": true,
+      "detail": "exit 0 · 76/76 passed",
+      "at": "2026-09-08T00:55:50.428Z"
+    },
+    {
+      "step": "11-diagnostics",
+      "name": "doctor, the audit trail, the Operations surface and the developer route ledger answer",
+      "pass": true,
+      "detail": "200/200/200/200",
+      "at": "2026-09-08T00:55:50.539Z"
+    },
+    {
+      "step": "12-update",
+      "name": "a plan whose target is the RUNNING release is refused (the daemon compares the target digest with its own executable; nothing is minted for a no-op)",
+      "pass": true,
+      "detail": "409 release_change_plan_target_is_running",
+      "at": "2026-09-08T00:56:15.513Z"
+    },
+    {
+      "step": "12-update",
+      "name": "an UPDATE plan to v2 is admitted with the daemon's own digest recorded at admission and a durable admission receipt",
+      "pass": true,
+      "detail": "201 rcp_3cce58b4dfff5a92429c2b87 · 1 receipt(s)",
+      "at": "2026-09-08T00:56:39.196Z"
+    },
+    {
+      "step": "12-update",
+      "name": "a second in-flight plan is refused while one is admitted and unobserved",
+      "pass": true,
+      "detail": "409 release_change_plan_already_admitted",
+      "at": "2026-09-08T00:57:03.179Z"
+    },
+    {
+      "step": "12-update",
+      "name": "after activation + restart the daemon that came back OBSERVES its own executable digest = v2's daemon digest and completes the plan with a receipt (the outcome is the daemon's word)",
+      "pass": true,
+      "detail": "200 completed · running 2fe951fdc63580d3 · v2 2fe951fdc63580d3",
+      "at": "2026-09-08T00:57:29.971Z"
+    },
+    {
+      "step": "12-update",
+      "name": "the updated daemon serves the SAME durable state: the sessions created before the update are still its records",
+      "pass": true,
+      "detail": "200 · 4 session(s)",
+      "at": "2026-09-08T00:57:30.020Z"
+    },
+    {
+      "step": "12-rollback",
+      "name": "a ROLLBACK plan to v1 is admitted on the updated daemon",
+      "pass": true,
+      "detail": "201 rcp_5069f4a27f911e367419a144",
+      "at": "2026-09-08T00:57:53.415Z"
+    },
+    {
+      "step": "12-rollback",
+      "name": "after the installer's rollback + restart, the v1 daemon observes its own digest = v1's and completes the rollback plan with a receipt; both plans and all receipts are daemon records",
+      "pass": true,
+      "detail": "200 completed · running bf52b0304043daac",
+      "at": "2026-09-08T00:58:20.523Z"
+    },
+    {
+      "step": "12-rollback",
+      "name": "the headless client lists both completed plans and the installer's activation history agrees (activate v1 → activate v2 → rollback v1)",
+      "pass": true,
+      "detail": "update:completed,rollback:completed · activate>activate>rollback",
+      "at": "2026-09-08T00:58:46.218Z"
+    },
+    {
+      "step": "13-agree",
+      "name": "the App's Sessions surface and the headless client render the same daemon-owned sessions",
+      "pass": true,
+      "detail": "4 session(s)",
+      "at": "2026-09-08T00:58:46.345Z"
+    }
+  ],
+  "checkout": {
+    "head": "e83e9af931212c991824ba98ff275343d8eb55be",
+    "dirty_paths": 17,
+    "node": "v22.22.0",
+    "host": "linux x64 6.17.9-76061709-generic"
+  },
+  "daemon_binary": {
+    "path": "/tmp/ioi-alpha-journey-t8JouB/prefix/current/bin/hypervisor-daemon",
+    "sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+    "mtime": "2026-09-08T00:41:21.506Z"
+  },
+  "packaged_release": {
+    "prefix": "/tmp/ioi-alpha-journey-t8JouB/prefix",
+    "trusted_signer": "/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/f789207a-bf9e-4962-8630-d4889f6c5a80/scratchpad/signer/release-signer.pub.pem",
+    "v1": {
+      "ok": true,
+      "version": "0.1.0-alpha.1",
+      "name": "ioi-hypervisor-alpha-0.1.0-alpha.1-linux-x86_64",
+      "manifest_sha256": "f94149c25f726e3da12fab8f4266d12864b0d79cba539305c6f4b61ac44592a6",
+      "daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+      "signer": "ed25519:b5e19627722954b82121a6c8d8ba5d11",
+      "files": 753,
+      "archive_sha256": null,
+      "installed": "/tmp/ioi-alpha-journey-t8JouB/prefix/releases/0.1.0-alpha.1",
+      "activated": false
+    },
+    "v2": {
+      "ok": true,
+      "version": "0.1.0-alpha.2",
+      "name": "ioi-hypervisor-alpha-0.1.0-alpha.2-linux-x86_64",
+      "manifest_sha256": "262b4f65c8253331609b709885678ffe383518397d71fe740f2a391d36c50a8e",
+      "daemon_sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d",
+      "signer": "ed25519:b5e19627722954b82121a6c8d8ba5d11",
+      "files": 753,
+      "archive_sha256": null,
+      "installed": "/tmp/ioi-alpha-journey-t8JouB/prefix/releases/0.1.0-alpha.2",
+      "activated": false
+    },
+    "daemon_path": "/tmp/ioi-alpha-journey-t8JouB/prefix/current/bin/hypervisor-daemon",
+    "serve_script": "/tmp/ioi-alpha-journey-t8JouB/prefix/current/apps/hypervisor/scripts/serve-product-ui.mjs"
+  },
+  "authority_mode": "deployment",
+  "deployment_authority": {
+    "principal_ref": "domain://alpha-host",
+    "binary": "/tmp/ioi-alpha-journey-t8JouB/prefix/current/bin/wallet-network-local-authority",
+    "ordering_profile": "Solo",
+    "keys_generated_on_host": [
+      "keys/root.seed",
+      "keys/capability.key (sealed)",
+      "keys/approver.seed"
+    ],
+    "approver_key_mode": "600",
+    "binding_v1": {
+      "ref": "wallet.network://principal-authority-binding/4571dd5c0fa94bf82f9a8e7d38a742933788e5f9cb3e471d29b900b40acef0c3",
+      "version": 1,
+      "status": "active"
+    },
+    "approver_scope_allowlist": [
+      "scope:hypervisor.live-route.*"
+    ],
+    "rotation": {
+      "binding_ref": "wallet.network://principal-authority-binding/bfe389b891248fb203693b2d0903c56f0be12a2bf5b2a8a0db9d1554705f9ed6",
+      "version": 2,
+      "retired_key": "keys/approver.seed.v1"
+    },
+    "rotated_run": {
+      "run_id": "agent_mtrybzso3",
+      "session_ref": "session:ai-agent_mtrybzso3",
+      "status": "done"
+    },
+    "revocation": {
+      "binding_ref": "wallet.network://principal-authority-binding/7d5d164992d8a2f103f37871a81e048d9ae18504faf70abf9d4a451860e12c10",
+      "version": 3,
+      "refused_run": {
+        "run_id": "agent_mtryj08y6",
+        "status": "failed",
+        "error": "Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF are required before any run can be approved."
+      }
+    }
+  },
+  "daemon_binary_after_update": {
+    "path": "/tmp/ioi-alpha-journey-t8JouB/prefix/current/bin/hypervisor-daemon",
+    "resolved": "/tmp/ioi-alpha-journey-t8JouB/prefix/releases/0.1.0-alpha.2/bin/hypervisor-daemon",
+    "sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d"
+  },
+  "daemon_binary_after_rollback": {
+    "path": "/tmp/ioi-alpha-journey-t8JouB/prefix/current/bin/hypervisor-daemon",
+    "resolved": "/tmp/ioi-alpha-journey-t8JouB/prefix/releases/0.1.0-alpha.1/bin/hypervisor-daemon",
+    "sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5"
+  },
+  "release_change_plans": {
+    "update": {
+      "created_at": "2026-09-08T00:56:39.165749025Z",
+      "current_release": {
+        "declared_version": "0.1.0-alpha.1",
+        "observed_daemon_sha256_at_admission": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5"
+      },
+      "effect_actor": "installer under host authority (the daemon cannot replace its own executable); the daemon admits the plan and observes the outcome",
+      "kind": "update",
+      "observed": {
+        "at": "2026-09-08T00:57:29.947597073Z",
+        "by": "user://00000000-0000-4000-8000-000000000001",
+        "matched": true,
+        "reason": null,
+        "running_daemon_sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d",
+        "target_daemon_sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d"
+      },
+      "plan_id": "rcp_3cce58b4dfff5a92429c2b87",
+      "receipt_refs": [
+        "receipt://hypervisor/release-change-plan/rcp_3cce58b4dfff5a92429c2b87/admitted",
+        "receipt://hypervisor/release-change-plan/rcp_3cce58b4dfff5a92429c2b87/completed"
+      ],
+      "requested_by": "user://00000000-0000-4000-8000-000000000001",
+      "runtimeTruthSource": "daemon-runtime",
+      "schema": "ioi.hypervisor.release-change-plan.v1",
+      "status": "completed",
+      "target_release": {
+        "daemon_sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d",
+        "manifest_sha256": "262b4f65c8253331609b709885678ffe383518397d71fe740f2a391d36c50a8e",
+        "signature_verified_by": "install.mjs verify (pinned signer)",
+        "signer_public_key": "ed25519:b5e19627722954b82121a6c8d8ba5d11",
+        "version": "0.1.0-alpha.2"
+      },
+      "updated_at": "2026-09-08T00:57:29.94763589Z"
+    },
+    "rollback": {
+      "created_at": "2026-09-08T00:57:53.373485268Z",
+      "current_release": {
+        "declared_version": "0.1.0-alpha.2",
+        "observed_daemon_sha256_at_admission": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d"
+      },
+      "effect_actor": "installer under host authority (the daemon cannot replace its own executable); the daemon admits the plan and observes the outcome",
+      "kind": "rollback",
+      "observed": {
+        "at": "2026-09-08T00:58:20.490819417Z",
+        "by": "user://00000000-0000-4000-8000-000000000001",
+        "matched": true,
+        "reason": null,
+        "running_daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+        "target_daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5"
+      },
+      "plan_id": "rcp_5069f4a27f911e367419a144",
+      "receipt_refs": [
+        "receipt://hypervisor/release-change-plan/rcp_5069f4a27f911e367419a144/admitted",
+        "receipt://hypervisor/release-change-plan/rcp_5069f4a27f911e367419a144/completed"
+      ],
+      "requested_by": "user://00000000-0000-4000-8000-000000000001",
+      "runtimeTruthSource": "daemon-runtime",
+      "schema": "ioi.hypervisor.release-change-plan.v1",
+      "status": "completed",
+      "target_release": {
+        "daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+        "manifest_sha256": "f94149c25f726e3da12fab8f4266d12864b0d79cba539305c6f4b61ac44592a6",
+        "signature_verified_by": "install.mjs verify (pinned signer)",
+        "signer_public_key": "ed25519:b5e19627722954b82121a6c8d8ba5d11",
+        "version": "0.1.0-alpha.1"
+      },
+      "updated_at": "2026-09-08T00:58:20.49085477Z"
+    },
+    "activation": {
+      "schema": "ioi.hypervisor.alpha-activation.v1",
+      "current": {
+        "version": "0.1.0-alpha.1",
+        "daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+        "activated_at": "2026-09-08T00:57:53.444Z"
+      },
+      "previous": {
+        "version": "0.1.0-alpha.2",
+        "daemon_sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d",
+        "activated_at": "2026-09-08T00:57:03.205Z"
+      },
+      "history": [
+        {
+          "at": "2026-09-08T00:42:03.263Z",
+          "act": "activate",
+          "version": "0.1.0-alpha.1",
+          "daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+          "previous_version": null
+        },
+        {
+          "at": "2026-09-08T00:57:03.205Z",
+          "act": "activate",
+          "version": "0.1.0-alpha.2",
+          "daemon_sha256": "2fe951fdc63580d3756c8c0d15118a118ed56caac83f3039dc42671efcca2e6d",
+          "previous_version": "0.1.0-alpha.1"
+        },
+        {
+          "at": "2026-09-08T00:57:53.444Z",
+          "act": "rollback",
+          "version": "0.1.0-alpha.1",
+          "daemon_sha256": "bf52b0304043daaccb940defcb181f375d76330a04a348b66670ac0bc0228be5",
+          "previous_version": "0.1.0-alpha.2"
+        }
+      ]
+    }
+  },
+  "nonclaims": [
+    "v2 differs from v1 only by the daemon crate version (same sources); the packaged build is the debug cargo profile",
+    "the authority node is launched from the source checkout (its validator launcher is not relocatable)",
+    "workload-bound isolation (host_spawn only)",
+    "the authority node's chain clock is the deterministic single-node clock (not wall time) unless brought up with --wall-clock",
+    "the authority node is a source build launched in this checkout, not a packaged component"
+  ],
+  "finished_at": "2026-09-08T00:58:46.346Z",
+  "summary": {
+    "passed": 43,
+    "total": 43
+  }
+}

@@ -173,7 +173,10 @@ async function main() {
   for (const b of ["orchestration", "workload", "guardian", "ioi-signer"]) copyFile(path.join(nodeBins, b), path.join(stage, "node-bins", b), 0o755);
   // app/
   const app = path.join(ROOT, "apps", "hypervisor");
-  const appDst = path.join(stage, "app");
+  // The App and the shims keep their REPOSITORY paths inside the release so every relative import
+  // the App makes (e.g. ../../../../scripts/lib/mint-approval-grant.mjs) and the daemon's default
+  // cwd-relative shim lookup resolve exactly as in the checkout.
+  const appDst = path.join(stage, "apps", "hypervisor");
   copyTree(path.join(app, "scripts"), path.join(appDst, "scripts"), { skip: (s, e) => e.name.endsWith(".test.mjs") || e.name === "__pycache__" });
   copyTree(path.join(app, "surfaces"), path.join(appDst, "surfaces"));
   copyTree(path.join(app, "product-ui", "owned"), path.join(appDst, "product-ui", "owned"), { skip: (s, e) => e.name === "node_modules" });
@@ -185,7 +188,7 @@ async function main() {
   const npmSbom = [];
   for (const pkgName of graph.bare) copyNpmPackageClosure(pkgName, path.join(appDst, "node_modules"), npmSbom);
   // shims/ + scripts the launcher and the signer need
-  copyTree(path.join(ROOT, "packages", "hypervisor-harness-shims"), path.join(stage, "shims"), { skip: (s, e) => e.name === "node_modules" });
+  copyTree(path.join(ROOT, "packages", "hypervisor-harness-shims"), path.join(stage, "packages", "hypervisor-harness-shims"), { skip: (s, e) => e.name === "node_modules" });
   for (const f of ["scripts/lib/mint-approval-grant.mjs", "scripts/lib/mint-standing-approval-grant.mjs", "scripts/lib/hypervisor-alpha-release.mjs"]) copyFile(path.join(ROOT, f), path.join(stage, f));
   copyFile(path.join(HERE, "install-hypervisor-alpha-release.mjs"), path.join(stage, "install.mjs"), 0o755);
 
@@ -207,18 +210,18 @@ async function main() {
       node_bins_profile_dir: path.relative(ROOT, nodeBins),
     },
     components: {
-      daemon: component("bin/hypervisor-daemon", { crate: "ioi-node", launch: "bin/hypervisor-daemon (env: IOI_HYPERVISOR_DAEMON_ADDR, IOI_HYPERVISOR_DATA_DIR, IOI_HYPERVISOR_MODEL, IOI_HYPERVISOR_MODEL_UPSTREAM, IOI_HYPERVISOR_HARNESS_SHIM=<install>/shims/generic-cli-local.mjs, plus <authority state>/daemon.env)" }),
+      daemon: component("bin/hypervisor-daemon", { crate: "ioi-node", launch: "bin/hypervisor-daemon with cwd = the release root (env: IOI_HYPERVISOR_DAEMON_ADDR, IOI_HYPERVISOR_DATA_DIR, IOI_HYPERVISOR_MODEL, IOI_HYPERVISOR_MODEL_UPSTREAM, IOI_HYPERVISOR_HARNESS_SHIM=<install>/packages/hypervisor-harness-shims/generic-cli-local.mjs, plus <authority state>/daemon.env)" }),
       grant_signer: component("bin/mint-approval-grant", { crate: "ioi-node" }),
       authority_node_control: component("bin/wallet-network-local-authority", { crate: "ioi-cli" }),
-      served_app: { path: "app/scripts/serve-product-ui.mjs", sha256: byPath.get("app/scripts/serve-product-ui.mjs").sha256, product_ui_tree: "app/product-ui/owned/public", launch: "node app/scripts/serve-product-ui.mjs (env: IOI_HYPERVISOR_DAEMON_URL, PORT, IOI_PRODUCT_UI_PUBLIC=<install>/app/product-ui/owned/public, plus <authority state>/serve.env)", npm_packages: graph.bare },
-      harness_shim: component("shims/generic-cli-local.mjs", { harness: "generic-cli-local" }),
+      served_app: { path: "apps/hypervisor/scripts/serve-product-ui.mjs", sha256: byPath.get("apps/hypervisor/scripts/serve-product-ui.mjs").sha256, product_ui_tree: "apps/hypervisor/product-ui/owned/public", launch: "node apps/hypervisor/scripts/serve-product-ui.mjs (env: IOI_HYPERVISOR_DAEMON_URL, PORT, IOI_PRODUCT_UI_PUBLIC=<install>/apps/hypervisor/product-ui/owned/public, IOI_MINT_APPROVAL_GRANT_BINARY=<install>/bin/mint-approval-grant, plus <authority state>/serve.env)", npm_packages: graph.bare },
+      harness_shim: component("packages/hypervisor-harness-shims/generic-cli-local.mjs", { harness: "generic-cli-local" }),
       installer: component("install.mjs"),
     },
     prerequisites: {
       model_route: { kind: "local OpenAI-compatible model route", qualified: "Ollama serving qwen2.5:7b at http://127.0.0.1:11434/v1", provided_by_package: false },
       authority_node: {
         kind: "deployment-local wallet.network authority node",
-        bring_up: "node app/scripts/wallet-network-authority.mjs up --state-dir <dir> --principal-ref domain://<host> --binary <install>/bin/wallet-network-local-authority",
+        bring_up: "node apps/hypervisor/scripts/wallet-network-authority.mjs up --state-dir <dir> --principal-ref domain://<host> --binary <install>/bin/wallet-network-local-authority",
         provided_by_package: "control binary and validator binaries only",
         relocatable: false,
         absence: "the authority node's validator launcher resolves its binaries and build directory from the source checkout it was compiled in (crates/cli/src/testing/validator.rs), so `up` must run inside a checkout of the same revision; the packaged node-bins/ are the same bytes it launches",

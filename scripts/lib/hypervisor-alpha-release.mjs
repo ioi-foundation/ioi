@@ -10,9 +10,11 @@
 //   bin/           hypervisor-daemon, mint-approval-grant, wallet-network-local-authority
 //   node-bins/     orchestration, workload, guardian, ioi-signer (the authority node's validator
 //                  processes for the Solo/IAVL profile)
-//   app/           the served App: apps/hypervisor scripts + surfaces + product-ui (owned tree)
-//                  + the node packages its import graph reaches
-//   shims/         packages/hypervisor-harness-shims
+//   apps/hypervisor/                    the served App (scripts, surfaces, owned product-ui tree) at
+//                                       its REPOSITORY path so its relative imports resolve as in
+//                                       the checkout, plus the node packages its import graph reaches
+//   packages/hypervisor-harness-shims/  the harness shims at their repository path
+//   scripts/lib/                        the grant-signer and release libraries the App imports
 //   install.mjs    the installer (verify / install / activate / rollback / status)
 //
 // Verification never trusts the manifest for its own integrity: the signature is checked against

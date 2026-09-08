@@ -246,8 +246,9 @@ none maintains separate lifecycle truth.
 
 Implementation (bounded alpha, 2026-09-07): the packaged release is built by
 `scripts/package-hypervisor-alpha-release.mjs` (daemon, grant signer,
-authority-node control binary and validator binaries, the served App with the
-node packages its import graph reaches, the harness shims, the installer; a
+authority-node control binary and validator binaries, the served App and the
+harness shims at their repository paths with the node packages the App's
+import graph reaches, the installer; a
 manifest naming the checkout, toolchains, cargo profile, every file digest and
 the SBOM; an Ed25519 signature over the manifest). `install.mjs` verifies
 against an operator-PINNED signer key — never a key carried by the package —
