@@ -1,4 +1,5 @@
 import { envelope } from "../logic/classify.mjs";
+import { DOWN_STATES } from "../logic/health.mjs";
 
 // The small shared pieces. Each carries the rule it enforces, because each exists
 // because that rule was once broken on this surface.
@@ -83,7 +84,8 @@ export const Waiting = ({ what, title, why, willShow }) => (
 // there is one, is shown beneath this panel dated as the previous reading. Nothing
 // here retries on a timer: a page that hammers a daemon that is down is not being
 // helpful, and nothing spins.
-const DOWN_STATES = new Set(["candidate_plane_unreachable", "candidate_plane_timeout", "face_read_failed", "job_plane_unreachable", "job_plane_timeout"]);
+// The set of down states lives in health.mjs, where the shell's banner reads it too:
+// one list, so a state the panel calls "down" is a state the banner shows.
 export const Failure = ({ result }) => {
   const { code, detail } = envelope(result);
   const down = DOWN_STATES.has(code);

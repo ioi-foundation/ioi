@@ -44,25 +44,40 @@
 // SPEND reads the daemon's budgets and draws settled spend as a labelled door;
 // SETTINGS renders the surface's own configuration route, which never leaves the
 // process.
+// THE RAIL IS ORGANISED BY WHAT A PERSON WANTS, NOT BY WHICH NETWORK SUPPLIES IT.
+// Home; Deploy (the front door: one envelope, the field of quotes beside it);
+// Workloads (what is running or finished, and its posture); Resources (the catalogue,
+// live prices, where work would be placed, storage custody, network); Marketplace (the
+// supply side made visible, and whether it is answering); Account (money and
+// authority); and this surface itself. A provider name never appears in the rail: the
+// venue is a detail a reader inspects from a workload, never a menu they browse first.
+//
+// STORAGE AND NETWORK ARE UNWIRED. Each is drawn in full — the shape a console user
+// opens the tab for — and says on its own page that no route on the capability table
+// returns a custody plan, a storage lease, an ingress, a name or a certificate. Their
+// resource classes are canon and are already rows in the catalogue; the pages link
+// there for what the daemon can say today.
 export const SURFACES = [
-  // The landing. Every resource class the router can be asked for, by category, and
-  // every venue that can supply it, with its state read from the daemon on every
-  // render — the decentralized counterpart of a console's "all services" page. It is
-  // wired: it reads candidate-sources and the latest candidates batch.
-  // The console's welcome page and default surface: quick actions and widgets that
+  // The console's welcome page and default surface: a status strip and widgets that
   // read candidate-sources, jobs, budgets and the latest candidates batch.
   { id: "home", label: "Home", group: "console", wired: true },
-  { id: "catalog", label: "All resources", group: "console", wired: true },
-  { id: "candidates", label: "Candidates", group: "obtain", wired: true },
-  { id: "placement", label: "Placement", group: "obtain", wired: true },
-  { id: "job", label: "Submit a job", group: "obtain", wired: true },
-  { id: "receipts", label: "Jobs & receipts", group: "run", wired: true },
-  { id: "redundancy", label: "Redundancy", group: "run", wired: false },
+  // The front door. One CloudJobRequest, human or agent, with the live field of
+  // quotes for the intent drawn beside the form — candidates before commitment.
+  { id: "job", label: "Deploy", group: "console", wired: true },
+  { id: "receipts", label: "Jobs & receipts", group: "workloads", wired: true },
+  { id: "redundancy", label: "Redundancy", group: "workloads", wired: false },
+  // Every resource class the router can be asked for, by category, and every venue
+  // that can supply it, with its state read from the daemon on every render.
+  { id: "catalog", label: "All resources", group: "resources", wired: true },
+  { id: "candidates", label: "Live prices", group: "resources", wired: true },
+  { id: "placement", label: "Placement", group: "resources", wired: true },
+  { id: "storage", label: "Storage", group: "resources", wired: false },
+  { id: "network", label: "Network", group: "resources", wired: false },
+  { id: "supply", label: "Supply registry", group: "marketplace", wired: false },
+  { id: "sources", label: "Sources & health", group: "marketplace", wired: true },
   // Spend reads the daemon's budgets; settled spend stays a labelled door on the page.
   { id: "spend", label: "Spend", group: "account", wired: true },
-  { id: "sources", label: "Sources & health", group: "account", wired: true },
   { id: "iam", label: "IAM · leases", group: "account", wired: false },
-  { id: "supply", label: "Supply registry", group: "account", wired: false },
   { id: "api", label: "API", group: "surface", wired: true },
   { id: "settings", label: "Settings", group: "surface", wired: true },
 ];
@@ -71,11 +86,20 @@ export const SURFACES = [
 // here and carried by no surface is not drawn.
 export const GROUPS = [
   { id: "console", label: "" },
-  { id: "obtain", label: "Obtain capacity" },
-  { id: "run", label: "Run" },
+  { id: "workloads", label: "Workloads" },
+  { id: "resources", label: "Resources" },
+  { id: "marketplace", label: "Marketplace" },
   { id: "account", label: "Account" },
   { id: "surface", label: "This surface" },
 ];
+
+// The group a surface sits in, by the word the rail shows — the page header's eyebrow,
+// so the crumb a reader sees over a heading is the same word they clicked in the rail.
+export const groupLabel = (id) => {
+  const s = SURFACES.find((x) => x.id === id);
+  const g = s && GROUPS.find((x) => x.id === s.group);
+  return (g && g.label) || "Console";
+};
 
 export const SURFACE_IDS = SURFACES.map((s) => s.id);
 export const DEFAULT_SURFACE = "home";
@@ -120,11 +144,25 @@ export const unknownFromHash = (hash) => {
   const [name, sub] = raw.split("/");
   if (!isSurface(name)) return raw;
   if (name === "catalog" && sub && !isAnchor(sub)) return raw;
+  if (name === "receipts" && sub && !isJobId(sub)) return raw;
   return null;
+};
+
+// A JOB RECORD HAS AN ADDRESS: #/receipts/<job id>. It is a view of the Jobs &
+// receipts surface (not a surface: no rail button, the gate's sweep is unchanged)
+// that reads the one record by id through the route already on the capability table.
+// The id is bounded the way the proxy bounds its path parameter, so an address that
+// could not be a job id is a 404 rather than a request.
+const JOB_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
+const isJobId = (s) => JOB_ID.test(String(s || ""));
+export const jobIdFromHash = (hash) => {
+  const [name, sub] = parts(hash);
+  return name === "receipts" && isJobId(sub) ? sub : null;
 };
 
 export const hashForSurface = (name) => `#/${isSurface(name) ? name : DEFAULT_SURFACE}`;
 export const hashForCategory = (id) => (isAnchor(id) ? `#/catalog/${id}` : hashForSurface("catalog"));
+export const hashForJob = (id) => (isJobId(id) ? `#/receipts/${id}` : hashForSurface("receipts"));
 
 // The rail's search. It matches a surface by label or id, case-insensitively, and
 // returns the registry order — a filter, not a ranking, because a ranking of twelve

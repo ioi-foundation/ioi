@@ -1,9 +1,81 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
+import { intentRef } from "../logic/read.mjs";
+import { stamp, duration } from "../logic/classify.mjs";
+import { latestBatch, summarise } from "../logic/batches.mjs";
 import { Chip, Failure } from "../components/Bits.jsx";
 import Receipt from "../components/Receipt.jsx";
+import PageHead from "../components/PageHead.jsx";
+import Freshness from "../components/Freshness.jsx";
+import { hashForSurface } from "../logic/surfaces.mjs";
 import { HUMAN_REQUEST, AGENT_REQUEST } from "../logic/job-request.mjs";
 import { composeRequest, admit, dryRun, refusal, jobView } from "../logic/job-door.mjs";
+
+// THE FIELD BESIDE THE FORM — candidates before commitment.
+//
+// A hyperscaler hides the field because it is the only bidder. Here, seeing the venues
+// compete is the product, so the front door draws the latest sweep's live quotes for
+// this intent beside the envelope: each venue quoting, how many quotes, its cheapest,
+// and the window the cheapest is still good for. It is READ, not chosen — the request
+// names no venue and the placement is the daemon's, evidenced in the receipt — and
+// the panel says so, because a list beside a form reads as a picker until told
+// otherwise. It is the same read Home and Live prices make, from the same batch rule.
+function Field() {
+  const intent = intentRef();
+  const cands = useSurfaceRead("candidates", `/api/candidates?intent_ref=${encodeURIComponent(intent)}&latest=true`);
+  const { live, venues, cheapest } = useMemo(() => {
+    const { latest } = latestBatch(cands.data?.candidates);
+    return summarise(latest.items);
+  }, [cands.data]);
+  const byVenue = venues.map((v) => {
+    const items = live.filter((c) => c.provider_kind === v);
+    return { venue: v, n: items.length, best: items[0] };
+  });
+  return (
+    <aside className="deploy-field" aria-labelledby="deploy-field-h">
+      <div className="eyebrow">the field for this intent</div>
+      <h2 id="deploy-field-h" className="deploy-field-h">Who is quoting right now</h2>
+      {cands.phase === "failed" && <Failure result={cands.failure} />}
+      {byVenue.length > 0 ? (
+        <ul className="field-venues">
+          {byVenue.map((v) => (
+            <li key={v.venue} className="field-venue">
+              <div className="field-venue-head">
+                <span className="mono field-venue-name">{v.venue}</span>
+                <span className="meta">{v.n} live quote{v.n === 1 ? "" : "s"}</span>
+              </div>
+              <div className="field-venue-price mono">${v.best.quote.usd_per_hour.toFixed(4)}<span className="meta"> / GPU · hour · cheapest</span></div>
+              <div className="meta">{v.best.display_name || v.best.provider_kind}</div>
+              <Freshness observedAt={v.best.observed_at} expiresAt={v.best.expires_at} size="row" />
+            </li>
+          ))}
+        </ul>
+      ) : cands.phase === "first" ? (
+        <p className="prose">Asking the daemon for the latest sweep — about a second. Nothing is drawn until it answers.</p>
+      ) : cands.phase === "ready" ? (
+        <p className="prose">No venue in the latest sweep passes the live rule. No price has been invented to stand here.</p>
+      ) : null}
+      {cheapest && (
+        <p className="meta">
+          {live.length} live across {venues.length} venue{venues.length === 1 ? "" : "s"} · <Chip kind="live">live_evidence</Chip>
+        </p>
+      )}
+      <p className="prose field-note">
+        This is not a picker. The request below names no venue: the daemon decides the
+        placement against every candidate it holds, and the venue is evidence in the
+        receipt. The field is here so you can see what the decision will be made from.
+      </p>
+      <p className="meta widget-read">
+        {cands.phase === "first"
+          ? "asking GET /api/candidates?latest=true"
+          : cands.data
+            ? `GET /api/candidates?latest=true · read at ${stamp(cands.at)} in ${duration(cands.ms)}`
+            : "GET /api/candidates?latest=true — the read failed; see above"}
+        {" · "}<a href={hashForSurface("candidates")}>every quote →</a>
+      </p>
+    </aside>
+  );
+}
 
 // SUBMIT A JOB — WIRED, on the human path.
 //
@@ -49,7 +121,7 @@ export default function Job({ announce }) {
   const [dry, setDry] = useState(null);
   const [dryBusy, setDryBusy] = useState(false);
 
-  useEffect(() => { announce("Submit a job — wired to the daemon on the human path"); }, [announce]);
+  useEffect(() => { announce("Deploy — one envelope, wired to the daemon on the human path"); }, [announce]);
 
   const spendBudgets = (budgets.data?.budgets || budgets.data?.items || [])
     .filter((b) => b.scope === "external_spend");
@@ -134,13 +206,14 @@ export default function Job({ announce }) {
 
   return (
     <div className="stack" style={{ gap: "26px" }}>
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>Submit a job</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          This much capacity, under this budget, for this long, receipt back. You do not
-          name a venue — the venue is evidence in the receipt, not an input to the request.
-        </p>
-      </div>
+      <PageHead
+        surface="job"
+        title="Deploy"
+        lede="This much capacity, under this budget, for this long, receipt back. One envelope, human or agent. You do not name a venue — the venue is evidence in the receipt, not an input to the request."
+        aside={<Chip kind="live">wired · POST /v1/hypervisor/cloud-jobs · dry run only</Chip>}
+      />
+      <div className="deploy">
+      <div className="stack deploy-main" style={{ gap: "26px" }}>
 
       {/* ── THE LANE, AS THREE STATES ──────────────────────────────────────
           This was a five-sentence paragraph, and it was the worst paragraph-test
@@ -374,6 +447,9 @@ export default function Job({ announce }) {
       )}
 
       {budgets.phase === "failed" && <Failure result={budgets.failure} />}
+      </div>
+      <Field />
+      </div>
 
       {/* ── The same primitive, from both doors ────────────────────────────── */}
       <div className="stack" style={{ gap: "14px", marginTop: "6px" }}>

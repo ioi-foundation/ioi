@@ -4,6 +4,7 @@ import { intentRef } from "../logic/read.mjs";
 import { stamp, duration } from "../logic/classify.mjs";
 import { populationLine, FUNNEL_NOTE } from "../logic/population.mjs";
 import { Waiting, Failure, Kept, Chip } from "../components/Bits.jsx";
+import PageHead from "../components/PageHead.jsx";
 
 // PLACEMENT — an ADVISORY, and the word is load-bearing.
 //
@@ -64,7 +65,6 @@ export default function Placement({ announce }) {
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
-      <h1>Placement</h1>
       {/* THE SUBJECT OF THE ADVISORY, which this page never showed.
           A cold reader: "I can tell what it CLAIMS to be… What I cannot tell is what it
           is an advisory FOR. There is no job, no intent, no request shown anywhere on
@@ -72,10 +72,11 @@ export default function Placement({ announce }) {
           They were right, and the surface has always known the answer — it is the
           intent_ref this very read was made with. An answer rendered without its
           question is a fact nobody can check. */}
-      <p className="meta">
-        an advisory for intent <span className="mono">{intentRef()}</span> · read in{" "}
-        {duration(state.ms)}
-      </p>
+      <PageHead
+        surface="placement"
+        title="Placement"
+        meta={`an advisory for intent ${intentRef()} · GET /api/placement-advisory · read in ${duration(state.ms)}`}
+      />
       {/* WHAT A READER DOES WITH THIS, first. Two cold readers failed this page on
           question one for two different reasons. The first could not tell what the
           advisory was ABOUT — fixed by showing the intent. The second could not tell

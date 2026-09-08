@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { Waiting, Failure, Kept, Eyebrow, Chip } from "../components/Bits.jsx";
 import { stamp } from "../logic/classify.mjs";
+import PageHead from "../components/PageHead.jsx";
 
 // SETTINGS — wired, to the one route this surface answers itself.
 //
@@ -38,13 +39,12 @@ export default function Settings({ announce }) {
 
   const view = (
     <div className="stack" style={{ gap: "24px" }}>
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>Settings</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          What this surface is configured to do. Every line is its own configuration
-          route; nothing here changes the daemon.
-        </p>
-      </div>
+      <PageHead
+        surface="settings"
+        title="Settings"
+        lede="What this surface is configured to do. Every line is its own configuration route; nothing here changes the daemon."
+        aside={<Chip kind="live">wired · GET /api/face-config</Chip>}
+      />
 
       <div className="table-scroll">
         <table className="table t-pairs">

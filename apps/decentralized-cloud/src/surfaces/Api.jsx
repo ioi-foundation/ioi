@@ -20,6 +20,7 @@ import { useEffect } from "react";
 // list at all. It renders one.
 
 import { readRoutes, writeRoutes, capabilitySentences } from "../logic/capability.mjs";
+import PageHead from "../components/PageHead.jsx";
 
 const SENTENCES = capabilitySentences();
 const READS = readRoutes();
@@ -30,13 +31,11 @@ export default function Api({ announce }) {
 
   return (
     <div className="stack" style={{ gap: "24px" }}>
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>API</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          {SENTENCES.whatItDoes} Exact-match, GET only for the reads. Query parameters
-          not listed are dropped rather than forwarded.
-        </p>
-      </div>
+      <PageHead
+        surface="api"
+        title="API"
+        lede={`${SENTENCES.whatItDoes} Exact-match, GET only for the reads. Query parameters not listed are dropped rather than forwarded.`}
+      />
 
       <div className="table-scroll">
         <table className="table t-api">

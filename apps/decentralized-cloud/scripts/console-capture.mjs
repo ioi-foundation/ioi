@@ -58,6 +58,9 @@ const ARRIVAL = {
   supply: ".t-supply .trow",
   settings: ".t-pairs .trow",
   home: ".t-health .trow",
+  // Storage and Network are drawn and unwired; each renders its own table synchronously.
+  storage: ".t-storage .trow",
+  network: ".t-network .trow",
 };
 
 const browser = await chromium.launch({

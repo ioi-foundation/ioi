@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface, searchSurfaces, catalogCategoryFromHash, unknownFromHash } from "./logic/surfaces.mjs";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface, catalogCategoryFromHash, unknownFromHash, jobIdFromHash } from "./logic/surfaces.mjs";
 import NotFound from "./surfaces/NotFound.jsx";
 import { forget } from "./logic/read.mjs";
 import { capabilitySentences } from "./logic/capability.mjs";
 import Topbar from "./components/Topbar.jsx";
 import Rail from "./components/Rail.jsx";
+import Footbar from "./components/Footbar.jsx";
+import DaemonBanner from "./components/DaemonBanner.jsx";
+import { IconMenu, IconInfo } from "./components/Icons.jsx";
 import Catalog from "./surfaces/Catalog.jsx";
 import Candidates from "./surfaces/Candidates.jsx";
 import Sources from "./surfaces/Sources.jsx";
@@ -18,6 +21,8 @@ import Iam from "./surfaces/Iam.jsx";
 import Supply from "./surfaces/Supply.jsx";
 import Settings from "./surfaces/Settings.jsx";
 import Home from "./surfaces/Home.jsx";
+import Storage from "./surfaces/Storage.jsx";
+import Network from "./surfaces/Network.jsx";
 import { recordVisit } from "./logic/visited.mjs";
 
 const CAPABILITY = capabilitySentences();
@@ -36,37 +41,46 @@ const VIEWS = {
   iam: Iam,
   supply: Supply,
   settings: Settings,
+  storage: Storage,
+  network: Network,
 };
 
-// THE CONSOLE SHELL: a top bar, a product rail down the left, and the surface.
+// The navigation panel is open by default where there is room for it and closed on
+// a phone; the hamburger in the bar under the top bar toggles it at every width.
+const PHONE = 700;
+const startOpen = () => (typeof window === "undefined" ? true : window.innerWidth > PHONE);
+
+// THE CONSOLE SHELL: a top bar, a thin bar under it with the hamburger and the info
+// door, the navigation panel down the left, the surface, and a foot bar.
 //
-// The shape is the one a stranger from another cloud console already knows — the
-// rail is where the products are, the top bar is where search, the principal and the
-// placement posture are — and the substance is this daemon's: every entry in the rail
-// is a surface that reads the daemon or says on its own page that it does not.
+// The shape is the one a stranger from another cloud console already knows, and the
+// substance is this daemon's: every entry in the panel is a surface that reads the
+// daemon or says on its own page that it does not. Between the bars and the surface
+// sits the one fact every read shares: whether the daemon answered the last one. It
+// is drawn once, by the shell, when it did not.
 export default function App() {
   const [surface, setSurface] = useState(() =>
     typeof location === "undefined" ? DEFAULT_SURFACE : surfaceFromHash(location.hash)
   );
   const [announcement, setAnnouncement] = useState("");
-  const [query, setQuery] = useState("");
-  // The catalogue category an address opens at, or null for the whole catalogue.
   const [category, setCategory] = useState(() =>
     typeof location === "undefined" ? null : catalogCategoryFromHash(location.hash)
   );
-  // An address that is not a surface, kept so the 404 can show it; null otherwise.
   const [missing, setMissing] = useState(() =>
     typeof location === "undefined" ? null : unknownFromHash(location.hash)
   );
+  const [jobId, setJobId] = useState(() =>
+    typeof location === "undefined" ? null : jobIdFromHash(location.hash)
+  );
+  const [railOpen, setRailOpen] = useState(startOpen);
   const mainRef = useRef(null);
 
-  // Back and Forward move between surfaces rather than out of the app. `hashchange`
-  // fires for both, and for someone pasting a link into an already-open tab.
   useEffect(() => {
     const onHash = () => {
       setSurface(surfaceFromHash(location.hash));
       setCategory(catalogCategoryFromHash(location.hash));
       setMissing(unknownFromHash(location.hash));
+      setJobId(jobIdFromHash(location.hash));
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -74,74 +88,64 @@ export default function App() {
 
   // Leaving Candidates drops its stale-paint handle: a batch rendered before the
   // reader navigated away must not reappear under a later refresh as though it had
-  // just been read. Sources keeps its cache deliberately — a revisit there should show
-  // the previous answer at once rather than a minute of blank page — and the two are
-  // different rules for the same reason, which is that "stale" means different things
-  // to a price and to a source's health.
+  // just been read.
   const go = useCallback((name) => {
     if (name !== "candidates") forget("candidates:paint");
-    // A rail button opens the WHOLE surface: pressing "All resources" while a
-    // category is open returns to the full catalogue, which is what the label says.
     if (location.hash !== hashForSurface(name)) location.hash = hashForSurface(name);
     setSurface(name);
     setCategory(null);
     setMissing(null);
+    setJobId(null);
+    // On a phone, choosing a surface closes the panel it was chosen from.
+    if (typeof window !== "undefined" && window.innerWidth <= PHONE) setRailOpen(false);
   }, []);
 
-  // The search filters the rail. Every surface matches an empty query, so the rail is
-  // whole whenever nothing is typed; a query that matches nothing leaves the rail empty
-  // and the scope line says "0 surfaces match" rather than pretending.
-  const matches = useMemo(() => new Set(searchSurfaces(query).map((s) => s.id)), [query]);
-  const onSearchEnter = useCallback(() => {
-    const first = searchSurfaces(query)[0];
-    if (!first) return;
-    setQuery("");
-    go(first.id);
-    mainRef.current?.focus();
-  }, [query, go]);
-
-  // Recently visited, for Home — this browser only, never sent anywhere.
   useEffect(() => { recordVisit(surface); }, [surface]);
 
   const View = VIEWS[surface] || VIEWS[DEFAULT_SURFACE];
   const meta = SURFACES.find((s) => s.id === surface);
+  const host = typeof location === "undefined" ? "—" : location.host;
 
   return (
     <>
-      {/* The rail is twelve tab stops on every surface, so a keyboard reader gets a
-          way past them. */}
       <a className="skip" href="#surface">Skip to the surface</a>
 
-      <div className="console">
-        <Topbar
-          query={query}
-          setQuery={setQuery}
-          onSearchEnter={onSearchEnter}
-          matchCount={matches.size}
-        />
+      <div className={`console${railOpen ? "" : " rail-closed"}`}>
+        <Topbar go={go} announce={setAnnouncement} surface={surface} />
 
-        <Rail
-          surface={surface}
-          go={go}
-          matches={query.trim() ? matches : null}
-          daemonHost={typeof location === "undefined" ? "—" : location.host}
-          capabilityChip={CAPABILITY.chip}
-          category={category}
-        />
+        {/* The thin bar under the top bar: the hamburger that opens and closes the
+            navigation panel, and the info door on the right (the API surface, which
+            says exactly what this console may ask). */}
+        <div className="subbar">
+          <button
+            type="button"
+            id="rail-toggle"
+            className="bar-btn subbar-btn"
+            aria-label={railOpen ? "Close the navigation panel" : "Open the navigation panel"}
+            aria-expanded={railOpen}
+            aria-controls="console-rail"
+            onClick={() => setRailOpen((v) => !v)}
+          >
+            <IconMenu />
+            <span className="subbar-current">{meta?.label || "Home"}</span>
+          </button>
+          <a className="bar-btn subbar-btn" href={hashForSurface("api")} aria-label="About this console — what it may ask the daemon" title="Info"><IconInfo /></a>
+        </div>
 
-        {/* Announce WHAT CHANGED, not the document. `aria-live` used to sit on <main>,
-            so every surface swap re-announced the whole page. */}
+        <Rail surface={surface} go={go} category={category} open={railOpen} />
+
         <p id="surface-status" className="sr-only" role="status" aria-live="polite">
           {announcement}
         </p>
 
-        {/* `tabIndex={-1}` because the skip link above is inert without it: a browser
-            will not move focus to an element that cannot receive it. */}
         <main id="surface" tabIndex={-1} ref={mainRef}>
+          <DaemonBanner host={host} />
           {missing
             ? <NotFound address={missing} announce={setAnnouncement} />
-            : <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} />}
+            : <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} jobId={jobId} />}
         </main>
+
+        <Footbar daemonHost={host} capabilityChip={CAPABILITY.chip} />
       </div>
     </>
   );

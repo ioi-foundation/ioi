@@ -14,18 +14,25 @@
 // you can always tell where a number came from; a page that shows one surface's data
 // under another surface's label breaks exactly the promise it exists to make.
 
+import { reportRead } from "./health.mjs";
+
+// Every outcome is also reported to the shell's reachability fact (health.mjs), so the
+// daemon-down banner is drawn from the reads that actually happened and nothing else.
 export async function read(path) {
   const started = Date.now();
+  let result;
   try {
     const res = await fetch(path, { headers: { accept: "application/json" } });
     const body = await res.json();
-    return { ok: res.ok, status: res.status, body, ms: Date.now() - started };
+    result = { ok: res.ok, status: res.status, body, ms: Date.now() - started };
   } catch (err) {
     // A network failure is rendered as a named state, not as an empty surface. An
     // empty table on this page has to keep meaning "no live price"; it can never also
     // come to mean "the read broke".
-    return { ok: false, status: 0, body: { state: "face_read_failed", reason: String(err) }, ms: Date.now() - started };
+    result = { ok: false, status: 0, body: { state: "face_read_failed", reason: String(err) }, ms: Date.now() - started };
   }
+  reportRead(path, result);
+  return result;
 }
 
 // ── The stale-while-refresh store ───────────────────────────────────────────

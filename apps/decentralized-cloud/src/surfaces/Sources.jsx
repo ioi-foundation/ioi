@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { stamp, duration } from "../logic/classify.mjs";
 import { Chip, Waiting, Failure, Kept, breakable } from "../components/Bits.jsx";
+import PageHead from "../components/PageHead.jsx";
 
 // SOURCES — the surface stale-while-refresh was built for.
 //
@@ -121,10 +122,11 @@ export default function Sources({ announce }) {
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
-      <h1>Sources &amp; health</h1>
-      <p className="meta">
-        {sources.length} sources asked · read at {stamp(state.at)} in {duration(state.ms)} · GET /api/candidate-sources
-      </p>
+      <PageHead
+        surface="sources"
+        title="Sources & health"
+        meta={`${sources.length} sources asked · GET /api/candidate-sources · read at ${stamp(state.at)} in ${duration(state.ms)}`}
+      />
       <div className="health-strip" role="group" aria-label="Source health — press a tile to filter the ledger">
         {tile("quoting", "live", quoting.length, "quoting live prices", "live_quote_source")}
         {tile("answering", "muted", answering.length, "answering, no price", "available · credential_preflight_only · storage_backends_engaged")}

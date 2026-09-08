@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { NotConnected, Chip } from "../components/Bits.jsx";
+import PageHead from "../components/PageHead.jsx";
 
 // REDUNDANCY POSTURE — designed, not connected.
 //
@@ -72,13 +73,12 @@ export default function Redundancy({ announce }) {
           phone a reader met 280px of limits before learning what the page was. It is
           still above the table, in its own words, where a reader sees it before any
           posture. */}
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>Redundancy</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          A posture is declared or it is absent. It is never inferred, never defaulted,
-          and never applied by a fallback you did not authorize.
-        </p>
-      </div>
+      <PageHead
+        surface="redundancy"
+        title="Redundancy"
+        lede="A posture is declared or it is absent. It is never inferred, never defaulted, and never applied by a fallback you did not authorize."
+        aside={<Chip kind="absent">designed, not connected</Chip>}
+      />
 
       <NotConnected>
         The postures below are the canonical RedundancyPosture values and this surface

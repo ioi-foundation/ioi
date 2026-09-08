@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { NotConnected, Unwired, Eyebrow, Chip } from "../components/Bits.jsx";
 import { hashForSurface } from "../logic/surfaces.mjs";
+import PageHead from "../components/PageHead.jsx";
 
 // SUPPLY REGISTRY — the marketplace page, designed, not connected.
 //
@@ -19,13 +20,12 @@ export default function Supply({ announce }) {
 
   return (
     <div className="stack" style={{ gap: "24px" }}>
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>Supply registry</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          Every venue placement can draw on, the evidence each one quotes with, and the
-          rule that none of them is preferred — including the estate&rsquo;s own.
-        </p>
-      </div>
+      <PageHead
+        surface="supply"
+        title="Supply registry"
+        lede="Every venue placement can draw on, the evidence each one quotes with, and the rule that none of them is preferred — including the estate's own."
+        aside={<Chip kind="absent">designed, not connected</Chip>}
+      />
 
       <NotConnected>
         This surface reads no registry. No route on the capability table returns

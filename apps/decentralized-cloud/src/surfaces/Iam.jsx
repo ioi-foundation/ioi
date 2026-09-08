@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { NotConnected, Unwired, Eyebrow } from "../components/Bits.jsx";
+import { NotConnected, Unwired, Eyebrow, Chip } from "../components/Bits.jsx";
+import PageHead from "../components/PageHead.jsx";
 
 // IAM — leases, designed, not connected.
 //
@@ -19,14 +20,12 @@ export default function Iam({ announce }) {
 
   return (
     <div className="stack" style={{ gap: "24px" }}>
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>IAM · leases</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          A principal is a wallet. What it may do is a lease — scoped, expiring, drawn
-          down — never a role in a user table, and never a provider credential in the
-          caller&rsquo;s hands.
-        </p>
-      </div>
+      <PageHead
+        surface="iam"
+        title="IAM · leases"
+        lede="A principal is a wallet. What it may do is a lease — scoped, expiring, drawn down — never a role in a user table, and never a provider credential in the caller's hands."
+        aside={<Chip kind="absent">designed, not connected</Chip>}
+      />
 
       <NotConnected>
         This surface holds no wallet session and reads no lease. No route on the

@@ -240,6 +240,12 @@ const SRC_FILES = [
   "src/surfaces/Home.jsx",
   "src/logic/visited.mjs",
   "src/surfaces/NotFound.jsx",
+  "src/surfaces/Storage.jsx",
+  "src/surfaces/Network.jsx",
+  "src/components/PageHead.jsx",
+  "src/components/DaemonBanner.jsx",
+  "src/logic/health.mjs",
+  "src/logic/palette.mjs",
 ];
 
 const srcText = () => SRC_FILES.map((f) => readFileSync(path.join(APP, f), "utf8")).join("\n");
@@ -388,6 +394,11 @@ function checkUnwiredSurfaces() {
     ["src/surfaces/Redundancy.jsx", "Redundancy", "RedundancyPosture"],
     ["src/surfaces/Iam.jsx", "IAM", "CapabilityLease"],
     ["src/surfaces/Supply.jsx", "Supply registry", "CloudSupplyRegistration"],
+    // The two console tabs a hyperscaler user opens first, drawn and unwired. Each
+    // names the canon object it would read: storage the CustodyPlan, network the
+    // NetworkRequirement (and both the ResourceLease beneath).
+    ["src/surfaces/Storage.jsx", "Storage", "CustodyPlan"],
+    ["src/surfaces/Network.jsx", "Network", "NetworkRequirement"],
   ]) {
     const body = stripComments(readFileSync(path.join(APP, file), "utf8"));
     ok(`${surface} is labelled designed, not connected`,
@@ -415,7 +426,7 @@ function checkUnwiredSurfaces() {
   ok("Spend reads budgets and still draws settled spend as an Unwired door, naming the shape",
     /\/api\/budgets/.test(spendSrc) && /<Unwired/.test(spendSrc) && /SpendEstimate/.test(spendSrc) &&
       /provider spend reconciliation — not on the capability table/.test(spendSrc));
-  for (const id of ["redundancy", "iam", "supply"]) {
+  for (const id of ["redundancy", "iam", "supply", "storage", "network"]) {
     ok(`the registry marks ${id} unwired while it renders an unwired label`,
       new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*false`).test(registry));
   }
@@ -1493,6 +1504,30 @@ async function checkResponsiveLayout() {
     // the collision probe at any width, while the coverage line said "7 of 7".
     const { SURFACES: REGISTRY } = await import(path.join(APP, "src/logic/surfaces.mjs"));
     const SURFACES = REGISTRY.map((s) => s.id);
+
+    // THE RAIL IS A DISCLOSURE ON A PHONE, and the sweep opens it before it clicks.
+    //
+    // Below 700 the fifteen surfaces sit behind one toggle row. Playwright's own
+    // `page.click` waits for the target to be VISIBLE, so on a phone width every
+    // `.nav button` click below would have waited thirty seconds, been swallowed by
+    // its `.catch`, and left the sweep measuring the wrong surface in silence — the
+    // exact shape of the vacuous pass this file exists to refuse. So every surface
+    // change goes through one helper: open the toggle if it is drawn and closed, then
+    // click the button in-page. Choosing a surface closes the disclosure again, which
+    // is the product's own behaviour and is what the phone assertions measure.
+    const openRail = async (page) => {
+      const opened = await page.evaluate(() => {
+        const t = document.getElementById("rail-toggle");
+        if (!t || getComputedStyle(t).display === "none") return false;
+        if (t.getAttribute("aria-expanded") === "false") t.click();
+        return true;
+      });
+      if (opened) await page.waitForTimeout(160);
+    };
+    const navTo = async (page, s) => {
+      await openRail(page);
+      await page.evaluate((id) => document.querySelector(`.nav button[data-surface="${id}"]`)?.click(), s);
+    };
     for (const w of [1920, 1520, 1440, 1180, 900, 640, 390]) {
       const page = await browser.newPage({ viewport: { width: w, height: 900 } });
       // CANDIDATES BY NAME. The landing is now the catalog; this block's assertions
@@ -1624,7 +1659,7 @@ async function checkResponsiveLayout() {
         //
         // So this counts the RENDERED ROWS and compares them to the RENDERED SENTENCE.
         // Generating a number is not the same as generating it from the right set.
-        await page.click('.nav button[data-surface="api"]').catch(() => {});
+        await navTo(page, "api");
         await page.waitForSelector(".t-api .trow", { timeout: 20000 }).catch(() => {});
         const apiCounts = await page.evaluate(() => {
           const words = {
@@ -1652,13 +1687,47 @@ async function checkResponsiveLayout() {
       // The read-backed surfaces are slow and their emptiness is not a layout fault,
       // so the ones that render synchronously carry the width check.
       for (const s of ["job", "redundancy", "receipts", "api", "candidates"]) {
-        await page.click(`.nav button[data-surface="${s}"]`).catch(() => {});
+        await navTo(page, s);
         await page.waitForTimeout(220);
         const m = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         ok(`at ${w}px the ${s} surface does not scroll sideways`, m <= 0, `overflow ${m}px`);
       }
-      await page.click(`.nav button[data-surface="candidates"]`).catch(() => {});
+      await navTo(page, "candidates");
       await page.waitForTimeout(400);
+
+      // ── THE NAVIGATION PANEL: OPEN ON A DESKTOP, CLOSED ON A PHONE, ONE TOGGLE ──
+      // The hamburger in the sub-bar (#rail-toggle) toggles the panel at every width.
+      // Measured after choosing a surface: on a desktop the panel is open by default
+      // with every surface button painted; below 700 it is closed by default and NOT
+      // ONE nav button is painted — the chrome a phone was paying for is gone, not
+      // merely restyled — and the toggle names the open surface. Mutation-tested by
+      // leaving the panel displayed while closed: the phone count went to fifteen and
+      // this went red.
+      const phone = await page.evaluate(() => {
+        const t = document.getElementById("rail-toggle");
+        const drawn = !!t && getComputedStyle(t).display !== "none";
+        const painted = [...document.querySelectorAll(".nav button[data-surface]")]
+          .filter((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length;
+        const current = document.querySelector('.nav button[aria-current="page"]')?.textContent.trim()
+          || document.querySelector(".subbar-current")?.textContent.trim() || null;
+        return { drawn, expanded: t ? t.getAttribute("aria-expanded") : null, painted,
+          names: !!t && !!current && t.textContent.includes(current), current };
+      });
+      if (w <= 700) {
+        ok(`at ${w}px the navigation panel is closed by default, its toggle names the open surface, and no nav button is painted`,
+          phone.drawn && phone.expanded === "false" && phone.painted === 0 && phone.names,
+          `toggle drawn: ${phone.drawn}, aria-expanded: ${phone.expanded}, nav buttons painted while closed: ${phone.painted}, ` +
+            `toggle names "${phone.current}": ${phone.names}`,
+          1);
+      } else {
+        ok(`at ${w}px the navigation panel is open by default with every surface painted`,
+          phone.drawn && phone.expanded === "true" && phone.painted === REGISTRY.length,
+          `toggle drawn: ${phone.drawn}, aria-expanded: ${phone.expanded}, nav buttons painted: ${phone.painted} of ${REGISTRY.length}`,
+          phone.painted);
+      }
+      // Opened for the visibility probe below: every surface must be reachable once
+      // the disclosure is open, which is what "visible and reachable" means on a phone.
+      await openRail(page);
       const m = await page.evaluate(() => {
         const overflow = document.documentElement.scrollWidth - window.innerWidth;
         // "Leaf" means CARRIES ITS OWN TEXT, not childless: a chip holds a dot span
@@ -1702,7 +1771,7 @@ async function checkResponsiveLayout() {
         // job is catching hand-maintained counts. If the nav's selector ever stops
         // matching, this finds zero buttons and "none of them is clipped" becomes true
         // of nothing.
-        const navTargets = [...document.querySelectorAll(".nav button")];
+        const navTargets = [...document.querySelectorAll(".nav button[data-surface]")];
         for (const b of navTargets) {
           let box = b.getBoundingClientRect();
           let node = b.parentElement;
@@ -1775,7 +1844,7 @@ async function checkResponsiveLayout() {
             : "NOTHING TO CHECK — no table rows were rendered at this width, so this " +
               "assertion passed without looking at anything",
         m.cellsSeen);
-      ok(`at ${w}px every surface in the nav is visible and reachable`,
+      ok(`at ${w}px every surface in the nav is visible and reachable${w <= 700 ? " once the disclosure is open" : ""}`,
         m.invisible.length === 0,
         m.invisible.length
           ? `clipped out of sight: ${m.invisible.join(", ")}`
@@ -1809,6 +1878,9 @@ async function checkResponsiveLayout() {
         // Home's health widget is a table fed by candidate-sources, which always
         // answers with rows; it is the surface's arrival signal.
         home: ".t-health",
+        // Storage and Network: drawn and unwired, each with a synchronous table of
+        // its own shape.
+        storage: ".t-storage", network: ".t-network",
       };
       // FAIL CLOSED ON AN UNLISTED SURFACE. `TABLE_OF[unknown]` is undefined, and
       // `if (want)` then SKIPS the wait with `arrived` still true — the surface is
@@ -1819,7 +1891,7 @@ async function checkResponsiveLayout() {
       }
       const sweep = [];
       for (const s of SURFACES) {
-        await page.click(`.nav button[data-surface="${s}"]`).catch(() => {});
+        await navTo(page, s);
         const want = TABLE_OF[s];
         let arrived = true;
         if (want) {

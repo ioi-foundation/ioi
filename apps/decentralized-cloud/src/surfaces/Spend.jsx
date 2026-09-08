@@ -3,6 +3,7 @@ import { useSurfaceRead } from "../useSurfaceRead.js";
 import { stamp, duration } from "../logic/classify.mjs";
 import { Unwired, Eyebrow, Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 import { hashForSurface } from "../logic/surfaces.mjs";
+import PageHead from "../components/PageHead.jsx";
 
 // SPEND — cost and usage. Wired to the daemon's budgets; the rest drawn and labelled.
 //
@@ -42,13 +43,13 @@ export default function Spend({ announce }) {
 
   const view = (
     <div className="stack" style={{ gap: "24px" }}>
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>Spend</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          Cost and usage. Real provider spend only, reconciled by the daemon; a quote is
-          a quote, a simulator is labelled a simulator, and neither is ever counted here.
-        </p>
-      </div>
+      <PageHead
+        surface="spend"
+        title="Spend"
+        lede="Cost and usage. Real provider spend only, reconciled by the daemon; a quote is a quote, a simulator is labelled a simulator, and neither is ever counted here."
+        meta={`${budgets.length} external_spend budget${budgets.length === 1 ? "" : "s"} · GET /api/budgets · read at ${stamp(state.at)} in ${duration(state.ms)}`}
+        aside={<Chip kind="live">wired · GET /api/budgets</Chip>}
+      />
 
       <section className="stack" style={{ gap: "10px" }} aria-labelledby="spend-budgets">
         <div className="widget-head">

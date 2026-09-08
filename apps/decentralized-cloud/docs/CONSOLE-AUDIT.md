@@ -366,6 +366,134 @@ banner, which needs a shell-level notion of "the daemon is down" (next item).
 | 404 | – 7 4 – – – – 4 → 8 9 7 8 – – 8 7 | `012-errors/notfound-1440.png` |
 | Daemon-down | (per-read panel) → 7 9 6 8 – 8 8 7 | `012-errors/down-home-390.png` |
 
+## Iteration 013 — the console as imagined: seven groups, a palette, a front door (2026-09-07, owner-directed)
+
+The owner asked for the imagined console — a DePIN aggregator that sells an outcome,
+not a provider list — to be made real here, and to be better than Vercel, Fly.io and
+the AWS console. This iteration is the structural cut; every honesty rule of the
+programme is unchanged and the gate grew to cover the new shapes.
+
+**Should look and feel like:** a rail organised by what a person wants (Home, Deploy;
+Workloads; Resources; Marketplace; Account; This surface) with no venue name in it; a
+search box that is a command palette; one page-header shape everywhere; a front door
+that shows the field of quotes beside the envelope; a home that opens on four figures
+and a list of what needs a look; Storage and Network as first-class tabs, drawn and
+labelled; one daemon-down banner; a phone rail behind one row; a job record with an
+address. **Routes:** none added. The palette indexes the kept answers of the existing
+reads; the job page reads `/api/jobs/:id`, already on the table; Deploy's field is the
+`candidates?latest=true` read Home already makes.
+
+What landed, by file:
+
+- `logic/surfaces.mjs` — fifteen surfaces in six groups; `storage` and `network`
+  registered `wired: false`; `groupLabel`; `#/receipts/<id>` as a job address
+  (`jobIdFromHash`, `hashForJob`, bounded like the proxy's path parameter).
+- `surfaces/Storage.jsx`, `surfaces/Network.jsx` — designed, not connected, naming
+  CustodyPlan / StorageRequirement / ResourceLease and NetworkRequirement; the canon's
+  four classes each; every figure an Unwired door; links to the catalogue family that
+  the daemon can speak to today.
+- `logic/palette.mjs` + `components/Topbar.jsx` — the palette: surfaces and anchors,
+  plus sources, venues, jobs and budgets from the kept reads, each with its state and
+  read stamp; `/` or ⌘K; combobox semantics; per-kind cap of four; the scope line
+  counts what is indexed ("15 surfaces · nothing read yet to search" on a cold load).
+- `components/PageHead.jsx` — crumb (the rail group's word), h1, lede, meta, aside;
+  applied to every surface but the catalogue's hero page.
+- `logic/health.mjs` + `components/DaemonBanner.jsx` — reachability from `read()`
+  outcomes; one banner under the top bar while the last daemon read was a named
+  unreachable state; the rail foot's daemon dot (never green).
+- `surfaces/Job.jsx` — "Deploy": the envelope with a sticky field beside it — venues
+  quoting, count, cheapest, window — labelled "not a picker".
+- `surfaces/Home.jsx` — status strip (sources quoting · live quotes · budget remaining
+  · job records) and "Needs a look" (unavailable sources, refused jobs, not-live
+  candidates, budget ≥ four fifths drawn), all from the four existing reads; job ids
+  link to their pages.
+- `surfaces/JobDetail.jsx` — the record, the placement, the receipts as tickets, the
+  raw body behind a disclosure; the self-contradicting `placed`-without-venue case shown
+  as both halves.
+- `components/Rail.jsx` — anchors disclosed only while the catalogue is open; the
+  phone disclosure (`#rail-toggle`, closed by default, names the open surface).
+- Gate: Storage and Network in the unwired list and `TABLE_OF`; every nav click
+  through `navTo` (opens the phone disclosure first, evaluate-click); two new
+  assertions — at ≤700 the rail is a closed disclosure naming the open surface with
+  no nav button painted, at >700 no toggle is drawn. Mutation: `.rail-groups` left
+  displayed while closed → red at 640 and 390 (`face-gate-014-mutant.log`); the
+  first run also caught an orphan class (`deploy-main`) and the Storage tier chips
+  painted over their descriptions at 390 (`face-gate-013.log`), both fixed.
+
+**The owner's critique, mid-iteration, twice, and the shape that answered it.** The
+owner looked at the first build of this iteration and called it garbage, with a
+screenshot; a dark-chrome pass later they said it still looked like shit next to the
+AWS Console Home, attached two captures of it and one of Vercel's dashboard, and
+named what was missing: the applications/services grid icon, fidelity in the
+labelling and the design. They were right both times. The first cut was an
+information architecture in wireframe clothing; the second was a dashboard, not a
+console. The shape that stands now (the last blocks of `face.css`, written to take the
+cascade) follows the reference's ergonomics with our substance:
+
+- **Top bar, 48px, onyx:** lockup · the nine-dot **services grid** (`#services-button`,
+  a menu of every surface by group with an icon each and the dashed mark on the five
+  unwired) · search with its `[/]` key chip (the palette, results in a pop-over with
+  the scope line at its head) · terminal (API) · bell with the count of what needs a
+  look from the kept reads (product records only) · help and gear (Settings) · two
+  dropdown-shaped doors where a region selector and an account sit: **Posture · on the
+  intent** → Placement, **No wallet session** → IAM.
+- **Sub-bar, 40px, paper:** the hamburger (`#rail-toggle`, open by default on a
+  desktop, closed on a phone, naming the open surface) and the info door (API).
+- **Navigation panel, 248px, paper:** bold section titles with dividers, an icon per
+  surface (the product's own strokes, one weight), the open one on the surface tint
+  with the edge bar.
+- **Canvas:** grey (`--canvas`, the token file's grey-400) with white **widgets** —
+  bold 18px title, an "Info" link, an outlined action pill, the body, a centred
+  "Go to …" footer link, and beneath it the read line no reference has: route, time,
+  duration. Console Home: Recently visited (with the reference's empty state and four
+  commonly visited doors) · Welcome (three doors with glyphs) · Health (three counts
+  over their windows) · Cost and usage (spent / remaining / budget, the bar, the
+  Unwired settled-spend door) · Live prices (the cheapest with its window, one line per
+  venue) · Recent activity (33) · Sources (13) · Resources (the four families).
+- **Foot bar, onyx, sticky:** API · Settings · Brand on the left; the project line on
+  the right — the daemon dot, `#daemon-label`, `#refresh-chip` (moved here from the
+  rail's foot; a panel that closes is no place for the one line owed on every screen).
+
+Meanings are unchanged: green is live evidence (and, as the design system's own link
+colour, the links and pills), red is expired or failed, the gradient is identity. The
+gate's toggle assertions were rewritten for the one toggle: open by default with
+every surface painted above 700, closed with none painted and the surface named at
+700 and below.
+
+Captures: `.artifacts/console/013-vision/` (fifteen surfaces × five widths + reduced);
+scratch `b1-*.png` (the wireframe cut the owner rejected), `c1-*.png`, `c2-*.png` (the
+dark-chrome dashboard the owner rejected), `d1-home-1440.png`, `d1-services-1440.png`,
+`d1-home-closed-1440.png`, `d1-home-390.png` (the console shape).
+
+What the captures show. At 1440 the rail reads as a product list — Home, Deploy,
+then Workloads, Resources, Marketplace, Account — with the five unwired tabs wearing
+the dashed mark; the foot (daemon dot, capability chip) sits at 882px in a 900px
+viewport. Home opens on four tiles (2 of 13 quoting in green · 44 live from $0.0136 ·
+USD 5 of 5 · 33 records, 18 placed) then "Needs a look" (8 unavailable · 10 refused ·
+3 not live). Deploy shows the lane and the form with the field beside it: runpod 20
+live from $0.1300, vast 24 live from $0.0136, each with its window bar. The palette on
+"run" returns the Runtime family, the runpod source with its state, the runpod venue
+with its count and cheapest, and four job records with "N more match". At 390 the
+first heading now sits **280px** down the screen (394 before) with the rail closed;
+open, the fifteen surfaces wrap into five rows. The job page carries the record as a
+two-column pairs table, the placement panel, the receipts, and the raw body.
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| Chrome (rail + palette + banner) | 7 9 7 8 – – 7 7 → 9 9 8 8 – – 8 8 | `013-vision/home-1440.png`, `b1-palette-1440.png` |
+| Home | 8 9 7 8 6 7 7 7 → 9 9 8 8 7 7 8 8 | `013-vision/home-1440.png`, `home-390.png` |
+| Deploy (was Submit a job) | 5 9 6 7 5 7 8 7 → 8 9 8 8 7 8 8 8 | `013-vision/job-1440.png` |
+| Jobs & receipts + job page | 7 9 7 7 8 7 8 7 → 8 9 7 7 8 7 8 7 | `b2-jobdetail-1440.png` |
+| Storage | 0 → 7 9 7 8 3 – 7 7 | `013-vision/storage-1440.png` |
+| Network | 0 → 7 9 7 8 3 – 7 7 | `013-vision/network-1440.png` |
+| Command palette | 4 9 7 8 – – 7 6 → 8 9 8 8 6 – 8 8 | `b1-palette-1440.png` |
+| Chrome at 390 | 7 9 7 8 – – 7 7 → 8 9 8 8 – – 8 8 | `b2-phone-closed.png`, `b2-phone-open.png` |
+
+Open after this iteration: no dark theme (the token file has the onyx steps; a
+console people leave open at night wants one); the catalogue's hero page does not use
+the shared header; the palette does not deep-link a venue into the Live prices filter;
+narration transcripts (item 10) still unmeasured.
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
@@ -375,12 +503,16 @@ banner, which needs a shell-level notion of "the daemon is down" (next item).
 5. ~~Jobs list as a resource table~~ — landed in iteration 007 (sort, filter, sticky head at ≥1300).
 6. ~~Catalogue anchors~~ — landed in iteration 009.
 7. ~~Candidates: sort and filter controls~~ — landed in iteration 010 (no sticky head: the grouped table's row-group heads are the anchors).
-8. ~~Phone chrome~~ — iteration 011 took it from 544 to 394px before the h1, fixed
-   the chip wrap and hid the drawing at phone width. Remaining: a phone rail
-   disclosure (needs the nav-visibility assertion rewritten and mutation-tested).
-9. ~~404 and daemon-down as compositions~~ — landed in iteration 012. Remaining: one
-   daemon-down banner on Home instead of four panels.
-10. Live-region narration transcripts for a rail navigation and a search.
+8. ~~Phone chrome~~ — iteration 011 took it from 544 to 394px before the h1; iteration
+   013's disclosure took it to 280px, with the nav assertions rewritten and mutated.
+9. ~~404 and daemon-down as compositions~~ — landed in iteration 012; the shell-level
+   banner landed in 013.
+10. Live-region narration transcripts for a rail navigation and a palette search.
+11. ~~The console as imagined~~ — iteration 013: seven-group rail, palette, PageHead,
+    Deploy's field, Home's strip, Storage and Network, job pages.
+12. Dark theme from the onyx tokens, honoured from the system setting.
+13. The catalogue's hero page on the shared header; palette venue results opening
+    Live prices with that venue's filter pressed.
 
 ## Kernel gaps this console waits on (recorded, not decided here)
 

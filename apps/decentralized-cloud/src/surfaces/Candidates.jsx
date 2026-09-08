@@ -6,6 +6,7 @@ import { latestBatch, summarise, venueVerdict } from "../logic/batches.mjs";
 import { populationLine, FUNNEL_NOTE } from "../logic/population.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 import Freshness from "../components/Freshness.jsx";
+import PageHead from "../components/PageHead.jsx";
 
 const POLL_MS = 30_000;
 
@@ -85,13 +86,13 @@ export default function Candidates({ announce }) {
 
   useEffect(() => {
     if (state.phase === "first") return;
-    announce(`Candidates — ${verdict.heading}`);
+    announce(`Live prices — ${verdict.heading}`);
   }, [state.phase, verdict.heading, announce]);
 
   if (state.phase === "first") return (
     <Waiting
       what="candidates"
-      title="Candidates"
+      title="Live prices"
       willShow={
         "This page lists the live rental prices the daemon holds for one intent, " +
         "cheapest first: which venue quoted, what the price is per hour, the quote it " +
@@ -192,22 +193,24 @@ export default function Candidates({ announce }) {
 
   const board = (
     <div className="stack" style={{ gap: "18px" }}>
-      <h1>Candidates</h1>
       {/* THE POPULATION LINE, from the one derivation every counting surface uses.
           Four cold readers could not reconcile 45 live here against 4,514 considered on
           Placement and 13 sources on Sources — all three correct, all three counting
           different sets, with nothing naming the sets. Three true numbers with no
           stated relationship read as three claims that cannot all be true. */}
-      <p className="meta">
-        {populationLine({
-          live: live.length,
-          venues: venues.length,
-          batch: latest.items.length,
-          // The daemon's own number, so this page and Placement cannot disagree.
-          held: considered,
-        })}
-        {cheapest ? ` · cheapest ${price(cheapest.quote.usd_per_hour)}/hr` : ""}
-      </p>
+      <PageHead
+        surface="candidates"
+        title="Live prices"
+        meta={
+          populationLine({
+            live: live.length,
+            venues: venues.length,
+            batch: latest.items.length,
+            // The daemon's own number, so this page and Placement cannot disagree.
+            held: considered,
+          }) + (cheapest ? ` · cheapest ${price(cheapest.quote.usd_per_hour)}/hr` : "")
+        }
+      />
       <p className="meta">{FUNNEL_NOTE}</p>
 
       <div className={`panel flag stack`} style={{ gap: "9px" }}>

@@ -4,6 +4,9 @@ import { stamp, duration } from "../logic/classify.mjs";
 import { jobView, originUnknown, ORIGIN_TAGGING_SINCE } from "../logic/job-door.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 import Receipt from "../components/Receipt.jsx";
+import PageHead from "../components/PageHead.jsx";
+import JobDetail from "./JobDetail.jsx";
+import { hashForSurface, hashForJob } from "../logic/surfaces.mjs";
 
 // RECEIPTS — WIRED, and rendered from real records.
 //
@@ -20,8 +23,11 @@ import Receipt from "../components/Receipt.jsx";
 // candidates. That is the daemon's rule to enforce; this surface's job is to never
 // contradict it, which it does by rendering only what a record says.
 
-export default function Receipts({ announce }) {
-  const state = useSurfaceRead("jobs", "/api/jobs");
+export default function Receipts({ announce, jobId = null }) {
+  // The list is the hook's owner; the detail is its own component so the ledger's
+  // read is not paid to open one record. Hooks below run unconditionally; the
+  // branch is on what is rendered.
+  const state = useSurfaceRead("jobs", "/api/jobs", { enabled: !jobId });
   const allJobs = (Array.isArray(state.data?.jobs) ? state.data.jobs : []).map(jobView);
 
   // THE GATE'S OWN RECORDS ARE HIDDEN, COUNTED, AND AVAILABLE — never deleted.
@@ -80,9 +86,11 @@ export default function Receipts({ announce }) {
   const unattributed = jobs.filter(originUnknown);
 
   useEffect(() => {
-    if (state.phase === "first") return;
+    if (jobId || state.phase === "first") return;
     announce(`Jobs — ${jobs.length} job records, sorted by ${sort.key} ${sort.dir === "asc" ? "ascending" : "descending"}, ${withReceipts.length} carrying receipts`);
-  }, [state.phase, jobs.length, withReceipts.length, sort.key, sort.dir, announce]);
+  }, [jobId, state.phase, jobs.length, withReceipts.length, sort.key, sort.dir, announce]);
+
+  if (jobId) return <JobDetail id={jobId} announce={announce} />;
 
   if (state.phase === "first") return (
     <Waiting
@@ -100,7 +108,6 @@ export default function Receipts({ announce }) {
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
-      <h1>Jobs &amp; receipts</h1>
       {/* SHOWN, HIDDEN, AND THE TOTAL — all three, because two of them alone are worse
           than either. A cold reader: "30 records shown, 37 hidden. The header count
           says 30 without saying whether 30 includes or excludes the 37. From the
@@ -108,13 +115,16 @@ export default function Receipts({ announce }) {
           unexplained number in the whole set."
           They were right: `jobs` is the filtered list and `allJobs` is everything, and
           the page published the filtered count as though it were the population. */}
-      <p className="meta">
-        {jobs.length} job record{jobs.length === 1 ? "" : "s"} shown
-        {gateJobs.length > 0 && !showGate
-          ? ` · ${gateJobs.length} hidden · ${allJobs.length} in total`
-          : ""}
-        {" · "}{withReceipts.length} carrying receipts · read in {duration(state.ms)}
-      </p>
+      <PageHead
+        surface="receipts"
+        title="Jobs & receipts"
+        meta={
+          `${jobs.length} job record${jobs.length === 1 ? "" : "s"} shown` +
+          (gateJobs.length > 0 && !showGate ? ` · ${gateJobs.length} hidden · ${allJobs.length} in total` : "") +
+          ` · ${withReceipts.length} carrying receipts · GET /api/jobs · read in ${duration(state.ms)}`
+        }
+        aside={<a className="button button-small" href={hashForSurface("job")}>Deploy a job</a>}
+      />
       <p className="prose">
         Every row is a record the daemon holds. A receipt is the only place a fee
         exists: no fee is charged for pricing, for looking, or for a decision taken
@@ -172,7 +182,8 @@ export default function Receipts({ announce }) {
               {jobs.map((j) => (
                 <tr key={j.id} className="trow">
                   <th scope="row" className="stack" style={{ gap: "6px" }}>
-                    <div className="mono" style={{ fontSize: "13px" }}>{j.id}</div>
+                    {/* The id is the row's door to its own page. */}
+                    <a className="entry-name mono" style={{ fontSize: "13px" }} href={hashForJob(j.id)}>{j.id}</a>
                     <div className="meta">{stamp(j.createdAt)}</div>
                   </th>
                   <td className="mono basis">
