@@ -1,189 +1,60 @@
-# decentralized.cloud
+# decentralized.cloud — the Hypervisor daemon's native contract
 
-Status: alpha canon architecture doctrine.
-Canonical owner: this file for `decentralized.cloud`, cloud resource
-candidate semantics, optimized placement intelligence, resource liquidity
-routing, cloud-placement receipts, the public product face and
-`CloudJobRequest` composition (ADR 0051), the cloud supply registry, and
-cloud-routing anti-patterns.
-Supersedes: product prose that treats `decentralized.cloud` as Hypervisor's
-cloud control plane, provider account owner, VM lifecycle owner, authority
-layer, restore truth layer, mandatory cloud gateway, or storage custody owner.
-Superseded by: none.
-Last alignment pass: 2026-09-04 (ADR 0051: public face, job primitive,
-local capacity as a venue, supply registry, fee binding).
+Status: alpha canon; the daemon-side contract for `decentralized.cloud`.
+Canonical owner: this file for the objects, routes and typed absences the
+Hypervisor daemon implements for `decentralized.cloud` — the native contract the
+cloud consumes through its provider-adapter boundary. The PRODUCT is specified in
+[`cloud/`](./cloud/README.md) (thesis, resource model, console, control plane,
+adapters, placement, compute, storage, network, identity, money, observability,
+recovery, API, roadmap) and re-scoped by
+[`cloud/adr/0001`](./cloud/adr/0001-decentralized-cloud-is-a-product.md).
+Supersedes: the earlier version of this file that defined `decentralized.cloud`
+as a read-only public face over the daemon with an owns / does-not-own list; that
+framing is retired by ADR 0001 (decentralized.cloud is a product with its own
+resource model, control plane and ledger; the daemon is one adapter target).
+Superseded by: `cloud/` for everything about the product; this file keeps only
+what the daemon does today.
+Last alignment pass: 2026-09-08 (ADR 0001: re-scoped to the native contract).
 Doctrine status: canonical
-Implementation status: mixed (candidate plane + quote sources + guarded lifecycles over the BYO provider plane are built; the public face, `CloudJobRequest`, `local_capacity` source, supply registry, and minted `RoutingDecisionReceipt` are planned)
+Implementation status: mixed (candidate plane + quote sources + guarded lifecycles over the BYO provider plane are built; the job envelope is admitted and dry-run only; `local_capacity`, supply registry, fee object and redundancy postures beyond `none` are absent — see the typed-absence sweep below)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs`
   - `apps/hypervisor/scripts/verify-hypervisor-cloud-candidate-plane.mjs`
   - `apps/hypervisor/scripts/verify-hypervisor-vast-candidate-adapter.mjs`
   - `apps/hypervisor/scripts/verify-hypervisor-vast-lifecycle.mjs`
-Last implementation audit: 2026-09-04 (route sweep for the public face and fee state; the built candidate-plane claims retain their 2026-07-05 basis)
+  - `apps/decentralized-cloud/scripts/verify-decentralized-cloud-face.mjs` (the console's gate against this contract)
+Last implementation audit: 2026-09-04 (route sweep; the built candidate-plane claims retain their 2026-07-05 basis)
 
-## Canonical Definition
+## How this file relates to the product specification
 
-`decentralized.cloud` is a preferred first-party resource-intelligence engine
-for cloud infrastructure capacity.
+Under [ADR 0001](./cloud/adr/0001-decentralized-cloud-is-a-product.md) the daemon is
+an execution and acquisition substrate behind the adapter contract in
+[`cloud/040-provider-abstraction.md`](./cloud/040-provider-abstraction.md), and a
+runtime the cloud's own services may be placed on. What follows is what the
+adapter may claim about it: the resource classes it validates, the objects it
+holds, the routes it answers, and — by name — what it does not do yet. For every
+object the spec primitive it maps to is stated, so the two documents cannot drift
+into two vocabularies for one thing.
 
-It answers:
+| Native object (this file) | Spec primitive ([`cloud/010`](./cloud/010-resource-model.md)) | Note |
+| --- | --- | --- |
+| `CloudResourceIntent` | `ResourceClaim` (internal) under an `Application` / `Service` | The intent is a claim; the Application above it is the spec's, not yet the daemon's |
+| `CloudJobRequest` | `Job` + `Plan` (admit = plan; dry run = plan execution stopped at placement) | One envelope, human or agent; the caller_kind resolver is the estate's authority backend |
+| `CloudResourceCandidate` | `Offer` (observed market cache) | Evidence-bound and expiring; never a reservation |
+| `PlacementDecision` | `Plan`'s selected placement → `Allocation` on execution | Advisory and decision are evidence, never authority |
+| `PlacementDecisionReceipt` | `ExternalEffect` / evidence reference on the `Operation` | Explicitly not a `RoutingDecisionReceipt`; no fee minted |
+| `ResourceLease` | `ProviderLease` (adapter state) | Provider-native; cannot authorize spend |
+| `CustodyPlan` | [`cloud/070`](./cloud/070-storage.md) storage class + retention contract | The daemon holds custody posture; the cloud owns the storage contract |
+| `FailoverPlan` | Recovery within an approved Execution Envelope ([`cloud/030`](./cloud/030-control-plane.md) §12.2) | Reactive failover exists; proactive redundancy does not |
+| `SpendEstimate` | `Quote` + `SpendGrant` ([`cloud/100`](./cloud/100-money.md)) | Daemon-side reconciliation against `external_spend` |
+| `RedundancyPosture` | `Placement Policy` diversity + service objectives ([`cloud/050`](./cloud/050-placement-and-supply.md)) | Only `none` is accepted today |
+| `CloudSupplyRegistration` | `Provider` + `Offer` in the provider registry ([`cloud/040`](./cloud/040-provider-abstraction.md)) | Absent today |
 
-```text
-I need infrastructure capacity with these constraints.
-Which compute, storage, network, GPU, runtime, or custody candidates are
-available across connected, managed, centralized, decentralized, and
-customer-owned providers?
-```
+The spec's Application, Service, Deployment, LogicalReplicaSlot, WorkloadAttempt,
+Endpoint, Bucket, Volume, Network, Domain, ledger and settlement objects have no
+native counterpart in the daemon; they are the cloud's own, per ADR 0001.
 
-It is analogous to a cloud DEX or OpenRouter-style meta-router for cloud
-resources, but the IOI canon makes it primarily an API/RPC/SDK candidate engine
-consumed by Hypervisor, wallet.network, ioi.ai, agents, and third-party
-clients. It does not own execution, provider accounts, authority, restore
-validity, or storage truth.
-
-```text
-decentralized.cloud proposes resource candidates.
-wallet.network authorizes spend, provider credentials, grants, and revocation.
-Hypervisor provisions, executes, snapshots, restores, supervises, and tears down.
-Agentgres records admitted truth, receipts, state roots, and restore validity.
-Storage backends hold encrypted bytes.
-The system settles locally unless its declared profile selects an external
-service such as IOI L1 for triggered public, economic, dispute, registry,
-rights, reputation, or cross-domain commitments.
-```
-
-In Hypervisor product UX, the user does not choose between Hypervisor and
-`decentralized.cloud`. The clean placement choices are:
-
-```text
-Run local
-Use my infrastructure
-Pick a cloud
-Let Hypervisor choose
-```
-
-`decentralized.cloud` powers two layers without taking away user choice:
-
-```text
-Pick a cloud
-  show venues, provider posture, regions, GPU/CPU/storage/network options,
-  estimated cost, custody posture, reliability, and support boundaries
-  the user pins the venue
-
-Let Hypervisor choose
-  compare venues, candidates, quotes, failover plans, custody posture,
-  provider reliability, and spend estimates
-  Hypervisor selects or recommends the placement under policy
-```
-
-Hypervisor still executes the selected environment lifecycle. `Pick a cloud`
-is therefore compatible with a visible adapter/orchestration fee when Hypervisor
-performs provider lifecycle work, and `Let Hypervisor choose` is compatible with
-a visible routing/procurement fee when optimized placement creates challengeable
-routing value.
-
-## Public Product Face
-
-[ADR 0051](../../../decisions/0051-decentralized-cloud-public-face-job-primitive-and-supply-registry.md)
-permits `decentralized.cloud` to be a **standalone public product face** in
-addition to the engine Hypervisor consumes internally. The face has two
-surfaces:
-
-```text
-Candidate API / SDK / explorer
-  "what capacity is available now, at what evidence-backed price, until when"
-  served at the decentralized.cloud origin; read-only; every response carries
-  source, adapter, observed_at, expires_at, and evidence refs; sources without
-  adapters answer candidate_source_unavailable — never an invented price
-
-Job API (the branded front for Hypervisor's optimized-placement lane)
-  "this much capacity, under this budget, for this long, receipt back"
-  one CloudJobRequest; the same primitive for a human or an agent caller;
-  tool-callable (MCP and native tool schema) and console/CLI-callable with
-  identical semantics and identical receipts
-```
-
-Brand is not owner. The face composes four owners and adds none:
-
-```text
-decentralized.cloud proposes and normalizes candidates.
-wallet.network authorizes: a wallet grant for a human, a scoped
-  CapabilityLease draw-down for an agent — the caller never holds provider
-  credentials.
-Hypervisor places, provisions, supervises, fails over, and tears down.
-Agentgres records what ran and what it cost.
-```
-
-The face therefore has no private authority store, session plane, credential
-vault, provider integration, placement scorer, or receipt format. It is served
-by the Hypervisor daemon under the existing auth-gated rollout posture at the
-`decentralized.cloud` origin (ADR 0051 §7, owner-reversible). Direct use by a
-third party changes the front door, not the owner of authority, execution, or
-truth, and it never becomes a requirement for Hypervisor users, who keep the
-four placement choices above.
-
-The abstraction earns its weight only when the caller can stop knowing the
-venue names. A caller that must choose between named providers is using the
-`Pick a cloud` surface, not the job API.
-
-## Owns
-
-`decentralized.cloud` may own or coordinate:
-
-- API/RPC/SDK endpoints for cloud resource candidates;
-- provider quote and resource-liquidity discovery;
-- centralized cloud, DePIN compute, GPU marketplace, storage, network, and
-  customer-cloud candidate adapters;
-- candidate normalization across resource classes;
-- quote comparison, cost/risk/latency/capacity scoring, and policy hints;
-- provider reliability, availability, interruption, region, and custody
-  posture projections;
-- optimized placement, failover, and re-placement suggestions;
-- resource-candidate receipts and route analytics;
-- adapter registry metadata for cloud resource sources;
-- lightweight explorer or status views over candidate supply;
-- the public candidate API/SDK/explorer and the branded job API front at the
-  `decentralized.cloud` origin (ADR 0051);
-- the `CloudJobRequest` composition envelope and its tool/console schemas;
-- cloud supply registry metadata for managed and contributed supply
-  (`CloudSupplyRegistration`), never the accounts, credentials, or custody
-  behind it.
-
-## Does Not Own
-
-`decentralized.cloud` does not own:
-
-- provider accounts or credentials;
-- Wallet authority, spend approval, grants, revocation, or signatures;
-- Hypervisor environment lifecycle;
-- VM, container, runtime, storage, IP, ingress, or model-server execution;
-- Agentgres operation admission, state roots, receipts, or restore validity;
-- storage payload bytes or encrypted archive custody;
-- private workspace plaintext or custody proof;
-- provider infrastructure;
-- marketplace settlement;
-- IOI L1 settlement truth.
-
-Correct framing:
-
-```text
-decentralized.cloud routes cloud resource liquidity.
-Hypervisor runs the workload.
-wallet.network authorizes it.
-Agentgres proves what happened.
-```
-
-Incorrect framing:
-
-```text
-decentralized.cloud is Hypervisor's cloud control plane.
-decentralized.cloud owns provider accounts.
-decentralized.cloud approval is enough to spend or deploy.
-decentralized.cloud owns VM lifecycle or restore truth.
-All Hypervisor cloud placement must route through decentralized.cloud.
-```
-
-## Resource Classes
+## Native resource classes
 
 Start bounded. The first resource classes are:
 
@@ -214,7 +85,7 @@ caches, observability, and higher PaaS surfaces may be added only after adapter
 contracts, authority semantics, receipts, custody posture, and restore/failover
 behavior are real.
 
-## Lifecycle
+## Native lifecycle (how the daemon places today)
 
 ```text
 user, agent, app, automation, or Hypervisor requests infrastructure capacity
@@ -241,7 +112,7 @@ user, agent, app, automation, or Hypervisor requests infrastructure capacity
      declared enrollment and settlement profiles select it
 ```
 
-## Minimal Implementation Objects
+## Native objects
 
 ### CloudResourceIntent
 
@@ -564,7 +435,7 @@ anti-cannibalization rule 13, invariant 16). A router believed to prefer its
 own pool is a supplier wearing a router's name, and the venues stop wanting to
 be routed to.
 
-## Implemented Contract (candidate plane)
+## Native routes — implemented contract (candidate plane)
 
 Implementation status: built — candidate plane plus quote sources and
 guarded lifecycles for Vast, RunPod, Lambda, Akash, AWS, and GCP ride the
@@ -664,66 +535,10 @@ augmentation modules, surface dirs, the RPC adapter, and engine bodies found:
 These are the objects ADR 0051 names. Each is `planned`; none may be described
 as shipped until its `canon-to-code-delta.md` row records closure.
 
-## Product Suite Position
-
-`decentralized.cloud` completes the first `decentralized.*`
-candidate-intelligence suite under the IOI / `ioi.ai` public umbrella:
-
-```text
-decentralized.exchange  -> route value
-decentralized.trade     -> route risk / exposure
-decentralized.cloud     -> route infrastructure capacity
-```
-
-Short form:
-
-```text
-Route value. Route risk. Route infrastructure.
-Under authority. With receipts.
-```
-
-`decentralized.xyz` may exist as a protocol/docs/redirect namespace, but it is
-not the required public umbrella. The public umbrella is IOI / `ioi.ai`; the
-`decentralized.*` names are the precise protocol surfaces behind Exchange,
-Trade, and Cloud Routing.
-
-Under ADR 0051, `decentralized.cloud` is additionally a standalone public
-product face with its own customers and its own front door. That standing is
-commercial, not architectural: it changes who calls the engine, not what the
-engine owns. The one structural law holds — no surface mints a second spine.
-
-## Anti-Patterns
-
-1. Treating `decentralized.cloud` as a mandatory gateway before Hypervisor can
-   use provider integrations.
-2. Treating `decentralized.cloud` as the provider account or credential owner.
-3. Treating resource candidates as spend authority.
-4. Treating provider APIs, CIDs, bucket existence, or leases as Agentgres
-   restore truth.
-5. Flattening every provider into a fake generic VM lifecycle.
-6. Charging a routing fee for direct connected infrastructure with no optimized
-   placement value and no Hypervisor-performed provider lifecycle work.
-7. Claiming Private or cTEE custody from provider marketing labels without
-   matching custody receipts.
-8. Letting `decentralized.cloud` own execution, settlement, marketplace rank,
-   or provider lifecycle truth.
-9. Giving managed capacity or contributed supply a default, tie-break, or
-   fallback preference in placement, or omitting the first-party win/loss
-   record from a decision that compared it.
-10. Letting a job caller — human or agent — hold, see, or forward a provider
-    credential; the router is the credential boundary between callers and
-    clouds.
-11. Minting a `RoutingDecisionReceipt` or charging a routing fee from a
-    comparison that included simulator, expired, or evidence-less candidates,
-    or from a comparison of fewer than two real candidates.
-12. Presenting the public face as a fifth placement choice beside `Pick a
-    cloud`; the face is the front door to `Let Hypervisor choose`, and the own
-    pool — not the router — is what appears as a venue.
-13. Building supply ahead of the router's unmet-request evidence.
-14. Applying a redundancy posture the caller did not declare, blending replicas
-    into one receipt, or calling two replicas on one provider class redundant.
-
 ## Related Canon
+
+- [`cloud/`](./cloud/README.md) — the product specification (adopted 2026-09-08)
+- [`cloud/adr/0001`](./cloud/adr/0001-decentralized-cloud-is-a-product.md) — decentralized.cloud is a product; this file is the daemon's native contract
 
 - [ADR 0051](../../../decisions/0051-decentralized-cloud-public-face-job-primitive-and-supply-registry.md)
 - [`../marketplace-neutrality.md`](../marketplace-neutrality.md)

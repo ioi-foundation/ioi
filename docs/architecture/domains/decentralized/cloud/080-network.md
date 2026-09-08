@@ -1,5 +1,10 @@
 # 080 — Network: service and routed profiles, cross-provider fabric, discovery, ingress, addresses, egress, residency
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for network profiles, the cross-provider fabric, discovery, ingress, addresses, egress and residency.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 15. **Depends on:** 010, 090, 190, 250. **Defines:** service-connect
 and routed profiles, tunnels, isolation, egress, and path diagnostics; connection,
 route, attachment, flow-meter schemas. **Required diagrams:** overlay, relay paths,

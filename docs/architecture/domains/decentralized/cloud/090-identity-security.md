@@ -1,5 +1,10 @@
 # 090 — Identity and security: principals, authorization, workload identity, secrets, supply chain, confidential execution; trust and threat model
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for identity, authorization, workload identity, secrets, supply chain, confidential execution and the threat model.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 16, 26. **Depends on:** 010, 210. **Defines:** principals,
 authorization, workload identity, secret release, and key custody; IAM APIs,
 credential claims, policy decisions, KMS boundary; adversaries, attack surfaces,

@@ -1,5 +1,10 @@
 # 270 — Architecture diagrams
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the architecture diagrams.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 27. Mermaid sources; each is referenced from the document it
 illustrates.
 

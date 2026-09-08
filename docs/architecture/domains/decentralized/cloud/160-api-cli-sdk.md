@@ -1,5 +1,10 @@
 # 160 — API, CLI, SDK and integrations
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the API, CLI, SDK and integrations.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 20. **Depends on:** 010, 030, 090, 170. **Defines:** API
 conventions, CLI/SDK/Terraform behavior, webhooks, compatibility; OpenAPI, errors,
 pagination, idempotency, operation streams. **Required diagrams:** request lifecycle,

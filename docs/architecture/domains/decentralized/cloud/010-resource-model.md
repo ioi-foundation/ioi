@@ -1,5 +1,10 @@
 # 010 — Resource model: primitives, canonical data model, state machines
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the cloud primitive model, canonical data model and state machines.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 3, 21, 23. **Depends on:** 000. **Defines:** canonical identity and
 ownership; what survives migration; what cascades on deletion; resource schemas,
 references, ownership rules; lifecycle state transitions. **Required diagrams:**

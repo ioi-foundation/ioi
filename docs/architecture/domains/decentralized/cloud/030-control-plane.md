@@ -1,5 +1,10 @@
 # 030 — Control plane: system architecture, desired state, plans, reconciliation, events
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the system architecture, control plane and event model.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 11, 12, 22. **Depends on:** 010, 170, 180. **Defines:** desired
 state, plans, operations, reconcilers, retries, finalizers; how work resumes after
 crashes; controller contract, operation journal, plan execution; event identities,

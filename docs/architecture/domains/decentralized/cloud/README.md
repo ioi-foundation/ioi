@@ -1,5 +1,10 @@
 # decentralized.cloud — product and architecture specification
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the index of the decentralized.cloud product specification.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Status:** adopted by the owner on 2026-09-08 as the shaping specification for
 decentralized.cloud. **Design baseline:** September 7, 2026. This is the selected
 architecture, not a claim that the product already exists. Prices and inventory in

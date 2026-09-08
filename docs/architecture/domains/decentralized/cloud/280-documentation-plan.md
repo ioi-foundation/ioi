@@ -1,5 +1,10 @@
 # 280 — Documentation plan: the public and internal trees, and the architecture-document decomposition
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the documentation tree and the architecture-document decomposition.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 28, 29. This tree is the `internal/architecture/` of §28; the
 public developer documentation in §28 is a separate deliverable that does not exist
 yet.

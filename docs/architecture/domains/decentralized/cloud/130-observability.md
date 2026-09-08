@@ -1,5 +1,10 @@
 # 130 — Observability: identity model, pipeline, storage, health and incidents, topology
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for observability: telemetry identity, pipeline, storage, health and topology.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 17. **Depends on:** 010, 080, 170. **Defines:** logical/physical
 telemetry, retention, topology history, incident evidence; OTLP conventions, query
 API, SLO records. **Required diagrams:** ingestion, identity continuity, incident

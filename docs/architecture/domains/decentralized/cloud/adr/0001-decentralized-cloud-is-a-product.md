@@ -1,5 +1,10 @@
 # ADR 0001 — decentralized.cloud is a product with its own control plane
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the decision that decentralized.cloud is a product with its own control plane, and the estate planes are adapters.
+Doctrine status: canonical
+Implementation status: n/a (a decision record)
+
 **Status:** accepted by the owner, 2026-09-08. **Supersedes, for this product:** the
 "public face over the daemon" framing in `docs/architecture/domains/decentralized/cloud.md`
 and ADR 0051 (`docs/decisions/0051-…`). Those documents are not edited by this ADR; they

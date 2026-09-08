@@ -1,5 +1,10 @@
 # 100 — Money: metering, pricing, billing, settlement
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for metering, pricing, billing and settlement.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 18. **Depends on:** 010, 040, 080. **Defines:** meters, units, quote
 validity, rating, cost attribution (100); customer balances, commitments, journals,
 invoices, refunds, hard limits (110); treasury, native transactions, escrow, finality,

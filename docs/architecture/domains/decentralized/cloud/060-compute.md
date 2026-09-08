@@ -1,5 +1,10 @@
 # 060 — Compute: services, jobs, VMs, GPU execution, packaging, runtime compatibility, recovery
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for compute: services, jobs, VMs, GPU execution, packaging, runtime profiles and recovery.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 13. **Depends on:** 030, 040, 080, 090. **Defines:** runtime
 profiles, deployment bundle, attempt lifecycle. **Required diagrams:** four-layer
 mapping, rollout, checkpoint recovery.

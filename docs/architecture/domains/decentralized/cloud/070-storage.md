@@ -1,5 +1,10 @@
 # 070 — Storage: classes, hot storage foundation, object, block, Filecoin archive, encryption, managed databases
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for storage classes, the hot storage foundation, object and block behavior, archive integration, encryption and managed databases.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 14. **Depends on:** 010, 040, 090, 190. **Defines:** object, block,
 filesystem, archive, replication, and deletion semantics; storage APIs,
 attachment/fencing contract, archive manifest. **Required diagrams:** storage cells,

@@ -1,5 +1,10 @@
 # 040 — Provider abstraction: adapter contract, acquisition, agent, qualification; provider console
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the provider adapter contract, acquisition semantics, provider agent, qualification and provider console.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 19, 9. **Depends on:** 010, 030. **Defines:** native capability
 translation and uncertainty; what an adapter may claim; adapter API, capability
 manifest, normalized outcomes; the provider's own surface. **Required diagrams:**

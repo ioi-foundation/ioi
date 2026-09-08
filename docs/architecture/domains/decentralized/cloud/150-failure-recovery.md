@@ -1,5 +1,10 @@
 # 150 — Failure and recovery: the end-to-end deployment trace, the failure/recovery trace, the hardest unresolved problems
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the deployment trace, the failure and recovery trace and the hardest unresolved problems.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 24, 25, 32. **Depends on:** 030, 060, 070, 080, 110, 120.
 **Defines:** provider failure, quorum loss, orphan cleanup, and control-plane restore;
 recovery envelopes, fencing requirements, restore checkpoints. **Required diagrams:**

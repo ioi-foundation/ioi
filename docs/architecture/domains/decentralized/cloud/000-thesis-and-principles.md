@@ -1,5 +1,10 @@
 # 000 — System overview: thesis, principles, decisions
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the thesis, product principles and critical decisions.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 1, 2, 33, 34. **Depends on:** none. **Defines:** system boundaries,
 trust domains, phases, responsibility; the twenty critical decisions.
 

@@ -1,5 +1,10 @@
 # 050 — Placement and supply: regions, latency cells, failure domains, pools, placement contracts, scheduling, resilience claims, provenance
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for regions, latency cells, failure domains, provider pools, placement contracts, scheduling, resilience claims and provenance.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec section:** 10. **Depends on:** 040, 100, 190, 200, 260. **Defines:** candidate
 discovery, constraint evaluation, delivered cost, and placement explanations; offer
 schema, scheduler request/result, policy compiler. **Required diagrams:** filtering

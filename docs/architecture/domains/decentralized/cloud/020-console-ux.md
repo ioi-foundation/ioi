@@ -1,5 +1,10 @@
 # 020 — Console UX: information architecture, shell, pages, flows, wireframes
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the console information architecture, shell, page contracts, flows and wireframes.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 4, 5, 6, 7, 8. **Depends on:** 010, 160. **Defines:** navigation,
 page contracts, flows, progressive disclosure; routes, view models, status vocabulary,
 design components. **Required diagrams:** shell, page maps, critical journeys.

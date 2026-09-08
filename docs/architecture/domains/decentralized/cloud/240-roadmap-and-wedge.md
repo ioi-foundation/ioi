@@ -1,5 +1,10 @@
 # 240 — Roadmap and wedge: MVP phases, release gates, the initial market
 
+Status: adopted product specification (owner, 2026-09-08); design baseline September 7, 2026.
+Canonical owner: this file for the MVP roadmap, release gates and initial wedge.
+Doctrine status: canonical
+Implementation status: planned (the selected architecture, adopted 2026-09-08; nothing here is a claim that the product exists — what the Hypervisor daemon implements today is in `../cloud.md`)
+
 **Spec sections:** 30, 31. **Depends on:** all implementation specifications.
 **Defines:** deployment groups, service ownership, releases, capacity management, and
 go/no-go gates. **Required diagrams:** deployment topology, release waves, dependency
