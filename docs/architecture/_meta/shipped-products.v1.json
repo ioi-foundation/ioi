@@ -7,7 +7,8 @@
     "hypervisor-web",
     "developers-ioi-ai",
     "aiagent-xyz",
-    "sas-xyz"
+    "sas-xyz",
+    "decentralized-cloud"
   ],
   "products": [
     {
@@ -699,6 +700,86 @@
           "kind": "browser",
           "entry": "scripts/smoke-product-surfaces.mjs",
           "command": "node scripts/smoke-product-surfaces.mjs"
+        }
+      ]
+    },
+    {
+      "id": "decentralized-cloud",
+      "name": "decentralized.cloud public face",
+      "owner": "decentralized.cloud public-face owner (ADR 0051; the decentralized-cloud program)",
+      "owner_ref": "docs/decisions/0051-decentralized-cloud-public-face-job-primitive-and-supply-registry.md",
+      "disposition": "shipped",
+      "release_posture": "development_only",
+      "root": "apps/decentralized-cloud",
+      "path_ownership": {
+        "lane_roots": [
+          "apps/decentralized-cloud"
+        ],
+        "shared_dependencies": []
+      },
+      "production_entries": [
+        "apps/decentralized-cloud/index.html",
+        "apps/decentralized-cloud/src/main.jsx",
+        "apps/decentralized-cloud/scripts/serve-face.mjs"
+      ],
+      "build_artifacts": [
+        {
+          "path": "apps/decentralized-cloud/dist",
+          "materialization": "generated",
+          "digest_policy": "record",
+          "producer": {
+            "package_json": "apps/decentralized-cloud/package.json",
+            "script": "build"
+          }
+        }
+      ],
+      "route_sources": [
+        "apps/decentralized-cloud/src/logic/surfaces.mjs",
+        "apps/decentralized-cloud/src/App.jsx"
+      ],
+      "route_inventory": {
+        "inventory_version": 1,
+        "routes": [
+          "/"
+        ],
+        "expected_count": 1,
+        "sha256": "d1f7a51cfcad412897836502f157bf6d194ea0af6168e3e73acab8a3bbafe7e5",
+        "browser_verification_id": "decentralized-cloud-face",
+        "derivation": "The face is served as static files with hash routing (src/logic/surfaces.mjs SURFACES resolve under `#`), so the served origin carries exactly one path. Surface identity lives in the hash and is asserted against served bytes by the face gate, not by this inventory.",
+        "disposition_note": "Registered 2026-09-07 by the Hypervisor bounded-alpha program because the shared register's undispositioned-workspace rule turned check:shipped-products (and the CI smoke job behind it) red on master after apps/decentralized-cloud merged. The decentralized-cloud program owns this lane and may refine every field here; the posture is development_only until that owner records release evidence."
+      },
+      "state_authority_mode": "daemon_authoritative_projection",
+      "source_graph": {
+        "root": "apps/decentralized-cloud",
+        "entries": [
+          "index.html"
+        ],
+        "allowed_source_roots": [],
+        "quarantined_roots": []
+      },
+      "permitted_static_boundary": {
+        "mode": "labelled_unwired_surfaces",
+        "summary": "Every surface declares `wired` in src/logic/surfaces.mjs; an unwired surface must say so on screen in its own words and the face gate asserts that against the served bytes. Runtime, job admission, receipts and refusals resolve to the Hypervisor daemon's own bodies.",
+        "source_assertions": [
+          {
+            "path": "apps/decentralized-cloud/src/logic/surfaces.mjs",
+            "contains": [
+              "wired: false"
+            ]
+          }
+        ]
+      },
+      "required_verification": [
+        {
+          "id": "production-source-graph",
+          "kind": "scanner",
+          "implementation": "builtin:production-source-graph"
+        },
+        {
+          "id": "decentralized-cloud-face",
+          "kind": "browser",
+          "entry": "apps/decentralized-cloud/scripts/verify-decentralized-cloud-face.mjs",
+          "command": "npm run check:decentralized-cloud-face --workspace=decentralized-cloud"
         }
       ]
     }
