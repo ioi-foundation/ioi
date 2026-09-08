@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-10-facet-template-standing-lease",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.10"
+  ],
+  "status": "verified",
+  "objective": "Prove the facet-template standing lease on the existing StandingApprovalGrant: a template grant admits a draw whose facets and estimates sit inside the template and refuses one exceeding any bound by name, both receipted, with the C7 exact-request grant byte-unchanged.",
+  "falsifiable_claim": "npm run check:standing-envelope-template pins the daemon standing_envelope_tests (3), the provider facet-containment test, the kernel C7 request-hash binding tests (3) and the wallet standing-subject proof test by exact name, pins from source that the live gate calls the pure bound check and that the provider route receipts a refused draw naming the bound, and runs check-standing-authority; npm run mutate:standing-envelope-template plants a disabled usage bound, a disabled deposit facet bound and an ABI that accepts request_hash, and each must turn the check red.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "literal": "standing_grant_within_route_bounds",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "literal": "STANDING_APPROVAL_GRANT_FIELDS",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "literal": "standing_authority_refused",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "literal": "fn validate_standing_provider_facets(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/mutate-standing-lease.mjs",
+      "literal": "standing-envelope-template",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg2-standing-lease-2026-09-08.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The mutate: drill plants three production-source defects and requires the unit check to go red for each, restoring the original bytes in every exit path; the check itself is a fail-empty exact-name population (a renamed or deleted test is red).",
+  "remaining_nonclaims": [
+    "The template bound check is proven as a pure function and by a source pin that the gate calls it before the wallet draw; the live gate itself needs a wallet.network node and is exercised by the standing-authority broker contract and the provider standing lane, not by this unit's population.",
+    "The connector-invoke path does not yet resolve a standing draw (M13.3/M13.5)."
+  ],
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 2; recorded in canon-to-code-delta.md \u00a7 Journey verification XX.",
+  "last_status_transaction": "2026-09-08"
+}

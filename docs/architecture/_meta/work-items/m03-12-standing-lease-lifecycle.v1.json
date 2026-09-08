@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-12-standing-lease-lifecycle",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.12"
+  ],
+  "status": "verified",
+  "objective": "Standing-lease lifecycle on the existing objects: one ceremony mints, RuntimePolicyLeaseSnapshot renders the spend envelope as a read projection, revoke refuses the very next draw, and recovery or replay never widens, resets or resurrects a lease.",
+  "falsifiable_claim": "npm run check:standing-lease-lifecycle pins the wallet lifecycle tests (2), the single-use ceremony test and the policy-lease projection tests (2) by exact name, pins from source that the projection exists and only subtracts and that reservations stay monotonic on settlement; npm run mutate:standing-lease-lifecycle plants a revoke that leaves the lease Active, a projection that reports the full allowance after draws, and a replay that resets the counters, and each must turn the check red.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/policy_lease.rs",
+      "literal": "pub fn standing_grant_lease(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/policy_lease.rs",
+      "literal": "RuntimeStandingEnvelopeProjection",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "literal": "StandingApprovalGrantStatus::Revoked",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/tests/standing_drawdown.rs",
+      "literal": "revocation_refuses_the_very_next_draw_and_recovery_never_widens_or_resets",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/mutate-standing-lease.mjs",
+      "literal": "standing-lease-lifecycle",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg2-standing-lease-2026-09-08.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The mutate: drill plants three production-source defects and requires the unit check to go red for each, restoring the original bytes in every exit path; the check itself is a fail-empty exact-name population (a renamed or deleted test is red).",
+  "remaining_nonclaims": [
+    "No daemon route serves RuntimePolicyLeaseSnapshot yet and the standing entry has no registered wire contract; no surface claims it (G-4) until one is registered \u2014 the Connections card in M13.3 is the first intended consumer.",
+    "Recovery is proven over the durable state bytes (a fresh state built from them) and over the idempotent re-record; a physical device-transition ceremony is not exercised here."
+  ],
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 2; recorded in canon-to-code-delta.md \u00a7 Journey verification XX.",
+  "last_status_transaction": "2026-09-08"
+}

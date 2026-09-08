@@ -1,0 +1,64 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:standing-drawdown-metering",
+  "unit": "M03.11",
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved.",
+  "families": [
+    {
+      "name": "wallet_drawdown",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/standing_drawdown.rs",
+      "tests": [
+        "wallet_network::tests::standing_drawdown::a_concurrent_double_draw_cannot_exceed_the_envelope",
+        "wallet_network::tests::standing_drawdown::a_counter_that_diverges_from_the_journal_refuses_the_next_draw",
+        "wallet_network::tests::standing_drawdown::n_bounded_draws_succeed_and_the_over_envelope_draw_refuses_naming_the_remaining_balance",
+        "wallet_network::tests::standing_drawdown::the_usage_bound_refuses_with_the_remaining_count_and_exhausts_exactly_at_max"
+      ]
+    },
+    {
+      "name": "wallet_standing_regressions",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/approvals_and_injection.rs",
+      "tests": [
+        "wallet_network::tests::approvals_and_injection::standing_envelope_emits_two_hundred_silent_receipts_then_refuses_draw_201",
+        "wallet_network::tests::approvals_and_injection::standing_grant_draws_are_atomic_bounded_replay_safe_and_revocable"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "every draw re-derives the counters from the journal",
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "pattern": "let derived = derive_standing_ledger_totals\\(state, &journal\\)\\?;",
+      "expect": 1
+    },
+    {
+      "label": "the journal is written in the same atomic record set as the counters and receipt",
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "pattern": "\\(journal_key, ioi_types::codec::to_bytes_canonical\\(&journal\\)\\?\\)",
+      "expect": 1
+    },
+    {
+      "label": "the daemon prepares its durable intent before the wallet draw and admits only after it",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "pattern": "\"status\": \"prepared\",\\n\\s*\"authority_mode\": \"standing_envelope\"",
+      "expect": 1
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "standing-authority source invariants",
+      "argv": [
+        "node",
+        "scripts/check-standing-authority.mjs"
+      ]
+    }
+  ]
+}

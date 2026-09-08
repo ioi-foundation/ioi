@@ -1,0 +1,197 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "standing-authority consumer loop",
+  "leg": 2,
+  "title": "M03.10 facet-template standing lease \u00b7 M03.11 draw-down metering \u00b7 M03.12 standing-lease lifecycle \u2014 on the existing StandingApprovalGrant / StandingApprovalGrantState / RuntimePolicyLeaseSnapshot objects, no new authority primitive",
+  "basis": {
+    "head": "304a65a1b",
+    "tree": "dirty (this leg's own uncommitted source, tests, populations and docs)"
+  },
+  "recorded_at": "2026-09-08",
+  "what_changed": [
+    "wallet: StandingApprovalGrantJournal (per-grant consumption ids) written in the same atomic record set as the counters and receipt; every draw re-derives usages/deposit/spend from the journaled receipts and refuses 'standing approval ledger divergence' on mismatch; envelope refusals name the remaining balance",
+    "daemon: the live standing gate's route-bound check is a pure function (standing_grant_within_route_bounds) called before the wallet draw; the provider route receipts a facet-containment refusal naming the bound (provider receipt outcome standing_authority_refused, widening_path connections)",
+    "runtime: RuntimePolicyLeaseEntry.standing_envelope \u2014 RuntimeStandingEnvelopeProjection rendered by standing_grant_lease() from StandingApprovalGrantState; subtracts only",
+    "tests: crates/services/src/wallet_network/tests/standing_drawdown.rs (6), governed_authority::standing_envelope_tests (3), provider facet test extended to every bound"
+  ],
+  "summary": {
+    "checks": {
+      "check:standing-envelope-template": "pass",
+      "check:standing-drawdown-metering": "pass",
+      "check:standing-lease-lifecycle": "pass"
+    },
+    "drills": {
+      "mutate:standing-envelope-template": "pass",
+      "mutate:standing-drawdown-metering": "pass",
+      "mutate:standing-lease-lifecycle": "pass"
+    }
+  },
+  "runs": [
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/standing-envelope-template.v1.json",
+      "unit": "M03.10",
+      "script": "check:standing-envelope-template",
+      "basis": "304a65a1b",
+      "recorded_at": "2026-09-08T17:46:13.057Z",
+      "verdict": "pass",
+      "pinned_tests": 8,
+      "results": [
+        {
+          "ok": true,
+          "label": "family daemon_standing_envelope: 3 pinned tests selected and passed",
+          "detail": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1143 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family daemon_facet_containment: 1 pinned tests selected and passed",
+          "detail": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1145 filtered out; finished in 2.23s (3s)"
+        },
+        {
+          "ok": true,
+          "label": "family kernel_c7_exact_request_binding: 3 pinned tests selected and passed",
+          "detail": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 3622 filtered out; finished in 0.06s (1s)"
+        },
+        {
+          "ok": true,
+          "label": "family wallet_standing_subject_proof: 1 pinned tests selected and passed",
+          "detail": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3624 filtered out; finished in 3.76s (4s)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the provider route receipts a refused draw naming the bound",
+          "detail": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs /\"standing_authority_refused\"/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the live gate uses the pure template bound check",
+          "detail": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs /if let Err\\(bound\\) = standing_grant_within_route_bounds\\(/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary standing-authority source invariants",
+          "detail": "exit 0 (0s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/standing-drawdown-metering.v1.json",
+      "unit": "M03.11",
+      "script": "check:standing-drawdown-metering",
+      "basis": "304a65a1b",
+      "recorded_at": "2026-09-08T17:46:41.559Z",
+      "verdict": "pass",
+      "pinned_tests": 6,
+      "results": [
+        {
+          "ok": true,
+          "label": "family wallet_drawdown: 4 pinned tests selected and passed",
+          "detail": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 3621 filtered out; finished in 1.06s (1s)"
+        },
+        {
+          "ok": true,
+          "label": "family wallet_standing_regressions: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3623 filtered out; finished in 25.82s (26s)"
+        },
+        {
+          "ok": true,
+          "label": "source pin every draw re-derives the counters from the journal",
+          "detail": "crates/services/src/wallet_network/handlers/standing_authority.rs /let derived = derive_standing_ledger_totals\\(state, &journal\\)\\?;/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the journal is written in the same atomic record set as the counters and receipt",
+          "detail": "crates/services/src/wallet_network/handlers/standing_authority.rs /\\(journal_key, ioi_types::codec::to_bytes_canonical\\(&journal\\)\\?\\)/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the daemon prepares its durable intent before the wallet draw and admits only after it",
+          "detail": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs /\"status\": \"prepared\",\\n\\s*\"authority_mode\": \"standing_envelope\"/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary standing-authority source invariants",
+          "detail": "exit 0 (0s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/standing-lease-lifecycle.v1.json",
+      "unit": "M03.12",
+      "script": "check:standing-lease-lifecycle",
+      "basis": "304a65a1b",
+      "recorded_at": "2026-09-08T17:46:47.500Z",
+      "verdict": "pass",
+      "pinned_tests": 5,
+      "results": [
+        {
+          "ok": true,
+          "label": "family wallet_lifecycle: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3623 filtered out; finished in 1.37s (2s)"
+        },
+        {
+          "ok": true,
+          "label": "family wallet_mint_and_ceremony: 1 pinned tests selected and passed",
+          "detail": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3624 filtered out; finished in 2.17s (3s)"
+        },
+        {
+          "ok": true,
+          "label": "family lease_projection: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3623 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the snapshot renders the standing envelope as a projection",
+          "detail": "crates/services/src/agentic/runtime/policy_lease.rs /pub fn standing_grant_lease\\(/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the projection only subtracts (saturating), never adds",
+          "detail": "crates/services/src/agentic/runtime/policy_lease.rs /\\.saturating_sub\\(state\\.(uses_consumed|cumulative_deposit_reserved_microusd|cumulative_spend_reserved_microusd)\\)/ hit 3 (expect 3)"
+        },
+        {
+          "ok": true,
+          "label": "source pin reservations stay monotonic: the settlement receipt and the journal comparison both read the reserved counter verbatim (refund releases no authority)",
+          "detail": "crates/services/src/wallet_network/handlers/standing_authority.rs /cumulative_spend_reserved_microusd: grant_state\\.cumulative_spend_reserved_microusd/ hit 2 (expect 2)"
+        }
+      ]
+    }
+  ],
+  "drills": {
+    "mutate:standing-envelope-template": {
+      "verdict": "pass",
+      "lines": [
+        "PASS baseline scripts/test-populations/standing-envelope-template.v1.json is green",
+        "PASS mutation \"the max_usages template bound is disabled in the live gate\" \u2192 RED as required",
+        "PASS mutation \"the per-operation deposit facet bound is disabled at the provider route\" \u2192 RED as required",
+        "PASS mutation \"the standing grant ABI accepts an exact request_hash field\" \u2192 RED as required",
+        "PASS restore: every mutated file was written back from its backup (0 backup(s) remain)",
+        "PASS mutate:standing-envelope-template: 3 planted defects"
+      ]
+    },
+    "mutate:standing-drawdown-metering": {
+      "verdict": "pass",
+      "lines": [
+        "PASS baseline scripts/test-populations/standing-drawdown-metering.v1.json is green",
+        "PASS mutation \"the cumulative spend ceiling is disabled in the wallet draw\" \u2192 RED as required",
+        "PASS mutation \"the journal re-derivation is skipped (a rotted counter authorises)\" \u2192 RED as required",
+        "PASS mutation \"a refused draw still appends to the journal (double accounting)\" \u2192 RED as required",
+        "PASS restore: every mutated file was written back from its backup (0 backup(s) remain)",
+        "PASS mutate:standing-drawdown-metering: 3 planted defects"
+      ]
+    },
+    "mutate:standing-lease-lifecycle": {
+      "verdict": "pass",
+      "lines": [
+        "PASS baseline scripts/test-populations/standing-lease-lifecycle.v1.json is green",
+        "PASS mutation \"revoke leaves the lease Active\" \u2192 RED as required",
+        "PASS mutation \"the projection reports the full usage allowance after draws (widening on render)\" \u2192 RED as required",
+        "PASS mutation \"a byte-identical record replay resets the counters\" \u2192 RED as required",
+        "PASS restore: every mutated file was written back from its backup (0 backup(s) remain)",
+        "PASS mutate:standing-lease-lifecycle: 3 planted defects"
+      ]
+    }
+  }
+}

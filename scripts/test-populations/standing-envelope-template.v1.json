@@ -1,0 +1,82 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:standing-envelope-template",
+  "unit": "M03.10",
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved.",
+  "families": [
+    {
+      "name": "daemon_standing_envelope",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::standing_envelope_tests::a_template_grant_admits_a_subset_draw_and_refuses_every_bound_by_name",
+        "governed_authority::standing_envelope_tests::the_standing_gate_checks_every_bound_before_the_wallet_draw",
+        "governed_authority::standing_envelope_tests::the_standing_grant_abi_has_no_exact_request_field_and_the_c7_abi_is_unchanged"
+      ]
+    },
+    {
+      "name": "daemon_facet_containment",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "tests": [
+        "provider_routes::containment_tests::standing_provider_facets_are_closed_over_daemon_derived_values"
+      ]
+    },
+    {
+      "name": "kernel_c7_exact_request_binding",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "tests": [
+        "agentic::runtime::kernel::approval::tests::rust_authority_binds_matching_policy_request_and_unexpired_grant",
+        "agentic::runtime::kernel::approval::tests::rust_authority_rejects_expired_grant",
+        "agentic::runtime::kernel::approval::tests::rust_authority_rejects_request_hash_mismatch"
+      ]
+    },
+    {
+      "name": "wallet_standing_subject_proof",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/portable_authority.rs",
+      "tests": [
+        "wallet_network::portable_authority::tests::batch_and_standing_subjects_emit_only_their_typed_proof"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "the provider route receipts a refused draw naming the bound",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "pattern": "\"standing_authority_refused\"",
+      "expect": 1
+    },
+    {
+      "label": "the live gate uses the pure template bound check",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "pattern": "if let Err\\(bound\\) = standing_grant_within_route_bounds\\(",
+      "expect": 1
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "standing-authority source invariants",
+      "argv": [
+        "node",
+        "scripts/check-standing-authority.mjs"
+      ]
+    }
+  ]
+}

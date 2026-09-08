@@ -1,6 +1,7 @@
 use crate::agentic::rules::{ActionRules, DefaultPolicy};
 use crate::agentic::runtime::keys::{get_approval_authority_key, get_approval_grant_key};
 use crate::agentic::runtime::types::{AgentStatus, PendingActionState};
+use crate::wallet_network::{StandingApprovalGrantState, StandingApprovalGrantStatus};
 use ioi_api::state::StateAccess;
 use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::codec;
@@ -33,6 +34,32 @@ pub struct RuntimePolicyLeaseEntry {
     pub max_usages: Option<u32>,
     pub authority_status: Option<String>,
     pub notes: Vec<String>,
+    /// M03.12 — the standing spend envelope as a READ projection of wallet-owned truth. Absent
+    /// on every non-standing entry; never a place an agent can write, and never widened by the
+    /// projection itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub standing_envelope: Option<RuntimeStandingEnvelopeProjection>,
+}
+
+/// The spend envelope of one standing lease as the wallet currently holds it: usages and
+/// balances remaining, the validity window, and the wallet's lifecycle status. Derived from
+/// `StandingApprovalGrantState` only; a recovered or re-rendered session shows exactly the
+/// counters the wallet journal justifies, never a reset.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeStandingEnvelopeProjection {
+    pub standing_envelope_hash_ref: String,
+    pub grant_hash_ref: String,
+    pub principal_ref: String,
+    pub usages_consumed: u32,
+    pub remaining_usages: u32,
+    pub cumulative_deposit_reserved_microusd: u64,
+    pub remaining_deposit_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub remaining_spend_microusd: u64,
+    pub cumulative_spend_settled_microusd: u64,
+    pub issued_at_ms: u64,
+    pub expires_at_ms: u64,
+    pub wallet_status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -155,6 +182,7 @@ fn base_policy_lease(session_hex: &str, rules: &ActionRules) -> RuntimePolicyLea
             "default_policy={}",
             default_policy_label(rules.defaults)
         )],
+        standing_envelope: None,
     }
 }
 
@@ -199,6 +227,76 @@ fn approval_grant_lease(
             format!("request_hash_ref={}", short_hash(&grant.request_hash)),
             format!("policy_hash_ref={}", short_hash(&grant.policy_hash)),
         ],
+        standing_envelope: None,
+    }
+}
+
+/// M03.12 — render one standing lease as a lease entry. The status is the wallet's own
+/// lifecycle status narrowed by the clock (an `Active` grant past `expires_at_ms` renders
+/// `expired`), and every balance is `max - reserved` from the wallet state — the projection
+/// derives, it never decides. Nothing here can raise a counter, restore a usage or extend
+/// a window; a recovered session that re-renders this entry shows the same numbers.
+pub fn standing_grant_lease(
+    session_hex: &str,
+    state: &StandingApprovalGrantState,
+    now_ms: u64,
+) -> RuntimePolicyLeaseEntry {
+    let grant = &state.grant;
+    let wallet_status = match state.status {
+        StandingApprovalGrantStatus::Active => "active",
+        StandingApprovalGrantStatus::Revoked => "revoked",
+        StandingApprovalGrantStatus::Expired => "expired",
+        StandingApprovalGrantStatus::Exhausted => "exhausted",
+    };
+    let status = match state.status {
+        StandingApprovalGrantStatus::Active if now_ms > grant.expires_at_ms => "expired",
+        StandingApprovalGrantStatus::Active if now_ms < grant.issued_at_ms => "not_yet_valid",
+        StandingApprovalGrantStatus::Active if state.uses_consumed >= grant.max_usages => {
+            "exhausted"
+        }
+        _ => wallet_status,
+    };
+    RuntimePolicyLeaseEntry {
+        lease_id: format!(
+            "standing:{}:{}",
+            session_hex,
+            short_hash(&grant.standing_envelope_hash)
+        ),
+        kind: "standing_envelope".to_string(),
+        status: status.to_string(),
+        source: "standing_approval_grant".to_string(),
+        scope: "facet_template_envelope".to_string(),
+        expires_at_ms: Some(grant.expires_at_ms),
+        remaining_ms: grant.expires_at_ms.checked_sub(now_ms),
+        max_usages: Some(grant.max_usages),
+        authority_status: Some(wallet_status.to_string()),
+        notes: vec![
+            format!("policy_hash_ref={}", short_hash(&grant.policy_hash)),
+            "projection_of=wallet.network StandingApprovalGrantState; recovery never widens or resets"
+                .to_string(),
+        ],
+        standing_envelope: Some(RuntimeStandingEnvelopeProjection {
+            standing_envelope_hash_ref: format!(
+                "sha256:{}",
+                hex::encode(grant.standing_envelope_hash)
+            ),
+            grant_hash_ref: format!("sha256:{}", hex::encode(state.grant_hash)),
+            principal_ref: state.principal_ref.clone(),
+            usages_consumed: state.uses_consumed,
+            remaining_usages: grant.max_usages.saturating_sub(state.uses_consumed),
+            cumulative_deposit_reserved_microusd: state.cumulative_deposit_reserved_microusd,
+            remaining_deposit_microusd: grant
+                .max_cumulative_deposit_microusd
+                .saturating_sub(state.cumulative_deposit_reserved_microusd),
+            cumulative_spend_reserved_microusd: state.cumulative_spend_reserved_microusd,
+            remaining_spend_microusd: grant
+                .max_cumulative_spend_microusd
+                .saturating_sub(state.cumulative_spend_reserved_microusd),
+            cumulative_spend_settled_microusd: state.cumulative_spend_settled_microusd,
+            issued_at_ms: grant.issued_at_ms,
+            expires_at_ms: grant.expires_at_ms,
+            wallet_status: wallet_status.to_string(),
+        }),
     }
 }
 

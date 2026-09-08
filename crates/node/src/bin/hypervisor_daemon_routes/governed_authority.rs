@@ -430,6 +430,63 @@ pub(crate) fn canonicalize_approval_grant(value: &Value) -> Result<(ApprovalGran
     Ok((parsed, canonical))
 }
 
+/// The bounds a live route derives for one standing draw: the registered envelope and policy
+/// the grant must bind, the aggregate ceilings the grant may not exceed, and this draw's own
+/// estimates, which must fit inside the grant's per-grant ceilings on their own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct StandingRouteBounds {
+    pub(crate) standing_envelope_hash: [u8; 32],
+    pub(crate) policy_hash: [u8; 32],
+    pub(crate) max_usages: u32,
+    pub(crate) max_cumulative_deposit_microusd: u64,
+    pub(crate) max_cumulative_spend_microusd: u64,
+    pub(crate) estimated_deposit_microusd: u64,
+    pub(crate) estimated_spend_microusd: u64,
+}
+
+/// M03.10 — verify a standing grant against the route-derived TEMPLATE bounds, never against
+/// one request. Returns the name of the first bound the grant violates. Pure: no state, no
+/// wallet, no clock of its own, so the gate can prove it runs before any consumption.
+pub(crate) fn standing_grant_within_route_bounds(
+    grant: &StandingApprovalGrant,
+    bounds: &StandingRouteBounds,
+    now_ms: u64,
+) -> Result<(), &'static str> {
+    if grant.standing_envelope_hash != bounds.standing_envelope_hash {
+        return Err("standing_envelope_hash");
+    }
+    if grant.policy_hash != bounds.policy_hash {
+        return Err("policy_hash");
+    }
+    if grant.max_usages > bounds.max_usages {
+        return Err("max_usages");
+    }
+    if grant.max_cumulative_deposit_microusd > bounds.max_cumulative_deposit_microusd {
+        return Err("max_cumulative_deposit_microusd");
+    }
+    if grant.max_cumulative_spend_microusd > bounds.max_cumulative_spend_microusd {
+        return Err("max_cumulative_spend_microusd");
+    }
+    if now_ms < grant.issued_at_ms {
+        return Err("not_yet_valid");
+    }
+    if now_ms > grant.expires_at_ms {
+        return Err("expired");
+    }
+    if bounds.estimated_deposit_microusd == 0
+        || bounds.estimated_deposit_microusd > grant.max_cumulative_deposit_microusd
+    {
+        return Err("estimated_deposit_exceeds_grant");
+    }
+    if bounds.estimated_spend_microusd == 0
+        || bounds.estimated_spend_microusd > grant.max_cumulative_spend_microusd
+        || bounds.estimated_spend_microusd > bounds.estimated_deposit_microusd
+    {
+        return Err("estimated_spend_exceeds_grant");
+    }
+    Ok(())
+}
+
 /// Parse the separate standing-grant signature domain without weakening the C7 grant ABI.
 pub(crate) fn canonicalize_standing_approval_grant(
     value: &Value,
@@ -3224,20 +3281,28 @@ pub(crate) async fn authorize_standing_deployment_grant(
             )
         })?;
     let now_ms = local_now_ms();
-    if grant.standing_envelope_hash != standing_envelope_hash
-        || grant.policy_hash != policy_hash
-        || grant.max_usages > max_usages
-        || grant.max_cumulative_deposit_microusd > max_cumulative_deposit_microusd
-        || grant.max_cumulative_spend_microusd > max_cumulative_spend_microusd
-        || now_ms < grant.issued_at_ms
-        || now_ms > grant.expires_at_ms
-    {
+    // M03.10/M03.11: every route-derived bound is checked here, BEFORE the wallet draw and
+    // therefore before any usage is consumed, any lease token exists or any effect can run.
+    if let Err(bound) = standing_grant_within_route_bounds(
+        &grant,
+        &StandingRouteBounds {
+            standing_envelope_hash,
+            policy_hash,
+            max_usages,
+            max_cumulative_deposit_microusd,
+            max_cumulative_spend_microusd,
+            estimated_deposit_microusd,
+            estimated_spend_microusd,
+        },
+        now_ms,
+    ) {
         return Err(authority_consumption_challenge(
             LIVE_ROUTE_AUTHORITY,
             StatusCode::FORBIDDEN,
             "standing_authority_grant_invalid",
-            "standing grant does not bind the exact envelope/policy or current validity window"
-                .to_string(),
+            format!(
+                "standing grant does not bind the exact envelope/policy or current validity window: {bound}"
+            ),
         ));
     }
     let authority = &resolution.resolution.approval_authority;
@@ -4633,6 +4698,208 @@ mod portable_authority_intent_tests {
             .expect("exactly bounded offline evidence admits")
             .temporal_posture,
             PortableAuthorityTemporalPostureV1::BoundedOffline
+        );
+    }
+}
+
+/// M03.10 — the facet-template standing envelope on the EXISTING `StandingApprovalGrant`:
+/// template bounds admit a subset and refuse every over-bound by name, the gate checks them
+/// before any wallet consumption, and the C7 exact-request grant ABI is byte-unchanged.
+#[cfg(test)]
+mod standing_envelope_tests {
+    use super::*;
+    use ioi_types::app::SignatureSuite;
+
+    const NOW_MS: u64 = 1_750_000_000_000;
+
+    fn grant() -> StandingApprovalGrant {
+        StandingApprovalGrant {
+            schema_version: 1,
+            authority_id: [0x11; 32],
+            standing_envelope_hash: [0x22; 32],
+            policy_hash: [0x33; 32],
+            audience: [0x44; 32],
+            nonce: [0x55; 32],
+            counter: 1,
+            issued_at_ms: NOW_MS - 60_000,
+            expires_at_ms: NOW_MS + 3_600_000,
+            max_usages: 10,
+            max_cumulative_deposit_microusd: 5_000_000,
+            max_cumulative_spend_microusd: 4_000_000,
+            review_receipt_hash: [0x66; 32],
+            approval_ceremony_context_hash: [0x77; 32],
+            auth_factor_receipt_hash: [0x88; 32],
+            approver_public_key: vec![9; 32],
+            approver_sig: vec![8; 64],
+            approver_suite: SignatureSuite::ED25519,
+        }
+    }
+
+    fn bounds() -> StandingRouteBounds {
+        StandingRouteBounds {
+            standing_envelope_hash: [0x22; 32],
+            policy_hash: [0x33; 32],
+            max_usages: 10,
+            max_cumulative_deposit_microusd: 5_000_000,
+            max_cumulative_spend_microusd: 4_000_000,
+            estimated_deposit_microusd: 1_000_000,
+            estimated_spend_microusd: 1_000_000,
+        }
+    }
+
+    #[test]
+    fn a_template_grant_admits_a_subset_draw_and_refuses_every_bound_by_name() {
+        assert_eq!(
+            standing_grant_within_route_bounds(&grant(), &bounds(), NOW_MS),
+            Ok(())
+        );
+        // A tighter grant than the envelope allows is still inside the template.
+        let mut tighter = grant();
+        tighter.max_usages = 1;
+        tighter.max_cumulative_spend_microusd = 1_000_000;
+        assert_eq!(
+            standing_grant_within_route_bounds(&tighter, &bounds(), NOW_MS),
+            Ok(())
+        );
+
+        let cases: Vec<(
+            &str,
+            Box<dyn Fn(&mut StandingApprovalGrant, &mut StandingRouteBounds)>,
+        )> = vec![
+            (
+                "standing_envelope_hash",
+                Box::new(|g, _| g.standing_envelope_hash = [0x23; 32]),
+            ),
+            ("policy_hash", Box::new(|_, b| b.policy_hash = [0x34; 32])),
+            ("max_usages", Box::new(|g, _| g.max_usages = 11)),
+            (
+                "max_cumulative_deposit_microusd",
+                Box::new(|g, _| g.max_cumulative_deposit_microusd = 5_000_001),
+            ),
+            (
+                "max_cumulative_spend_microusd",
+                Box::new(|_, b| b.max_cumulative_spend_microusd = 3_999_999),
+            ),
+            (
+                "estimated_deposit_exceeds_grant",
+                Box::new(|_, b| b.estimated_deposit_microusd = 5_000_001),
+            ),
+            (
+                "estimated_spend_exceeds_grant",
+                Box::new(|_, b| {
+                    b.estimated_deposit_microusd = 5_000_000;
+                    b.estimated_spend_microusd = 4_000_001
+                }),
+            ),
+            (
+                "estimated_spend_exceeds_grant",
+                Box::new(|_, b| {
+                    b.estimated_deposit_microusd = 500_000;
+                    b.estimated_spend_microusd = 600_000
+                }),
+            ),
+            (
+                "estimated_deposit_exceeds_grant",
+                Box::new(|_, b| b.estimated_deposit_microusd = 0),
+            ),
+        ];
+        for (expected, mutate) in cases {
+            let mut g = grant();
+            let mut b = bounds();
+            mutate(&mut g, &mut b);
+            assert_eq!(
+                standing_grant_within_route_bounds(&g, &b, NOW_MS),
+                Err(expected),
+                "bound {expected} must refuse by name"
+            );
+        }
+        assert_eq!(
+            standing_grant_within_route_bounds(&grant(), &bounds(), NOW_MS - 120_000),
+            Err("not_yet_valid")
+        );
+        assert_eq!(
+            standing_grant_within_route_bounds(&grant(), &bounds(), NOW_MS + 4_000_000),
+            Err("expired")
+        );
+    }
+
+    #[test]
+    fn the_standing_gate_checks_every_bound_before_the_wallet_draw() {
+        // Source-bound: inside the gate, the pure bound check precedes the wallet consumption
+        // call, and the durable "prepared" intent precedes it too, so a refused draw leaves no
+        // consumed usage, no receipt and no lease.
+        let source = include_str!("governed_authority.rs");
+        let gate = source
+            .find("pub(crate) async fn authorize_standing_deployment_grant(")
+            .expect("gate present");
+        let body = &source[gate..];
+        let end = body
+            .find("pub(crate) async fn ")
+            .map(|_| body.len())
+            .unwrap_or(body.len());
+        let body = &body[..end];
+        let check = body
+            .find("standing_grant_within_route_bounds(")
+            .expect("gate calls the bound check");
+        let draw = body
+            .find("consume_standing_approval_grant_for_effect(params)")
+            .expect("gate draws on the wallet");
+        assert!(
+            check < draw,
+            "bounds must be checked before the wallet draw"
+        );
+    }
+
+    #[test]
+    fn the_standing_grant_abi_has_no_exact_request_field_and_the_c7_abi_is_unchanged() {
+        assert!(!STANDING_APPROVAL_GRANT_FIELDS.contains(&"request_hash"));
+        assert!(!STANDING_APPROVAL_GRANT_FIELDS.contains(&"expected_request_hash"));
+        assert_eq!(STANDING_APPROVAL_GRANT_FIELDS.len(), 18);
+        // C7 no-regression: the exact-request grant ABI is pinned byte for byte.
+        assert_eq!(
+            APPROVAL_GRANT_FIELDS,
+            &[
+                "schema_version",
+                "authority_id",
+                "request_hash",
+                "policy_hash",
+                "audience",
+                "nonce",
+                "counter",
+                "expires_at",
+                "max_usages",
+                "window_id",
+                "pii_action",
+                "scoped_exception",
+                "review_request_hash",
+                "approver_public_key",
+                "approver_sig",
+                "approver_suite",
+            ]
+        );
+        let mut value = serde_json::to_value(grant()).expect("grant json");
+        // A standing grant that smuggles an exact-request binding is refused as undeclared.
+        value["request_hash"] = json!(vec![1u8; 32]);
+        let refused = canonicalize_standing_approval_grant(&value).expect_err("undeclared field");
+        assert!(
+            refused.contains("undeclared field 'request_hash'"),
+            "{refused}"
+        );
+        let mut value = serde_json::to_value(grant()).expect("grant json");
+        value["expected_request_hash"] = Value::Null;
+        assert!(canonicalize_standing_approval_grant(&value).is_err());
+        // And an exact grant that smuggles a standing envelope is refused on the C7 side.
+        let exact = json!({
+            "schema_version": 1, "authority_id": vec![1u8; 32], "request_hash": vec![2u8; 32],
+            "policy_hash": vec![3u8; 32], "audience": vec![4u8; 32], "nonce": vec![5u8; 32], "counter": 1,
+            "expires_at": NOW_MS + 1, "max_usages": 1, "approver_public_key": vec![9u8; 32],
+            "approver_sig": vec![8u8; 64], "approver_suite": "ED25519",
+            "standing_envelope_hash": vec![6u8; 32]
+        });
+        let refused = canonicalize_approval_grant(&exact).expect_err("undeclared field");
+        assert!(
+            refused.contains("undeclared field 'standing_envelope_hash'"),
+            "{refused}"
         );
     }
 }

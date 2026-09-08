@@ -13,11 +13,11 @@ const EFFECT_PRINCIPAL_REF: &str = "org://wallet-network/effect-owner";
 const EFFECT_REQUIRED_SCOPE: &str = "wallet_network.approval";
 const EFFECT_NOW_MS: u64 = 1_750_000_000_000;
 
-struct EffectBindingFixture {
+pub(super) struct EffectBindingFixture {
     root_keypair: Ed25519KeyPair,
     root: WalletControlPlaneRootRecord,
     proof: PrincipalAuthorityBindingProofV1,
-    expected: ExpectedPrincipalAuthorityBinding,
+    pub(super) expected: ExpectedPrincipalAuthorityBinding,
 }
 
 #[test]
@@ -362,7 +362,7 @@ fn effect_binding_proof(
     .expect("binding proof")
 }
 
-fn install_effect_binding(
+pub(super) fn install_effect_binding(
     service: &WalletNetworkService,
     state: &mut MockState,
     authority: &ApprovalAuthority,

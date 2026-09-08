@@ -9633,15 +9633,35 @@ async fn handle_provider_op_internal(
                 ) {
                     Ok(bounds) => bounds,
                     Err(reason) => {
+                        // M03.10: a refused draw is receipted like an admitted one — the bound
+                        // that refused is named on a durable provider receipt before the typed
+                        // refusal returns, so "refused at the template" is daemon truth a
+                        // surface can cite, never a client-side interpretation.
+                        let refusal_receipt_ref = provider_receipt_ext(
+                            &st.data_dir,
+                            provider_id,
+                            &env_ref,
+                            op,
+                            "standing_authority_refused",
+                            &json!({
+                                "authority_mode": "standing_envelope",
+                                "refused_bound": reason,
+                                "standing_envelope_hash": standing_envelope.get("body_hash").cloned().unwrap_or(Value::Null),
+                                "widening_path": "connections",
+                            }),
+                        );
                         return (
                             StatusCode::FORBIDDEN,
                             Json(json!({
                                 "ok": false,
                                 "code": "provider_standing_authority_facets_refused",
                                 "reason": reason,
+                                "refused_bound": reason,
+                                "refusal_receipt_ref": refusal_receipt_ref,
+                                "widening_path": "connections",
                                 "host_mutation": false
                             })),
-                        )
+                        );
                     }
                 };
                 lease_req.standing_draw = Some(super::lifecycle_routes::StandingCapabilityDraw {
@@ -10519,6 +10539,115 @@ mod containment_tests {
             );
         }
 
+        // M03.10: every facet bound refuses by its own name, so a refusal receipt can cite
+        // exactly which template bound the draw crossed.
+        let cases = [
+            (
+                "provider_address",
+                json!("akash1attacker"),
+                "standing_provider_address_outside_envelope",
+            ),
+            (
+                "deposit_usd",
+                json!(1.5),
+                "standing_deposit_outside_envelope",
+            ),
+            (
+                "ceiling_amount",
+                json!("1001"),
+                "standing_ceiling_outside_envelope",
+            ),
+            (
+                "ceiling_denom",
+                json!("uakt"),
+                "standing_ceiling_denom_outside_envelope",
+            ),
+            (
+                "sdl_hash",
+                json!("sha256:9999999999999999999999999999999999999999999999999999999999999999"),
+                "standing_sdl_outside_envelope",
+            ),
+            (
+                "image_digest",
+                json!("sha256:9999999999999999999999999999999999999999999999999999999999999999"),
+                "standing_image_outside_envelope",
+            ),
+            (
+                "registry_host",
+                json!("docker.io"),
+                "standing_registry_outside_envelope",
+            ),
+            (
+                "result_tls_server_certificate_sha256",
+                json!(format!("sha256:{}", "b".repeat(64))),
+                "standing_result_transport_outside_envelope",
+            ),
+            (
+                "auto_topup",
+                json!(true),
+                "standing_auto_topup_outside_envelope",
+            ),
+            (
+                "teardown_policy",
+                json!("keep"),
+                "standing_teardown_outside_envelope",
+            ),
+            (
+                "max_duration_seconds",
+                json!(3601),
+                "standing_duration_outside_envelope",
+            ),
+        ];
+        for (facet, value, code) in cases {
+            let mut over = facets.clone();
+            over[facet] = value;
+            assert_eq!(
+                validate_standing_provider_facets(
+                    &envelope,
+                    "pacc_18cd245812ad55b9",
+                    "create",
+                    &over
+                ),
+                Err(code.to_string()),
+                "facet {facet} over the template must refuse as {code}"
+            );
+        }
+        // The registered fixture names every provider operation, so narrow the template to
+        // prove the operation bound: re-hash after the edit, as the window helper does.
+        let mut narrowed = fixture.clone();
+        narrowed["not_before_ms"] = json!(now_ms.saturating_sub(60_000));
+        narrowed["expires_at_ms"] = json!(now_ms + 3_600_000);
+        narrowed["facet_template"]["operations"] = json!(["create"]);
+        let mut material = narrowed.clone();
+        let object = material.as_object_mut().expect("envelope object");
+        object.remove("body_hash");
+        object.insert(
+            "domain".into(),
+            json!("ioi.standing-authority-envelope-jcs-sha256.v1"),
+        );
+        narrowed["body_hash"] = json!(sha256_bytes(
+            &serde_jcs::to_vec(&material).expect("canonical envelope material")
+        ));
+        assert_eq!(
+            validate_standing_provider_facets(&narrowed, "pacc_18cd245812ad55b9", "start", &facets),
+            Err("standing_operation_outside_envelope".to_string())
+        );
+        assert!(validate_standing_provider_facets(
+            &narrowed,
+            "pacc_18cd245812ad55b9",
+            "create",
+            &facets
+        )
+        .is_ok());
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_0000000000000000",
+                "create",
+                &facets
+            ),
+            Err("standing_provider_id_outside_envelope".to_string())
+        );
         let mut widened = facets.clone();
         widened["result_credential_ref"] = json!("connector://attacker");
         assert_eq!(

@@ -892,6 +892,35 @@ authority snapshot, and revocation/expiry posture before reconstructing the
 exact successor. A copied `authority_id`, public key, or decision receipt is
 not sufficient authorization evidence.
 
+### A standing lease is drawn down against its journal
+
+> Declared 2026-09-08 (the M03.10–M03.12 standing-envelope units; owner-reversible).
+
+A `StandingApprovalGrant` binds a wallet ceremony to a **facet template** (the
+registered `StandingAuthorityEnvelope` body hash), a budget envelope
+(cumulative deposit and spend), a validity window and a use count; it carries
+no exact-request field, and the exact-request `ApprovalGrant` ABI is unchanged
+beside it. The daemon verifies a draw against the template's bounds and the
+route-derived estimates **before** it asks the wallet to consume anything, so a
+draw that would exceed any bound refuses with the bound named and no usage,
+receipt, lease or effect exists.
+
+The wallet's cumulative counters on `StandingApprovalGrantState` are a cache of
+the grant's **consumption journal**: on every draw the wallet re-derives
+usages, reserved deposit and reserved spend from the journaled consumption
+receipts and refuses by name on any divergence, then admits the draw and
+appends the journal, the counters and the receipt in one atomic record set. A
+refusal changes nothing and names the remaining balance. Consumption is
+single-writer, so two concurrent draws cannot together exceed the envelope.
+
+Revocation is immediate: the next draw after the revoking transaction refuses.
+Inspection is a **read projection** of the wallet state
+(`RuntimePolicyLeaseSnapshot` renders a `standing_envelope` entry with usages
+and balances remaining, the window and the wallet status); the projection only
+subtracts and never decides. Recovery, device transitions and idempotent
+re-recording of the same grant render the lease with usages and balances
+unchanged: nothing is reset, resurrected or widened.
+
 ## Account Recovery and Device Lifecycle
 
 Recovery restores account access. It never reconstructs, widens, or silently

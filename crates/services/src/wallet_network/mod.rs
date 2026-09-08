@@ -342,6 +342,26 @@ pub struct StandingApprovalContextConsumption {
     pub consumed_at_ms: u64,
 }
 
+/// Append-only journal of every consumption id drawn under one standing grant. The grant
+/// state's cumulative counters are a cache of this journal: every draw re-derives usage,
+/// reserved deposit and reserved spend from the journaled receipts and refuses on divergence,
+/// so a counter cannot rot, reset or be widened without the receipts that would justify it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantJournal {
+    pub schema_version: u16,
+    pub grant_hash: [u8; 32],
+    pub consumption_ids: Vec<[u8; 32]>,
+}
+
+/// What the journal re-derives on every draw, compared field by field with the cached
+/// counters before any new usage is admitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StandingApprovalLedgerTotals {
+    pub uses_consumed: u32,
+    pub cumulative_deposit_reserved_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum StandingApprovalGrantStatus {
     Active,

@@ -1,0 +1,64 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:standing-lease-lifecycle",
+  "unit": "M03.12",
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved.",
+  "families": [
+    {
+      "name": "wallet_lifecycle",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/standing_drawdown.rs",
+      "tests": [
+        "wallet_network::tests::standing_drawdown::revocation_refuses_the_very_next_draw_and_recovery_never_widens_or_resets",
+        "wallet_network::tests::standing_drawdown::the_projection_derives_expiry_and_exhaustion_without_deciding_anything"
+      ]
+    },
+    {
+      "name": "wallet_mint_and_ceremony",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/approvals_and_injection.rs",
+      "tests": [
+        "wallet_network::tests::approvals_and_injection::one_single_use_ceremony_authorises_exactly_one_standing_recording"
+      ]
+    },
+    {
+      "name": "lease_projection",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/agentic/runtime/policy_lease.rs",
+      "tests": [
+        "agentic::runtime::policy_lease::tests::policy_lease_snapshot_classifies_permission_modes",
+        "agentic::runtime::policy_lease::tests::policy_lease_snapshot_projects_pending_allow_once_and_revocation"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "the snapshot renders the standing envelope as a projection",
+      "path": "crates/services/src/agentic/runtime/policy_lease.rs",
+      "pattern": "pub fn standing_grant_lease\\(",
+      "expect": 1
+    },
+    {
+      "label": "the projection only subtracts (saturating), never adds",
+      "path": "crates/services/src/agentic/runtime/policy_lease.rs",
+      "pattern": "\\.saturating_sub\\(state\\.(uses_consumed|cumulative_deposit_reserved_microusd|cumulative_spend_reserved_microusd)\\)",
+      "expect": 3
+    },
+    {
+      "label": "reservations stay monotonic: the settlement receipt and the journal comparison both read the reserved counter verbatim (refund releases no authority)",
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "pattern": "cumulative_spend_reserved_microusd: grant_state\\.cumulative_spend_reserved_microusd",
+      "expect": 2
+    }
+  ]
+}

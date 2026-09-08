@@ -1,7 +1,8 @@
 use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
     standing_approval_consumption_receipt_key, standing_approval_context_consumption_key,
-    standing_approval_grant_state_key, standing_approval_settlement_receipt_key,
+    standing_approval_grant_journal_key, standing_approval_grant_state_key,
+    standing_approval_settlement_receipt_key,
 };
 use crate::wallet_network::support::{
     append_audit_event_with_records, base_audit_metadata, block_timestamp_ms,
@@ -12,8 +13,9 @@ use crate::wallet_network::{
     ConsumeStandingApprovalGrantForEffectParams, RecordStandingApprovalGrantParams,
     RevokeStandingApprovalGrantParams, SettleStandingApprovalGrantConsumptionParams,
     StandingApprovalContextConsumption, StandingApprovalGrantConsumptionReceipt,
-    StandingApprovalGrantSettlementReceipt, StandingApprovalGrantState,
-    StandingApprovalGrantStatus, StandingApprovalMode,
+    StandingApprovalGrantJournal, StandingApprovalGrantSettlementReceipt,
+    StandingApprovalGrantState, StandingApprovalGrantStatus, StandingApprovalLedgerTotals,
+    StandingApprovalMode,
 };
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
@@ -650,6 +652,40 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
                 .into(),
         ));
     }
+    // M03.11: the cached counters are re-derived from the consumption journal on EVERY draw.
+    // A counter that no longer equals the sum of its journaled receipts is not authority; the
+    // draw refuses by name rather than trusting a number that could have rotted or been reset.
+    let journal_key = standing_approval_grant_journal_key(&params.grant_hash);
+    let mut journal = load_typed::<StandingApprovalGrantJournal>(state, &journal_key)?.unwrap_or(
+        StandingApprovalGrantJournal {
+            schema_version: 1,
+            grant_hash: params.grant_hash,
+            consumption_ids: Vec::new(),
+        },
+    );
+    if journal.grant_hash != params.grant_hash {
+        return Err(TransactionError::Invalid(
+            "standing approval journal names a different grant".into(),
+        ));
+    }
+    let derived = derive_standing_ledger_totals(state, &journal)?;
+    if derived
+        != (StandingApprovalLedgerTotals {
+            uses_consumed: grant_state.uses_consumed,
+            cumulative_deposit_reserved_microusd: grant_state.cumulative_deposit_reserved_microusd,
+            cumulative_spend_reserved_microusd: grant_state.cumulative_spend_reserved_microusd,
+        })
+    {
+        return Err(TransactionError::Invalid(format!(
+            "standing approval ledger divergence: journal derives usages={} deposit={} spend={} but the grant state carries usages={} deposit={} spend={}",
+            derived.uses_consumed,
+            derived.cumulative_deposit_reserved_microusd,
+            derived.cumulative_spend_reserved_microusd,
+            grant_state.uses_consumed,
+            grant_state.cumulative_deposit_reserved_microusd,
+            grant_state.cumulative_spend_reserved_microusd
+        )));
+    }
     let next_usage = grant_state.uses_consumed.checked_add(1).ok_or_else(|| {
         TransactionError::Invalid("standing approval usage counter overflow".into())
     })?;
@@ -662,19 +698,30 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
         .checked_add(params.estimated_spend_microusd)
         .ok_or_else(|| TransactionError::Invalid("standing spend counter overflow".into()))?;
     if next_usage > grant_state.grant.max_usages {
-        return Err(TransactionError::Invalid(
-            "standing approval usage envelope exceeded".into(),
-        ));
+        return Err(TransactionError::Invalid(format!(
+            "standing approval usage envelope exceeded: remaining usages 0 of {}",
+            grant_state.grant.max_usages
+        )));
     }
     if next_deposit > grant_state.grant.max_cumulative_deposit_microusd {
-        return Err(TransactionError::Invalid(
-            "standing approval cumulative deposit envelope exceeded".into(),
-        ));
+        return Err(TransactionError::Invalid(format!(
+            "standing approval cumulative deposit envelope exceeded: remaining deposit {} microusd, requested {}",
+            grant_state
+                .grant
+                .max_cumulative_deposit_microusd
+                .saturating_sub(grant_state.cumulative_deposit_reserved_microusd),
+            params.estimated_deposit_microusd
+        )));
     }
     if next_spend > grant_state.grant.max_cumulative_spend_microusd {
-        return Err(TransactionError::Invalid(
-            "standing approval cumulative spend envelope exceeded".into(),
-        ));
+        return Err(TransactionError::Invalid(format!(
+            "standing approval cumulative spend envelope exceeded: remaining spend {} microusd, requested {}",
+            grant_state
+                .grant
+                .max_cumulative_spend_microusd
+                .saturating_sub(grant_state.cumulative_spend_reserved_microusd),
+            params.estimated_spend_microusd
+        )));
     }
 
     grant_state.uses_consumed = next_usage;
@@ -709,6 +756,7 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
         approval_mode: StandingApprovalMode::SilentWithinStandingEnvelope,
     };
     receipt.receipt_hash = receipt_hash(&receipt)?;
+    journal.consumption_ids.push(params.consumption_id);
     let mut metadata = base_audit_metadata(ctx);
     metadata.insert("standing_grant_hash".into(), hex::encode(params.grant_hash));
     metadata.insert("request_hash".into(), hex::encode(params.request_hash));
@@ -729,10 +777,54 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
                     ioi_types::codec::to_bytes_canonical(&grant_state)?,
                 ),
                 (receipt_key, ioi_types::codec::to_bytes_canonical(&receipt)?),
+                (journal_key, ioi_types::codec::to_bytes_canonical(&journal)?),
             ])
         },
     )
     .map(|_| ())
+}
+
+/// Re-derive the draw-down totals from the journaled consumption receipts. Every journaled id
+/// must resolve to a receipt for this grant; a missing or foreign receipt is a divergence.
+pub(crate) fn derive_standing_ledger_totals(
+    state: &dyn StateAccess,
+    journal: &StandingApprovalGrantJournal,
+) -> Result<StandingApprovalLedgerTotals, TransactionError> {
+    let mut totals = StandingApprovalLedgerTotals {
+        uses_consumed: 0,
+        cumulative_deposit_reserved_microusd: 0,
+        cumulative_spend_reserved_microusd: 0,
+    };
+    for consumption_id in &journal.consumption_ids {
+        let receipt = load_typed::<StandingApprovalGrantConsumptionReceipt>(
+            state,
+            &standing_approval_consumption_receipt_key(consumption_id),
+        )?
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "standing approval journal names a consumption with no receipt".into(),
+            )
+        })?;
+        if receipt.grant_hash != journal.grant_hash
+            || receipt.receipt_hash != receipt_hash(&receipt)?
+        {
+            return Err(TransactionError::Invalid(
+                "standing approval journal names a receipt that does not bind this grant".into(),
+            ));
+        }
+        totals.uses_consumed = totals.uses_consumed.checked_add(1).ok_or_else(|| {
+            TransactionError::Invalid("standing approval journal usage overflow".into())
+        })?;
+        totals.cumulative_deposit_reserved_microusd = totals
+            .cumulative_deposit_reserved_microusd
+            .checked_add(receipt.estimated_deposit_microusd)
+            .ok_or_else(|| TransactionError::Invalid("standing journal deposit overflow".into()))?;
+        totals.cumulative_spend_reserved_microusd = totals
+            .cumulative_spend_reserved_microusd
+            .checked_add(receipt.estimated_spend_microusd)
+            .ok_or_else(|| TransactionError::Invalid("standing journal spend overflow".into()))?;
+    }
+    Ok(totals)
 }
 
 pub(crate) fn settle_standing_approval_grant_consumption(

@@ -33,6 +33,10 @@ pub(super) const STANDING_APPROVAL_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"standing_approval_consumption_receipt::";
 pub(super) const STANDING_APPROVAL_SETTLEMENT_RECEIPT_PREFIX: &[u8] =
     b"standing_approval_settlement_receipt::";
+/// Per-grant journal of consumption ids; the draw-down counters are re-derived from it on
+/// every draw so a counter that rotted or was substituted refuses instead of authorising.
+pub(super) const STANDING_APPROVAL_GRANT_JOURNAL_PREFIX: &[u8] =
+    b"standing_approval_grant_journal::";
 pub(super) const PORTABLE_AUTHORITY_GRANT_V3_STATE_PREFIX: &[u8] =
     b"portable_authority_grant_v3_state::";
 pub(super) const PORTABLE_AUTHORITY_CEREMONY_CONSUMPTION_PREFIX: &[u8] =
@@ -184,6 +188,14 @@ pub(super) fn standing_approval_consumption_receipt_key(consumption_id: &[u8; 32
     [
         STANDING_APPROVAL_CONSUMPTION_RECEIPT_PREFIX,
         consumption_id.as_slice(),
+    ]
+    .concat()
+}
+
+pub(super) fn standing_approval_grant_journal_key(grant_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        STANDING_APPROVAL_GRANT_JOURNAL_PREFIX,
+        grant_hash.as_slice(),
     ]
     .concat()
 }

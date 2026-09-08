@@ -1,0 +1,58 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-11-standing-drawdown-metering",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.11"
+  ],
+  "status": "verified",
+  "objective": "Draw-down consumption and metering across many operations under one standing lease: N bounded draws succeed, the over-envelope draw refuses naming the remaining balance, a concurrent double draw cannot exceed the envelope, and the cumulative counters are re-derived from the consumption journal on every draw.",
+  "falsifiable_claim": "npm run check:standing-drawdown-metering pins the wallet draw-down tests (4) and the two existing standing regressions by exact name, pins from source that every draw re-derives the totals from the journal, that the journal is written in the same atomic record set as the counters and receipt, and that the daemon prepares its durable intent before the wallet draw; npm run mutate:standing-drawdown-metering plants a disabled spend ceiling, a skipped journal re-derivation and a double journal append, and each must turn the check red.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "literal": "derive_standing_ledger_totals",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "literal": "standing approval ledger divergence",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/standing_authority.rs",
+      "literal": "remaining spend",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/keys.rs",
+      "literal": "standing_approval_grant_journal_key",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/tests/standing_drawdown.rs",
+      "literal": "a_concurrent_double_draw_cannot_exceed_the_envelope",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/mutate-standing-lease.mjs",
+      "literal": "standing-drawdown-metering",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg2-standing-lease-2026-09-08.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The mutate: drill plants three production-source defects and requires the unit check to go red for each, restoring the original bytes in every exit path; the check itself is a fail-empty exact-name population (a renamed or deleted test is red).",
+  "remaining_nonclaims": [
+    "The concurrent double-draw is proven at the wallet's single writer (two drawers serialized over one state); the daemon-side serialization is its process-wide admission lock plus the wallet's transaction lock, pinned by source, not by a two-process race in this population.",
+    "Journal re-derivation reads every journaled receipt on each draw; the cost is linear in the lease's history (bounded by max_usages)."
+  ],
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 2; recorded in canon-to-code-delta.md \u00a7 Journey verification XX.",
+  "last_status_transaction": "2026-09-08"
+}
