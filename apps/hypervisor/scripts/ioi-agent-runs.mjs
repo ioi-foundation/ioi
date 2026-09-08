@@ -634,6 +634,9 @@ async function executeRun(run, base, dj) {
           intent: run.prompt,
           policy_hash: policyHash,
           request_hash: requestHash,
+          // The daemon's wallet capability account: the chain consumes a grant only when its
+          // audience is the consuming signer, so the operator's approval mints for exactly this.
+          audience: challenge.body?.approval?.audience || null,
           required_scopes: challenge.body?.required_scopes || [],
           requested_at: nowIso(),
           decision: null,
@@ -688,7 +691,7 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
   }
   let grant;
   try {
-    grant = await mintLocalApproverGrant({ policyHash: pending.policy_hash, requestHash: pending.request_hash });
+    grant = await mintLocalApproverGrant({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience });
   } catch (error) {
     return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
   }

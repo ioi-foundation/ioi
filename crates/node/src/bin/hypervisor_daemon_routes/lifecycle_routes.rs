@@ -13786,7 +13786,14 @@ pub(crate) async fn execute_authority_gate(
                  Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
             ),
             "required_scopes": EXECUTION_AUTHORITY_SCOPES,
-            "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+            // `audience` is the daemon's wallet capability account: the chain consumes a grant
+            // only when its audience is the consuming signer, so a grant minted for the parked
+            // challenge must name it. Public coordinate material, never a secret.
+            "approval": {
+                "policy_hash": policy_hash,
+                "request_hash": request_hash,
+                "audience": super::wallet_network_capability_client::capability_account_id_hex(),
+            },
             // Blocked before any work: nothing ran, nothing fabricated.
             "changed_file_groups": [],
             "terminal_events": [],

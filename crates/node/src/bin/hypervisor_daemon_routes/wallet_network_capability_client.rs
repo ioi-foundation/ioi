@@ -154,6 +154,21 @@ pub(crate) fn configured() -> bool {
     load_config().is_ok()
 }
 
+/// The daemon's wallet capability ACCOUNT id (hex), i.e. the exact `audience` an approval grant
+/// must name so the chain's consume path (`ctx.signer_account_id == grant.audience`) accepts it
+/// when this daemon submits the consumption. It is derived from the sealed capability key and is
+/// public coordinate material, not a secret; the execute challenge carries it so an operator's
+/// approval surface can mint a grant bound to THIS daemon rather than guessing. `None` when the
+/// wallet client is not configured (the challenge then carries no audience and no grant could be
+/// consumed anyway).
+pub(crate) fn capability_account_id_hex() -> Option<String> {
+    let config = load_config().ok()?;
+    let public_key = config.client_key.public_key().to_bytes();
+    account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+        .ok()
+        .map(hex::encode)
+}
+
 fn required_env(name: &str) -> Result<String, ResolveError> {
     std::env::var(name)
         .ok()

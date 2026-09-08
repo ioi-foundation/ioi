@@ -59,12 +59,18 @@ async function readLocalApproverSeedHex() {
 
 // Mint ONE grant for ONE exact challenge with the deployment-held approver key. Only an operator
 // approval action may call this; nothing else in the serve imports it.
-export async function mintLocalApproverGrant({ policyHash, requestHash }) {
+export async function mintLocalApproverGrant({ policyHash, requestHash, audience }) {
   if (!localApproverEnabled()) return null;
   if (!policyHash || !requestHash) throw new Error("local approver refuses to sign without both policy_hash and request_hash");
+  // The grant's audience is the daemon's wallet capability account, carried on the challenge the
+  // run parked on. wallet.network consumes a grant only when its audience is the consuming signer,
+  // so a grant without it can never be consumed; refuse to mint a dead grant.
+  if (!/^[0-9a-f]{64}$/u.test(String(audience || ""))) {
+    throw new Error("local approver refuses to sign without the daemon's capability audience (the challenge carried none — is the daemon's wallet client configured?)");
+  }
   const seed = await readLocalApproverSeedHex();
   const { mintApprovalGrant } = await import("../../../../scripts/lib/mint-approval-grant.mjs");
-  return mintApprovalGrant({ seed, policyHash, requestHash });
+  return mintApprovalGrant({ seed, policyHash, requestHash, audience });
 }
 
 // The typed parked state when the deployment-local approver holds the key: the run waits for the
