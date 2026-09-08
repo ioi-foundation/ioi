@@ -13793,6 +13793,9 @@ pub(crate) async fn execute_authority_gate(
                 "policy_hash": policy_hash,
                 "request_hash": request_hash,
                 "audience": super::wallet_network_capability_client::capability_account_id_hex(),
+                // The exact governed scope the grant is consumed under; the approval act records
+                // the decision on wallet.network for this scope before the daemon consumes it.
+                "target_scope": "scope:hypervisor.live-route.session-execute",
             },
             // Blocked before any work: nothing ran, nothing fabricated.
             "changed_file_groups": [],

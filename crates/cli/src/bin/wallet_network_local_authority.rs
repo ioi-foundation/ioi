@@ -29,6 +29,11 @@
 //!   snapshot. Every later resolution for the principal fails typed-unavailable and the daemon
 //!   fails closed before any harness runs.
 //! * `status` — prints the custodied authority record and the LIVE binding head from the chain.
+//! * `record-approval --grant-file <json> --target-scope <scope>` — the operator's approval act
+//!   against the node: records the exact one-use grant the operator signed (the daemon's
+//!   capability account as audience) as a `WalletApprovalDecision` on chain, signed by the
+//!   daemon's capability key under the daemon's transaction lock, so the daemon's consumption
+//!   preflight finds state for the exact grant. Idempotent for the same request hash.
 //!
 //! Transport: the node's gRPC endpoint is plaintext on loopback. The daemon requires an
 //! `https://` endpoint with a pinned CA, which `apps/hypervisor/scripts/wallet-network-authority.mjs`
@@ -60,18 +65,20 @@ use ioi_cli::testing::{
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
 use ioi_services::wallet_network::RegisterApprovalAuthorityParams;
 use ioi_types::app::action::ApprovalAuthority;
+use ioi_types::app::action::ApprovalGrant;
 use ioi_types::app::wallet_network::{
     IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingHeadV1,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityBindingStatementV1,
     PrincipalAuthorityBindingStatus, PrincipalAuthorityKind, RevokePrincipalAuthorityBindingParams,
-    VaultSurface, WalletClientRole, WalletClientState, WalletConfigureControlRootParams,
-    WalletControlPlaneRootRecord, WalletRegisterClientParams, WalletRegisteredClientRecord,
+    VaultSurface, WalletApprovalDecision, WalletApprovalDecisionKind, WalletClientRole,
+    WalletClientState, WalletConfigureControlRootParams, WalletControlPlaneRootRecord,
+    WalletInterceptionContext, WalletRegisterClientParams, WalletRegisteredClientRecord,
     PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
 };
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId,
-    ChainTransaction, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
-    SystemTransaction,
+    account_id_from_key_material, AccountId, ActionTarget, BlockTimingParams, BlockTimingRuntime,
+    ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite, StateEntry,
+    SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
@@ -139,6 +146,19 @@ enum Command {
     Status {
         #[arg(long)]
         state_dir: PathBuf,
+    },
+    /// Record an operator-signed one-use approval grant on the chain (the approval act).
+    RecordApproval {
+        #[arg(long)]
+        state_dir: PathBuf,
+        /// JSON file holding the ApprovalGrant the operator signed (`-` reads stdin).
+        #[arg(long)]
+        grant_file: String,
+        /// The exact governed scope the challenge named (e.g. scope:hypervisor.live-route.session-execute).
+        #[arg(long)]
+        target_scope: String,
+        #[arg(long, default_value = "Hypervisor operator approval of the exact effect")]
+        reason: String,
     },
 }
 
@@ -209,6 +229,9 @@ async fn main() -> Result<()> {
         Command::Rotate { state_dir } => rotate(&state_dir).await,
         Command::Revoke { state_dir, reason } => revoke(&state_dir, &reason).await,
         Command::Status { state_dir } => status(&state_dir).await,
+        Command::RecordApproval { state_dir, grant_file, target_scope, reason } => {
+            record_approval(&state_dir, &grant_file, &target_scope, &reason).await
+        }
     }
 }
 
@@ -553,6 +576,134 @@ async fn status(state_dir: &Path) -> Result<()> {
         }
     }
     println!("{}", serde_json::to_string_pretty(&out)?);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------------------------
+// record-approval (the operator's approval act against the node)
+// ---------------------------------------------------------------------------------------------
+
+fn wallet_approval_key(request_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"approval::",
+        request_hash.as_slice(),
+    ]
+    .concat()
+}
+
+fn approval_matches(
+    approval: &WalletApprovalDecision,
+    grant: &ApprovalGrant,
+    target_scope: &str,
+    reason: &str,
+) -> bool {
+    approval.interception.session_id.is_none()
+        && approval.interception.request_hash == grant.request_hash
+        && approval.interception.target.canonical_label() == target_scope
+        && approval.interception.policy_hash == grant.policy_hash
+        && approval.interception.reason == reason
+        && approval.decision == WalletApprovalDecisionKind::ApprovedByHuman
+        && approval.approval_grant.as_ref() == Some(grant)
+        && approval.surface == VaultSurface::Desktop
+}
+
+/// The daemon serializes its wallet transactions on this lock file; the approval act transacts
+/// from the SAME capability account, so it must hold the same lock across nonce query + submit.
+struct TransactionLock(std::fs::File);
+impl Drop for TransactionLock {
+    fn drop(&mut self) {
+        use std::os::fd::AsRawFd;
+        // SAFETY: the descriptor stays owned by this guard.
+        unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN); }
+    }
+}
+fn acquire_transaction_lock(path: &Path) -> Result<TransactionLock> {
+    use std::os::fd::AsRawFd;
+    let file = OpenOptions::new().create(true).read(true).write(true).open(path)?;
+    loop {
+        // SAFETY: `file` owns a live descriptor for the duration of flock.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
+            return Ok(TransactionLock(file));
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error.into());
+        }
+    }
+}
+
+async fn record_approval(state_dir: &Path, grant_file: &str, target_scope: &str, reason: &str) -> Result<()> {
+    let ready = read_ready(state_dir)?;
+    let record = read_authority_record(state_dir)?;
+    if record.binding_status != "active" {
+        bail!("the principal's binding is {}; nothing can be approved", record.binding_status);
+    }
+    let guardian_pass = guardian_pass()?;
+    let sealed = std::fs::read(&ready.capability_key_path)?;
+    let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, &guardian_pass)
+        .map_err(|error| anyhow!("open capability key: {error}"))?;
+    let capability_seed: [u8; 32] = capability_seed.0.as_slice().try_into().map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability = keypair(&capability_seed)?;
+    let capability_account_id = account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
+    let grant_json = if grant_file == "-" {
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
+        text
+    } else {
+        std::fs::read_to_string(grant_file)?
+    };
+    let grant: ApprovalGrant = serde_json::from_str(&grant_json).context("approval grant JSON")?;
+    if hex::encode(grant.authority_id) != record.approver_authority_id || hex::encode(&grant.approver_public_key) != record.approver_public_key {
+        bail!("the grant is not signed by the custodied approver ({}); refusing to record a foreign approval", record.approver_authority_id);
+    }
+    if grant.audience != capability_account_id {
+        bail!("the grant's audience is not this deployment's capability account {}", hex::encode(capability_account_id));
+    }
+    if grant.max_usages != Some(1) {
+        bail!("a session-execute approval must be a one-use grant (max_usages=1)");
+    }
+    if !target_scope.starts_with("scope:hypervisor.live-route.") {
+        bail!("target scope {target_scope} is outside the deployment approver's allowlist ({APPROVER_SCOPE_ALLOWLIST})");
+    }
+    let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
+    let approval_key = wallet_approval_key(&grant.request_hash);
+    if let Some(existing_bytes) = query_state_key(&ready.rpc_addr, &approval_key).await? {
+        let existing: WalletApprovalDecision = decode_state_value(&existing_bytes, "approval decision")?;
+        if approval_matches(&existing, &grant, target_scope, reason) {
+            println!("{}", serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "existing" }));
+            return Ok(());
+        }
+        bail!("request_hash already names a different wallet approval decision");
+    }
+    let decided_at_ms = now_ms();
+    if grant.expires_at <= decided_at_ms {
+        bail!("approval grant is already expired");
+    }
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: None,
+            request_hash: grant.request_hash,
+            target: ActionTarget::Custom(target_scope.to_string()),
+            policy_hash: grant.policy_hash,
+            value_usd_micros: None,
+            reason: reason.to_string(),
+            intercepted_at_ms: decided_at_ms.saturating_sub(1),
+        },
+        decision: WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(grant.clone()),
+        surface: VaultSurface::Desktop,
+        decided_at_ms,
+    };
+    let nonce = account_nonce(&ready.rpc_addr, &capability_account_id).await?;
+    submit(&ready.rpc_addr, &capability, ChainId(ready.chain_id), nonce, "record_approval@v1", &approval).await?;
+    let persisted = query_state_key(&ready.rpc_addr, &approval_key).await?
+        .ok_or_else(|| anyhow!("record_approval committed but no approval state is readable"))?;
+    let persisted: WalletApprovalDecision = decode_state_value(&persisted, "approval decision")?;
+    if !approval_matches(&persisted, &grant, target_scope, reason) {
+        bail!("persisted approval decision differs from the one submitted");
+    }
+    println!("{}", serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "committed", "nonce": nonce }));
     Ok(())
 }
 

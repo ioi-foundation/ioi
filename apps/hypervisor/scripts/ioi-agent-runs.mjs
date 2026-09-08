@@ -8,7 +8,7 @@
 //   as the env exists and the run is registered; the harness runs async and this registry
 //   tracks status + transcript + changed files for GetAgentExecution / ListAgentExecutions
 //   and the conversation stream. The daemon EXECUTES; this is an app-side view of its run.
-import { mintTestGrant, localApproverEnabled, mintLocalApproverGrant } from "./lib/wallet-authority.mjs";
+import { mintTestGrant, localApproverEnabled, mintLocalApproverGrant, recordLocalApproverGrant } from "./lib/wallet-authority.mjs";
 import { daemonEnvToIOI } from "./ioi-projection.mjs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -637,6 +637,7 @@ async function executeRun(run, base, dj) {
           // The daemon's wallet capability account: the chain consumes a grant only when its
           // audience is the consuming signer, so the operator's approval mints for exactly this.
           audience: challenge.body?.approval?.audience || null,
+          target_scope: challenge.body?.approval?.target_scope || null,
           required_scopes: challenge.body?.required_scopes || [],
           requested_at: nowIso(),
           decision: null,
@@ -696,6 +697,15 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
     return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
   }
   if (!grant) return { ok: false, status: 501, error: { code: "local_approver_not_configured", message: "no deployment-local approver key is configured" } };
+  // The approval is an act against the deployment's authority node: the exact one-use grant is
+  // recorded on wallet.network for the challenge's scope BEFORE the daemon is asked to consume
+  // it (the daemon's preflight finds no state for an unrecorded grant and refuses).
+  try {
+    const recorded = await recordLocalApproverGrant({ grant, targetScope: pending.target_scope });
+    run.approvalRecord = recorded;
+  } catch (error) {
+    return { ok: false, status: 502, error: { code: "local_approver_record_failed", message: String(error?.message || error) } };
+  }
   run.daemonHeaders = boundedDaemonHeaders(daemonHeaders);
   run.status = "running";
   run.pendingApproval = { ...pending, decision: "approved", decided_at: nowIso() };

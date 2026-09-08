@@ -140,7 +140,12 @@ export async function startLocalAuthority({
     IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: "900",
     IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
   };
-  const serveEnv = { IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: ready.approver_key_path };
+  const serveEnv = {
+    IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: ready.approver_key_path,
+    // The approval act records the grant on THIS node through the control binary.
+    IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR: stateDir,
+    IOI_WALLET_AUTHORITY_BINARY: bin,
+  };
   const envText = (obj) => `${Object.entries(obj).map(([k, v]) => `${k}=${v}`).join("\n")}\n`;
   writeSecretFile(path.join(stateDir, "daemon.env"), envText(daemonEnv));
   writeSecretFile(path.join(stateDir, "serve.env"), envText(serveEnv));
@@ -171,6 +176,8 @@ export async function startLocalAuthority({
 export function authorityAct(act, { stateDir, binary, reason } = {}) {
   const bin = resolveBinary(binary, { build: false });
   const args = [act, "--state-dir", path.resolve(stateDir), ...(act === "revoke" && reason ? ["--reason", reason] : [])];
-  const result = spawnSync(bin, args, { cwd: ROOT, encoding: "utf8", env: { ...process.env, CARGO_TERM_COLOR: "never" } });
+  const passFile = path.join(path.resolve(stateDir), "keys", "guardian.pass");
+  const pass = process.env.IOI_GUARDIAN_KEY_PASS || (fs.existsSync(passFile) ? fs.readFileSync(passFile, "utf8").trim() : "");
+  const result = spawnSync(bin, args, { cwd: ROOT, encoding: "utf8", env: { ...process.env, CARGO_TERM_COLOR: "never", ...(pass ? { IOI_GUARDIAN_KEY_PASS: pass } : {}) } });
   return { ok: result.status === 0, status: result.status, stdout: result.stdout || "", stderr: result.stderr || "" };
 }
