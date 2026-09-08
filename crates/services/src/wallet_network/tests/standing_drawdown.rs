@@ -197,7 +197,10 @@ fn the_usage_bound_refuses_with_the_remaining_count_and_exhausts_exactly_at_max(
     let exhausted = stored(&lease.state, &lease.grant_hash);
     assert_eq!(exhausted.status, StandingApprovalGrantStatus::Exhausted);
     let refused = draw(&mut lease, 3, 3, 10, 10).expect_err("third draw");
-    assert!(refused.to_string().contains("not active"), "{refused}");
+    assert!(
+        refused.to_string().contains("not active: exhausted"),
+        "{refused}"
+    );
 }
 
 #[test]
@@ -350,7 +353,10 @@ fn revocation_refuses_the_very_next_draw_and_recovery_never_widens_or_resets() {
         "revocation changed only the status"
     );
     let refused = draw(&mut lease, 3, 3, 100, 100).expect_err("next draw after revoke");
-    assert!(refused.to_string().contains("not active"), "{refused}");
+    assert!(
+        refused.to_string().contains("not active: revoked"),
+        "{refused}"
+    );
     assert_eq!(
         stored(&lease.state, &lease.grant_hash),
         revoked,
@@ -381,7 +387,10 @@ fn revocation_refuses_the_very_next_draw_and_recovery_never_widens_or_resets() {
         params,
     )
     .expect_err("recovered revoked lease");
-    assert!(refused.to_string().contains("not active"), "{refused}");
+    assert!(
+        refused.to_string().contains("not active: revoked"),
+        "{refused}"
+    );
 }
 
 #[test]

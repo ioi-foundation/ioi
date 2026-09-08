@@ -1,0 +1,106 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "standing-authority consumer loop",
+  "leg": 3,
+  "title": "M13.3 attach-time envelope \u00b7 M13.5 policy-derived posture \u2014 the consumer loop over the standing lease",
+  "basis": {
+    "head": "35c7a6cfd",
+    "tree": "dirty (this leg's own uncommitted files)"
+  },
+  "recorded_at": "2026-09-08",
+  "contract": "schema://ioi/components/hypervisor/session-standing-envelope/v1 (SessionStandingEnvelope) registered with invariants, fixtures and generated Rust/TypeScript projections before any surface claimed it",
+  "runs": {
+    "check:standing-consumer-loop": {
+      "verdict": "pass",
+      "assertions": "24/24",
+      "fixture": "real wallet.network principal-authority fixture, IOI_M049_ORDERING_PROFILE=Solo, wall-clock chain",
+      "factor_origin": "synthetic_contract_fixture_not_physical_passkey",
+      "lines": [
+        "PASS operator bootstrap yields an authenticated session \u2014 ioi_sess_cdd",
+        "PASS four real connectors register in the Connections estate \u2014 conn_5acb54a4a789660a conn_0c5854899c05ff3e conn_ff0d660bec523e39 conn_a7c4d1e716ccdf16",
+        "PASS M13.3: attaching a standing lease (wallet-recorded grant + registered SessionStandingEnvelope) binds it to the connection and returns its bounds \u2014 200 {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788896108383,\"max_cumulative_deposit_microusd\":3000,\"max_cumulative_spend_microusd\":3000,\"max_usages\"",
+        "PASS the connector record (the card's source) carries the lease bounds, hashes and status \u2014 never a client-side number \u2014 {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788896108383,\"max_cumulative_deposit_microusd\":3000,\"max_cumulative_spend_microusd\":3000,\"max_usages\":3,\"not_before_m",
+        "PASS a lease whose envelope names another connector refuses typed at attach (422 standing_lease_connector_mismatch) \u2014 422/standing_lease_connector_mismatch",
+        "PASS an active lease is never edited in place: a second bind conflicts (409) \u2014 widening is a successor binding \u2014 409",
+        "PASS M13.3: a session profile naming an UNBOUNDED attach refuses at create (412 session_authority_connection_unbounded) and points widening at Connections \u2014 412/session_authority_connection_unbounded",
+        "PASS a session naming the BOUNDED attach creates (202) with the closed profile \u2014 202 session:hyp-98645ea3a6a3c7b6dcba8a219eb5777c3874acc4efe75746f77d8e20a76fb6b1",
+        "PASS ACC-15 \u00a74: two in-envelope acts complete with ZERO approval prompts \u2014 no challenge, no card, the tool ran \u2014 200/200 {\"ok\":true,\"receipt\":{\"capability_lease\":{\"admission_intent_ref\":\"authority-admission-intents/sai_8d747c54db8d96a9ebd6b5",
+        "PASS the silence is attributable: a standing_draw receipt per act is on the session (posture silent_within_policy, envelope hash, admission intent) and the wallet consumed exactly that many usages \u2014 2 draw receipt(s) \u00b7 2 consumed intent(s)",
+        "PASS MUTATION (ACC-15 \u00a74 / ACC-18): marking the act interactive_exact_effect in the admitted policy yields the exact-effect REVIEW (202 exact_effect_review_required with the daemon's commitments) instead of silence, and draws nothing \u2014 202/exact_effect_review_required \u00b7 consumed 2",
+        "PASS the review object is DURABLE: payload hash, destination, policy/request commitments and expiry are on the session's receipts \u2014 {\"at\":\"2026-09-08T19:17:26.07640538Z\",\"connection_ref\":\"connector:conn_5acb54a4a789660a\",\"connector_id\":\"conn_5acb54a4a789660a\",\"destination\":\"ping-service:http",
+        "PASS ACC-18: a bogus exact grant against the review refuses at the exact lane (never silently admitted, nothing consumed) \u2014 403/connector_invoke_authority_required",
+        "PASS with the policy mark removed the act is silent again \u2014 silence is a policy outcome, not a UI choice \u2014 200 \u00b7 consumed 3",
+        "PASS ACC-15 \u00a75: draw N+1 refuses TYPED at the daemon naming the bound (standing_envelope_exceeded / max_usages) with widening pointed at Connections; nothing ran \u2014 403/standing_envelope_exceeded/max_usages",
+        "PASS the refusal is DURABLE: a standing_refusal receipt naming the bound is on the session and the response cites it \u2014 1 refusal receipt(s)",
+        "PASS UI-BYPASS DRILL: a second direct daemon probe refuses IDENTICALLY (same reason, same bound) \u2014 the refusal is admission's, not a surface's \u2014 403/standing_envelope_exceeded",
+        "PASS a tool the template does not name refuses typed (standing_envelope_tool_outside_template) before any wallet call \u2014 403/standing_envelope_tool_outside_template",
+        "PASS a session-less invocation is the operator's own direct act: it keeps the exact authority challenge and never draws the envelope \u2014 403/connector_invoke_authority_required",
+        "PASS ACC-18: a policy-marked tool with a FULL standing envelope produces the review object every time; the same bytes twice never admit and the envelope is never drawn \u2014 202/202 \u00b7 consumed 3",
+        "PASS ACC-15 \u00a78 (wallet side): after the wallet revokes the grant, the very next draw refuses (standing_lease_revoked) \u2014 the daemon record still says active, the wallet is the truth \u2014 200 {\"ok\":true,\"receipt\":{\"capability_lease\":{\"admission_intent_ref\":\"authority-admission-intents/sai_59 \u2192 403 {\"auth",
+        "PASS ACC-15 \u00a78 (attach side): revoking the attach-time lease refuses the very next act (standing_lease_revoked, before any wallet call) and the next session create (412, lease_status revoked) \u2014 200 {\"connector_id\":\"conn_5acb54a4a789660a\",\"ok\":true,\"receipt_ref\":\"receipt://hypervisor/standing-revocat",
+        "PASS the revocation is receipted \u2014 1",
+        "PASS RESTART: the bounded lease still renders its bounds, the revoked lease still refuses, and the review-marked tool still reviews \u2014 all from durable records \u2014 active \u00b7 403/standing_lease_revoked \u00b7 202",
+        "PASS check:standing-consumer-loop \u2014 24/24 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey"
+      ]
+    },
+    "check:session-authority-profile": {
+      "verdict": "pass",
+      "assertions": "22/22 (floor moved 21 \u2192 22: both connectors now attach with a standing envelope)",
+      "lines": [
+        "PASS  operator bootstrap yields an authenticated session \u2014 ioi_sess_ca9",
+        "PASS  two real connectors register in the Connections estate \u2014 200/200 conn_115f18d0e4f44047 conn_67e48fa7022bc100",
+        "PASS  both connectors carry an attach-time standing envelope (M13.3: only a bounded attach is nameable) \u2014 200/200 {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788898987130,\"max_cumulative_deposit_microusd\":5000,\"max_cumulative_spend_mic",
+        "PASS  a session created WITHOUT a profile carries the EMPTY profile on the durable record (schema-versioned, connection_refs exactly []) \u2014 202 {\"connection_refs\":[],\"declared_at\":\"2026-09-08T19:23:07.512281544Z\",\"schema_version\":\"ioi.hypervisor.session_authority_profile.v1\"}",
+        "PASS  the create projection itself returns the profile (the caller sees what was bound, never a silent default) \u2014 {\"connection_refs\":[],\"declared_at\":\"2026-09-08T19:23:07.512281544Z\",\"schema_version\":\"ioi.hypervisor.session_authority_profile.v1\"}",
+        "PASS  a session created naming connector A (both spellings) carries EXACTLY [connector:A] \u2014 normalized, deduplicated, closed \u2014 202 [\"connector:conn_115f18d0e4f44047\"]",
+        "PASS  naming a connection that does not exist REFUSES the create (412 session_authority_connection_unknown) \u2014 the set never silently shrinks \u2014 412/session_authority_connection_unknown",
+        "PASS  a malformed profile refuses typed 422 session_authority_profile_invalid \u2014 422/session_authority_profile_invalid",
+        "PASS  the sessions list projection carries each session's profile (App and headless read the same daemon truth) \u2014 {\"connection_refs\":[\"connector:conn_115f18d0e4f44047\"],\"declared_at\":\"2026-09-08T19:23:07.720766869Z\",\"schema_version\":\"ioi.hypervisor.session_authority_profile.v1\"}",
+        "PASS  DIRECT DAEMON PATH: invoking connector A on behalf of the EMPTY-profile session refuses TYPED 403 session_authority_out_of_profile \u2014 403/session_authority_out_of_profile",
+        "PASS  the refusal is DURABLE: a typed refusal receipt for that session is in the receipts family and the response names it \u2014 1 receipt(s) \u00b7 receipt://hypervisor/session-authority-refusal/ced830dd349041ce",
+        "PASS  under session A, invoking connector A PASSES the profile gate and reaches the ordinary wallet crossing (the typed authority challenge, not an out-of-profile refusal) \u2014 403/standing_draw_refused",
+        "PASS  the crossing under session A is the authority crossing that binds the SESSION (the daemon's challenge or, under the attach-time envelope, the standing draw refusing typed without a wallet \u2014 never a silent success without authority) \u2014 403/standing_draw_refused/live_route_authority_principal_not",
+        "PASS  under session A, invoking connector B refuses out-of-profile \u2014 same caller, same body shape, only the profile differs \u2014 403/session_authority_out_of_profile",
+        "PASS  a session-less invocation is the operator's own direct act and keeps its existing gates (never an out-of-profile refusal) \u2014 501/connector_invoke_authority_required",
+        "PASS  naming a session that does not exist refuses at the session gate (404 session_not_found) \u2014 no crossing, no receipt \u2014 404/session_not_found",
+        "PASS  an ANONYMOUS session-scoped invocation refuses typed 401 before the session record is read (identity precedes the profile gate) \u2014 401/request_principal_required",
+        "PASS  REVOCATION: deleting connector A makes the next invocation under session A refuse \u2014 the session's profile grants nothing the estate no longer holds \u2014 delete 200 \u00b7 invoke 400/unknown connector_id",
+        "PASS  the session's profile is IMMUTABLE \u2014 deletion does not rewrite the record; the closed set still names connector A as declared at create \u2014 [\"connector:conn_115f18d0e4f44047\"]",
+        "PASS  RESTART: the profile survives a daemon kill + restart on the durable record \u2014 [\"connector:conn_115f18d0e4f44047\"]",
+        "PASS  RESTART: the out-of-profile invocation refuses identically after restart (reconnect preserves fencing) \u2014 403/session_authority_out_of_profile",
+        "PASS  RESTART: the empty-profile session still refuses every connector after restart \u2014 403/session_authority_out_of_profile"
+      ]
+    },
+    "check:alpha-journey (fixture authority mode)": {
+      "verdict": "pass",
+      "assertions": "33/33",
+      "evidence": "docs/architecture/_meta/evidence/m13-alpha-journey-fixture-standing-2026-09-08.v1.json",
+      "standing_legs": [
+        "PASS  5c-envelope: FIXTURE MODE: the attach pass minted the standing envelope (1 usage \u00b7 $0.01 \u00b7 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record \u2014 200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788904413668,\"max_cumulative_depos",
+        "PASS  5c-envelope: the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number) \u2014 200 standing=true",
+        "PASS  5c-envelope: M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections \u2014 configure-once is the admission rule \u2014 412/session_authority_connection_unbounded",
+        "PASS  6-work: SILENT WITHIN POLICY: the run never parks on an approval card \u2014 its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record) \u2014 done \u00b7 {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\"",
+        "PASS  6-work: the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session \u2014 the draw-down receipt exists, no dialog was suppressed \u2014 1 draw receipt(s)",
+        "PASS  6-work: OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound \u2014 200 failed \u00b7 {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_env",
+        "PASS  6-work: REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) \u2014 leaving is real \u2014 200 \u2192 412/session_authority_connection_unbounded"
+      ]
+    },
+    "check:alpha-journey (deployment authority mode)": {
+      "verdict": "pass (standing legs recorded as a typed custody-tier block, not qualified)",
+      "assertions": "39/39",
+      "evidence": "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-custody-block-2026-09-08.v1.json",
+      "standing_legs": [
+        "PASS  5c-envelope: DEPLOYMENT MODE: setting a standing envelope at attach refuses TYPED (standing_lease_custody_tier_unruled) \u2014 the deployment-local operator key has no admitted passkey posture for standing authority; nothing was fabricated to make it pass \u2014 501/standing_lease_custody_tier_unruled",
+        "PASS  5c-envelope: the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number) \u2014 200 standing=false",
+        "PASS  5c-envelope: M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections \u2014 configure-once is the admission rule \u2014 412/session_authority_connection_unbounded"
+      ]
+    }
+  },
+  "findings": [
+    "A standing draw is one USAGE: identical acts under one lease must each draw, so the daemon mints a per-draw nonce into the C2 intent commitment (request facets on the connector path, the effect on the execute path); an exact-grant act keeps its exactly-once slot. Found by the verifier's second identical act refusing `operation_already_admitted`.",
+    "The wallet now names the lifecycle status in its refusal (`not active: exhausted, usages N of N consumed` / `revoked` / `expired`) so the daemon classifies exhaustion as the usage bound and revocation as a fence.",
+    "The fixture's default four-validator AFT profile did not commit its first transaction within 900 s on this host; the verifier pins the Solo ordering profile exactly as the alpha journey does.",
+    "The execute lane needs a qualified model route and launch chain before its authority gate, so the consumer-loop verifier does not drive it; the alpha journey (fixture mode) does.",
+    "OWNER RULING NEEDED (custody tier): the wallet's standing-grant evidence rule requires an interactive step-up ceremony whose auth-factor receipt contract is passkey-only (factor_kind const passkey); the bounded alpha's deployment-local operator key therefore cannot mint a standing envelope. The serve refuses TYPED (`standing_lease_custody_tier_unruled`) in deployment mode rather than fabricating a ceremony; the fixture lane records the synthetic contract ceremony the broker-contract verifier already uses, labelled as such."
+  ]
+}

@@ -206,6 +206,17 @@ signer's public key on every installing host.
   The cargo test fixture (public `07…` seed) is no longer used for
   qualification of steps 2b, 6 and 7; fixture mode remains available to the
   journey for comparison only.
+- No claim that the alpha's deployment-local operator can mint a **standing
+  envelope** (2026-09-08, the M13.3/M13.5 consumer loop). wallet.network records
+  a standing grant only through an interactive step-up ceremony whose
+  auth-factor receipt is passkey-only, and the alpha's approver key has no
+  admitted posture for standing authority; the attach flow refuses typed
+  (`standing_lease_custody_tier_unruled`) in deployment mode. The loop itself
+  (attach-time envelope, silent draw-down, exact-effect review, typed refusal,
+  revocation) is qualified on the direct daemon path and in the journey's
+  **fixture** authority mode with the synthetic contract ceremony the
+  broker-contract verifier uses, labelled as such. Ruling the alpha's custody
+  tier for standing authority is the owner's (private register R-14).
 - No claim of general availability: `production_candidate` names a bounded
   alpha whose every unqualified row in the tables above stays unqualified.
 - No claim of an end-to-end standalone product pass; that remains the

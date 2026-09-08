@@ -4103,6 +4103,16 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_connector_set_policy),
         )
         .route(
+            "/v1/hypervisor/authority/capability-account",
+            get(lifecycle_routes::handle_authority_capability_account),
+        )
+        // M13.3 — the attach-time standing envelope (bind at attach; revoke = fence).
+        .route(
+            "/v1/hypervisor/connectors/:id/standing-lease",
+            post(lifecycle_routes::handle_connector_bind_standing_lease)
+                .delete(lifecycle_routes::handle_connector_revoke_standing_lease),
+        )
+        .route(
             "/v1/hypervisor/connectors/:id/invoke",
             post(lifecycle_routes::handle_connector_invoke),
         )

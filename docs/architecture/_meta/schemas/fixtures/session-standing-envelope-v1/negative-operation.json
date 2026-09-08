@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.hypervisor.session-standing-envelope.v1",
+  "standing_envelope_ref": "standing-envelope://hypervisor/connections/conn_18cd245812ad55b9/u1",
+  "owner_ref": "org://local",
+  "bounded_system_ref": "system://hypervisor/local",
+  "principal_ref": "domain://acme-host",
+  "audience_ref": "wallet-client://hypervisor/daemon",
+  "authority_scope": "scope:hypervisor.session-standing-envelope",
+  "facet_template": {
+    "connector_id": "conn_18cd245812ad55b9",
+    "service": "ping-service",
+    "base_url": "http://127.0.0.1:9",
+    "operations": [
+      "provider_create"
+    ],
+    "allowed_tools": [
+      "ping"
+    ],
+    "per_operation_spend_microusd": 1000,
+    "per_operation_deposit_microusd": 1000
+  },
+  "aggregate_bounds": {
+    "max_cumulative_deposit_microusd": 5000,
+    "max_cumulative_spend_microusd": 5000,
+    "max_usages": 5
+  },
+  "not_before_ms": 1757280000000,
+  "expires_at_ms": 1757366400000,
+  "revocation_epoch": 0,
+  "trajectory_policy_ref": "policy://hypervisor/session-standing-envelope/trajectory/v1",
+  "trajectory_policy_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "approval_mode": "standing_envelope",
+  "recovery_posture": "recovery_never_widens_or_resets_drawdown",
+  "body_hash": "sha256:b991afd99db1d12e35b4b4b13309e089cb03fccc914b3bc81e1758275960df69"
+}

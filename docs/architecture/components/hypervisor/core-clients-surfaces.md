@@ -3071,6 +3071,42 @@ Rules:
   and receipts remain daemon truth, and the profile confers no authority the
   named connector's own lease does not carry.
 
+#### Attach-time envelope and policy-derived posture
+
+> Declared 2026-09-08 (the M13.3/M13.5 units; owner-reversible).
+
+A Connections attach that Sessions may name declares its **standing envelope
+in the same pass**: a registered `SessionStandingEnvelope`
+(`schema://ioi/components/hypervisor/session-standing-envelope/v1` — one
+connector, the operations it covers (`session_execute`, `connector_invoke`),
+the tools, the metered unit per operation, aggregate usages/budget, a validity
+window) bound by a wallet-signed `StandingApprovalGrant`. The connector record
+carries the lease and the connection card renders its bounds from the daemon
+record. **A session profile naming a connection with no standing envelope
+refuses at create** (`session_authority_connection_unbounded`): configure-once
+is the admission rule, not a later chore. Attaching without an envelope remains
+possible for the operator's own direct acts; such a connection is simply not
+nameable by a session.
+
+Within a session, each governed act's posture is the **daemon's admission
+outcome**, never a presentation choice:
+
+- `silent_within_policy` — the act is inside the attached envelope and the
+  connector's admitted policy marks it for no individual review: the daemon
+  draws one usage against the wallet-held lease (before any effect), records
+  the draw receipt on the session, and no approval prompt exists anywhere;
+- `interactive_exact_effect` — the connector's admitted policy names the tool
+  in `exact_review_tools`: the daemon writes an exact-effect review object
+  (payload hash, destination, subject session, policy and request commitments,
+  expiry) and refuses to draw the envelope; only an exact grant bound to that
+  request admits it. A standing envelope, budget or device posture cannot
+  suppress this;
+- typed refusal — the act is outside the envelope (usages, budget, expiry,
+  revoked lease, tool outside the template): the daemon refuses naming the
+  bound, records a refusal receipt on the session, and points widening at
+  Connections (a new binding, never an in-run change). A direct daemon invoke
+  refuses identically to the UI path.
+
 Sessions are bounded execution truth windows. A Session view should be able to show
 the live or historical transcript, step graph, tool/model calls,
 terminal/browser/computer-use activity, authority gates, privacy posture,

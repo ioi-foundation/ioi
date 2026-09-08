@@ -27,6 +27,7 @@ import {
   runToAgentExecution,
   extractPrompt,
   extractEnvClass,
+  extractAuthorityProfile,
 } from "./ioi-agent-runs.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -588,12 +589,24 @@ async function handleImpl(pathname, bodyText) {
       const prompt = extractPrompt(body) || "Work in this environment.";
       const environmentClassId = extractEnvClass(body) || "local-workspace-v0";
       if (process.env.IOI_HYPERVISOR_DEBUG) console.error("[ioi-api-adapter] CreateAgentSession body:", bodyText.slice(0, 800));
-      const { agentExecutionId, environment, userInputBlockId } = await startAgentRun({
-        daemonBase: DAEMON,
-        prompt,
-        environmentClassId,
-        daemonHeaders: currentDaemonHeaders(),
-      });
+      let started;
+      try {
+        started = await startAgentRun({
+          daemonBase: DAEMON,
+          prompt,
+          environmentClassId,
+          daemonHeaders: currentDaemonHeaders(),
+          authorityProfile: extractAuthorityProfile(body),
+        });
+      } catch (error) {
+        if (error?.code && error?.status) {
+          // The daemon refused the composer's authority profile (e.g. an UNBOUNDED connection):
+          // surface the typed refusal, never a run under a profile the daemon did not admit.
+          return { status: error.status, contentType: "application/json", body: JSON.stringify({ error: { code: error.code, message: String(error.message || error), widening_path: error.body?.error?.widening_path || null } }) };
+        }
+        throw error;
+      }
+      const { agentExecutionId, environment, userInputBlockId } = started;
       return json({ environment, agentExecutionId, userInputBlockId });
     }
     if (pathname === "/api/ioi.v1.AgentService/ListAgentExecutions") {

@@ -268,9 +268,9 @@
       "id": "session-authority-profile",
       "npm_script": "check:session-authority-profile",
       "source": "apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs",
-      "runtime_assertions": 21,
+      "runtime_assertions": 22,
       "assertion_names_sha256": "cb1a9ce6b0c30312cac93e0ad460b4e665d4fb58ea3243a283bab0affc38c3a4",
-      "note": "ADR 0052 Decision 3 / M13.2 (2026-09-07): the session authority profile at the DIRECT daemon path — empty default on the durable record and list projection, closed set at create (unknown connection refuses 412, malformed 422), out-of-profile connector invoke refuses typed 403 with a durable refusal receipt before org policy/principal scope/wallet crossing, in-profile invoke reaches the ordinary authority challenge, session-less invoke unchanged, anonymous session-scoped invoke 401 before record load, deletion fences, and the profile plus refusal survive a daemon kill + restart."
+      "note": "ADR 0052 Decision 3 / M13.2 (2026-09-07): the session authority profile at the DIRECT daemon path \u2014 empty default on the durable record and list projection, closed set at create (unknown connection refuses 412, malformed 422), out-of-profile connector invoke refuses typed 403 with a durable refusal receipt before org policy/principal scope/wallet crossing, in-profile invoke reaches the ordinary authority challenge, session-less invoke unchanged, anonymous session-scoped invoke 401 before record load, deletion fences, and the profile plus refusal survive a daemon kill + restart."
     },
     {
       "id": "shell-parity",

@@ -10752,16 +10752,31 @@ fn parse_session_authority_profile(
         let connectors = read_record_dir(data_dir, "connectors");
         for reference in &normalized {
             let id = reference.trim_start_matches("connector:");
-            let known = connectors
+            let Some(connector) = connectors
                 .iter()
-                .any(|c| c["connector_id"].as_str() == Some(id));
-            if !known {
+                .find(|c| c["connector_id"].as_str() == Some(id))
+            else {
                 return Err((
                     StatusCode::PRECONDITION_FAILED,
                     Json(json!({"error":{
                         "code":"session_authority_connection_unknown",
                         "message":"authority_profile names a connection that does not exist in the Connections estate; attach it first, then create the session",
                         "connection_ref":reference
+                    }})),
+                ));
+            };
+            // M13.3: configure-once is the admission rule. A connection with no active standing
+            // envelope is not nameable by a session; the bound is declared at attach, never left
+            // as a later chore.
+            if let Err(lease_status) = connector_active_standing_lease(connector, wall_now_ms()) {
+                return Err((
+                    StatusCode::PRECONDITION_FAILED,
+                    Json(json!({"error":{
+                        "code":"session_authority_connection_unbounded",
+                        "message":"authority_profile names a connection with no active standing envelope; attach it with a standing bound (usages, budget, expiry) on Connections first, then create the session",
+                        "connection_ref":reference,
+                        "lease_status":lease_status,
+                        "widening_path":STANDING_WIDENING_PATH
                     }})),
                 ));
             }
@@ -10817,7 +10832,14 @@ fn persist_session_authority_refusal(
     });
     // A refusal whose receipt did not persist is still a refusal; the receipt is evidence, not
     // the gate. The caller reports the ref only when the write landed.
-    if persist_record(data_dir, "receipts", &session_receipt_key(&receipt_ref), &receipt).is_ok() {
+    if persist_record(
+        data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &receipt,
+    )
+    .is_ok()
+    {
         receipt_ref
     } else {
         String::new()
@@ -10828,6 +10850,522 @@ fn session_receipt_key(receipt_ref: &str) -> String {
     format!(
         "session_receipt_{}",
         sha256_hex_bytes(receipt_ref.as_bytes())
+    )
+}
+
+// ---- Attach-time standing envelope (M13.3) and policy-derived posture (M13.5) ---------------
+//
+// A Connections attach that Sessions may name declares its standing envelope in the same pass:
+// a registered SessionStandingEnvelope bound by a wallet-signed StandingApprovalGrant, stored on
+// the connector record as `standing_lease`. A session profile naming a connection with no
+// active lease refuses at create. Within a session, each act's posture is the daemon's
+// admission outcome: silent draw-down inside the envelope, an exact-effect review object for a
+// policy-marked tool, or a typed refusal naming the bound with widening pointed at Connections.
+pub(crate) const CONNECTOR_STANDING_LEASE_SCHEMA_VERSION: &str =
+    "ioi.hypervisor.connector_standing_lease.v1";
+pub(crate) const SESSION_STANDING_ENVELOPE_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/session-standing-envelope/v1";
+const SESSION_EXECUTE_OPERATION: &str = "session_execute";
+const CONNECTOR_INVOKE_OPERATION: &str = "connector_invoke";
+pub(crate) const STANDING_WIDENING_PATH: &str = "/__ioi/connections";
+
+fn sha256_ref_to_bytes(text: &str) -> Option<[u8; 32]> {
+    let hex_part = text.strip_prefix("sha256:")?;
+    let decoded = hex::decode(hex_part).ok()?;
+    <[u8; 32]>::try_from(decoded).ok()
+}
+
+fn standing_draw_nonce() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut random = [0u8; 8];
+    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut random);
+    format!("sdn_{nanos:032x}{}", hex::encode(random))
+}
+
+fn wall_now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Validate a `{ grant, envelope }` standing-lease declaration against the connector it binds.
+/// Structural and containment checks only — the wallet proves the signature and consumes at
+/// draw time; nothing here grants anything.
+pub(crate) fn validate_connector_standing_lease(
+    connector: &Value,
+    body: &Value,
+    now_ms: u64,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let refuse = |code: &str, message: String| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+        )
+    };
+    let envelope = body
+        .get("envelope")
+        .cloned()
+        .filter(|v| v.is_object())
+        .ok_or_else(|| {
+            refuse(
+                "standing_lease_envelope_required",
+                "a standing lease declares its registered SessionStandingEnvelope".into(),
+            )
+        })?;
+    let grant_value = body
+        .get("grant")
+        .cloned()
+        .filter(|v| v.is_object())
+        .ok_or_else(|| {
+            refuse(
+                "standing_lease_grant_required",
+                "a standing lease carries its wallet-signed StandingApprovalGrant".into(),
+            )
+        })?;
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        SESSION_STANDING_ENVELOPE_CONTRACT,
+        &envelope,
+    )
+    .map_err(|error| {
+        refuse(
+            "standing_lease_envelope_invalid",
+            format!("envelope violates its registered contract: {error}"),
+        )
+    })?;
+    let template = &envelope["facet_template"];
+    let connector_id = connector["connector_id"].as_str().unwrap_or("");
+    if template["connector_id"].as_str() != Some(connector_id) {
+        return Err(refuse(
+            "standing_lease_connector_mismatch",
+            "the envelope's facet template names a different connector".into(),
+        ));
+    }
+    if template["service"].as_str() != connector["service"].as_str()
+        || template["base_url"].as_str() != connector["base_url"].as_str()
+    {
+        return Err(refuse(
+            "standing_lease_connector_mismatch",
+            "the envelope's service/base_url differ from the connector's declared service/base_url"
+                .into(),
+        ));
+    }
+    let declared_tools: Vec<&str> = connector["allowed_tools"]
+        .as_array()
+        .map(|tools| tools.iter().filter_map(|t| t["name"].as_str()).collect())
+        .unwrap_or_default();
+    for tool in template["allowed_tools"].as_array().into_iter().flatten() {
+        let name = tool.as_str().unwrap_or("");
+        if connector["kind"].as_str() != Some("mcp") && !declared_tools.contains(&name) {
+            return Err(refuse(
+                "standing_lease_tool_outside_connector",
+                format!("the envelope names tool '{name}' which the connector does not declare"),
+            ));
+        }
+    }
+    let (grant, canonical_grant) =
+        super::governed_authority::canonicalize_standing_approval_grant(&grant_value)
+            .map_err(|message| refuse("standing_lease_grant_invalid", message))?;
+    let envelope_hash = sha256_ref_to_bytes(envelope["body_hash"].as_str().unwrap_or(""))
+        .ok_or_else(|| {
+            refuse(
+                "standing_lease_envelope_invalid",
+                "envelope body_hash is not a sha256 ref".into(),
+            )
+        })?;
+    let policy_hash = sha256_ref_to_bytes(
+        envelope["trajectory_policy_hash"].as_str().unwrap_or(""),
+    )
+    .ok_or_else(|| {
+        refuse(
+            "standing_lease_envelope_invalid",
+            "envelope trajectory_policy_hash is not a sha256 ref".into(),
+        )
+    })?;
+    if grant.standing_envelope_hash != envelope_hash || grant.policy_hash != policy_hash {
+        return Err(refuse(
+            "standing_lease_grant_unbound",
+            "the grant does not bind this envelope's body hash and trajectory policy".into(),
+        ));
+    }
+    let aggregate = &envelope["aggregate_bounds"];
+    let not_before = envelope["not_before_ms"].as_u64().unwrap_or(u64::MAX);
+    let expires = envelope["expires_at_ms"].as_u64().unwrap_or(0);
+    if grant.max_usages as u64 > aggregate["max_usages"].as_u64().unwrap_or(0)
+        || grant.max_cumulative_deposit_microusd
+            > aggregate["max_cumulative_deposit_microusd"]
+                .as_u64()
+                .unwrap_or(0)
+        || grant.max_cumulative_spend_microusd
+            > aggregate["max_cumulative_spend_microusd"]
+                .as_u64()
+                .unwrap_or(0)
+        || grant.issued_at_ms < not_before
+        || grant.expires_at_ms > expires
+    {
+        return Err(refuse(
+            "standing_lease_grant_widens_envelope",
+            "the grant's bounds or window exceed the envelope".into(),
+        ));
+    }
+    if now_ms > grant.expires_at_ms {
+        return Err(refuse(
+            "standing_lease_expired",
+            "the grant has already expired".into(),
+        ));
+    }
+    if let Some(audience) = super::wallet_network_capability_client::capability_account_id_hex() {
+        if hex::encode(grant.audience) != audience {
+            return Err(refuse(
+                "standing_lease_audience_mismatch",
+                "the grant's audience is not this daemon's wallet capability account".into(),
+            ));
+        }
+    }
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        refuse(
+            "standing_lease_grant_invalid",
+            format!("grant cannot be hashed: {error}"),
+        )
+    })?;
+    Ok(json!({
+        "schema_version": CONNECTOR_STANDING_LEASE_SCHEMA_VERSION,
+        "status": "active",
+        "declared_at": iso_now(),
+        "envelope": envelope,
+        "grant": canonical_grant,
+        "envelope_hash_ref": format!("sha256:{}", hex::encode(envelope_hash)),
+        "policy_hash_ref": format!("sha256:{}", hex::encode(policy_hash)),
+        "grant_hash_ref": format!("sha256:{}", hex::encode(grant_hash)),
+        "bounds": {
+            "operations": template["operations"].clone(),
+            "allowed_tools": template["allowed_tools"].clone(),
+            "per_operation_spend_microusd": template["per_operation_spend_microusd"].clone(),
+            "per_operation_deposit_microusd": template["per_operation_deposit_microusd"].clone(),
+            "max_usages": grant.max_usages,
+            "max_cumulative_spend_microusd": grant.max_cumulative_spend_microusd,
+            "max_cumulative_deposit_microusd": grant.max_cumulative_deposit_microusd,
+            "not_before_ms": not_before,
+            "expires_at_ms": grant.expires_at_ms,
+        },
+    }))
+}
+
+/// The connector's standing lease if it can be drawn on right now. The status is derived from
+/// the record and the clock; nothing here consults the wallet (the wallet re-checks at draw).
+pub(crate) fn connector_active_standing_lease(
+    connector: &Value,
+    now_ms: u64,
+) -> Result<&Value, &'static str> {
+    let lease = connector
+        .get("standing_lease")
+        .filter(|v| v.is_object())
+        .ok_or("standing_lease_absent")?;
+    match lease["status"].as_str() {
+        Some("active") => {}
+        Some("revoked") => return Err("standing_lease_revoked"),
+        _ => return Err("standing_lease_absent"),
+    }
+    let bounds = &lease["bounds"];
+    if now_ms > bounds["expires_at_ms"].as_u64().unwrap_or(0) {
+        return Err("standing_lease_expired");
+    }
+    if now_ms < bounds["not_before_ms"].as_u64().unwrap_or(u64::MAX) {
+        return Err("standing_lease_not_yet_valid");
+    }
+    Ok(lease)
+}
+
+fn lease_covers_operation(lease: &Value, operation: &str) -> bool {
+    lease["bounds"]["operations"]
+        .as_array()
+        .is_some_and(|ops| ops.iter().any(|op| op.as_str() == Some(operation)))
+}
+
+fn lease_covers_tool(lease: &Value, tool: &str) -> bool {
+    lease["bounds"]["allowed_tools"]
+        .as_array()
+        .is_some_and(|tools| tools.iter().any(|t| t.as_str() == Some(tool)))
+}
+
+pub(crate) fn standing_draw_from_connector_lease(lease: &Value) -> Option<StandingCapabilityDraw> {
+    let bounds = &lease["bounds"];
+    Some(StandingCapabilityDraw {
+        grant_value: lease["grant"].clone(),
+        envelope_hash: sha256_ref_to_bytes(lease["envelope_hash_ref"].as_str()?)?,
+        policy_hash: sha256_ref_to_bytes(lease["policy_hash_ref"].as_str()?)?,
+        estimated_deposit_microusd: bounds["per_operation_deposit_microusd"].as_u64()?,
+        estimated_spend_microusd: bounds["per_operation_spend_microusd"].as_u64()?,
+        max_usages: u32::try_from(bounds["max_usages"].as_u64()?).ok()?,
+        max_cumulative_deposit_microusd: bounds["max_cumulative_deposit_microusd"].as_u64()?,
+        max_cumulative_spend_microusd: bounds["max_cumulative_spend_microusd"].as_u64()?,
+    })
+}
+
+/// Name the bound a standing draw crossed from the daemon/wallet challenge, so the refusal a
+/// surface renders is the admission's own reason and never a client-side guess.
+pub(crate) fn classify_standing_refusal(challenge: &Value) -> (&'static str, String) {
+    let text = serde_json::to_string(challenge).unwrap_or_default();
+    let inner_code = challenge
+        .pointer("/authority_challenge/error/code")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if text.contains("usage envelope exceeded") {
+        ("standing_envelope_exceeded", "max_usages".into())
+    } else if text.contains("cumulative spend envelope exceeded") {
+        (
+            "standing_envelope_exceeded",
+            "max_cumulative_spend_microusd".into(),
+        )
+    } else if text.contains("cumulative deposit envelope exceeded") {
+        (
+            "standing_envelope_exceeded",
+            "max_cumulative_deposit_microusd".into(),
+        )
+    } else if text.contains("not active: exhausted") {
+        ("standing_envelope_exceeded", "max_usages".into())
+    } else if text.contains("not active: expired") {
+        ("standing_envelope_exceeded", "expired".into())
+    } else if text.contains("is not active") {
+        ("standing_lease_revoked", "status".into())
+    } else if text.contains("ledger divergence") {
+        ("standing_ledger_divergence", "journal".into())
+    } else if inner_code == "standing_authority_grant_invalid" {
+        (
+            "standing_envelope_exceeded",
+            challenge
+                .pointer("/authority_challenge/error/message")
+                .and_then(Value::as_str)
+                .and_then(|m| m.rsplit(": ").next())
+                .unwrap_or("window")
+                .to_string(),
+        )
+    } else if !inner_code.is_empty() {
+        ("standing_draw_refused", inner_code.to_string())
+    } else {
+        ("standing_draw_refused", "authority".into())
+    }
+}
+
+fn persist_session_standing_receipt(
+    data_dir: &str,
+    kind: &str,
+    session_ref: &str,
+    connector_id: &str,
+    operation: &str,
+    extra: Value,
+) -> String {
+    let at = iso_now();
+    let receipt_ref = format!(
+        "receipt://hypervisor/{}/{}",
+        kind.trim_start_matches("hypervisor.session.")
+            .replace('_', "-"),
+        short_hash(&format!(
+            "{session_ref}:{connector_id}:{operation}:{at}:{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ))
+    );
+    let mut receipt = json!({
+        "id": receipt_ref,
+        "kind": kind,
+        "session_ref": session_ref,
+        "connector_id": connector_id,
+        "connection_ref": format!("connector:{connector_id}"),
+        "operation": operation,
+        "at": at,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let (Some(target), Some(fields)) = (receipt.as_object_mut(), extra.as_object()) {
+        for (k, v) in fields {
+            target.insert(k.clone(), v.clone());
+        }
+    }
+    if persist_record(
+        data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &receipt,
+    )
+    .is_ok()
+    {
+        receipt_ref
+    } else {
+        String::new()
+    }
+}
+
+/// The typed refusal for a session act outside its standing envelope: names the bound, cites
+/// the durable refusal receipt, and points widening at Connections (a new binding, never an
+/// in-run change). Identical for the UI path and a direct daemon invoke.
+fn standing_refusal_response(
+    data_dir: &str,
+    session_ref: &str,
+    connector_id: &str,
+    operation: &str,
+    code: &str,
+    bound: &str,
+    lease: Option<&Value>,
+    challenge: Option<&Value>,
+) -> (StatusCode, Json<Value>) {
+    let receipt_ref = persist_session_standing_receipt(
+        data_dir,
+        "hypervisor.session.standing_refusal",
+        session_ref,
+        connector_id,
+        operation,
+        json!({
+            "reason": code,
+            "refused_bound": bound,
+            "standing_envelope_hash": lease.and_then(|l| l.get("envelope_hash_ref")).cloned().unwrap_or(Value::Null),
+            "bounds": lease.and_then(|l| l.get("bounds")).cloned().unwrap_or(Value::Null),
+            "widening_path": STANDING_WIDENING_PATH,
+        }),
+    );
+    (
+        StatusCode::FORBIDDEN,
+        Json(json!({
+            "ok": false,
+            "decision": "blocked",
+            "posture": "refused_outside_envelope",
+            "reason": code,
+            "refused_bound": bound,
+            "message": format!("The session's standing envelope for {connector_id} does not admit this act ({bound}); widening is a new Connections binding, never an in-run change."),
+            "session_ref": session_ref,
+            "connection_ref": format!("connector:{connector_id}"),
+            "standing_envelope_hash": lease.and_then(|l| l.get("envelope_hash_ref")).cloned().unwrap_or(Value::Null),
+            "bounds": lease.and_then(|l| l.get("bounds")).cloned().unwrap_or(Value::Null),
+            "widening_path": STANDING_WIDENING_PATH,
+            "refusal_receipt_ref": receipt_ref,
+            "authority_challenge": challenge.cloned().unwrap_or(Value::Null),
+            "host_mutation": false,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/authority/capability-account — the daemon's wallet capability account
+/// (the audience a grant must name to be consumable) and the deployment principal it resolves
+/// authority for. Public coordinate material, never a secret; absent when no wallet client is
+/// configured, so an attach flow cannot mint a dead grant.
+pub(crate) async fn handle_authority_capability_account() -> Json<Value> {
+    let audience = super::wallet_network_capability_client::capability_account_id_hex();
+    let principal_ref = std::env::var("IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    Json(json!({
+        "ok": audience.is_some(),
+        "audience": audience,
+        "principal_ref": principal_ref,
+        "standing_envelope_contract": SESSION_STANDING_ENVELOPE_CONTRACT,
+        "runtimeTruthSource": "daemon-runtime",
+    }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/standing-lease — bind the attach-time standing envelope.
+pub(crate) async fn handle_connector_bind_standing_lease(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    if connector
+        .get("standing_lease")
+        .is_some_and(|l| l["status"].as_str() == Some("active"))
+    {
+        // Widening is a new binding on record: an active lease is never edited in place.
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "error": { "code": "standing_lease_already_bound", "message": "this connection already carries an active standing envelope; revoke it and bind a successor rather than editing it in place" } }),
+            ),
+        );
+    }
+    let lease = match validate_connector_standing_lease(&connector, &body, wall_now_ms()) {
+        Ok(lease) => lease,
+        Err(response) => return response,
+    };
+    connector["standing_lease"] = lease.clone();
+    if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "error": { "code": "standing_lease_persistence_failed", "message": "the standing lease could not be durably recorded and is NOT bound" } }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "connector_id": id, "standing_lease": { "status": "active", "bounds": lease["bounds"], "envelope_hash_ref": lease["envelope_hash_ref"], "grant_hash_ref": lease["grant_hash_ref"], "declared_at": lease["declared_at"] } }),
+        ),
+    )
+}
+
+/// DELETE /v1/hypervisor/connectors/:id/standing-lease — revoke the attach-time envelope. The
+/// next session act naming this connection refuses at the daemon before any wallet call.
+pub(crate) async fn handle_connector_revoke_standing_lease(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let Some(lease) = connector
+        .get_mut("standing_lease")
+        .filter(|l| l.is_object())
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "standing_lease_absent", "message": "this connection carries no standing envelope" } }),
+            ),
+        );
+    };
+    lease["status"] = json!("revoked");
+    lease["revoked_at"] = json!(iso_now());
+    let grant_hash_ref = lease["grant_hash_ref"].clone();
+    if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "error": { "code": "standing_lease_persistence_failed", "message": "the revocation could not be durably recorded and is NOT in force" } }),
+            ),
+        );
+    }
+    let receipt_ref = persist_session_standing_receipt(
+        &st.data_dir,
+        "hypervisor.session.standing_revocation",
+        "",
+        &id,
+        "revoke",
+        json!({ "grant_hash_ref": grant_hash_ref }),
+    );
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "connector_id": id, "standing_lease": { "status": "revoked" }, "receipt_ref": receipt_ref }),
+        ),
     )
 }
 
@@ -13739,6 +14277,81 @@ pub(crate) async fn admit_goal_run_invocation_launch(
     Ok(binding)
 }
 
+/// The connection in a session's closed profile whose ACTIVE standing lease covers
+/// `session_execute`, if any. Read from the durable session and connector records only.
+fn session_execute_standing_lease(data_dir: &str, session_ref: &str) -> Option<(String, Value)> {
+    let session = read_record_dir(data_dir, "sessions")
+        .into_iter()
+        .find(|record| record.get("session_ref").and_then(Value::as_str) == Some(session_ref))?;
+    let refs = session
+        .pointer("/authority_profile/connection_refs")?
+        .as_array()?
+        .clone();
+    let connectors = read_record_dir(data_dir, "connectors");
+    let now_ms = wall_now_ms();
+    for reference in refs {
+        let id = reference
+            .as_str()?
+            .trim_start_matches("connector:")
+            .to_string();
+        let Some(connector) = connectors
+            .iter()
+            .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+        else {
+            continue;
+        };
+        if let Ok(lease) = connector_active_standing_lease(connector, now_ms) {
+            if lease_covers_operation(lease, SESSION_EXECUTE_OPERATION) {
+                return Some((id, lease.clone()));
+            }
+        }
+    }
+    None
+}
+
+fn standing_execute_refusal(
+    data_dir: &str,
+    session_ref: &str,
+    connector_id: &str,
+    reason: &str,
+    bound: &str,
+    lease: &Value,
+    challenge: Option<&Value>,
+) -> Value {
+    let receipt_ref = persist_session_standing_receipt(
+        data_dir,
+        "hypervisor.session.standing_refusal",
+        session_ref,
+        connector_id,
+        SESSION_EXECUTE_OPERATION,
+        json!({
+            "reason": reason,
+            "refused_bound": bound,
+            "standing_envelope_hash": lease["envelope_hash_ref"].clone(),
+            "bounds": lease["bounds"].clone(),
+            "widening_path": STANDING_WIDENING_PATH,
+        }),
+    );
+    json!({
+        "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+        "session_ref": session_ref,
+        "decision": "blocked",
+        "posture": "refused_outside_envelope",
+        "reason": reason,
+        "refused_bound": bound,
+        "message": format!("Execution is outside the session's standing envelope for {connector_id} ({bound}); nothing ran. Widening is a new Connections binding, never an in-run change."),
+        "connection_ref": format!("connector:{connector_id}"),
+        "standing_envelope_hash": lease["envelope_hash_ref"].clone(),
+        "bounds": lease["bounds"].clone(),
+        "widening_path": STANDING_WIDENING_PATH,
+        "refusal_receipt_ref": receipt_ref,
+        "authority_challenge": challenge.and_then(|c| c.get("authority_challenge")).cloned().unwrap_or(Value::Null),
+        "changed_file_groups": [],
+        "terminal_events": [],
+        "runtimeTruthSource": "daemon-runtime",
+    })
+}
+
 /// The wallet authority gate for a consequential execution. Daemon-derives the
 /// policy/request hashes (never from the body) and verifies a bound grant. Returns
 /// the admitted capability-lease ref, or the 403 challenge body exposing the hashes
@@ -13763,6 +14376,96 @@ pub(crate) async fn execute_authority_gate(
         "intent": intent,
         "scopes": EXECUTION_AUTHORITY_SCOPES,
     });
+    // M13.5 — a session whose closed profile names a connection carrying an ACTIVE standing
+    // envelope that covers `session_execute` draws its execution silently against that lease
+    // (before any harness runs) instead of parking on an exact approval; outside the envelope it
+    // fails CLOSED, typed, naming the bound. An exact grant in the body keeps the exact lane.
+    if grant_value.is_null() {
+        if let Some((connector_id, lease)) = session_execute_standing_lease(data_dir, session_id) {
+            let Some(draw) = standing_draw_from_connector_lease(&lease) else {
+                return Err(standing_execute_refusal(
+                    data_dir,
+                    session_id,
+                    &connector_id,
+                    "standing_lease_invalid",
+                    "record",
+                    &lease,
+                    None,
+                ));
+            };
+            // One usage per execution: a repeated identical intent is a new draw, so the effect
+            // carries a daemon-minted nonce (the exact-grant lane keeps its exactly-once effect).
+            let mut standing_effect = effect.clone();
+            standing_effect["standing_draw_nonce"] = json!(standing_draw_nonce());
+            let admitted = super::governed_authority::authorize_standing_deployment_grant(
+                data_dir,
+                &draw.grant_value,
+                draw.envelope_hash,
+                draw.policy_hash,
+                "scope:hypervisor.live-route.session-execute",
+                &request_hash,
+                session_id,
+                "session-execute",
+                1,
+                &standing_effect,
+                draw.estimated_deposit_microusd,
+                draw.estimated_spend_microusd,
+                draw.max_usages,
+                draw.max_cumulative_deposit_microusd,
+                draw.max_cumulative_spend_microusd,
+            )
+            .await;
+            return match admitted {
+                Ok(admitted) => {
+                    super::governed_authority::revalidate_standing_admission_receipt(
+                        data_dir, &admitted,
+                    )
+                    .await
+                    .map_err(|reason| {
+                        json!({
+                            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                            "session_ref": session_id,
+                            "decision": "blocked",
+                            "reason": "execution_authority_receipt_unavailable",
+                            "message": reason,
+                            "changed_file_groups": [],
+                            "terminal_events": [],
+                            "runtimeTruthSource": "daemon-runtime",
+                        })
+                    })?;
+                    persist_session_standing_receipt(
+                        data_dir,
+                        "hypervisor.session.standing_draw",
+                        session_id,
+                        &connector_id,
+                        SESSION_EXECUTE_OPERATION,
+                        json!({
+                            "posture": "silent_within_policy",
+                            "standing_envelope_hash": lease["envelope_hash_ref"].clone(),
+                            "grant_hash_ref": lease["grant_hash_ref"].clone(),
+                            "admission_intent_ref": admitted.admission_intent_ref,
+                            "request_hash": request_hash,
+                            "policy_hash": policy_hash,
+                        }),
+                    );
+                    Ok(admitted.admission_intent_ref)
+                }
+                Err((_status, Json(challenge))) => {
+                    let wrapped = json!({ "authority_challenge": challenge });
+                    let (reason, bound) = classify_standing_refusal(&wrapped);
+                    Err(standing_execute_refusal(
+                        data_dir,
+                        session_id,
+                        &connector_id,
+                        reason,
+                        &bound,
+                        &lease,
+                        Some(&wrapped),
+                    ))
+                }
+            };
+        }
+    }
     let admitted = super::governed_authority::authorize_deployment_grant(
         data_dir,
         &grant_value,
@@ -14813,7 +15516,15 @@ pub(crate) async fn handle_connector_set_policy(
                 .as_bool()
                 .unwrap_or(false)
         });
-    let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "principal_scoped": principal_scoped, "set_at": iso_now() });
+    // M13.5: tools the org policy marks for individual exact-effect review; a standing envelope
+    // never admits them silently. Absent → none marked (the prior value is NOT preserved: the
+    // policy is set whole, so a stale mark cannot outlive the policy that carried it).
+    let exact_review_tools = body
+        .get("exact_review_tools")
+        .cloned()
+        .filter(Value::is_array)
+        .unwrap_or_else(|| json!([]));
+    let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "principal_scoped": principal_scoped, "exact_review_tools": exact_review_tools, "set_at": iso_now() });
     connector["org_policy"] = org_policy.clone();
     // This is an enforcement control, not a preference: the invoke crossing refuses with
     // `policy_locked` on risk_posture "locked" and gates on principal_scoped. Discarding the write
@@ -15781,7 +16492,9 @@ pub(crate) async fn handle_connector_invoke(
         if !canonical_session_ref(session_ref) {
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
-                Json(json!({ "ok": false, "reason": "session_ref_invalid", "session_ref": session_ref })),
+                Json(
+                    json!({ "ok": false, "reason": "session_ref_invalid", "session_ref": session_ref }),
+                ),
             );
         }
         // Rule E: a session-scoped crossing is a governed act by the session's owner, so the
@@ -15873,6 +16586,89 @@ pub(crate) async fn handle_connector_invoke(
         }
     }
 
+    // POLICY-DERIVED POSTURE (M13.5) — for a session act, the daemon decides silence, review or
+    // refusal from the connector's admitted policy and its attach-time standing envelope:
+    //   · a tool the org policy marks in `exact_review_tools` produces an exact-effect review
+    //     object and never draws the envelope (a standing envelope cannot suppress review);
+    //   · otherwise an act inside the envelope draws one usage silently, before any effect;
+    //   · an act outside it refuses typed, naming the bound, with widening pointed at Connections.
+    let now_ms = wall_now_ms();
+    let exact_review_required = session_ref.is_some()
+        && org_policy["exact_review_tools"]
+            .as_array()
+            .is_some_and(|tools| tools.iter().any(|t| t.as_str() == Some(tool_name.as_str())));
+    let mut standing_draw: Option<StandingCapabilityDraw> = None;
+    let mut standing_lease_view: Option<Value> = None;
+    if let Some(session_ref) = session_ref.as_deref() {
+        if !exact_review_required {
+            let lease = match connector_active_standing_lease(&connector, now_ms) {
+                Ok(lease) => lease.clone(),
+                Err(status) => {
+                    return standing_refusal_response(
+                        &st.data_dir,
+                        session_ref,
+                        &id,
+                        &tool_name,
+                        status,
+                        "status",
+                        connector.get("standing_lease"),
+                        None,
+                    );
+                }
+            };
+            if !lease_covers_operation(&lease, CONNECTOR_INVOKE_OPERATION) {
+                return standing_refusal_response(
+                    &st.data_dir,
+                    session_ref,
+                    &id,
+                    &tool_name,
+                    "standing_envelope_operation_outside_template",
+                    "operations",
+                    Some(&lease),
+                    None,
+                );
+            }
+            if !lease_covers_tool(&lease, &tool_name) {
+                return standing_refusal_response(
+                    &st.data_dir,
+                    session_ref,
+                    &id,
+                    &tool_name,
+                    "standing_envelope_tool_outside_template",
+                    "allowed_tools",
+                    Some(&lease),
+                    None,
+                );
+            }
+            if body
+                .get("wallet_approval_grant")
+                .is_some_and(|g| !g.is_null())
+            {
+                // An exact grant presented alongside a standing lease is ambiguous authority.
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(
+                        json!({ "ok": false, "reason": "session_authority_mode_ambiguous", "message": "a session act under a standing envelope carries no exact grant; present one or the other" }),
+                    ),
+                );
+            }
+            standing_draw = standing_draw_from_connector_lease(&lease);
+            if standing_draw.is_none() {
+                return standing_refusal_response(
+                    &st.data_dir,
+                    session_ref,
+                    &id,
+                    &tool_name,
+                    "standing_lease_invalid",
+                    "record",
+                    Some(&lease),
+                    None,
+                );
+            }
+            standing_lease_view = Some(lease);
+        }
+    }
+
     // Authorize the USE crossing through the SAME gateway (connector-credentials vault).
     let lease_req = CapabilityLeaseRequest {
         authority_provider_ref: "wallet.network".to_string(),
@@ -15884,7 +16680,10 @@ pub(crate) async fn handle_connector_invoke(
         request_domain: "hypervisor.connector.invoke.request.v1".to_string(),
         // The session (when named) is folded into the request hash so a grant minted for a
         // session's crossing cannot be replayed as the operator's direct act, or vice versa.
-        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args), "session_ref": session_ref.clone() }),
+        // A standing draw is one USAGE of the envelope, so identical acts must each draw: the
+        // daemon mints a per-draw nonce into the facets so the C2 intent slot (and the wallet's
+        // consumption id) are unique per act while an exact-grant act keeps its exactly-once slot.
+        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args), "session_ref": session_ref.clone(), "standing_draw_nonce": standing_draw.as_ref().map(|_| standing_draw_nonce()) }),
         credential_connector_id: Some(id.clone()),
         credential_store: "connector-credentials".to_string(),
         credential_required: requires_credential,
@@ -15896,15 +16695,101 @@ pub(crate) async fn handle_connector_invoke(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
-        standing_draw: None,
+        standing_draw,
         // This route has no server-resolved caller identity to bind, so the lease is
         // issued WITHOUT a principal and no agent may draw down on it.
         principal_binding: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
-        Err((code, challenge)) => return (code, Json(challenge)),
+        Err((code, challenge)) => {
+            if let (Some(session_ref), true) = (session_ref.as_deref(), exact_review_required) {
+                // The exact-effect REVIEW OBJECT: the daemon's own commitments for this exact
+                // payload/destination/subject, written durably, resolvable only by an exact
+                // grant bound to them. Budget and standing authority existing changes nothing.
+                let approval = challenge.get("approval").cloned().unwrap_or(Value::Null);
+                if approval.get("request_hash").is_some()
+                    && body
+                        .get("wallet_approval_grant")
+                        .map_or(true, Value::is_null)
+                {
+                    let review_ref = persist_session_standing_receipt(
+                        &st.data_dir,
+                        "hypervisor.session.exact_effect_review",
+                        session_ref,
+                        &id,
+                        &tool_name,
+                        json!({
+                            "posture": "interactive_exact_effect",
+                            "policy_hash": approval.get("policy_hash").cloned().unwrap_or(Value::Null),
+                            "request_hash": approval.get("request_hash").cloned().unwrap_or(Value::Null),
+                            "payload_hash": sha256_json_ref(&request_args),
+                            "destination": format!("{}:{}{}", service, base_url, path),
+                            "required_scopes": lease_req.scopes,
+                            "policy_marked_by": "org_policy.exact_review_tools",
+                            "standing_envelope_present": connector.get("standing_lease").is_some_and(|l| l["status"].as_str() == Some("active")),
+                            "expires_at_ms": now_ms + 15 * 60_000,
+                        }),
+                    );
+                    return (
+                        StatusCode::ACCEPTED,
+                        Json(json!({
+                            "ok": false,
+                            "decision": "review_required",
+                            "posture": "interactive_exact_effect",
+                            "reason": "exact_effect_review_required",
+                            "message": format!("Org policy marks '{tool_name}' for individual exact-effect review; the standing envelope cannot admit it. Approve exactly this request to proceed."),
+                            "review_ref": review_ref,
+                            "session_ref": session_ref,
+                            "connection_ref": format!("connector:{id}"),
+                            "approval": approval,
+                            "authority_challenge": challenge.get("authority_challenge").cloned().unwrap_or(Value::Null),
+                            "host_mutation": false,
+                            "runtimeTruthSource": "daemon-runtime",
+                        })),
+                    );
+                }
+            }
+            if let (Some(session_ref), Some(lease)) =
+                (session_ref.as_deref(), standing_lease_view.as_ref())
+            {
+                let (reason, bound) = classify_standing_refusal(&challenge);
+                return standing_refusal_response(
+                    &st.data_dir,
+                    session_ref,
+                    &id,
+                    &tool_name,
+                    reason,
+                    &bound,
+                    Some(lease),
+                    Some(&challenge),
+                );
+            }
+            return (code, Json(challenge));
+        }
     };
+    if let (Some(session_ref), Some(view)) = (session_ref.as_deref(), standing_lease_view.as_ref())
+    {
+        // silent_within_policy: the draw is receipted on the session; no prompt exists anywhere.
+        persist_session_standing_receipt(
+            &st.data_dir,
+            "hypervisor.session.standing_draw",
+            session_ref,
+            &id,
+            &tool_name,
+            json!({
+                "posture": "silent_within_policy",
+                "standing_envelope_hash": view["envelope_hash_ref"].clone(),
+                "grant_hash_ref": view["grant_hash_ref"].clone(),
+                "capability_lease_ref": lease.descriptor.get("lease_ref").cloned().unwrap_or(Value::Null),
+                "grant_ref": lease.grant_ref,
+                "admission_intent_ref": match &lease.admitted {
+                    CapabilityAuthorityAdmission::Standing(standing) => json!(standing.admission_intent_ref),
+                    _ => Value::Null,
+                },
+            }),
+        );
+    }
     let token = lease.token.unwrap_or_default();
 
     // daemon EXECUTES the authenticated call (the agent never holds the token). An MCP connector
@@ -19471,7 +20356,9 @@ pub(crate) async fn handle_auth_bootstrap(
             if name.len() > 120 || name.chars().any(char::is_control) {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(json!({ "ok": false, "reason": "name must be a printable string of at most 120 characters" })),
+                    Json(
+                        json!({ "ok": false, "reason": "name must be a printable string of at most 120 characters" }),
+                    ),
                 );
             }
             op["name"] = json!(name);
@@ -19486,7 +20373,9 @@ pub(crate) async fn handle_auth_bootstrap(
             {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(json!({ "ok": false, "reason": "email must be a single address of the form local@domain" })),
+                    Json(
+                        json!({ "ok": false, "reason": "email must be a single address of the form local@domain" }),
+                    ),
                 );
             }
             op["email"] = json!(email.to_lowercase());
@@ -27030,5 +27919,232 @@ mod launch_chain_composition_tests {
         );
         assert_eq!(without, with_null);
         assert_ne!(without, with_delegation);
+    }
+}
+
+/// M13.3 / M13.5 — the attach-time standing envelope on the connector record and the
+/// policy-derived posture helpers, proven without a wallet: a bounded attach validates and an
+/// unbounded, revoked or expired one is not nameable; the lease binds every draw bound; and a
+/// refusal is classified by the bound it crossed.
+#[cfg(test)]
+mod session_standing_lease_tests {
+    use super::*;
+    use ioi_types::app::action::StandingApprovalGrant;
+    use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+
+    const NOW_MS: u64 = 1_757_300_000_000;
+
+    fn envelope_for(connector: &Value, not_before: u64, expires: u64) -> Value {
+        let mut envelope: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/positive-u1.json"
+        )))
+        .expect("session envelope fixture");
+        envelope["facet_template"]["connector_id"] = connector["connector_id"].clone();
+        envelope["facet_template"]["service"] = connector["service"].clone();
+        envelope["facet_template"]["base_url"] = connector["base_url"].clone();
+        envelope["not_before_ms"] = json!(not_before);
+        envelope["expires_at_ms"] = json!(expires);
+        let mut material = envelope.clone();
+        let object = material.as_object_mut().expect("object");
+        object.remove("body_hash");
+        object.insert(
+            "domain".into(),
+            json!("ioi.session-standing-envelope-jcs-sha256.v1"),
+        );
+        envelope["body_hash"] = json!(format!(
+            "sha256:{}",
+            sha256_hex_bytes(&serde_jcs::to_vec(&material).expect("jcs"))
+        ));
+        envelope
+    }
+
+    fn grant_for(envelope: &Value, max_usages: u32, spend: u64, deposit: u64) -> Value {
+        let public_key = vec![0x42u8; 32];
+        let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .expect("authority id");
+        let grant = StandingApprovalGrant {
+            schema_version: 1,
+            authority_id,
+            standing_envelope_hash: sha256_ref_to_bytes(envelope["body_hash"].as_str().unwrap())
+                .unwrap(),
+            policy_hash: sha256_ref_to_bytes(envelope["trajectory_policy_hash"].as_str().unwrap())
+                .unwrap(),
+            audience: [0x44; 32],
+            nonce: [0x55; 32],
+            counter: 1,
+            issued_at_ms: envelope["not_before_ms"].as_u64().unwrap(),
+            expires_at_ms: envelope["expires_at_ms"].as_u64().unwrap(),
+            max_usages,
+            max_cumulative_deposit_microusd: deposit,
+            max_cumulative_spend_microusd: spend,
+            review_receipt_hash: [0x66; 32],
+            approval_ceremony_context_hash: [0x77; 32],
+            auth_factor_receipt_hash: [0x88; 32],
+            approver_public_key: public_key,
+            approver_sig: vec![8; 64],
+            approver_suite: SignatureSuite::ED25519,
+        };
+        serde_json::to_value(grant).expect("grant json")
+    }
+
+    fn connector() -> Value {
+        json!({
+            "connector_id": "conn_18cd245812ad55b9", "service": "ping-service", "kind": "bearer",
+            "base_url": "http://127.0.0.1:9", "allowed_tools": [{ "name": "ping", "method": "GET", "path": "/ping" }],
+        })
+    }
+
+    #[test]
+    fn a_bounded_attach_validates_and_an_unbounded_revoked_or_expired_one_is_not_nameable() {
+        let connector = connector();
+        assert_eq!(
+            connector_active_standing_lease(&connector, NOW_MS),
+            Err("standing_lease_absent")
+        );
+        let envelope = envelope_for(&connector, NOW_MS - 60_000, NOW_MS + 3_600_000);
+        let grant = grant_for(&envelope, 5, 5000, 5000);
+        let lease = validate_connector_standing_lease(
+            &connector,
+            &json!({ "grant": grant, "envelope": envelope }),
+            NOW_MS,
+        )
+        .unwrap_or_else(|(_, Json(e))| panic!("bounded attach validates: {e}"));
+        assert_eq!(lease["status"], json!("active"));
+        assert_eq!(lease["bounds"]["max_usages"], json!(5));
+        assert_eq!(
+            lease["bounds"]["operations"],
+            json!(["session_execute", "connector_invoke"])
+        );
+        let mut bound = connector.clone();
+        bound["standing_lease"] = lease.clone();
+        assert!(connector_active_standing_lease(&bound, NOW_MS).is_ok());
+        assert!(
+            lease_covers_operation(&lease, SESSION_EXECUTE_OPERATION)
+                && lease_covers_tool(&lease, "ping")
+        );
+        assert!(!lease_covers_tool(&lease, "delete_everything"));
+        let draw = standing_draw_from_connector_lease(&lease).expect("draw binds every bound");
+        assert_eq!(
+            (
+                draw.max_usages,
+                draw.max_cumulative_spend_microusd,
+                draw.estimated_spend_microusd
+            ),
+            (5, 5000, 1000)
+        );
+        let mut revoked = bound.clone();
+        revoked["standing_lease"]["status"] = json!("revoked");
+        assert_eq!(
+            connector_active_standing_lease(&revoked, NOW_MS),
+            Err("standing_lease_revoked")
+        );
+        assert_eq!(
+            connector_active_standing_lease(&bound, NOW_MS + 4_000_000),
+            Err("standing_lease_expired")
+        );
+        assert_eq!(
+            connector_active_standing_lease(&bound, NOW_MS - 120_000),
+            Err("standing_lease_not_yet_valid")
+        );
+    }
+
+    #[test]
+    fn an_attach_that_mismatches_widens_or_smuggles_an_exact_request_refuses_by_name() {
+        let connector = connector();
+        let envelope = envelope_for(&connector, NOW_MS - 60_000, NOW_MS + 3_600_000);
+        let code = |body: Value| -> String {
+            match validate_connector_standing_lease(&connector, &body, NOW_MS) {
+                Ok(_) => "ok".into(),
+                Err((_, Json(e))) => e["error"]["code"].as_str().unwrap_or("").to_string(),
+            }
+        };
+        let mut foreign = envelope.clone();
+        foreign["facet_template"]["connector_id"] = json!("conn_0000000000000000");
+        assert_eq!(
+            code(json!({ "grant": grant_for(&envelope, 5, 5000, 5000), "envelope": foreign })),
+            "standing_lease_envelope_invalid"
+        );
+        let mut other = connector.clone();
+        other["connector_id"] = json!("conn_0000000000000000");
+        assert!(
+            matches!(validate_connector_standing_lease(&other, &json!({ "grant": grant_for(&envelope, 5, 5000, 5000), "envelope": envelope.clone() }), NOW_MS), Err((_, Json(e))) if e["error"]["code"] == "standing_lease_connector_mismatch")
+        );
+        assert_eq!(
+            code(
+                json!({ "grant": grant_for(&envelope, 6, 5000, 5000), "envelope": envelope.clone() })
+            ),
+            "standing_lease_grant_widens_envelope"
+        );
+        assert_eq!(
+            code(
+                json!({ "grant": grant_for(&envelope, 5, 5001, 5001), "envelope": envelope.clone() })
+            ),
+            "standing_lease_grant_widens_envelope"
+        );
+        // A grant whose spend exceeds its own deposit is structurally invalid before any envelope comparison.
+        assert_eq!(
+            code(
+                json!({ "grant": grant_for(&envelope, 5, 5001, 5000), "envelope": envelope.clone() })
+            ),
+            "standing_lease_grant_invalid"
+        );
+        let mut smuggled = grant_for(&envelope, 5, 5000, 5000);
+        smuggled["request_hash"] = json!(vec![1u8; 32]);
+        assert_eq!(
+            code(json!({ "grant": smuggled, "envelope": envelope.clone() })),
+            "standing_lease_grant_invalid"
+        );
+        let mut unbound = envelope_for(&connector, NOW_MS - 60_000, NOW_MS + 7_200_000);
+        unbound["aggregate_bounds"]["max_usages"] = json!(9);
+        assert_eq!(
+            code(json!({ "grant": grant_for(&envelope, 5, 5000, 5000), "envelope": unbound })),
+            "standing_lease_envelope_invalid"
+        );
+        assert_eq!(
+            code(json!({ "envelope": envelope.clone() })),
+            "standing_lease_grant_required"
+        );
+        assert_eq!(
+            code(json!({ "grant": grant_for(&envelope, 5, 5000, 5000) })),
+            "standing_lease_envelope_required"
+        );
+    }
+
+    #[test]
+    fn a_refusal_is_classified_by_the_bound_it_crossed() {
+        let usage = json!({ "authority_challenge": { "error": { "code": "standing_authority_draw_refused", "message": "standing approval usage envelope exceeded: remaining usages 0 of 5" } } });
+        assert_eq!(
+            classify_standing_refusal(&usage),
+            ("standing_envelope_exceeded", "max_usages".to_string())
+        );
+        let spend = json!({ "authority_challenge": { "error": { "message": "standing approval cumulative spend envelope exceeded: remaining spend 50 microusd, requested 1000" } } });
+        assert_eq!(
+            classify_standing_refusal(&spend).1,
+            "max_cumulative_spend_microusd"
+        );
+        let revoked = json!({ "authority_challenge": { "error": { "message": "standing approval grant is not active: revoked" } } });
+        assert_eq!(
+            classify_standing_refusal(&revoked).0,
+            "standing_lease_revoked"
+        );
+        let exhausted = json!({ "authority_challenge": { "error": { "message": "standing approval grant is not active: exhausted, usages 3 of 3 consumed" } } });
+        assert_eq!(
+            classify_standing_refusal(&exhausted),
+            ("standing_envelope_exceeded", "max_usages".to_string())
+        );
+        let window = json!({ "authority_challenge": { "error": { "code": "standing_authority_grant_invalid", "message": "standing grant does not bind the exact envelope/policy or current validity window: expired" } } });
+        assert_eq!(
+            classify_standing_refusal(&window),
+            ("standing_envelope_exceeded", "expired".to_string())
+        );
+        let other = json!({ "authority_challenge": { "error": { "code": "authority_principal_not_configured", "message": "x" } } });
+        assert_eq!(
+            classify_standing_refusal(&other),
+            (
+                "standing_draw_refused",
+                "authority_principal_not_configured".to_string()
+            )
+        );
     }
 }

@@ -42,7 +42,7 @@ import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
-import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
+import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
@@ -629,9 +629,18 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
       connect_href: bound ? "" : connectHref,
       leases: myLeases.map(leaseSlim),
     });
+    // M13.3: the standing envelope renders from the DAEMON record's bounds — usages, budget,
+    // expiry, status — never from a client-side number; an unbounded connection says so, because a
+    // session cannot name it.
+    const sl = c.standing_lease && typeof c.standing_lease === "object" ? c.standing_lease : null;
+    const slb = sl?.bounds || {};
+    const envelopeHtml = sl
+      ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">standing envelope: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} usages · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()"><button class="act ghost" type="submit">Revoke envelope</button></form>` : ""}</div>`
+      : `<div class="meta" data-ioi-standing-lease="absent">no standing envelope — sessions cannot name this connection until one is set <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()"><input name="max_usages" type="number" min="1" placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <button class="act ghost" type="submit">Set envelope</button></form></div>`;
     push(connectionCategory(c), `<div class="card cncard" data-cn="${i}"><div class="main">
-      <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span></div>
+      <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span>${sl?.status === "active" ? '<span class="pill ok">bounded</span>' : '<span class="pill warn">unbounded</span>'}</div>
       <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} lease${myLeases.length > 1 ? "s" : ""} issued` : ""}</div>
+      ${envelopeHtml}
       </div>${action}</div>`);
   }
   for (const c of scmConnectors || []) {
@@ -13143,8 +13152,13 @@ async function handleEstateRequest(req, res, body) {
           service: c.service || "",
           kind: c.kind || "",
           auth_posture: c.auth_posture || "",
-          selectable: c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false,
-          reason: (c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false) ? "" : "no credential bound — connect it in Connections first",
+          // M13.3: a session may name only a connection whose attach-time standing envelope is
+          // active — the daemon refuses an unbounded name at create, so the picker says so first.
+          standing_lease: c.standing_lease && typeof c.standing_lease === "object" ? { status: c.standing_lease.status || "", bounds: c.standing_lease.bounds || null } : null,
+          selectable: (c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false) && c.standing_lease?.status === "active",
+          reason: !(c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false)
+            ? "no credential bound — connect it in Connections first"
+            : (c.standing_lease?.status === "active" ? "" : "no standing envelope — set usages, budget and expiry on Connections first"),
         })),
       }));
       return;
@@ -14442,12 +14456,46 @@ async function handleEstateRequest(req, res, body) {
           daemonFetch(`/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0),
         ]);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus }));
+        // A typed standing-envelope refusal from the attach pass renders verbatim (the custody-tier
+        // refusal included) — the operator sees the daemon's/authority node's reason, never a blank.
+        const leaseError = new URL(req.url, "http://x").searchParams.get("standing_lease_error") || "";
+        const page = renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus });
+        res.end(leaseError ? page.replace(/<div class="add">/u, `<div class="empty" data-ioi-standing-lease-error="1" style="border-color:#5c4a23;color:#d6a13a">Standing envelope not set — ${CX_ESC(leaseError)}</div><div class="add">`) : page);
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(connectionsShell(`<div class="empty">Daemon unavailable: ${String(e?.message || e)}</div>`));
       }
       return;
+    }
+    // M13.3 — the attach-time standing envelope: bind (mint + record + bind on the daemon) and
+    // revoke (fence). Form posts redirect to Connections; JSON calls get the typed result, including
+    // the typed custody refusal in deployment mode (nothing is fabricated to make it pass).
+    {
+      const leaseMatch = pathname.match(/^\/__ioi\/connections\/([^/]+)\/standing-lease(?:\/(revoke))?$/u);
+      if (leaseMatch && req.method === "POST") {
+        const connectorId = decodeURIComponent(leaseMatch[1]);
+        const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
+        const params = isForm ? Object.fromEntries(new URLSearchParams(body.toString("utf8"))) : (() => { try { return JSON.parse(body.toString() || "{}"); } catch { return {}; } })();
+        let result;
+        try {
+          if (leaseMatch[2] === "revoke") {
+            result = await revokeStandingLease({ connectorId, daemonFetch });
+          } else {
+            const estate = await daemonFetch("/v1/hypervisor/connectors").then((r) => r.json()).catch(() => ({}));
+            const connector = (estate.connectors || []).find((c) => c.connector_id === connectorId);
+            result = connector ? await bindStandingLease({ connector, bounds: params, daemonFetch }) : { ok: false, status: 404, code: "unknown_connector", message: "unknown connector" };
+          }
+        } catch (error) {
+          result = { ok: false, status: 400, code: "standing_lease_request_invalid", message: String(error?.message || error) };
+        }
+        if (isForm) {
+          const q = result.ok ? "" : `?standing_lease_error=${encodeURIComponent(`${result.code || "refused"}: ${result.message || ""}`)}`;
+          res.writeHead(303, { Location: `/__ioi/connections${q}`, "Cache-Control": "no-cache" });
+          return res.end();
+        }
+        res.writeHead(result.ok ? 200 : (result.status || 400), { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        return res.end(JSON.stringify(result));
+      }
     }
     if (pathname === "/__ioi/connections/add" && req.method !== "POST") {
       const type = new URL(req.url, "http://x").searchParams.get("type") || "mcp";
@@ -14465,7 +14513,11 @@ async function handleEstateRequest(req, res, body) {
              <input name="tool_name" placeholder="tool name (e.g. create_issue)" required ${inp}>
              <input name="tool_path" placeholder="/v1/issues" required ${inp}>
              <input name="token" type="password" placeholder="API token (sealed)" required ${inp}>
-             <button class="act" type="submit">Add + seal token</button></form>`;
+             <p class="sub" style="margin:12px 0 4px">Standing envelope — declared at attach, drawn down silently by the sessions that name this connection, never widened in a run. Leave usages empty to attach for your own direct use only (a session cannot name an unbounded connection).</p>
+             <input name="standing_max_usages" type="number" min="1" placeholder="max usages (e.g. 20)" ${inp}>
+             <input name="standing_budget_usd" type="number" min="0" step="0.01" placeholder="budget USD (e.g. 1.00)" ${inp}>
+             <input name="standing_expires_hours" type="number" min="1" placeholder="expires in hours (default 24)" ${inp}>
+             <button class="act" type="submit">Add + seal token + set envelope</button></form>`;
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(connectionsShell(`<p><a href="/__ioi/connections" style="color:#9a9da6;text-decoration:none">← Connections</a></p>${form}`));
       return;
@@ -14482,6 +14534,14 @@ async function handleEstateRequest(req, res, body) {
           const svc = (p.get("name") || "service").toLowerCase().replace(/[^a-z0-9]+/g, "-");
           const reg = await post("/v1/hypervisor/connectors", { service: svc, kind: "http", name: p.get("name"), base_url: p.get("base_url"), allowed_tools: [{ name: p.get("tool_name"), method: "POST", path: p.get("tool_path") }] });
           if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/credential`, { token: p.get("token") });
+          // M13.3: the SAME pass mints the scoped standing bound when the operator declared one.
+          if (reg.connector?.connector_id && p.get("standing_max_usages")) {
+            const bound = await bindStandingLease({ connector: reg.connector, bounds: { max_usages: p.get("standing_max_usages"), budget_usd: p.get("standing_budget_usd") || 0, expires_hours: p.get("standing_expires_hours") || 24 }, daemonFetch });
+            if (!bound.ok) {
+              res.writeHead(303, { Location: `/__ioi/connections?standing_lease_error=${encodeURIComponent(`${bound.code}: ${bound.message}`)}`, "Cache-Control": "no-cache" });
+              return res.end();
+            }
+          }
         }
         res.writeHead(302, { Location: "/__ioi/connections", "Cache-Control": "no-cache" });
         return res.end();

@@ -141,6 +141,31 @@ fn hash_value(value: &Value, pointer: &str, label: &str) -> Result<[u8; 32], Tra
     Ok(output)
 }
 
+/// The closed set of registered standing-envelope contracts, selected by the envelope's own
+/// declared schema_version (then fully validated against that contract).
+pub(crate) const SESSION_STANDING_ENVELOPE_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/session-standing-envelope/v1";
+
+fn standing_envelope_contract_for(bytes: &[u8]) -> Result<&'static str, TransactionError> {
+    if bytes.is_empty() || bytes.len() > MAX_STANDING_EVIDENCE_BYTES {
+        return Err(TransactionError::Invalid(
+            "standing envelope exceeds the standing evidence byte envelope".into(),
+        ));
+    }
+    let value: Value = serde_json::from_slice(bytes).map_err(|error| {
+        TransactionError::Invalid(format!("standing envelope is invalid JSON: {error}"))
+    })?;
+    match value.get("schema_version").and_then(Value::as_str) {
+        Some("ioi.foundations.standing-authority-envelope.v1") => Ok(STANDING_ENVELOPE_CONTRACT),
+        Some("ioi.hypervisor.session-standing-envelope.v1") => {
+            Ok(SESSION_STANDING_ENVELOPE_CONTRACT)
+        }
+        other => Err(TransactionError::Invalid(format!(
+            "standing envelope schema_version {other:?} is not a registered standing-envelope contract"
+        ))),
+    }
+}
+
 fn parse_registered_evidence(
     bytes: &[u8],
     contract: &str,
@@ -180,9 +205,13 @@ fn validate_standing_evidence(
     params: &RecordStandingApprovalGrantParams,
     now_ms: u64,
 ) -> Result<(String, Vec<u8>, Vec<u8>, Vec<u8>, [u8; 32], bool), TransactionError> {
+    // The envelope is one of the CLOSED set of registered standing-envelope contracts: the
+    // provider-operation envelope, or the session envelope a Connections attach declares
+    // (M13.3). The ceremony's validation_profile_ref must name the same contract below.
+    let envelope_contract = standing_envelope_contract_for(&params.standing_envelope_json)?;
     let (envelope, envelope_json) = parse_registered_evidence(
         &params.standing_envelope_json,
-        STANDING_ENVELOPE_CONTRACT,
+        envelope_contract,
         "standing envelope",
     )?;
     let (context, context_json) = parse_registered_evidence(
@@ -284,7 +313,7 @@ fn validate_standing_evidence(
     if context
         .pointer("/authorization_subject/validation_profile_ref")
         .and_then(Value::as_str)
-        != Some(STANDING_ENVELOPE_CONTRACT)
+        != Some(envelope_contract)
     {
         return Err(context_refused(
             "authorization_subject.validation_profile_ref",
@@ -617,10 +646,26 @@ pub(crate) fn consume_standing_approval_grant_for_effect(
             "standing approval grant does not bind the exact envelope and policy".into(),
         ));
     }
-    if grant_state.status != StandingApprovalGrantStatus::Active {
-        return Err(TransactionError::Invalid(
-            "standing approval grant is not active".into(),
-        ));
+    // The lifecycle status is named exactly: an exhausted lease crossed its usage bound, a revoked
+    // one was fenced, an expired one lapsed. "not active" is the shared refusal family.
+    match grant_state.status {
+        StandingApprovalGrantStatus::Active => {}
+        StandingApprovalGrantStatus::Exhausted => {
+            return Err(TransactionError::Invalid(format!(
+                "standing approval grant is not active: exhausted, usages {} of {} consumed",
+                grant_state.uses_consumed, grant_state.grant.max_usages
+            )));
+        }
+        StandingApprovalGrantStatus::Revoked => {
+            return Err(TransactionError::Invalid(
+                "standing approval grant is not active: revoked".into(),
+            ));
+        }
+        StandingApprovalGrantStatus::Expired => {
+            return Err(TransactionError::Invalid(
+                "standing approval grant is not active: expired".into(),
+            ));
+        }
     }
     let now_ms = block_timestamp_ms(ctx);
     validate_registered_grant(state, &grant_state.grant, now_ms)?;

@@ -3678,6 +3678,38 @@ export type StandingAuthorityEnvelopeV1 = {
   body_hash: string;
 };
 
+export type SessionStandingEnvelopeV1 = {
+  schema_version: "ioi.hypervisor.session-standing-envelope.v1";
+  standing_envelope_ref: string;
+  owner_ref: string;
+  bounded_system_ref: string;
+  principal_ref: string;
+  audience_ref: string;
+  authority_scope: "scope:hypervisor.session-standing-envelope";
+  facet_template: {
+      connector_id: string;
+      service: string;
+      base_url: string;
+      operations: Array<"session_execute" | "connector_invoke">;
+      allowed_tools: Array<string>;
+      per_operation_spend_microusd: number;
+      per_operation_deposit_microusd: number;
+    };
+  aggregate_bounds: {
+      max_cumulative_deposit_microusd: number;
+      max_cumulative_spend_microusd: number;
+      max_usages: number;
+    };
+  not_before_ms: number;
+  expires_at_ms: number;
+  revocation_epoch: number;
+  trajectory_policy_ref: string;
+  trajectory_policy_hash: string;
+  approval_mode: "standing_envelope";
+  recovery_posture: "recovery_never_widens_or_resets_drawdown";
+  body_hash: string;
+};
+
 export type AuthorityTrajectoryStateV1 = {
   schema_version: "ioi.foundations.authority-trajectory-state.v1";
   trajectory_state_ref: string;
@@ -14999,6 +15031,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/session-standing-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/positive-u1.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/session-standing-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/negative-operation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/session-standing-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/negative-body-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
     "expected": "accept",
@@ -25119,6 +25175,9 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json","contract_id":"schema://ioi/foundations/standing-authority-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json","contract_id":"schema://ioi/foundations/standing-authority-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/positive-u1.json","contract_id":"schema://ioi/components/hypervisor/session-standing-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/positive-u1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/negative-operation.json","contract_id":"schema://ioi/components/hypervisor/session-standing-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/negative-operation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/negative-body-hash.json","contract_id":"schema://ioi/components/hypervisor/session-standing-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/session-standing-envelope-v1/negative-body-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json","contract_id":"schema://ioi/foundations/authority-trajectory-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json","contract_id":"schema://ioi/foundations/authority-trajectory-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json","contract_id":"schema://ioi/foundations/trajectory-admission-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json","mutation_id":null,"value_json":null}),
@@ -26610,6 +26669,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^compute://[^\\s]{1,500}$",
   "^conflict-key://[^\\s]{1,248}$",
   "^conformance-profile://[^\\s]{1,248}$",
+  "^conn_[0-9a-f]{16}$",
   "^connector-mapping://cmap_[0-9a-f]{12,32}$",
   "^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^connector://[^\\s]{1,248}$",
@@ -27177,6 +27237,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
   "schema://ioi/foundations/authority-grant-envelope/v3": "sha256:7dd1d2bc5f783d6b43d3ba3025aedb557d8594e0d13e693106ffde94d853be27",
   "schema://ioi/foundations/standing-authority-envelope/v1": "sha256:2966cc385e7c95a28d8a61304b57c6a39a787325c71b20019ec4a10705e7f006",
+  "schema://ioi/components/hypervisor/session-standing-envelope/v1": "sha256:f09c067a522610273fd15e806fae98c5480caa2260ea79284a5fe79d8fc30028",
   "schema://ioi/foundations/authority-trajectory-state/v1": "sha256:b6699e24b52eb2d8e57fd086bee951e34d64b5d1a80d34c8ba47bfb77b6603f3",
   "schema://ioi/foundations/trajectory-admission-decision/v1": "sha256:3fdb69ca87b0946ba7f3644ee6197f0b47cda4c3f095864528973473cb9e6245",
   "schema://ioi/foundations/authority-key-set/v1": "sha256:ea66e12fa2584b1769d15c70f886a1e7b2c844a3220c13f8c3d6a0231969ec6c",
@@ -55385,6 +55446,180 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "items": {
           "$ref": "#/$defs/ref"
         }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/session-standing-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/session-standing-envelope/v1",
+    "title": "SessionStandingEnvelope",
+    "description": "The standing spend envelope a Connections attach declares for the Sessions that name that connection: a closed facet template over one connector (which operations, which tools, the metered unit per operation) and aggregate bounds, drawn down under a separately signed StandingApprovalGrant. Declared at attach; never widened in a run.",
+    "x-ioi-schema-version": "ioi.hypervisor.session-standing-envelope.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "standing_envelope_ref",
+      "owner_ref",
+      "bounded_system_ref",
+      "principal_ref",
+      "audience_ref",
+      "authority_scope",
+      "facet_template",
+      "aggregate_bounds",
+      "not_before_ms",
+      "expires_at_ms",
+      "revocation_epoch",
+      "trajectory_policy_ref",
+      "trajectory_policy_hash",
+      "approval_mode",
+      "recovery_posture",
+      "body_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.session-standing-envelope.v1"
+      },
+      "standing_envelope_ref": {
+        "type": "string",
+        "pattern": "^standing-envelope://[^\\s]{1,460}$"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "bounded_system_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "audience_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_scope": {
+        "const": "scope:hypervisor.session-standing-envelope"
+      },
+      "facet_template": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "connector_id",
+          "service",
+          "base_url",
+          "operations",
+          "allowed_tools",
+          "per_operation_spend_microusd",
+          "per_operation_deposit_microusd"
+        ],
+        "properties": {
+          "connector_id": {
+            "type": "string",
+            "pattern": "^conn_[0-9a-f]{16}$"
+          },
+          "service": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+          },
+          "base_url": {
+            "$ref": "#/$defs/ref"
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "session_execute",
+                "connector_invoke"
+              ]
+            }
+          },
+          "allowed_tools": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "per_operation_spend_microusd": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "per_operation_deposit_microusd": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "aggregate_bounds": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "max_cumulative_deposit_microusd",
+          "max_cumulative_spend_microusd",
+          "max_usages"
+        ],
+        "properties": {
+          "max_cumulative_deposit_microusd": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "max_cumulative_spend_microusd": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "max_usages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        }
+      },
+      "not_before_ms": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      },
+      "expires_at_ms": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      },
+      "revocation_epoch": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      },
+      "trajectory_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "trajectory_policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "approval_mode": {
+        "const": "standing_envelope"
+      },
+      "recovery_posture": {
+        "const": "recovery_never_widens_or_resets_drawdown"
+      },
+      "body_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonNegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
       }
     }
   },
@@ -121931,6 +122166,115 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/session-standing-envelope/v1": [
+    {
+      "rule_id": "session_standing_envelope.body_hash.recomputes",
+      "description": "The session standing-envelope body hash commits the exact subject, connector facet template, aggregate bounds, validity, revocation and trajectory policy under a domain-separated JCS profile.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.session-standing-envelope-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "standing_envelope_ref": {
+            "path": "$.standing_envelope_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "bounded_system_ref": {
+            "path": "$.bounded_system_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "audience_ref": {
+            "path": "$.audience_ref"
+          },
+          "authority_scope": {
+            "path": "$.authority_scope"
+          },
+          "facet_template": {
+            "path": "$.facet_template"
+          },
+          "aggregate_bounds": {
+            "path": "$.aggregate_bounds"
+          },
+          "not_before_ms": {
+            "path": "$.not_before_ms"
+          },
+          "expires_at_ms": {
+            "path": "$.expires_at_ms"
+          },
+          "revocation_epoch": {
+            "path": "$.revocation_epoch"
+          },
+          "trajectory_policy_ref": {
+            "path": "$.trajectory_policy_ref"
+          },
+          "trajectory_policy_hash": {
+            "path": "$.trajectory_policy_hash"
+          },
+          "approval_mode": {
+            "path": "$.approval_mode"
+          },
+          "recovery_posture": {
+            "path": "$.recovery_posture"
+          }
+        },
+        "expected_path": "$.body_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "session_standing_envelope.validity.non_empty",
+      "description": "A standing envelope has a non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.not_before_ms",
+          "$.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "session_standing_envelope.per_operation_deposit.within_aggregate",
+      "description": "One operation cannot reserve more deposit than the whole envelope permits.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.facet_template.per_operation_deposit_microusd",
+          "$.aggregate_bounds.max_cumulative_deposit_microusd"
+        ]
+      }
+    },
+    {
+      "rule_id": "session_standing_envelope.per_operation_spend.within_deposit",
+      "description": "One operation's metered spend cannot exceed the deposit it reserves.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.facet_template.per_operation_spend_microusd",
+          "$.facet_template.per_operation_deposit_microusd"
+        ]
+      }
+    },
+    {
+      "rule_id": "session_standing_envelope.spend.within_deposit",
+      "description": "The maximum reconciled spend cannot exceed the maximum deposit authority.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.aggregate_bounds.max_cumulative_spend_microusd",
+          "$.aggregate_bounds.max_cumulative_deposit_microusd"
+        ]
+      }
+    }
+  ],
   "schema://ioi/foundations/authority-trajectory-state/v1": [],
   "schema://ioi/foundations/trajectory-admission-decision/v1": [],
   "schema://ioi/foundations/authority-key-set/v1": [
@@ -136232,6 +136576,12 @@ export function validateStandingAuthorityEnvelopeV1(
   value: unknown,
 ): value is StandingAuthorityEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/standing-authority-envelope/v1", value).ok;
+}
+
+export function validateSessionStandingEnvelopeV1(
+  value: unknown,
+): value is SessionStandingEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/session-standing-envelope/v1", value).ok;
 }
 
 export function validateAuthorityTrajectoryStateV1(

@@ -31,6 +31,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { randomHex32, sealSessionStandingEnvelope } from "./lib/standing-authority-evidence.mjs";
+import { mintStandingApprovalGrant } from "../../../scripts/lib/mint-standing-approval-grant.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -168,6 +170,31 @@ async function run() {
   const A = a.body?.connector?.connector_id || a.body?.connector_id || "";
   const B = b.body?.connector?.connector_id || b.body?.connector_id || "";
   ok("two real connectors register in the Connections estate", a.status < 300 && b.status < 300 && A && B && A !== B, `${a.status}/${b.status} ${A} ${B}`);
+  // M13.3 (2026-09-08): a session may name only a BOUNDED attach, so both connectors carry an
+  // attach-time standing envelope. This verifier runs without a wallet, so the envelope is
+  // structurally bound on the daemon (the wallet proves the signature and consumes at draw); the
+  // grant is minted with PUBLIC test material. The draw itself is proven by
+  // check:standing-consumer-loop over the real fixture.
+  const bindEnvelope = async (connector) => {
+    const now = Date.now();
+    const policyHash = `sha256:${randomHex32()}`;
+    const envelope = sealSessionStandingEnvelope({
+      schema_version: "ioi.hypervisor.session-standing-envelope.v1",
+      standing_envelope_ref: `standing-envelope://hypervisor/connections/${connector.connector_id}/sap`,
+      owner_ref: "org://local", bounded_system_ref: "system://hypervisor/local", principal_ref: "domain://acme-host",
+      audience_ref: "wallet-client://hypervisor/daemon", authority_scope: "scope:hypervisor.session-standing-envelope",
+      facet_template: { connector_id: connector.connector_id, service: connector.service, base_url: connector.base_url, operations: ["session_execute", "connector_invoke"], allowed_tools: ["ping"], per_operation_spend_microusd: 1000, per_operation_deposit_microusd: 1000 },
+      aggregate_bounds: { max_cumulative_deposit_microusd: 5000, max_cumulative_spend_microusd: 5000, max_usages: 5 },
+      not_before_ms: now - 60_000, expires_at_ms: now + 3_600_000, revocation_epoch: 0,
+      trajectory_policy_ref: "policy://hypervisor/session-standing-envelope/trajectory/v1", trajectory_policy_hash: policyHash,
+      approval_mode: "standing_envelope", recovery_posture: "recovery_never_widens_or_resets_drawdown",
+    });
+    const grant = mintStandingApprovalGrant({ seed: "07".repeat(32), standingEnvelopeHash: envelope.body_hash, policyHash, audience: "11".repeat(32), nonce: randomHex32(), counter: 1, issuedAtMs: now, expiresAtMs: now + 3_600_000, maxUsages: 5, maxCumulativeDepositMicrousd: 5000, maxCumulativeSpendMicrousd: 5000, reviewReceiptHash: `sha256:${randomHex32()}`, approvalCeremonyContextHash: `sha256:${randomHex32()}`, authFactorReceiptHash: `sha256:${randomHex32()}` });
+    return jd(`/v1/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant, envelope }) });
+  };
+  const bindA = await bindEnvelope(a.body.connector);
+  const bindB = await bindEnvelope(b.body.connector);
+  ok("both connectors carry an attach-time standing envelope (M13.3: only a bounded attach is nameable)", bindA.status === 200 && bindA.body?.standing_lease?.status === "active" && bindB.status === 200, `${bindA.status}/${bindB.status} ${JSON.stringify(bindA.body?.standing_lease?.bounds || bindA.body).slice(0, 120)}`);
 
   // -- the empty default ------------------------------------------------------------------------
   const plain = await jd("/v1/hypervisor/sessions", { method: "POST", body: JSON.stringify({ project_ref: "project:authority-profile" }) });
@@ -226,9 +253,9 @@ async function run() {
   ok("under session A, invoking connector A PASSES the profile gate and reaches the ordinary wallet crossing (the typed authority challenge, not an out-of-profile refusal)",
     inA.status !== 403 || inA.body?.reason !== "session_authority_out_of_profile",
     `${inA.status}/${inA.body?.reason || inA.body?.decision || "ok"}`);
-  ok("the crossing under session A is the authority challenge that binds the SESSION (the daemon's challenge, never a silent success without a grant)",
-    (inA.status === 403 && /authority_required/u.test(String(inA.body?.reason || ""))) || (inA.status === 501) || (inA.status === 200 && inA.body?.ok === true),
-    `${inA.status}/${inA.body?.reason || ""}`);
+  ok("the crossing under session A is the authority crossing that binds the SESSION (the daemon's challenge or, under the attach-time envelope, the standing draw refusing typed without a wallet — never a silent success without authority)",
+    (inA.status === 403 && /authority_required|standing_draw_refused|standing_envelope/u.test(String(inA.body?.reason || ""))) || (inA.status === 501) || (inA.status === 200 && inA.body?.ok === true),
+    `${inA.status}/${inA.body?.reason || ""}${inA.body?.refused_bound ? `/${inA.body.refused_bound}` : ""}`);
   const outB = await invoke(B, scopedRef);
   ok("under session A, invoking connector B refuses out-of-profile — same caller, same body shape, only the profile differs",
     outB.status === 403 && outB.body?.reason === "session_authority_out_of_profile"

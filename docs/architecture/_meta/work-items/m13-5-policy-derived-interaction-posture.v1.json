@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-5-policy-derived-interaction-posture",
+  "stage_id": "M13",
+  "required_work": [
+    "M13.5"
+  ],
+  "status": "verified",
+  "objective": "Within a session, silence, exact-effect review and refusal are daemon admission outcomes derived from the connector's admitted policy and the attach-time envelope, never presentation choices: in-envelope acts draw down with zero prompts, a policy-marked tool produces the review object even when authority and budget exist, and an out-of-envelope act refuses typed naming the bound with widening pointed at Connections.",
+  "falsifiable_claim": "Under a session naming a bounded connection: N in-envelope invokes return 200 with no challenge and a hypervisor.session.standing_draw receipt each while the wallet consumes exactly N usages; org_policy.exact_review_tools marks a tool \u2192 202 exact_effect_review_required with the daemon's policy/request commitments and a durable hypervisor.session.exact_effect_review receipt, no draw, and a bogus exact grant refuses at the exact lane; draw N+1 \u2192 403 standing_envelope_exceeded / refused_bound max_usages / widening_path /__ioi/connections with a hypervisor.session.standing_refusal receipt, identically on a second direct probe; a tool outside the template refuses before any wallet call; a session-less invoke keeps the exact challenge; the execute gate draws a run's execution against a covering lease (silent) or fails closed typed (alpha journey, fixture mode).",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "exact_effect_review_required",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "silent_within_policy",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "refused_outside_envelope",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "classify_standing_refusal",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "session_execute_standing_lease",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/ioi-agent-runs.mjs",
+      "literal": "refused_outside_envelope",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-standing-consumer-loop.mjs",
+      "literal": "exact_effect_review_required",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg3-consumer-loop-2026-09-08.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "ACC-15 \u00a74 mutation: marking the act interactive_exact_effect in the admitted policy turns silence into the review (and back); ACC-18 bypass drills: the standing lease, a bogus exact grant and the same bytes twice never admit a review-marked tool and consume nothing; ACC-15 \u00a75: the same probe twice refuses identically (UI bypass); all on the real fixture, 24/24.",
+  "remaining_nonclaims": [
+    "M03.15's generic exact-effect review lineage (successor reviews, reviewer qualification, field-level invalidation) is not built; the review object here is the connector path's durable commitment record resolved only by an exact grant bound to it.",
+    "The review expiry (15 minutes) is recorded on the object but not yet enforced by a sweeper; an exact grant is bound to the request hash regardless.",
+    "The silent posture is proven on the connector path by this verifier and on the execute path by check:alpha-journey in fixture authority mode; deployment mode is blocked on the custody-tier ruling."
+  ],
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXI.",
+  "last_status_transaction": "2026-09-08"
+}

@@ -147,6 +147,10 @@ export async function hydrateRunsFromDaemon() {
   } catch { return 0; }
 }
 
+function authorityProfileNames(run) {
+  return Array.isArray(run?.authorityProfile?.connection_refs) && run.authorityProfile.connection_refs.length > 0;
+}
+
 export function getRun(id) {
   return runs.get(id);
 }
@@ -252,11 +256,22 @@ export function runToAgentExecution(run) {
 // Start a real agent run. `daemonBase` is the hypervisor-daemon origin. Returns the immediate
 // projection ({ agentExecutionId, environment, userInputBlockId }) once the env exists; the
 // harness executes asynchronously and updates the run in place.
+// M13.3/M13.5 — the composer's submit may name the Connections the run's session may use (the
+// closed authority profile). A bounded connection in that profile lets the daemon draw the run's
+// execution against the attach-time standing envelope instead of parking on an approval card.
+export function extractAuthorityProfile(body) {
+  const raw = body?.authorityProfile?.connectionRefs ?? body?.authority_profile?.connection_refs ?? null;
+  if (!Array.isArray(raw)) return null;
+  const refs = raw.map((r) => String(r || "").trim()).filter(Boolean);
+  return { connection_refs: refs };
+}
+
 export async function startAgentRun({
   daemonBase,
   prompt,
   environmentClassId,
   daemonHeaders = {},
+  authorityProfile = null,
 }) {
   const base = daemonBase.replace(/\/$/, "");
   const dj = async (method, path, payload) => {
@@ -281,13 +296,24 @@ export async function startAgentRun({
 
   const id = genId("agent");
   const sessionRef = `session:ai-${id}`;
-  await dj("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: "project:ai", environment_id: envId });
+  const sessionCreate = await dj("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: "project:ai", environment_id: envId, ...(authorityProfile ? { authority_profile: authorityProfile } : {}) });
+  if (authorityProfile && sessionCreate.status >= 400) {
+    // The daemon refused the profile (unknown or UNBOUNDED connection): the run cannot be created
+    // under a profile the daemon did not admit, and it must not silently fall back to no profile.
+    const code = sessionCreate.body?.error?.code || `http_${sessionCreate.status}`;
+    const error = new Error(`session create refused the authority profile (${code}): ${sessionCreate.body?.error?.message || ""}`);
+    error.status = sessionCreate.status;
+    error.code = code;
+    error.body = sessionCreate.body;
+    throw error;
+  }
 
   const run = {
     id,
     agentId: genId("agentdef"),
     envId,
     env: envIOI,
+    authorityProfile: authorityProfile || null,
     sessionRef,
     prompt,
     name: deriveName(prompt),
@@ -603,7 +629,22 @@ async function executeRun(run, base, dj) {
     const challenge = await dj("POST", execPath, { intent: run.prompt });
     const policyHash = challenge.body?.approval?.policy_hash;
     const requestHash = challenge.body?.approval?.request_hash;
+    if (challenge.status === 403 && challenge.body?.posture === "refused_outside_envelope") {
+      // M13.5: the session's standing envelope did not admit this execution. Fail CLOSED with the
+      // daemon's own typed bound; the widening path is Connections, never an in-run change.
+      run.status = "failed";
+      run.error = `Outside the session's standing envelope (${challenge.body?.refused_bound || challenge.body?.reason}): nothing ran. Widen it on Connections (${challenge.body?.widening_path || "/__ioi/connections"}).`;
+      run.authority = { posture: "refused_outside_envelope", reason: challenge.body?.reason || null, refusedBound: challenge.body?.refused_bound || null, refusalReceiptRef: challenge.body?.refusal_receipt_ref || null, wideningPath: challenge.body?.widening_path || null, connectionRef: challenge.body?.connection_ref || null };
+      bump(run, `Refused: ${run.error}`);
+      return;
+    }
     if (!policyHash || !requestHash) {
+      if (challenge.status < 400 && authorityProfileNames(run)) {
+        // Silent within policy: the daemon drew the run's execution against the attach-time
+        // standing envelope. No card, no signer; the draw receipt is on the session.
+        run.authority = { posture: "silent_within_policy", standing: true, connectionRefs: run.authorityProfile?.connection_refs || [] };
+        bump(run, "Authorized silently within the session's standing envelope — no approval needed");
+      }
       // Already authorized (no gate) or an unexpected response — treat the challenge as the result.
       finalize(run, challenge);
       return;

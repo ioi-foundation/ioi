@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-3-attach-time-standing-envelope",
+  "stage_id": "M13",
+  "required_work": [
+    "M13.3"
+  ],
+  "status": "verified",
+  "objective": "The Connections attach flow mints the scoped standing bound in the same pass as a registered SessionStandingEnvelope bound by a StandingApprovalGrant; the bounds render on the connection card from the daemon record; a session profile naming an unbounded attach is refused at create.",
+  "falsifiable_claim": "POST /v1/hypervisor/connectors/:id/standing-lease binds a wallet-recorded grant + registered envelope after structural and containment validation (connector, service, base_url, tools, grant binds envelope hash and policy, bounds and window inside the envelope, audience is the daemon's capability account); the connector record carries standing_lease {status, bounds, hashes}; POST /v1/hypervisor/sessions naming a connector with no ACTIVE lease refuses 412 session_authority_connection_unbounded with widening_path; DELETE \u2026/standing-lease revokes and the next act and next create refuse; the serve's attach form/card/context feed read the daemon record; in deployment mode the mint refuses typed standing_lease_custody_tier_unruled rather than fabricating a passkey ceremony.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "session_authority_connection_unbounded",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "validate_connector_standing_lease",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "handle_connector_bind_standing_lease",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/session-standing-envelope.v1.schema.json",
+      "literal": "ioi.hypervisor.session-standing-envelope.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/wallet-authority.mjs",
+      "literal": "bindStandingLease",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "literal": "data-ioi-standing-lease",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-standing-consumer-loop.mjs",
+      "literal": "session_authority_connection_unbounded",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg3-consumer-loop-2026-09-08.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:standing-consumer-loop drives the DIRECT daemon path over the real wallet fixture: mismatched lease refuses typed, a second bind conflicts, an unbounded name refuses at create, the bounded name creates, revocation (attach side and wallet side) refuses the very next act and the next create, and everything survives a SIGKILL restart; check:session-authority-profile (22, floor-pinned) attaches bounded connectors without a wallet.",
+  "remaining_nonclaims": [
+    "Deployment mode cannot mint a standing envelope until the owner rules the alpha's custody tier for standing authority (the auth-factor receipt contract is passkey-only); the serve refuses typed and the alpha journey records the block.",
+    "The standing lease carries the grant JSON on the connector record (public commitments and signature, no secret); no separate lease index exists \u2014 the connector record is the lease's home.",
+    "The card renders bounds and status; the remaining balance (usages consumed) is wallet truth surfaced only through refusals and draw receipts, not yet as a live counter on the card."
+  ],
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXI.",
+  "last_status_transaction": "2026-09-08"
+}

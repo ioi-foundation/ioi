@@ -337,7 +337,10 @@ async function run() {
         IOI_M049_ORDERING_PROFILE: process.env.IOI_ALPHA_FIXTURE_ORDERING_PROFILE || "Solo",
         IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: process.env.IOI_ALPHA_FIXTURE_COMMIT_TIMEOUT_SECS || "900",
       };
-      fixture = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: fixtureBaseEnv });
+      // Wall-clock chain: the standing envelope's and ceremony's validity windows (M13.3) are
+      // judged against the committed chain clock, and the operator's factor receipt carries host
+      // wall time; a deterministic clock would refuse every attach-time envelope by calendar.
+      fixture = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: fixtureBaseEnv, wallClockChain: true });
     } catch (error) {
       console.error(`BLOCKED: the real wallet.network principal-authority fixture did not start — ${error?.message ?? error}`);
       cleanup();
@@ -428,15 +431,37 @@ async function run() {
   const cB = await registerConnector("alpha-b");
   const A = cA.body?.connector?.connector_id || "";
   const B = cB.body?.connector?.connector_id || "";
-  const launch = await jd(SERVE, "/__ioi/api/new-session/launch", { method: "POST", body: JSON.stringify({ project_ref: "project:alpha-journey", authority_profile: { connection_refs: [`connector:${A}`] } }) });
+  // ---- 5c. M13.3: the attach pass sets the standing envelope; an unbounded attach is not nameable
+  // The serve mints the scoped standing bound (usages · budget · expiry) for connection A in the
+  // same pass, records it on the authority node and binds it on the daemon. In DEPLOYMENT mode
+  // this refuses TYPED: the wallet's standing-grant rule needs a passkey step-up ceremony and the
+  // deployment-local operator key has no admitted posture for standing authority (owner ruling
+  // pending); nothing is fabricated and the run below keeps the exact approval card.
+  const envelopeA = await jd(SERVE, `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`, { method: "POST", body: JSON.stringify({ max_usages: 1, budget_usd: 0.01, expires_hours: 2 }) });
+  const STANDING = envelopeA.status === 200 && envelopeA.body?.ok === true && envelopeA.body?.standing_lease?.status === "active";
+  if (AUTHORITY_MODE === "deployment") {
+    ok("5c-envelope", "DEPLOYMENT MODE: setting a standing envelope at attach refuses TYPED (standing_lease_custody_tier_unruled) — the deployment-local operator key has no admitted passkey posture for standing authority; nothing was fabricated to make it pass", envelopeA.status === 501 && envelopeA.body?.code === "standing_lease_custody_tier_unruled", `${envelopeA.status}/${envelopeA.body?.code}`);
+    record("5c-envelope", "standing envelope minted at attach; silent run to done; over-envelope run fails closed; revocation refuses", "NOT QUALIFIED in deployment mode — awaits the owner's custody-tier ruling for standing envelopes (auth-factor receipt contract is passkey-only); qualified in fixture authority mode");
+    evidence.standing_lease = { mode: "deployment", status: "blocked_typed", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null };
+  } else if (AUTHORITY_PRESENT) {
+    ok("5c-envelope", "FIXTURE MODE: the attach pass minted the standing envelope (1 usage · $0.01 · 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record", STANDING && envelopeA.body?.standing_lease?.bounds?.max_usages === 1 && String(envelopeA.body?.standing_grant_hash || "").length === 64, `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${envelopeA.body?.message ? String(envelopeA.body.message).slice(0, 200) : JSON.stringify(envelopeA.body?.standing_lease?.bounds || null).slice(0, 140)} · factor ${envelopeA.body?.factor_origin || ""}`);
+    evidence.standing_lease = { mode: "fixture", status: STANDING ? "bound" : "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, factor_origin: envelopeA.body?.factor_origin || null, bounds: envelopeA.body?.standing_lease?.bounds || null, grant_hash: envelopeA.body?.standing_grant_hash || null };
+  }
+  const cardPage = await jd(SERVE, "/__ioi/connections");
+  ok("5c-envelope", "the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number)", cardPage.status === 200 && (STANDING ? cardPage.text.includes('data-ioi-standing-lease="active"') && cardPage.text.includes('data-ioi-standing-usages="1"') : cardPage.text.includes('data-ioi-standing-lease="absent"')), `${cardPage.status} standing=${STANDING}`);
+  const unboundedLaunch = await jd(SERVE, "/__ioi/api/new-session/launch", { method: "POST", body: JSON.stringify({ project_ref: "project:alpha-journey", authority_profile: { connection_refs: [`connector:${B}`] } }) });
+  ok("5c-envelope", "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule", unboundedLaunch.status === 412 && (unboundedLaunch.body?.error?.code === "session_authority_connection_unbounded" || unboundedLaunch.body?.code === "session_authority_connection_unbounded"), `${unboundedLaunch.status}/${unboundedLaunch.body?.error?.code || unboundedLaunch.body?.code}`);
+  const launchRefs = STANDING ? [`connector:${A}`] : [];
+  const launch = await jd(SERVE, "/__ioi/api/new-session/launch", { method: "POST", body: JSON.stringify({ project_ref: "project:alpha-journey", authority_profile: { connection_refs: launchRefs } }) });
   const scopedRef = launch.body?.session_ref || "";
-  ok("5b-connections", "the composer's launch binds the operator's selected connection as the session's CLOSED authority profile", launch.status === 202 && JSON.stringify(launch.body?.authority_profile?.connection_refs) === JSON.stringify([`connector:${A}`]), `${launch.status} ${scopedRef} ${JSON.stringify(launch.body?.authority_profile?.connection_refs)}`);
+  ok("5b-connections", STANDING ? "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile" : "the composer's launch creates the session with the CLOSED (empty) authority profile — connection A is unbounded here and therefore not nameable", launch.status === 202 && JSON.stringify(launch.body?.authority_profile?.connection_refs) === JSON.stringify(launchRefs), `${launch.status} ${scopedRef} ${JSON.stringify(launch.body?.authority_profile?.connection_refs)}`);
   const bypass = await jd(DAEMON, `/v1/hypervisor/connectors/${encodeURIComponent(B)}/invoke`, { method: "POST", body: JSON.stringify({ tool: "ping", request: {}, session_ref: scopedRef }) });
   ok("5b-connections", "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission", bypass.status === 403 && bypass.body?.reason === "session_authority_out_of_profile", `${bypass.status}/${bypass.body?.reason}`);
 
   // ---- 6. start useful work: composer → parked on approval → approve → execute ----------------
   const intent = "Create a file named ALPHA_JOURNEY.md whose first line is exactly: hello from the alpha journey";
-  const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify({ initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: "local-workspace-v0" }) });
+  const composerBody = { initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: "local-workspace-v0", ...(STANDING ? { authorityProfile: { connectionRefs: [`connector:${A}`] } } : {}) };
+  const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody) });
   const runId = create.body?.agentExecutionId || "";
   const envId = create.body?.environment?.id || create.body?.environment?.environmentId || "";
   ok("6-work", "the composer submit creates a real environment, a session and a registered run", create.status === 200 && runId && envId, `${create.status} run ${runId} env ${envId}`);
@@ -460,7 +485,46 @@ async function run() {
     evidence.nonclaims_authority_mode_none = ["operator approval interaction", "harness execution", "written artifacts", "execute receipt and capability lease binding", "cost of a real run"];
   }
   const pending = AUTHORITY_MODE === "none" ? null : (transcript?.pending_approval || null);
-  if (AUTHORITY_PRESENT) {
+  if (STANDING) {
+    // ---- 6s. silent within policy: the standing envelope carries the run to done, no card ----
+    const silentStart = Date.now();
+    while (!["done", "failed", "denied"].includes(transcript?.status) && Date.now() - silentStart < EXECUTE_BUDGET_MS) {
+      const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+      transcript = t.body?.run || t.body?.record || t.body;
+      if (transcript?.status === "awaiting_operator_approval") break;
+      await sleep(2000);
+    }
+    ok("6-work", "SILENT WITHIN POLICY: the run never parks on an approval card — its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)", transcript?.status !== "awaiting_operator_approval" && !transcript?.pending_approval && transcript?.authority?.posture === "silent_within_policy", `${transcript?.status} · ${JSON.stringify(transcript?.authority || null).slice(0, 140)}`);
+    const sessionsPageSilent = await jd(SERVE, "/work/sessions");
+    ok("6-work", "Work / Sessions shows NO approval card for the silent run", sessionsPageSilent.status === 200 && !sessionsPageSilent.text.includes(`data-ioi-awaiting-approval="${runId}"`), `${sessionsPageSilent.status}`);
+    const changedSilent = transcript?.changed_files || [];
+    ok("6-work", `the silently authorized run completes on the qualified harness/model and writes at least one file (${Math.round((Date.now() - silentStart) / 1000)}s)`, transcript?.status === "done" && changedSilent.length > 0, `${transcript?.status} · ${JSON.stringify(changedSilent).slice(0, 160)} · ${transcript?.error || ""}`);
+    const drawReceipts = readReceipts((r) => r.kind === "hypervisor.session.standing_draw" && r.session_ref === runSessionRef && r.operation === "session_execute");
+    ok("6-work", "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed", drawReceipts.length === 1 && String(drawReceipts[0].admission_intent_ref || "").startsWith("authority-admission-intents/") && drawReceipts[0].posture === "silent_within_policy", `${drawReceipts.length} draw receipt(s)`);
+    evidence.standing_lease.silent_run = { run_id: runId, status: transcript?.status, draw_receipts: drawReceipts.length };
+    // ---- 6t. a second run over the envelope (1 usage) fails CLOSED, typed, nothing runs ----
+    const second = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody) });
+    const secondId = second.body?.agentExecutionId || "";
+    let secondT = null;
+    const secondStart = Date.now();
+    while (Date.now() - secondStart < 60_000) {
+      const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(secondId)}`);
+      secondT = t.body?.run || t.body?.record || t.body;
+      if (["done", "failed", "denied", "awaiting_operator_approval"].includes(secondT?.status)) break;
+      await sleep(1000);
+    }
+    const secondSessionRef = secondT?.session_ref || `session:ai-${secondId}`;
+    const secondExec = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === secondSessionRef);
+    const secondRefusals = readReceipts((r) => r.kind === "hypervisor.session.standing_refusal" && r.session_ref === secondSessionRef);
+    ok("6-work", "OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound", second.status === 200 && secondT?.status === "failed" && secondT?.authority?.posture === "refused_outside_envelope" && secondT?.authority?.refusedBound === "max_usages" && secondExec.length === 0 && secondRefusals.length === 1 && secondRefusals[0].refused_bound === "max_usages", `${second.status} ${secondT?.status} · ${JSON.stringify(secondT?.authority || null).slice(0, 160)} · exec ${secondExec.length} · refusals ${secondRefusals.length}`);
+    evidence.standing_lease.over_envelope_run = { run_id: secondId, status: secondT?.status, authority: secondT?.authority || null };
+    // ---- 6u. revocation refuses within one commit ----
+    const revokeEnvelope = await jd(SERVE, `/__ioi/connections/${encodeURIComponent(A)}/standing-lease/revoke`, { method: "POST", body: JSON.stringify({}) });
+    const afterRevokeLaunch = await jd(SERVE, "/__ioi/api/new-session/launch", { method: "POST", body: JSON.stringify({ project_ref: "project:alpha-journey", authority_profile: { connection_refs: [`connector:${A}`] } }) });
+    ok("6-work", "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) — leaving is real", revokeEnvelope.status === 200 && revokeEnvelope.body?.ok === true && afterRevokeLaunch.status === 412 && afterRevokeLaunch.body?.error?.lease_status === "standing_lease_revoked", `${revokeEnvelope.status} → ${afterRevokeLaunch.status}/${afterRevokeLaunch.body?.error?.code}`);
+    evidence.standing_lease.revocation = { status: revokeEnvelope.status, next_launch: afterRevokeLaunch.status };
+  }
+  if (AUTHORITY_PRESENT && !STANDING) {
   ok("6-work", "the run PARKS on the operator's approval with the daemon's exact commitments (no signer runs automatically)", transcript?.status === "awaiting_operator_approval" && pending?.policy_hash && pending?.request_hash, `${transcript?.status} · ${pending?.request_hash?.slice(0, 24) || "no request hash"}`);
   const sessionsPage = await jd(SERVE, "/work/sessions");
   ok("6-work", "the canonical Work / Sessions route shows the approval card with the exact effect and its commitments", sessionsPage.status === 200 && sessionsPage.text.includes(`data-ioi-awaiting-approval="${runId}"`) && sessionsPage.text.includes(pending?.request_hash || "∅"), `${sessionsPage.status}`);
@@ -496,6 +560,16 @@ async function run() {
   const boundProof = boundTimeline.body?.turns?.[0]?.proof || {};
   ok("7-inspect", "M13.4: the SPA session pane's proof band is bound to the DAEMON session record (ref + lifecycle) and names the execute receipt with its capability lease, read from the daemon", boundTimeline.status === 200 && boundProof.session?.ref === runSessionRef && boundProof.session?.source === "daemon-runtime" && (boundProof.daemonReceipts || []).some((r) => r.kind === "hypervisor.session.execute" && r.capabilityLeaseRef), `${boundTimeline.status} · ${boundProof.session?.lifecycleState || "?"} · ${(boundProof.daemonReceipts || []).length} daemon receipt(s)`);
   ok("7-inspect", "the run's authority record names the operator's approval (approver = deployment-local operator, exact hashes)", transcript?.authority?.approver === "deployment_local_operator" && transcript?.authority?.requestHash === pending?.request_hash && transcript?.pending_approval?.decision === "approved", JSON.stringify(transcript?.authority || null).slice(0, 160));
+  }
+  if (STANDING) {
+    // ---- 7s. inspect the silently authorized run: artifacts and the execute receipt ----
+    const envS = await jd(DAEMON, `/v1/hypervisor/environments/${encodeURIComponent(envId)}`);
+    const rootS = envS.body?.environment?.status?.workspace_root || "";
+    let filesS = [];
+    try { filesS = fs.readdirSync(rootS).filter((f) => !f.startsWith(".")); } catch { /* none */ }
+    ok("7-inspect", "the written artifacts of the silently authorized run are in the session's workspace on disk", rootS && filesS.length > 0, `${rootS} · ${filesS.slice(0, 8).join(", ")}`);
+    const execS = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
+    ok("7-inspect", "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission", execS.length >= 1 && String(execS[0].capability_lease_ref || "").length > 0, `${execS.length} receipt(s)`);
   }
   if (AUTHORITY_MODE === "deployment") await qualifyRotationAndRevocation(envId);
   const consumption = await jd(DAEMON, "/v1/hypervisor/usage/consumption");
