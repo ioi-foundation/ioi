@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-2-packaged-release-and-change-plan",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.2"
+  ],
+  "status": "evidence_ready",
+  "objective": "Define and build the smallest packaged release of the bounded alpha for linux-x86_64 (daemon, grant signer, authority-node control and validator binaries, served App, harness shim, installer; signed manifest with per-file digests and SBOM), an installer that verifies against an operator-pinned signer and activates immutably installed releases, and the daemon's admitted update/rollback path (release change plans) whose outcome is observed by the daemon's own executable digest.",
+  "falsifiable_claim": "A package built by scripts/package-hypervisor-alpha-release.mjs verifies under the pinned signer key and fails on a changed byte, an unlisted file, a missing file, a manifest edit or a different key; install.mjs installs it immutably and activates by symlink; a daemon running from <prefix>/current admits an update plan to a second package, refuses a no-op target and a second in-flight plan, and after the installer's activation + restart the daemon that came back observes its own digest = the target's and completes the plan with a receipt; rollback to the prior release completes the same way; the whole alpha journey passes with the daemon, App, signer and shim being the installed bytes.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/hypervisor/bounded-alpha-profile.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/lib/hypervisor-alpha-release.mjs",
+      "literal": "verifyReleaseDir",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/package-hypervisor-alpha-release.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/install-hypervisor-alpha-release.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/hypervisor-alpha-release.test.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/release_change_plan_routes.rs",
+      "literal": "running_daemon_sha256",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "/v1/hypervisor/release-change-plans",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+      "literal": "qualifyUpdateAndRollback",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "scripts/lib/hypervisor-alpha-release.test.mjs",
+    "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+    "docs/architecture/components/hypervisor/bounded-alpha-profile.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "test:hypervisor-alpha-release (4/4) proves tamper, unlisted, missing, wrong-key and manifest-edit refusals; release_change_plan_routes unit tests prove the self-digest is the executable's bytes and plan ids are shape-checked; the journey's package mode proves the no-op and double-admission refusals live and observes both the update and the rollback by the daemon's own digest.",
+  "remaining_nonclaims": [
+    "The packaged build is the debug cargo profile; no release-profile build is qualified.",
+    "The second release in qualification differs from the first only by the daemon crate version (same sources).",
+    "The authority node's launcher is not relocatable outside a source checkout of the packaged revision (closure test in the manifest's prerequisites.authority_node).",
+    "No update discovery/egress; material is supplied by the operator."
+  ],
+  "source_provenance": "Landed 2026-09-07 by the bounded-alpha closure program (see canon-to-code-delta.md § Journey verification XVI).",
+  "last_status_transaction": "2026-09-07"
+}

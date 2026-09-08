@@ -113,6 +113,48 @@ basis says.
 | 12 | Update / rollback | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* (`HypervisorChangePlan`) | none (no daemon self-update or release rollback path) | none | not built |
 | 13 | App and headless agree on durable state | `core-clients-surfaces.md` § *First-Class Clients* | both clients read daemon records; the headless client is the HTTP API | `check:session-authority` (served vs daemon reads) | partial (no dedicated CLI) |
 
+## Supported deployment bring-up (authority node, keys, daemon, App)
+
+The alpha's authority node is a deployment-local wallet.network node the
+operator brings up on the same host, with keys generated there and custodied
+there. The supported bring-up is one command per act; nothing here uses the
+cargo test fixture or its public seeds.
+
+```text
+# 1. Authority node (foreground; run under your supervisor). First run generates
+#    keys/root.seed (control root), keys/capability.key (the daemon's sealed
+#    wallet client key), keys/approver.seed (YOUR approval key, 0600), starts the
+#    Solo single-validator node with durable chain state, issues the control
+#    root, registers the client and the approver, binds the approver to the
+#    principal (binding v1), and writes daemon.env + serve.env.
+node apps/hypervisor/scripts/wallet-network-authority.mjs up \
+  --state-dir /var/lib/ioi/authority --principal-ref domain://<your-host>
+
+# 2. Daemon and served App read those env files (the daemon's IOI_WALLET_NETWORK_*
+#    endpoint is a loopback TLS front with a per-life pinned CA; the App's
+#    IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH is your approver key).
+set -a; . /var/lib/ioi/authority/daemon.env; set +a; hypervisor-daemon
+set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/scripts/serve-product-ui.mjs
+
+# 3. Key lifecycle — operator acts against the serving node, each one
+#    root-signed control-plane transaction; a resumed node refuses to serve a
+#    substituted root or a binding that no longer matches the custodied key.
+node apps/hypervisor/scripts/wallet-network-authority.mjs rotate --state-dir /var/lib/ioi/authority   # new key, binding v(n+1) Active; old key retired read-only as keys/approver.seed.v<n>
+node apps/hypervisor/scripts/wallet-network-authority.mjs revoke --state-dir /var/lib/ioi/authority   # Revoked successor; every later run fails closed before any harness runs
+node apps/hypervisor/scripts/wallet-network-authority.mjs status --state-dir /var/lib/ioi/authority   # custodied record + the live chain head
+```
+
+Implementation: `crates/cli/src/bin/wallet_network_local_authority.rs` (node,
+keys, control-plane transactions), `apps/hypervisor/scripts/lib/wallet-network-local-authority.mjs`
+(lifecycle, TLS front, env files). The daemon's authority resolution, grant
+verification, consumption and receipt paths are unchanged; the approver's
+scope allowlist is exactly `scope:hypervisor.live-route.*`. Bounded properties
+stated, not hidden: the chain clock is the deterministic single-node clock
+unless `--wall-clock` is given; the node's validator launcher resolves its
+binaries from the source checkout it was compiled in, so `up` runs inside a
+checkout of the packaged revision (closure test in the release manifest's
+`prerequisites.authority_node`).
+
 ## Release qualification
 
 The alpha may be called release-qualified only when, on the exact packaged
