@@ -1,0 +1,69 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:system-deployment-membership-plane",
+  "unit": "M02.3",
+  "families": [
+    {
+      "name": "system_membership",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_membership_routes.rs",
+      "tests": [
+        "system_membership_routes::tests::membership_ladder_artifacts_validate_every_registered_envelope",
+        "system_membership_routes::tests::membership_ops_have_owner_scopes_and_never_parse_as_other_families",
+        "system_membership_routes::tests::projection_without_a_declared_desired_topology_is_honest",
+        "system_membership_routes::tests::restart_projection_loss_rebuilds_the_projection_from_durable_records_only"
+      ]
+    },
+    {
+      "name": "system_topology",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_topology_routes.rs",
+      "tests": [
+        "system_topology_routes::tests::divergent_membership_root_fails_closed",
+        "system_topology_routes::tests::minimum_topology_reports_the_exact_tuple_from_durable_records_only",
+        "system_topology_routes::tests::projection_without_durable_truth_is_honest_empty",
+        "system_topology_routes::tests::restart_rebuilds_the_minimum_topology_projection_byte_exactly",
+        "system_topology_routes::tests::topology_route_is_disjoint_and_scopeless",
+        "system_topology_routes::tests::wrong_system_sources_fail_closed"
+      ]
+    },
+    {
+      "name": "system_writer",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_writer_routes.rs",
+      "tests": [
+        "system_writer_routes::tests::projection_without_any_writer_truth_is_honest",
+        "system_writer_routes::tests::registered_transition_fixture_replays_into_the_projection",
+        "system_writer_routes::tests::writer_ladder_artifacts_validate_every_registered_envelope",
+        "system_writer_routes::tests::writer_ops_have_owner_scopes_and_never_parse_as_other_families"
+      ]
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "agentgres regression suite",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres"
+      ],
+      "min_passed": 1
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

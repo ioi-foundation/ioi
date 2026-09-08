@@ -1,0 +1,56 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m02-3-system-deployment-membership-plane-wrapper",
+  "stage_id": "M02",
+  "required_work": [
+    "M02.3"
+  ],
+  "status": "verified",
+  "objective": "The per-System deployment and observed-membership plane's closed Rust population is release-accountable through a fail-empty wrapper.",
+  "falsifiable_claim": "npm run check:system-deployment-membership-plane pins system_membership (4), system_topology (6) and system_writer (4) by exact name with the same list/run/count discipline, then runs the whole agentgres regression suite with a non-empty floor.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-cargo-test-population.mjs",
+      "literal": "ioi.cargo_test_population.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/system-deployment-membership-plane.v1.json",
+      "literal": "check:system-deployment-membership-plane",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:system-deployment-membership-plane\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_membership_routes.rs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_topology_routes.rs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_writer_routes.rs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg1-fail-empty-wrappers-2026-09-08.v1.json",
+    "scripts/test-populations/system-deployment-membership-plane.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "npm run mutate:system-deployment-membership-plane plants (a) an absent test name, refused by the source binding; (b) a name whose fn exists but whose module path the harness cannot list, refused at --list; (c) an empty population, refused outright \u2014 the wrapper proves it can fail on its own finding before it is trusted green.",
+  "remaining_nonclaims": [
+    "The wrapper proves the pinned tests execute and pass; it does not widen what those tests assert. The unit's acceptance clauses are proven only to the extent the pinned tests prove them.",
+    "A CI floor is not yet pinned for these root-workspace wrappers; verifier-floors.v1.json covers hypervisor-app journey verifiers only."
+  ],
+  "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1 (basis e8bc1d809); recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
+  "last_status_transaction": "2026-09-08"
+}

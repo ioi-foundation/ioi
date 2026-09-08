@@ -1,0 +1,295 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "standing-authority consumer loop",
+  "leg": 1,
+  "title": "Eight fail-empty source-bound wrappers over closed Rust populations",
+  "basis": {
+    "head": "e8bc1d809",
+    "tree": "dirty (the leg's own uncommitted files); the wrappers, populations and driver are the files this evidence lands with"
+  },
+  "recorded_at": "2026-09-08",
+  "driver": "scripts/check-cargo-test-population.mjs",
+  "summary": {
+    "pass": [
+      "check:authority-gateway-profile",
+      "check:constitutional-oracle-plane",
+      "check:generic-work-result-seam",
+      "check:ordering-finality-recovery",
+      "check:portable-v3-grant-chain",
+      "check:recognized-effect-publication-order",
+      "check:system-deployment-membership-plane"
+    ],
+    "fail": [
+      "check:network-enrollment-continuity-plane"
+    ]
+  },
+  "mutation_drills": "npm run mutate:<name> passed for all eight (planted absent name refused by source binding; unlistable path refused at --list; empty population refused)",
+  "findings": [
+    "check:network-enrollment-continuity-plane is RED: its sequence-zero materialization lane (apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs, an orphan script registered by no npm script and run by no CI job) fails its own FIXTURE SELF-TEST 'malformed atomically published readiness kills and reaps the complete owned process group' and then its TEARDOWN ledger assertion, both sandboxed and unsandboxed, before any held journey runs; the continuity population (8) and architecture contracts are green.",
+    "cargo test -p ioi-consensus (default targets) does not compile on this tree: example aft_hash_async_bench.rs lacks the AftTimeoutVoteV1 fields highest_qc_async_parent_proof_hash / locked_qc_async_parent_proof_hash; examples are a frozen AFT surface, so the M02.4 wrapper runs the lib tests with --features aft (322 tests), the configuration CI exercises.",
+    "Stale counts corrected: work_result is 20 tests (manifest said 16); recognized_effect::tests is 28 (the 'seven' was never enumerated); crash edges are 42 (21 phases x before/after; '34' predated two phases); ioi-finality proof-substitution tests are 10 (not 11). The daemon 'intent' family for M03.5 is governed_authority::portable_authority_intent_tests (9), not download_intent_tests."
+  ],
+  "runs": [
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/authority-gateway-profile.v1.json",
+      "unit": "M03.6",
+      "script": "check:authority-gateway-profile",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T15:54:05.440Z",
+      "verdict": "pass",
+      "pinned_tests": 41,
+      "results": [
+        {
+          "ok": true,
+          "label": "family authority_gateway: 8 pinned tests selected and passed",
+          "detail": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1135 filtered out; finished in 1.23s (2s)"
+        },
+        {
+          "ok": true,
+          "label": "family final_invocation_claim: 6 pinned tests selected and passed",
+          "detail": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1137 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family scm_publication_scope: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1141 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family scm_publication: 25 pinned tests selected and passed",
+          "detail": "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 1118 filtered out; finished in 3.22s (4s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/constitutional-oracle-plane.v1.json",
+      "unit": "M02.2",
+      "script": "check:constitutional-oracle-plane",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T17:11:42.480Z",
+      "verdict": "pass",
+      "pinned_tests": 9,
+      "results": [
+        {
+          "ok": true,
+          "label": "family system_policy: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1141 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family system_oracle: 7 pinned tests selected and passed",
+          "detail": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1136 filtered out; finished in 4.12s (5s)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary check:work-items",
+          "detail": "exit 0 (0s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/generic-work-result-seam.v1.json",
+      "unit": "M04.1",
+      "script": "check:generic-work-result-seam",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T16:02:04.761Z",
+      "verdict": "pass",
+      "pinned_tests": 20,
+      "results": [
+        {
+          "ok": true,
+          "label": "family work_result: 20 pinned tests selected and passed",
+          "detail": "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 1123 filtered out; finished in 0.57s (1s)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary ioi-types all-feature contracts",
+          "detail": "469 tests passed (477s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/network-enrollment-continuity-plane.v1.json",
+      "unit": "M02.5",
+      "script": "check:network-enrollment-continuity-plane",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T16:24:58.336Z",
+      "verdict": "fail",
+      "pinned_tests": 8,
+      "results": [
+        {
+          "ok": true,
+          "label": "family system_continuity: 8 pinned tests selected and passed",
+          "detail": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1135 filtered out; finished in 50.70s (51s)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary architecture contracts",
+          "detail": "exit 0 (5s)"
+        },
+        {
+          "ok": false,
+          "label": "supplementary sequence-zero materialization (live wallet.network fixture lane)",
+          "detail": "exit 1: us (file:///home/heathledger/Documents/ioi/repos/ioi/apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs:1561:5)\n    at async run (file:///home/heathledger/Documents/ioi/repos/ioi/apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs:9167:7) {\n  processGroupId: 153227,\n  processGroupStartTimeTicks: '545587556',\n  cleanupConfirmed: true\n}\n"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/ordering-finality-recovery.v1.json",
+      "unit": "M02.4",
+      "script": "check:ordering-finality-recovery",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T17:11:24.235Z",
+      "verdict": "pass",
+      "pinned_tests": 5,
+      "results": [
+        {
+          "ok": true,
+          "label": "family system_ordering_recovery: 5 pinned tests selected and passed",
+          "detail": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1138 filtered out; finished in 2.22s (3s)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary ioi-consensus regression suite (--lib --features aft, the configuration CI exercises; the crate's example `aft_hash_async_bench` does not compile on this tree and examples are a frozen AFT surface)",
+          "detail": "322 tests passed (171s)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary agentgres regression suite",
+          "detail": "128 tests passed (61s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/portable-v3-grant-chain.v1.json",
+      "unit": "M03.5",
+      "script": "check:portable-v3-grant-chain",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T15:53:57.225Z",
+      "verdict": "pass",
+      "pinned_tests": 59,
+      "results": [
+        {
+          "ok": true,
+          "label": "family portable_authority_service: 12 pinned tests selected and passed",
+          "detail": "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 3607 filtered out; finished in 12.21s (13s)"
+        },
+        {
+          "ok": true,
+          "label": "family portable_authority_state: 3 pinned tests selected and passed",
+          "detail": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 3616 filtered out; finished in 20.85s (21s)"
+        },
+        {
+          "ok": true,
+          "label": "family portable_authority_intent: 9 pinned tests selected and passed",
+          "detail": "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 1134 filtered out; finished in 0.52s (1s)"
+        },
+        {
+          "ok": true,
+          "label": "family final_invocation_claim: 6 pinned tests selected and passed",
+          "detail": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1137 filtered out; finished in 0.01s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family scm_publication_scope: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1141 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family portable_authority_client: 2 pinned tests selected and passed",
+          "detail": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1141 filtered out; finished in 0.00s (0s)"
+        },
+        {
+          "ok": true,
+          "label": "family scm_publication: 25 pinned tests selected and passed",
+          "detail": "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 1118 filtered out; finished in 3.19s (4s)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/recognized-effect-publication-order.v1.json",
+      "unit": "M06.8",
+      "script": "check:recognized-effect-publication-order",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T16:04:00.883Z",
+      "verdict": "pass",
+      "pinned_tests": 38,
+      "results": [
+        {
+          "ok": true,
+          "label": "family recognized_effect: 28 pinned tests selected and passed",
+          "detail": "test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 100 filtered out; finished in 59.35s (60s)"
+        },
+        {
+          "ok": true,
+          "label": "family finality_proof_substitution: 10 pinned tests selected and passed",
+          "detail": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 55.02s (55s)"
+        },
+        {
+          "ok": true,
+          "label": "source pin 21 declared phases (42 before/after crash edges)",
+          "detail": "crates/agentgres/src/recognized_effect.rs /pub const ALL: \\[Self; 21\\]/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "source pin EFFECT_PREPARATION 9 + LINEARIZATION 4 + CONSEQUENCE 5 + CONTROL 3 phase arrays",
+          "detail": "crates/agentgres/src/recognized_effect.rs /pub const (EFFECT_PREPARATION: \\[Self; 9\\]|LINEARIZATION: \\[Self; 4\\]|CONSEQUENCE: \\[Self; 5\\]|CONTROL: \\[Self; 3\\])/ hit 4 (expect 4)"
+        },
+        {
+          "ok": true,
+          "label": "source pin the crash-edge tests iterate every phase array before and after",
+          "detail": "crates/agentgres/src/recognized_effect/tests.rs /for phase in Phase::(EFFECT_PREPARATION|LINEARIZATION|CONSEQUENCE|CONTROL|ALL) \\{\\n\\s*for point in \\[CrashPoint::before\\(phase\\), CrashPoint::after\\(phase\\)\\]/ hit 7 (expect 7)"
+        },
+        {
+          "ok": true,
+          "label": "source pin canonical predecessor fencing: ACK cannot leapfrog its predecessors",
+          "detail": "crates/agentgres/src/recognized_effect/tests.rs /fn outbox_order_is_canonical_and_ack_cannot_leapfrog_predecessors\\(/ hit 1 (expect 1)"
+        },
+        {
+          "ok": true,
+          "label": "source pin ACK-last: an uncommitted effect can neither publish, project nor ACK",
+          "detail": "crates/agentgres/src/recognized_effect/tests.rs /fn uncommitted_effect_cannot_publish_project_or_ack\\(/ hit 1 (expect 1)"
+        }
+      ]
+    },
+    {
+      "evidence_format": "ioi.cargo_test_population_run.v1",
+      "population": "scripts/test-populations/system-deployment-membership-plane.v1.json",
+      "unit": "M02.3",
+      "script": "check:system-deployment-membership-plane",
+      "basis": "e8bc1d809",
+      "recorded_at": "2026-09-08T15:52:01.770Z",
+      "verdict": "pass",
+      "pinned_tests": 14,
+      "results": [
+        {
+          "ok": true,
+          "label": "family system_membership: 4 pinned tests selected and passed",
+          "detail": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1139 filtered out; finished in 5.51s (6s)"
+        },
+        {
+          "ok": true,
+          "label": "family system_topology: 6 pinned tests selected and passed",
+          "detail": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1137 filtered out; finished in 2.63s (3s)"
+        },
+        {
+          "ok": true,
+          "label": "family system_writer: 4 pinned tests selected and passed",
+          "detail": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1139 filtered out; finished in 3.46s (4s)"
+        },
+        {
+          "ok": true,
+          "label": "supplementary agentgres regression suite",
+          "detail": "128 tests passed (61s)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:portable-v3-grant-chain",
+  "unit": "M03.5",
+  "families": [
+    {
+      "name": "portable_authority_service",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/portable_authority.rs",
+      "tests": [
+        "wallet_network::portable_authority::tests::admitted_exact_effect_receipt_is_registered_hashed_and_pre_invocation",
+        "wallet_network::portable_authority::tests::batch_and_standing_subjects_emit_only_their_typed_proof",
+        "wallet_network::portable_authority::tests::body_signature_audience_revocation_and_replay_refuse_by_name",
+        "wallet_network::portable_authority::tests::cumulative_calls_and_redelegation_right_refuse_by_name",
+        "wallet_network::portable_authority::tests::cycle_wrong_holder_and_missing_parent_proof_refuse_by_name",
+        "wallet_network::portable_authority::tests::delegated_chain_requires_and_verifies_complete_allocation_closure",
+        "wallet_network::portable_authority::tests::exact_effect_and_subject_proof_substitutions_refuse_before_receipt",
+        "wallet_network::portable_authority::tests::issuance_bundle_binds_request_review_single_use_ceremony_and_grant",
+        "wallet_network::portable_authority::tests::issuance_bundle_refuses_request_ceremony_review_and_widening_substitution",
+        "wallet_network::portable_authority::tests::root_grant_verifies_fully_offline",
+        "wallet_network::portable_authority::tests::stale_and_revoked_ancestor_and_wrong_issuer_refuse_by_name",
+        "wallet_network::portable_authority::tests::widened_depth_and_cumulative_budget_refuse_by_name"
+      ]
+    },
+    {
+      "name": "portable_authority_state",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/portable_authority_state.rs",
+      "tests": [
+        "wallet_network::tests::portable_authority_state::portable_evidence_refresh_recovery_and_revocation_fail_closed_without_counter_mutation",
+        "wallet_network::tests::portable_authority_state::portable_registration_consumes_ceremony_and_effect_atomically_and_idempotently",
+        "wallet_network::tests::portable_authority_state::portable_registration_rejects_request_carried_key_substitution_without_state"
+      ]
+    },
+    {
+      "name": "portable_authority_intent",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::portable_authority_intent_tests::absent_native_prepared_never_settles_a_live_process_claim",
+        "governed_authority::portable_authority_intent_tests::absent_native_prepared_settles_only_a_dead_process_claim_as_refused",
+        "governed_authority::portable_authority_intent_tests::gateway_resolves_the_registered_v2_receipt_from_the_sealed_portable_pair",
+        "governed_authority::portable_authority_intent_tests::portable_pep_enforces_bounded_offline_holdover_and_revocation_exposure",
+        "governed_authority::portable_authority_intent_tests::portable_pep_refuses_foreign_or_expired_temporal_evidence",
+        "governed_authority::portable_authority_intent_tests::portable_pep_resolves_only_current_exact_established_temporal_evidence",
+        "governed_authority::portable_authority_intent_tests::portable_projection_rejects_effect_substitution_and_hash_tampering",
+        "governed_authority::portable_authority_intent_tests::portable_projection_retains_the_atomic_pair_and_starts_claimable",
+        "governed_authority::portable_authority_intent_tests::portable_slot_identity_is_stable_across_temporal_refresh_but_not_effect_change"
+      ]
+    },
+    {
+      "name": "final_invocation_claim",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::final_invocation_claim_tests::a_claim_from_a_dead_process_becomes_reconciliation_and_is_never_reinvoked",
+        "governed_authority::final_invocation_claim_tests::a_consumed_admission_starts_admitted_so_it_is_claimable_exactly_once",
+        "governed_authority::final_invocation_claim_tests::a_second_claim_in_this_process_never_reaches_a_second_invocation",
+        "governed_authority::final_invocation_claim_tests::an_unclaimed_admission_grants_exactly_one_claim",
+        "governed_authority::final_invocation_claim_tests::dispositions_round_trip_through_their_durable_labels",
+        "governed_authority::final_invocation_claim_tests::every_terminal_and_reconciling_disposition_refuses_a_new_invocation"
+      ]
+    },
+    {
+      "name": "scm_publication_scope",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::scm_publication_scope_tests::publication_operations_resolve_their_exact_named_scopes",
+        "governed_authority::scm_publication_scope_tests::publication_scopes_are_disjoint_from_every_other_family"
+      ]
+    },
+    {
+      "name": "portable_authority_client",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs",
+      "tests": [
+        "wallet_network_capability_client::portable_authority_client_tests::portable_locator_resolves_signed_binding_fields_not_caller_fields",
+        "wallet_network_capability_client::portable_authority_client_tests::portable_receipt_validation_binds_the_exact_effect_and_idempotency_slot"
+      ]
+    },
+    {
+      "name": "scm_publication",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs",
+      "tests": [
+        "scm_publication_routes::tests::a_base_head_that_moved_refuses_stale_expected_head_by_name",
+        "scm_publication_routes::tests::a_caller_supplied_remote_refuses_unbound_destination_by_name",
+        "scm_publication_routes::tests::a_detached_prior_commitment_refuses_by_name",
+        "scm_publication_routes::tests::a_failed_durable_write_is_never_reported_as_success",
+        "scm_publication_routes::tests::a_forced_overwrite_refuses_by_name",
+        "scm_publication_routes::tests::a_moved_remote_head_refuses_and_advances_nothing",
+        "scm_publication_routes::tests::a_replay_assertion_without_a_prior_effect_refuses_by_name",
+        "scm_publication_routes::tests::a_whole_workspace_stage_refuses_by_name",
+        "scm_publication_routes::tests::an_exact_replay_converges_instead_of_crossing_twice",
+        "scm_publication_routes::tests::an_idempotency_key_claimed_over_changed_material_refuses_by_name",
+        "scm_publication_routes::tests::an_unclosed_prepared_dispatch_window_is_reconciliation_not_a_second_dispatch",
+        "scm_publication_routes::tests::an_unobservable_remote_head_refuses_by_name",
+        "scm_publication_routes::tests::both_new_ambiguity_dimensions_are_registered_and_distinct",
+        "scm_publication_routes::tests::gateway_effect_binding_is_checked_against_the_native_pep_effect_constructor",
+        "scm_publication_routes::tests::one_admitted_revision_resolves_and_a_missing_one_still_refuses_not_found",
+        "scm_publication_routes::tests::one_revision_recorded_twice_is_not_ambiguous",
+        "scm_publication_routes::tests::positive_ladder_publishes_and_persists_both_receipts",
+        "scm_publication_routes::tests::review_request_failure_is_never_reported_as_success",
+        "scm_publication_routes::tests::the_plane_rebuilds_from_durable_records_after_a_restart",
+        "scm_publication_routes::tests::the_prepared_commitment_binds_the_consumed_admission_effect_hash",
+        "scm_publication_routes::tests::the_remote_ref_mapping_is_bounded_to_the_binding_namespace",
+        "scm_publication_routes::tests::two_destination_binding_revisions_under_one_ref_refuse_by_name",
+        "scm_publication_routes::tests::two_proposal_revisions_under_one_ref_refuse_by_name",
+        "scm_publication_routes::tests::v2_operation_persists_prepared_before_one_dispatch_and_replays_terminal",
+        "scm_publication_routes::tests::workspace_bytes_that_left_the_proposal_refuse_and_never_cross"
+      ]
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

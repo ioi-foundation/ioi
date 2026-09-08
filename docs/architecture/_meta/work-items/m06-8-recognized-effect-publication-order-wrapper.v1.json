@@ -1,0 +1,56 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-8-recognized-effect-publication-order-wrapper",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.8"
+  ],
+  "status": "verified",
+  "objective": "Agentgres-owned atomic recognized-effect transaction for single_authority_v1: the crash-edge, publication-order and proof-substitution populations are release-accountable through one fail-empty wrapper, and the unit now has acceptance text.",
+  "falsifiable_claim": "npm run check:recognized-effect-publication-order pins the 28 recognized_effect::tests names and the 10 ioi-finality proof-substitution names by exact name, pins from source the 21 declared phases (42 before/after crash edges) and the seven crash-edge iteration sites, and pins the predecessor-fencing (ACK cannot leapfrog) and ACK-last (uncommitted effect cannot publish/project/ACK) test names.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-cargo-test-population.mjs",
+      "literal": "ioi.cargo_test_population.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/recognized-effect-publication-order.v1.json",
+      "literal": "check:recognized-effect-publication-order",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:recognized-effect-publication-order\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/agentgres/src/recognized_effect/tests.rs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/agentgres/src/recognized_effect.rs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/ioi-finality/src/tests.rs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg1-fail-empty-wrappers-2026-09-08.v1.json",
+    "scripts/test-populations/recognized-effect-publication-order.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "npm run mutate:recognized-effect-publication-order plants (a) an absent test name, refused by the source binding; (b) a name whose fn exists but whose module path the harness cannot list, refused at --list; (c) an empty population, refused outright \u2014 the wrapper proves it can fail on its own finding before it is trusted green.",
+  "remaining_nonclaims": [
+    "The wrapper proves the pinned tests execute and pass; it does not widen what those tests assert. The unit's acceptance clauses are proven only to the extent the pinned tests prove them.",
+    "A CI floor is not yet pinned for these root-workspace wrappers; verifier-floors.v1.json covers hypervisor-app journey verifiers only."
+  ],
+  "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1 (basis e8bc1d809); recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
+  "last_status_transaction": "2026-09-08"
+}

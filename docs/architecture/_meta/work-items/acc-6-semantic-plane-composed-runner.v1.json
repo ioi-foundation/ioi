@@ -1,0 +1,50 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-6-semantic-plane-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-6"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-6 semantic-plane journey (M05 ontology, M03 authority, M01 daemon effect boundary) into one runnable check over the existing unit done-bars, on one basis, against each done-bar's own real daemon with fixtures disabled.",
+  "falsifiable_claim": "npm run check:acceptance-semantic-plane runs every ACC-6 positive clause's done-bar and the minutes-scale negative-clause battery sequentially in one process, re-reads the git basis after every clause, clears every shared-daemon/replay redirection variable for every child, and reports PASS only when every clause (including every negative clause's executed mutation battery) is green; without `-- --mutation-batteries` it reports PARTIAL at best, never PASS.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-semantic-plane.mjs",
+      "literal": "ACC-6 composed journey",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-semantic-plane\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-ontology-version-lifecycle.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-semantic-mapping-lifecycle.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-ontology-action-contract.mjs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/acc6-composed-journey-2026-09-08.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "npm run mutate:acceptance-semantic-plane plants a red clause and asserts the composed verdict fails; the run of 2026-09-08 itself went red on two real findings (check:env-lease-authority R1_DERIVED_CLOSED_WORLD and check:ontology-admission-census 23/27) that the per-unit accounting had been citing as real without re-running.",
+  "remaining_nonclaims": [
+    "The composed journey is RED on e8bc1d809: clause 5 (check:env-lease-authority 18/19, R1_DERIVED_CLOSED_WORLD) and negative clause N2 (check:ontology-admission-census 23/27 and its mutation drill) fail; the six multi-hour M05 batteries were not executed on this basis. ACC-6 is therefore not proven; the runner is the instrument, not the proof.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage."
+  ],
+  "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1; recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
+  "last_status_transaction": "2026-09-08"
+}

@@ -1,0 +1,99 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:recognized-effect-publication-order",
+  "unit": "M06.8",
+  "families": [
+    {
+      "name": "recognized_effect",
+      "package": "agentgres",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/agentgres/src/recognized_effect/tests.rs",
+      "tests": [
+        "recognized_effect::tests::availability_and_projection_substitution_are_detected",
+        "recognized_effect::tests::commit_recovery_replay_and_outbox_are_byte_identical",
+        "recognized_effect::tests::control_and_effect_operations_share_one_spine_head",
+        "recognized_effect::tests::control_plane_crash_points_recover_to_exactly_one_writer",
+        "recognized_effect::tests::crash_point_parser_and_record_mutations_fail_closed",
+        "recognized_effect::tests::cutover_downgrade_reordering_and_duplicates_are_refused",
+        "recognized_effect::tests::effects_are_refused_under_a_profile_that_is_not_active",
+        "recognized_effect::tests::effects_refuse_substituted_profile_writer_epoch_fence_and_bindings",
+        "recognized_effect::tests::every_declared_crash_point_is_reachable_and_recovers_atomically",
+        "recognized_effect::tests::freeze_recovers_as_an_explicit_frozen_state_and_admits_nothing",
+        "recognized_effect::tests::genesis_is_sealed_and_a_substituted_reopen_is_refused",
+        "recognized_effect::tests::multiple_live_pre_cutover_processes_refresh_and_refuse_the_retired_writer",
+        "recognized_effect::tests::no_dual_authority_interval_across_a_cutover",
+        "recognized_effect::tests::outbox_order_is_canonical_and_ack_cannot_leapfrog_predecessors",
+        "recognized_effect::tests::restart_recovers_exactly_one_eligible_writer",
+        "recognized_effect::tests::retries_conflicts_stale_heads_and_revocations_fail_closed",
+        "recognized_effect::tests::rollback_after_next_profile_effects_is_a_successor_cutover",
+        "recognized_effect::tests::runtime_v3_crash_edges_recover_before_or_after_the_one_linearization_point",
+        "recognized_effect::tests::runtime_v3_effect_linearizes_recovers_and_replays_on_the_agentgres_spine",
+        "recognized_effect::tests::runtime_v3_native_aft_uses_the_production_profile_adapter",
+        "recognized_effect::tests::runtime_v3_preparation_refuses_every_active_writer_and_policy_substitution",
+        "recognized_effect::tests::strengthening_cutover_needs_no_governance_and_refuses_stray_evidence",
+        "recognized_effect::tests::the_spine_carries_effects_under_both_profiles",
+        "recognized_effect::tests::torn_rooted_batch_recovers_to_no_effect_and_clean_retry",
+        "recognized_effect::tests::uncommitted_effect_cannot_publish_project_or_ack",
+        "recognized_effect::tests::weakening_refuses_by_default_and_needs_the_full_inv42_burden",
+        "recognized_effect::tests::weakening_rollback_must_be_executable_without_the_new_authority",
+        "recognized_effect::tests::writer_binding_requires_exact_identity_and_fence_token"
+      ]
+    },
+    {
+      "name": "finality_proof_substitution",
+      "package": "ioi-finality",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/ioi-finality/src/tests.rs",
+      "tests": [
+        "tests::certified_block_identity_substitutions_fail_closed",
+        "tests::every_registered_bft_substitution_fails_closed",
+        "tests::every_registered_substitution_fails_closed",
+        "tests::full_native_block_effect_substitutions_fail_closed",
+        "tests::predecessor_body_substitution_is_recomputed_and_refused",
+        "tests::profile_and_variant_substitutions_fail_closed",
+        "tests::runtime_v3_signed_boundary_substitutions_fail_closed",
+        "tests::substituted_availability_block_bytes_fail_closed",
+        "tests::substituted_vote_bytes_and_members_fail_closed",
+        "tests::weight_quorum_and_fault_model_substitutions_fail_closed"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "21 declared phases (42 before/after crash edges)",
+      "path": "crates/agentgres/src/recognized_effect.rs",
+      "pattern": "pub const ALL: \\[Self; 21\\]",
+      "expect": 1
+    },
+    {
+      "label": "EFFECT_PREPARATION 9 + LINEARIZATION 4 + CONSEQUENCE 5 + CONTROL 3 phase arrays",
+      "path": "crates/agentgres/src/recognized_effect.rs",
+      "pattern": "pub const (EFFECT_PREPARATION: \\[Self; 9\\]|LINEARIZATION: \\[Self; 4\\]|CONSEQUENCE: \\[Self; 5\\]|CONTROL: \\[Self; 3\\])",
+      "expect": 4
+    },
+    {
+      "label": "the crash-edge tests iterate every phase array before and after",
+      "path": "crates/agentgres/src/recognized_effect/tests.rs",
+      "pattern": "for phase in Phase::(EFFECT_PREPARATION|LINEARIZATION|CONSEQUENCE|CONTROL|ALL) \\{\\n\\s*for point in \\[CrashPoint::before\\(phase\\), CrashPoint::after\\(phase\\)\\]",
+      "expect": 7
+    },
+    {
+      "label": "canonical predecessor fencing: ACK cannot leapfrog its predecessors",
+      "path": "crates/agentgres/src/recognized_effect/tests.rs",
+      "pattern": "fn outbox_order_is_canonical_and_ack_cannot_leapfrog_predecessors\\(",
+      "expect": 1
+    },
+    {
+      "label": "ACK-last: an uncommitted effect can neither publish, project nor ACK",
+      "path": "crates/agentgres/src/recognized_effect/tests.rs",
+      "pattern": "fn uncommitted_effect_cannot_publish_project_or_ack\\(",
+      "expect": 1
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

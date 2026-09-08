@@ -1,0 +1,94 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:authority-gateway-profile",
+  "unit": "M03.6",
+  "families": [
+    {
+      "name": "authority_gateway",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/authority_gateway_routes.rs",
+      "tests": [
+        "authority_gateway_routes::tests::a_successor_makes_the_predecessor_noncurrent_without_editing_history",
+        "authority_gateway_routes::tests::adapter_scope_and_stale_coverage_substitution_fail_closed",
+        "authority_gateway_routes::tests::exact_current_profile_surface_and_coverage_admit",
+        "authority_gateway_routes::tests::execution_and_explicit_no_artifact_receipts_validate_for_native_success_and_refusal",
+        "authority_gateway_routes::tests::graduation_refuses_an_unreleased_adapter_or_any_declared_carryover",
+        "authority_gateway_routes::tests::local_projection_ids_and_lookups_are_owner_scoped",
+        "authority_gateway_routes::tests::run_on_graduation_resolves_the_exact_released_adapter_and_carries_no_authority",
+        "authority_gateway_routes::tests::scm_execution_payload_is_exactly_bound_and_cannot_widen_review_scope"
+      ]
+    },
+    {
+      "name": "final_invocation_claim",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::final_invocation_claim_tests::a_claim_from_a_dead_process_becomes_reconciliation_and_is_never_reinvoked",
+        "governed_authority::final_invocation_claim_tests::a_consumed_admission_starts_admitted_so_it_is_claimable_exactly_once",
+        "governed_authority::final_invocation_claim_tests::a_second_claim_in_this_process_never_reaches_a_second_invocation",
+        "governed_authority::final_invocation_claim_tests::an_unclaimed_admission_grants_exactly_one_claim",
+        "governed_authority::final_invocation_claim_tests::dispositions_round_trip_through_their_durable_labels",
+        "governed_authority::final_invocation_claim_tests::every_terminal_and_reconciling_disposition_refuses_a_new_invocation"
+      ]
+    },
+    {
+      "name": "scm_publication_scope",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::scm_publication_scope_tests::publication_operations_resolve_their_exact_named_scopes",
+        "governed_authority::scm_publication_scope_tests::publication_scopes_are_disjoint_from_every_other_family"
+      ]
+    },
+    {
+      "name": "scm_publication",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs",
+      "tests": [
+        "scm_publication_routes::tests::a_base_head_that_moved_refuses_stale_expected_head_by_name",
+        "scm_publication_routes::tests::a_caller_supplied_remote_refuses_unbound_destination_by_name",
+        "scm_publication_routes::tests::a_detached_prior_commitment_refuses_by_name",
+        "scm_publication_routes::tests::a_failed_durable_write_is_never_reported_as_success",
+        "scm_publication_routes::tests::a_forced_overwrite_refuses_by_name",
+        "scm_publication_routes::tests::a_moved_remote_head_refuses_and_advances_nothing",
+        "scm_publication_routes::tests::a_replay_assertion_without_a_prior_effect_refuses_by_name",
+        "scm_publication_routes::tests::a_whole_workspace_stage_refuses_by_name",
+        "scm_publication_routes::tests::an_exact_replay_converges_instead_of_crossing_twice",
+        "scm_publication_routes::tests::an_idempotency_key_claimed_over_changed_material_refuses_by_name",
+        "scm_publication_routes::tests::an_unclosed_prepared_dispatch_window_is_reconciliation_not_a_second_dispatch",
+        "scm_publication_routes::tests::an_unobservable_remote_head_refuses_by_name",
+        "scm_publication_routes::tests::both_new_ambiguity_dimensions_are_registered_and_distinct",
+        "scm_publication_routes::tests::gateway_effect_binding_is_checked_against_the_native_pep_effect_constructor",
+        "scm_publication_routes::tests::one_admitted_revision_resolves_and_a_missing_one_still_refuses_not_found",
+        "scm_publication_routes::tests::one_revision_recorded_twice_is_not_ambiguous",
+        "scm_publication_routes::tests::positive_ladder_publishes_and_persists_both_receipts",
+        "scm_publication_routes::tests::review_request_failure_is_never_reported_as_success",
+        "scm_publication_routes::tests::the_plane_rebuilds_from_durable_records_after_a_restart",
+        "scm_publication_routes::tests::the_prepared_commitment_binds_the_consumed_admission_effect_hash",
+        "scm_publication_routes::tests::the_remote_ref_mapping_is_bounded_to_the_binding_namespace",
+        "scm_publication_routes::tests::two_destination_binding_revisions_under_one_ref_refuse_by_name",
+        "scm_publication_routes::tests::two_proposal_revisions_under_one_ref_refuse_by_name",
+        "scm_publication_routes::tests::v2_operation_persists_prepared_before_one_dispatch_and_replays_terminal",
+        "scm_publication_routes::tests::workspace_bytes_that_left_the_proposal_refuse_and_never_cross"
+      ]
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

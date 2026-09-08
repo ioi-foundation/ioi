@@ -1,0 +1,48 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m04-1-generic-work-result-seam-wrapper",
+  "stage_id": "M04",
+  "required_work": [
+    "M04.1"
+  ],
+  "status": "verified",
+  "objective": "The generic result seam's closed Rust population is release-accountable through a fail-empty wrapper.",
+  "falsifiable_claim": "npm run check:generic-work-result-seam pins the work_result daemon population (20 on unix; the earlier count of 16 was stale) by exact name, then runs the all-feature ioi-types contract suite with a non-empty floor.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-cargo-test-population.mjs",
+      "literal": "ioi.cargo_test_population.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/generic-work-result-seam.v1.json",
+      "literal": "check:generic-work-result-seam",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:generic-work-result-seam\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg1-fail-empty-wrappers-2026-09-08.v1.json",
+    "scripts/test-populations/generic-work-result-seam.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "npm run mutate:generic-work-result-seam plants (a) an absent test name, refused by the source binding; (b) a name whose fn exists but whose module path the harness cannot list, refused at --list; (c) an empty population, refused outright \u2014 the wrapper proves it can fail on its own finding before it is trusted green.",
+  "remaining_nonclaims": [
+    "The wrapper proves the pinned tests execute and pass; it does not widen what those tests assert. The unit's acceptance clauses are proven only to the extent the pinned tests prove them.",
+    "A CI floor is not yet pinned for these root-workspace wrappers; verifier-floors.v1.json covers hypervisor-app journey verifiers only."
+  ],
+  "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1 (basis e8bc1d809); recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
+  "last_status_transaction": "2026-09-08"
+}

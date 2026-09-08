@@ -1,0 +1,50 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:constitutional-oracle-plane",
+  "unit": "M02.2",
+  "families": [
+    {
+      "name": "system_policy",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_policy_routes.rs",
+      "tests": [
+        "system_policy_routes::tests::non_single_writer_profile_refuses_the_single_writer_plane",
+        "system_policy_routes::tests::selected_body_mutation_breaks_its_active_root"
+      ]
+    },
+    {
+      "name": "system_oracle",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_oracle_routes.rs",
+      "tests": [
+        "system_oracle_routes::tests::active_single_source_profile_admits_only_its_exact_scopes",
+        "system_oracle_routes::tests::agentgres_keys_bind_exact_receipt_and_assertion_content",
+        "system_oracle_routes::tests::authenticated_source_cannot_substitute_the_profile_signer",
+        "system_oracle_routes::tests::contradiction_fails_closed_and_carries_no_consequence",
+        "system_oracle_routes::tests::durable_admission_replays_once_and_reconstructs_the_successor_heads",
+        "system_oracle_routes::tests::exact_replay_preserves_heads_while_a_successor_advances_them",
+        "system_oracle_routes::tests::stale_evidence_is_unknown_never_admitted"
+      ]
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "check:work-items",
+      "argv": [
+        "npm",
+        "run",
+        "check:work-items"
+      ]
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

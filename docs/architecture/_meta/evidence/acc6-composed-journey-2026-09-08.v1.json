@@ -1,0 +1,153 @@
+{
+  "evidence_format": "ioi.acceptance_journey_run.v1",
+  "gate": "ACC-6",
+  "basis": {
+    "head": "e8bc1d809",
+    "dirty": true
+  },
+  "verdict": "FAIL",
+  "with_mutation_batteries": false,
+  "batteries_not_executed": 6,
+  "fixtures": "disabled: each done-bar boots its own daemon; no replay/fixture server present; shared-daemon env cleared",
+  "recorded_at": "2026-09-08T17:21:24.497Z",
+  "results": [
+    {
+      "id": "fixtures",
+      "ok": true,
+      "label": "every clause runs with the shared-daemon/replay redirection variables cleared (IOI_HYPERVISOR_DAEMON_URL, IOI_DAEMON_URL, IOI_HYPERVISOR_DAEMON_ADDR, IOI_PRODUCT_UI_REPLAY) and IOI_ACCEPTANCE_FIXTURES=disabled",
+      "detail": "foreign serve/replay processes observed on this host, not used: 2"
+    },
+    {
+      "id": "fixtures",
+      "ok": true,
+      "label": "every done-bar boots its own real daemon binary (no fixture daemon)",
+      "detail": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon"
+    },
+    {
+      "id": "1",
+      "ok": true,
+      "label": "check:ontology-version-lifecycle (@ioi/hypervisor-app)",
+      "detail": "exit 0 · ontology-version-lifecycle: 54/54 · 22s"
+    },
+    {
+      "id": "2",
+      "ok": true,
+      "label": "check:provenance-assertion-graph (@ioi/hypervisor-app)",
+      "detail": "exit 0 · check:provenance-assertion-graph — 55/55 assertions · 37s"
+    },
+    {
+      "id": "3",
+      "ok": true,
+      "label": "check:semantic-mapping-lifecycle (@ioi/hypervisor-app)",
+      "detail": "exit 0 · check:semantic-mapping-lifecycle — 80/80 assertions · 41s"
+    },
+    {
+      "id": "4",
+      "ok": true,
+      "label": "A crosswalk is a receipted, challengeable decision — proven inside the M05.2 done-bar already executed above",
+      "detail": ""
+    },
+    {
+      "id": "5",
+      "ok": true,
+      "label": "check:ontology-action-contract (@ioi/hypervisor-app)",
+      "detail": "exit 0 · ontology-action-contract: 63/63 · 40s"
+    },
+    {
+      "id": "5",
+      "ok": false,
+      "label": "check:env-lease-authority (@ioi/hypervisor-app)",
+      "detail": "exit 1 · 18/19 ADR-0035 source assertions passed · 11s"
+    },
+    {
+      "id": "5",
+      "ok": true,
+      "label": "check:runtime-tool-contract-admission (@ioi/hypervisor-app)",
+      "detail": "exit 0 · } · 4s"
+    },
+    {
+      "id": "6",
+      "ok": true,
+      "label": "check:ontology-surface-invariant-11 (@ioi/hypervisor-app)",
+      "detail": "exit 0 · ontology-surface-invariant-11: 65/65 · 25s"
+    },
+    {
+      "id": "7",
+      "ok": true,
+      "label": "check:data-recipe-run-split (@ioi/hypervisor-app)",
+      "detail": "exit 0 · data-recipe-run-split: 85/85 · 37s"
+    },
+    {
+      "id": "N1",
+      "ok": false,
+      "label": "mutate:semantic-mapping-lifecycle (@ioi/hypervisor-app) NOT EXECUTED in this run (multi-hour; pass --mutation-batteries)",
+      "detail": "a negative clause without its executed battery is not proven"
+    },
+    {
+      "id": "N2",
+      "ok": false,
+      "label": "check:ontology-admission-census (@ioi/hypervisor-app)",
+      "detail": "exit 1 · 23/27 passed · 6s"
+    },
+    {
+      "id": "N2",
+      "ok": false,
+      "label": "mutate:ontology-admission-census (@ioi/hypervisor-app)",
+      "detail": "exit 2 · FAIL  THE WRITER-CALL POPULATION IS PINNED IN ALL THREE BUCKETS — including the calls whose family is a RUNTIME PARAMETER and therefore cannot be resolved from source at all; naming that bucket and pi · 6s"
+    },
+    {
+      "id": "N3",
+      "ok": false,
+      "label": "mutate:data-recipe-run-split (@ioi/hypervisor-app) NOT EXECUTED in this run (multi-hour; pass --mutation-batteries)",
+      "detail": "a negative clause without its executed battery is not proven"
+    },
+    {
+      "id": "E",
+      "ok": true,
+      "label": "check:ontology-journey (@ioi/hypervisor-app)",
+      "detail": "exit 0 · 56/56 passed · 19s"
+    },
+    {
+      "id": "E",
+      "ok": true,
+      "label": "check:ontology-backend-families (@ioi/hypervisor-app)",
+      "detail": "exit 0 · 86/86 passed · 20s"
+    },
+    {
+      "id": "E",
+      "ok": true,
+      "label": "check:architecture-contracts",
+      "detail": "exit 0 · Architecture contract projections are up to date. · 5s"
+    },
+    {
+      "id": "B1",
+      "ok": false,
+      "label": "mutate:ontology-version-lifecycle (@ioi/hypervisor-app) NOT EXECUTED in this run (multi-hour; pass --mutation-batteries)",
+      "detail": "a negative clause without its executed battery is not proven"
+    },
+    {
+      "id": "B1",
+      "ok": false,
+      "label": "mutate:provenance-assertion-graph (@ioi/hypervisor-app) NOT EXECUTED in this run (multi-hour; pass --mutation-batteries)",
+      "detail": "a negative clause without its executed battery is not proven"
+    },
+    {
+      "id": "B5",
+      "ok": false,
+      "label": "mutate:ontology-action-contract (@ioi/hypervisor-app) NOT EXECUTED in this run (multi-hour; pass --mutation-batteries)",
+      "detail": "a negative clause without its executed battery is not proven"
+    },
+    {
+      "id": "B6",
+      "ok": false,
+      "label": "mutate:ontology-surface-invariant-11 (@ioi/hypervisor-app) NOT EXECUTED in this run (multi-hour; pass --mutation-batteries)",
+      "detail": "a negative clause without its executed battery is not proven"
+    },
+    {
+      "id": "basis",
+      "ok": true,
+      "label": "the journey ran on one basis",
+      "detail": "e8bc1d809 dirty → e8bc1d809 dirty"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:ordering-finality-recovery",
+  "unit": "M02.4",
+  "families": [
+    {
+      "name": "system_ordering_recovery",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_ordering_recovery_routes.rs",
+      "tests": [
+        "system_ordering_recovery_routes::tests::commitment_is_profile_native_non_economic_and_exactly_bound",
+        "system_ordering_recovery_routes::tests::durable_threshold_replays_restarts_and_heals_partial_commit",
+        "system_ordering_recovery_routes::tests::profile_threshold_and_authenticated_principal_are_exact",
+        "system_ordering_recovery_routes::tests::required_agentgres_keys_bind_exact_recovery_and_commitment_bytes",
+        "system_ordering_recovery_routes::tests::single_writer_profiles_cannot_borrow_profile_native_recovery"
+      ]
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "ioi-consensus regression suite (--lib --features aft, the configuration CI exercises; the crate's example `aft_hash_async_bench` does not compile on this tree and examples are a frozen AFT surface)",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--lib",
+        "--features",
+        "aft"
+      ],
+      "min_passed": 50
+    },
+    {
+      "label": "agentgres regression suite",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres"
+      ],
+      "min_passed": 1
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

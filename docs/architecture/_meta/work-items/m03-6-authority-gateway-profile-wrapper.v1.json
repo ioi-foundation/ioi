@@ -1,0 +1,56 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-6-authority-gateway-profile-wrapper",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.6"
+  ],
+  "status": "verified",
+  "objective": "ActionRequestEnvelope and the authority gateway profile: the closed Rust populations are release-accountable through a fail-empty wrapper.",
+  "falsifiable_claim": "npm run check:authority-gateway-profile pins authority-gateway (8), final-invocation claim (6), SCM-scope (2) and SCM publication (25) by exact name, including the recovery and no-second-authority negatives, and refuses any missing family.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-cargo-test-population.mjs",
+      "literal": "ioi.cargo_test_population.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/authority-gateway-profile.v1.json",
+      "literal": "check:authority-gateway-profile",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:authority-gateway-profile\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/authority_gateway_routes.rs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg1-fail-empty-wrappers-2026-09-08.v1.json",
+    "scripts/test-populations/authority-gateway-profile.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "npm run mutate:authority-gateway-profile plants (a) an absent test name, refused by the source binding; (b) a name whose fn exists but whose module path the harness cannot list, refused at --list; (c) an empty population, refused outright \u2014 the wrapper proves it can fail on its own finding before it is trusted green.",
+  "remaining_nonclaims": [
+    "The wrapper proves the pinned tests execute and pass; it does not widen what those tests assert. The unit's acceptance clauses are proven only to the extent the pinned tests prove them.",
+    "A CI floor is not yet pinned for these root-workspace wrappers; verifier-floors.v1.json covers hypervisor-app journey verifiers only."
+  ],
+  "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1 (basis e8bc1d809); recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
+  "last_status_transaction": "2026-09-08"
+}

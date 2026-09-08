@@ -1,0 +1,54 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:generic-work-result-seam",
+  "unit": "M04.1",
+  "families": [
+    {
+      "name": "work_result",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+      "tests": [
+        "work_result_routes::work_result_tests::atomic_replacement_cleans_its_temp_file_on_rename_failure",
+        "work_result_routes::work_result_tests::delta_binds_same_goal_result_and_receipts_bind_facts",
+        "work_result_routes::work_result_tests::delta_finalize_is_atomic_across_record_backlink_and_receipt",
+        "work_result_routes::work_result_tests::finalize_reports_rollback_failure_as_its_own_typed_lane",
+        "work_result_routes::work_result_tests::future_plane_fields_refuse_with_named_codes",
+        "work_result_routes::work_result_tests::generic_profiles_admit_beyond_software",
+        "work_result_routes::work_result_tests::generic_seam_never_resolves_application_scope_or_mints_system_binding",
+        "work_result_routes::work_result_tests::principal_scoped_collection_omits_a_generic_subject_without_goalrun_ownership",
+        "work_result_routes::work_result_tests::receipt_failure_restores_the_exact_prior_record_including_interleaving",
+        "work_result_routes::work_result_tests::receipts_carry_the_exact_portable_envelope_key_set",
+        "work_result_routes::work_result_tests::refs_are_canonical_per_field_and_raw_strings_never_pass",
+        "work_result_routes::work_result_tests::research_result_and_mapping_delta_prove_the_non_software_seam",
+        "work_result_routes::work_result_tests::result_finalize_atomicity_no_orphan_record_no_orphan_receipt",
+        "work_result_routes::work_result_tests::sensitive_keys_are_rejected_recursively",
+        "work_result_routes::work_result_tests::supersedes_requires_resolvable_same_goal_same_room_result",
+        "work_result_routes::work_result_tests::verifier_challenge_backlink_is_plane_owned_and_exact",
+        "work_result_routes::work_result_tests::work_result_commitment_binds_its_domain_and_the_whole_record",
+        "work_result_routes::work_result_tests::work_result_commitment_distinguishes_owner_admitted_backlink_versions",
+        "work_result_routes::work_result_tests::work_result_subject_resolver_answers_absence_and_non_entitlement_identically",
+        "work_result_routes::work_result_tests::work_result_subject_resolver_refuses_a_prefix_that_names_nothing"
+      ]
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "ioi-types all-feature contracts",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-types",
+        "--all-features"
+      ],
+      "min_passed": 1
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}

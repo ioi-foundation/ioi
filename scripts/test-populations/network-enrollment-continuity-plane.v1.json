@@ -1,0 +1,45 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:network-enrollment-continuity-plane",
+  "unit": "M02.5",
+  "families": [
+    {
+      "name": "system_continuity",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/system_continuity_routes.rs",
+      "tests": [
+        "system_continuity_routes::tests::constitution_mutation_flips_the_network_enrollment_compilation_decision",
+        "system_continuity_routes::tests::dissolution_ladder_artifacts_validate_every_registered_envelope",
+        "system_continuity_routes::tests::migration_ack_plan_binds_exact_head_and_rejects_a_noop_destination",
+        "system_continuity_routes::tests::named_ops_never_parse_as_generic_protected_ops",
+        "system_continuity_routes::tests::network_tier_declaration_builds_the_existing_durable_transition_graph",
+        "system_continuity_routes::tests::relocated_migration_ack_intent_refuses_its_filename_coordinate",
+        "system_continuity_routes::tests::succession_builds_a_contract_valid_live_chain_successor",
+        "system_continuity_routes::tests::succession_refuses_a_new_principal_aliasing_the_current_signer"
+      ]
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "architecture contracts",
+      "argv": [
+        "npm",
+        "run",
+        "check:architecture-contracts"
+      ]
+    },
+    {
+      "label": "sequence-zero materialization (live wallet.network fixture lane)",
+      "argv": [
+        "node",
+        "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs"
+      ]
+    }
+  ],
+  "pinned_on": "2026-09-08",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+}
