@@ -52,15 +52,17 @@
   ],
   "evidence_refs": [
     "docs/architecture/_meta/evidence/leg3-consumer-loop-2026-09-08.v1.json",
+    "docs/architecture/_meta/evidence/m13-alpha-journey-deployment-standing-2026-09-09.v1.json",
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
   "pr": null,
   "adversarial_or_fault_proof": "check:standing-consumer-loop drives the DIRECT daemon path over the real wallet fixture: mismatched lease refuses typed, a second bind conflicts, an unbounded name refuses at create, the bounded name creates, revocation (attach side and wallet side) refuses the very next act and the next create, and everything survives a SIGKILL restart; check:session-authority-profile (22, floor-pinned) attaches bounded connectors without a wallet.",
   "remaining_nonclaims": [
-    "Deployment mode cannot mint a standing envelope until the owner rules the alpha's custody tier for standing authority (the auth-factor receipt contract is passkey-only); the serve refuses typed and the alpha journey records the block.",
+    "The deployment-local operator custody tier (ADR 0052 \u00a7 7, R-14, ruled 2026-09-09, owner-reversible) is what lets the alpha mint a standing envelope at all; a deployment that enrols a passkey keeps the stronger tier, and the recognized set is closed.",
+    "A deployment that mints standing envelopes runs its authority node on the WALL CLOCK: an envelope's expiry is a real-time promise the daemon checks against the host clock at every bind and draw.",
     "The standing lease carries the grant JSON on the connector record (public commitments and signature, no secret); no separate lease index exists \u2014 the connector record is the lease's home.",
-    "The card renders bounds and status; the remaining balance (usages consumed) is wallet truth surfaced only through refusals and draw receipts, not yet as a live counter on the card."
+    "The card renders bounds and status; the remaining balance is wallet truth surfaced through refusals and draw receipts, not yet as a live counter."
   ],
-  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXI.",
-  "last_status_transaction": "2026-09-08"
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 3; the deployment custody tier landed 2026-09-09 by standing-lease program 2, leg 3. Recorded in canon-to-code-delta.md \u00a7\u00a7 Journey verification XXI and XXIV.",
+  "last_status_transaction": "2026-09-09"
 }

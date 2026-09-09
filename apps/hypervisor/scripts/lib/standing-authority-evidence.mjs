@@ -53,6 +53,54 @@ export function sealAuthFactorReceipt(value) {
 // labelled synthetic (`factor_origin`), exactly as the broker-contract verifier claims: it proves
 // the registered contract tuple binds and is consumed, never that a person tapped a key. A
 // deployment records real ceremonies through its own custody tier; this helper is test material.
+// R-14 (ruled 2026-09-09): the DEPLOYMENT-LOCAL OPERATOR custody tier. The operator holds the
+// approver key on the deployment host; the ceremony is their explicit act, receipted before the
+// effect, and the factor receipt (auth-factor-receipt v2) attests CUSTODY — the host, the hash of
+// the key's path, that it is readable by its owner alone, and when the operator performed it — and
+// never a person. Same one-ceremony, non-widening rules as the passkey step-up.
+export function deploymentLocalOperatorCeremony({
+  principalRef,
+  hostRef,
+  keyPath,
+  envelope,
+  policyHash,
+  reviewReceiptHash,
+  validationProfileRef,
+  nowMs,
+  marker = randomHex32().slice(0, 16),
+  productSessionRef = `session://deployment-local-operator/${marker}`,
+}) {
+  const built = syntheticStandingCeremony({
+    principalRef,
+    envelope,
+    policyHash,
+    reviewReceiptHash,
+    validationProfileRef,
+    nowMs,
+    marker,
+    productSessionRef,
+    // The ceremony window, the grant's validity and the wallet's own comparison are all judged on
+    // the AUTHORITY NODE's committed chain clock, which a deployment may run deterministically.
+    // The operator's acknowledgement is stamped in that same frame; stamping it from the host
+    // clock put the receipt outside its own consent window on every deterministic deployment.
+    factorWallClockMs: nowMs,
+    factorPostureRef: `auth_factor://deployment-local-operator/${encodeURIComponent(hostRef)}`,
+    factorOverrides: {
+      schema_version: "ioi.hypervisor.auth-factor-receipt.v2",
+      factor_kind: "deployment_local_operator",
+      user_verification: "deployment_local_key_custody",
+      custody_tier_evidence: {
+        host_ref: hostRef,
+        key_path_hash: sha256(Buffer.from(String(keyPath), "utf8")),
+        key_mode_octal: "600",
+        operator_acknowledged_at: new Date(nowMs).toISOString(),
+      },
+    },
+    factorOrigin: "deployment_local_operator_key_custody",
+  });
+  return built;
+}
+
 export function syntheticStandingCeremony({
   principalRef,
   operatorPrincipalRef = principalRef,
@@ -64,6 +112,9 @@ export function syntheticStandingCeremony({
   factorWallClockMs = Date.now(),
   marker = randomHex32().slice(0, 16),
   productSessionRef = `session://standing-consumer-loop/${marker}`,
+  factorPostureRef = "auth_factor://passkey/operator/device",
+  factorOverrides = null,
+  factorOrigin = "synthetic_contract_fixture_not_physical_passkey",
 }) {
   const hash = () => `sha256:${randomHex32()}`;
   const authorizationSubject = {
@@ -95,7 +146,7 @@ export function syntheticStandingCeremony({
     presentation_evidence_profile_ref: "policy://presentation/passkey/v1",
     principal_authority_resolution_ref: null,
     principal_authority_resolution_hash: null,
-    required_auth_factor_posture_refs: ["auth_factor://passkey/operator/device"],
+    required_auth_factor_posture_refs: [factorPostureRef],
     required_guardian_surface_refs: [],
     posture_satisfaction_profile_ref: "policy://auth-posture/step-up/v1",
     interaction_mode: "interactive",
@@ -128,11 +179,7 @@ export function syntheticStandingCeremony({
     policy_hash: policyHash,
     effect_authority_created: false,
     created_at: new Date(factorWallClockMs).toISOString(),
+    ...(factorOverrides ?? {}),
   });
-  return {
-    context,
-    contextHash,
-    factor,
-    factor_origin: "synthetic_contract_fixture_not_physical_passkey",
-  };
+  return { context, contextHash, factor, factor_origin: factorOrigin };
 }

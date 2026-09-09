@@ -127,6 +127,38 @@ the profile document records each step's actual status. Environment
 restoration is recorded separately from reconciling an ambiguous external
 effect; restore never authorizes repeating an effect.
 
+### 7. The deployment-local operator key is a recognized custody tier for a standing envelope
+
+> Refinement added 2026-09-09 (owner-reversible; private register R-14).
+
+The consumer loop the alpha exists to prove (M13.3/M13.5) turns on a standing
+envelope declared at attach. wallet.network records a standing grant only from
+an interactive step-up ceremony whose authentication-factor receipt is
+passkey-only, and the alpha's operator holds the approver key on the deployment
+host itself — so the alpha could mint no standing envelope at all, and its
+attach flow refused typed rather than fabricating a ceremony.
+
+The refinement: **`deployment_local_operator` is a recognized custody tier
+beside `passkey`**, under exactly the same rules — one ceremony, receipted
+before the effect, creating no effect authority of its own, and widening
+nothing. It is carried by a NEW registered contract
+(`auth-factor-receipt/v2`), not by mutating v1, because widening is a new
+binding on record. The v2 receipt attests **custody**: the host the key lives
+on, the hash of its path, that it is readable by its owner alone, and when the
+operator acknowledged the ceremony. It never attests a person, and the tier and
+the verification mode are bound to each other so neither tier can borrow the
+other's evidence. Recording is a control-plane act signed by the deployment's
+control root; the capability account remains the grant's audience and the
+signer of every later draw.
+
+Two consequences the alpha must live with. A deployment that mints standing
+envelopes runs its authority node on the **wall clock**, because an envelope's
+expiry is a real-time promise the daemon checks against the host clock at every
+bind and draw; the deterministic clock stays for lanes that make no such
+promise. And the tier is a floor, not a ceiling: a deployment that enrols a
+passkey keeps the stronger tier, and the recognized set stays closed — a third
+tier is another binding on record, not a configuration flag.
+
 ## Non-Goals
 
 - No new orchestration kernel, project-management primitive, or mandatory

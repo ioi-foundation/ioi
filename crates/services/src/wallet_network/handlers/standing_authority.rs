@@ -35,6 +35,24 @@ const STANDING_ENVELOPE_CONTRACT: &str = "schema://ioi/foundations/standing-auth
 const APPROVAL_CONTEXT_CONTRACT: &str = "schema://ioi/foundations/approval-ceremony-context/v1";
 const AUTH_FACTOR_RECEIPT_CONTRACT: &str =
     "schema://ioi/components/hypervisor/auth-factor-receipt/v1";
+/// R-14 (ruled 2026-09-09, owner-reversible): the deployment-local operator key is a RECOGNIZED
+/// CUSTODY TIER for recording a standing grant, under the same rules as the passkey step-up — one
+/// ceremony, receipted before the effect, creating no effect authority, widening nothing. v1
+/// pinned `factor_kind` to `passkey`, which is the right floor for a person at a device and the
+/// wrong one for a deployment whose operator holds the approver key on the host itself; the
+/// bounded alpha could therefore never mint a standing envelope at all. v2 admits the tier beside
+/// the passkey and binds the verification mode to it, so neither tier borrows the other's evidence.
+const AUTH_FACTOR_RECEIPT_CONTRACT_V2: &str =
+    "schema://ioi/components/hypervisor/auth-factor-receipt/v2";
+/// The posture ref a ceremony must require, per recognized tier. A ceremony naming neither is
+/// refused: the recognized set is CLOSED, and a new tier is a new binding on record.
+const RECOGNIZED_FACTOR_POSTURE_PREFIXES: &[(&str, &str)] = &[
+    ("auth_factor://passkey/", "passkey"),
+    (
+        "auth_factor://deployment-local-operator/",
+        "deployment_local_operator",
+    ),
+];
 const APPROVAL_CONTEXT_DOMAIN: &[u8] = b"IOI-APPROVAL-CEREMONY-CONTEXT-V1\0";
 const MAX_STANDING_EVIDENCE_BYTES: usize = 64 * 1024;
 
@@ -146,6 +164,28 @@ fn hash_value(value: &Value, pointer: &str, label: &str) -> Result<[u8; 32], Tra
 pub(crate) const SESSION_STANDING_ENVELOPE_CONTRACT: &str =
     "schema://ioi/components/hypervisor/session-standing-envelope/v1";
 
+/// The closed set of registered auth-factor-receipt contracts, selected by the receipt's own
+/// declared schema_version and then fully validated against that contract.
+fn auth_factor_receipt_contract_for(bytes: &[u8]) -> Result<&'static str, TransactionError> {
+    if bytes.is_empty() || bytes.len() > MAX_STANDING_EVIDENCE_BYTES {
+        return Err(TransactionError::Invalid(
+            "authentication factor receipt exceeds the standing evidence byte envelope".into(),
+        ));
+    }
+    let value: Value = serde_json::from_slice(bytes).map_err(|error| {
+        TransactionError::Invalid(format!(
+            "authentication factor receipt is invalid JSON: {error}"
+        ))
+    })?;
+    match value.get("schema_version").and_then(Value::as_str) {
+        Some("ioi.hypervisor.auth-factor-receipt.v1") => Ok(AUTH_FACTOR_RECEIPT_CONTRACT),
+        Some("ioi.hypervisor.auth-factor-receipt.v2") => Ok(AUTH_FACTOR_RECEIPT_CONTRACT_V2),
+        other => Err(TransactionError::Invalid(format!(
+            "authentication factor receipt schema_version {other:?} is not a registered auth-factor-receipt contract"
+        ))),
+    }
+}
+
 fn standing_envelope_contract_for(bytes: &[u8]) -> Result<&'static str, TransactionError> {
     if bytes.is_empty() || bytes.len() > MAX_STANDING_EVIDENCE_BYTES {
         return Err(TransactionError::Invalid(
@@ -219,9 +259,10 @@ fn validate_standing_evidence(
         APPROVAL_CONTEXT_CONTRACT,
         "approval ceremony context",
     )?;
+    let factor_contract = auth_factor_receipt_contract_for(&params.auth_factor_receipt_json)?;
     let (factor, factor_json) = parse_registered_evidence(
         &params.auth_factor_receipt_json,
-        AUTH_FACTOR_RECEIPT_CONTRACT,
+        factor_contract,
         "authentication factor receipt",
     )?;
 
@@ -332,18 +373,31 @@ fn validate_standing_evidence(
     if context.get("receipt_timing").and_then(Value::as_str) != Some("before_effect") {
         return Err(context_refused("receipt_timing"));
     }
-    if !context
+    // The ceremony must require a posture from the CLOSED set of recognized custody tiers, and the
+    // factor receipt must be of exactly that tier: neither tier may borrow the other's evidence.
+    let factor_kind = factor
+        .get("factor_kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    match context
         .get("required_auth_factor_posture_refs")
         .and_then(Value::as_array)
-        .is_some_and(|refs| {
-            refs.iter().any(|value| {
-                value
-                    .as_str()
-                    .is_some_and(|value| value.starts_with("auth_factor://passkey/"))
+        .and_then(|refs| {
+            refs.iter().find_map(|value| {
+                let value = value.as_str()?;
+                RECOGNIZED_FACTOR_POSTURE_PREFIXES
+                    .iter()
+                    .find(|(prefix, _)| value.starts_with(prefix))
+                    .map(|(_, kind)| *kind)
             })
-        })
-    {
-        return Err(context_refused("required_auth_factor_posture_refs"));
+        }) {
+        Some(tier) if tier == factor_kind => {}
+        Some(_) => {
+            return Err(context_refused(
+                "required_auth_factor_posture_refs names a tier the factor receipt is not",
+            ))
+        }
+        None => return Err(context_refused("required_auth_factor_posture_refs")),
     }
     if context.get("revocation_epoch").and_then(Value::as_u64) != Some(current_epoch) {
         return Err(context_refused("revocation_epoch"));

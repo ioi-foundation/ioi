@@ -1,0 +1,394 @@
+{
+  "schema": "ioi.hypervisor.alpha-journey-evidence.v1",
+  "started_at": "2026-09-09T21:52:12.766Z",
+  "steps": [
+    {
+      "step": "1-install",
+      "name": "build provenance",
+      "recorded": true,
+      "detail": "cfaa3e9ff2033780d9252f203b781f5ce8332c63 (14 dirty paths) · daemon 313756e3a0ddcb01 · linux x64 6.17.9-76061709-generic",
+      "at": "2026-09-09T21:52:13.617Z"
+    },
+    {
+      "step": "1-install",
+      "name": "the release is a SOURCE BUILD of this checkout — no packaged release was under test in this run (typed absence, recorded not passed; package mode qualifies step 1)",
+      "pass": true,
+      "detail": "not_built_in_this_run: packaged release",
+      "at": "2026-09-09T21:52:13.617Z"
+    },
+    {
+      "step": "2b-authority",
+      "name": "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env",
+      "pass": true,
+      "detail": "ready in 125s · wallet.network://principal-authority-binding/6b8bcf1912aee03ab9b0f37629b7b1e4447718872e4b1c73fd4ce471ea83bcda · key mode 600",
+      "at": "2026-09-09T21:54:18.720Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the daemon printed a one-boot bootstrap token",
+      "pass": true,
+      "detail": "ioi_bootstrap_2db369",
+      "at": "2026-09-09T21:54:21.157Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-09T21:54:21.160Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the first-run form creates the operator account and lands on the product with an operator session",
+      "pass": true,
+      "detail": "302 → /ai",
+      "at": "2026-09-09T21:54:23.310Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+      "pass": true,
+      "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+      "at": "2026-09-09T21:54:23.373Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+      "pass": true,
+      "detail": "200/409",
+      "at": "2026-09-09T21:54:23.421Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the operator can sign in again with the email and password they chose",
+      "pass": true,
+      "detail": "302",
+      "at": "2026-09-09T21:54:25.585Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "daemon health, doctor and substrate status answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-09T21:54:25.616Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "model route",
+      "recorded": true,
+      "detail": "qwen2.5:7b served at http://127.0.0.1:11434/v1 (verified via /api/tags before start)",
+      "at": "2026-09-09T21:54:25.616Z"
+    },
+    {
+      "step": "4-project",
+      "name": "a project can be created and listed",
+      "pass": true,
+      "detail": "201 project:alpha-journey · 1 project(s)",
+      "at": "2026-09-09T21:54:25.619Z"
+    },
+    {
+      "step": "5a-selection",
+      "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+      "pass": true,
+      "detail": "200 · 6 harness · 1 routes · 0 connections",
+      "at": "2026-09-09T21:54:26.331Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage · $0.01 · 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A",
+      "pass": true,
+      "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788998072241,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u · factor deployment_local_operator_key_custody",
+      "at": "2026-09-09T21:54:59.422Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number)",
+      "pass": true,
+      "detail": "200 standing=true",
+      "at": "2026-09-09T21:54:59.433Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule",
+      "pass": true,
+      "detail": "412/session_authority_connection_unbounded",
+      "at": "2026-09-09T21:54:59.468Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile",
+      "pass": true,
+      "detail": "202 session:hyp-a95a4db4def9d189e14e5a4678c4f6eecbd0f46c03f180d19425c45448c828c7 [\"connector:conn_617696bb35b1503c\"]",
+      "at": "2026-09-09T21:54:59.613Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+      "pass": true,
+      "detail": "403/session_authority_out_of_profile",
+      "at": "2026-09-09T21:54:59.668Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the composer submit creates a real environment, a session and a registered run",
+      "pass": true,
+      "detail": "200 run agent_mtumzorl0 env env_fdff0e210d2447408d2cfa87fadaca16df69814d7775489989b1bbf1411957d5",
+      "at": "2026-09-09T21:54:59.868Z"
+    },
+    {
+      "step": "6-work",
+      "name": "SILENT WITHIN POLICY: the run never parks on an approval card — its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)",
+      "pass": true,
+      "detail": "done · {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\",\"standing\":true}",
+      "at": "2026-09-09T21:56:11.069Z"
+    },
+    {
+      "step": "6-work",
+      "name": "Work / Sessions shows NO approval card for the silent run",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-09T21:56:11.148Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the silently authorized run completes on the qualified harness/model and writes at least one file (0s)",
+      "pass": true,
+      "detail": "done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devco · ",
+      "at": "2026-09-09T21:56:11.148Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed",
+      "pass": true,
+      "detail": "1 draw receipt(s)",
+      "at": "2026-09-09T21:56:11.148Z"
+    },
+    {
+      "step": "6-work",
+      "name": "OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound",
+      "pass": true,
+      "detail": "200 failed · {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_envelope\",\"reason\":\"standing_envelope_exceeded\",\"refusalReceiptRef\":\"receipt://hyp · exec 0 · refusals 1",
+      "at": "2026-09-09T21:56:47.483Z"
+    },
+    {
+      "step": "6-work",
+      "name": "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) — leaving is real",
+      "pass": true,
+      "detail": "200 → 412/session_authority_connection_unbounded",
+      "at": "2026-09-09T21:56:47.536Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the written artifacts of the silently authorized run are in the session's workspace on disk",
+      "pass": true,
+      "detail": "/tmp/ioi-alpha-journey-KE6P89/data/environments/env_fdff0e210d2447408d2cfa87fadaca16df69814d7775489989b1bbf1411957d5/workspace · ALPHA_JOURNEY.md",
+      "at": "2026-09-09T21:56:47.566Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission",
+      "pass": true,
+      "detail": "1 receipt(s)",
+      "at": "2026-09-09T21:56:47.566Z"
+    },
+    {
+      "step": "2c-rotation",
+      "name": "the operator rotates the approver key: a NEW key is custodied at the same path, the retired key is versioned read-only, and the chain holds an Active successor binding (version n+1) for the new authority",
+      "pass": true,
+      "detail": "ok · v1→v2 · wallet.network://principal-authority-binding/7c90c11ff107ed3",
+      "at": "2026-09-09T21:57:04.240Z"
+    },
+    {
+      "step": "2c-rotation",
+      "name": "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts",
+      "pass": true,
+      "detail": "202 · done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontain · ",
+      "at": "2026-09-09T21:59:59.622Z"
+    },
+    {
+      "step": "2c-revocation",
+      "name": "the operator revokes the principal's approval authority: the chain holds a Revoked successor that retains the exact prior authority snapshot",
+      "pass": true,
+      "detail": "ok · v3 revoked",
+      "at": "2026-09-09T22:00:05.378Z"
+    },
+    {
+      "step": "2c-revocation",
+      "name": "AFTER revocation a new run fails CLOSED with a typed authority error before any harness runs — no approval card, no execute receipt, nothing written",
+      "pass": true,
+      "detail": "failed · Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPE · 0 receipt(s)",
+      "at": "2026-09-09T22:00:27.694Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "cost/consumption, the run timeline and the work ledger answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-09T22:00:27.706Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
+      "pass": true,
+      "detail": "200 → torn_down",
+      "at": "2026-09-09T22:00:27.882Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "revoking a connection refuses every later use under the sessions that named it",
+      "pass": true,
+      "detail": "200 → 400",
+      "at": "2026-09-09T22:00:27.947Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (done), its execute receipts (1) and the Sessions surface are all recovered exactly as they were",
+      "pass": true,
+      "detail": "200 · run done · 1 receipt(s) · page 200",
+      "at": "2026-09-09T22:00:30.136Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "the operator's identity and session survive the restart",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-09T22:00:30.198Z"
+    },
+    {
+      "step": "10-backup",
+      "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
+      "pass": true,
+      "detail": "exit 0 · 76/76 passed",
+      "at": "2026-09-09T22:00:56.920Z"
+    },
+    {
+      "step": "11-diagnostics",
+      "name": "doctor, the audit trail, the Operations surface and the developer route ledger answer",
+      "pass": true,
+      "detail": "200/200/200/200",
+      "at": "2026-09-09T22:00:57.014Z"
+    },
+    {
+      "step": "12-update",
+      "name": "the release change-plan family answers on the daemon, but this run is NOT on a packaged release, so update/rollback is recorded as NOT QUALIFIED here (package mode qualifies it), never as a pass",
+      "pass": true,
+      "detail": "200 · not_qualified_in_this_run",
+      "at": "2026-09-09T22:01:16.538Z"
+    },
+    {
+      "step": "13-agree",
+      "name": "the App's Sessions surface and the headless client render the same daemon-owned sessions",
+      "pass": true,
+      "detail": "5 session(s)",
+      "at": "2026-09-09T22:01:16.640Z"
+    }
+  ],
+  "checkout": {
+    "head": "cfaa3e9ff2033780d9252f203b781f5ce8332c63",
+    "dirty_paths": 14,
+    "node": "v22.22.0",
+    "host": "linux x64 6.17.9-76061709-generic"
+  },
+  "daemon_binary": {
+    "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "sha256": "313756e3a0ddcb0156645f1d08ec3b9f1c88be33f968f5aa9d6c6a7b1bec7927",
+    "mtime": "2026-09-09T18:48:03.226Z"
+  },
+  "authority_mode": "deployment",
+  "deployment_authority": {
+    "principal_ref": "domain://alpha-host",
+    "binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/wallet-network-local-authority",
+    "ordering_profile": "Solo",
+    "keys_generated_on_host": [
+      "keys/root.seed",
+      "keys/capability.key (sealed)",
+      "keys/approver.seed"
+    ],
+    "approver_key_mode": "600",
+    "binding_v1": {
+      "ref": "wallet.network://principal-authority-binding/6b8bcf1912aee03ab9b0f37629b7b1e4447718872e4b1c73fd4ce471ea83bcda",
+      "version": 1,
+      "status": "active"
+    },
+    "approver_scope_allowlist": [
+      "scope:hypervisor.live-route.*"
+    ],
+    "rotation": {
+      "binding_ref": "wallet.network://principal-authority-binding/7c90c11ff107ed3ebf20177f48b85a73b527624cdb2ffab57cfc97057aa2cd38",
+      "version": 2,
+      "retired_key": "keys/approver.seed.v1"
+    },
+    "rotated_run": {
+      "run_id": "agent_mtun2cw96",
+      "session_ref": "session:ai-agent_mtun2cw96",
+      "status": "done"
+    },
+    "revocation": {
+      "binding_ref": "wallet.network://principal-authority-binding/3d0e0e943711d1b4139e57b9a49e2ae042488322f39c6e77285fe58579406d53",
+      "version": 3,
+      "refused_run": {
+        "run_id": "agent_mtun68nr9",
+        "status": "failed",
+        "error": "Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF are required before any run can be approved."
+      }
+    }
+  },
+  "standing_lease": {
+    "mode": "deployment",
+    "custody_tier": "deployment_local_operator",
+    "ruling": "R-14 (2026-09-09, owner-reversible)",
+    "status": "bound",
+    "code": null,
+    "message": null,
+    "factor_origin": "deployment_local_operator_key_custody",
+    "bounds": {
+      "allowed_tools": [
+        "ping"
+      ],
+      "expires_at_ms": 1788998072241,
+      "max_cumulative_deposit_microusd": 10000,
+      "max_cumulative_spend_microusd": 10000,
+      "max_usages": 1,
+      "not_before_ms": 1788990812241,
+      "operations": [
+        "session_execute",
+        "connector_invoke"
+      ],
+      "per_operation_deposit_microusd": 10000,
+      "per_operation_spend_microusd": 10000
+    },
+    "grant_hash": "e8cbd6ef63bb34c4f0c0d1a7be09e3a902c0d3959e717f91018495edbbda97a3",
+    "silent_run": {
+      "run_id": "agent_mtumzorl0",
+      "status": "done",
+      "draw_receipts": 1
+    },
+    "over_envelope_run": {
+      "run_id": "agent_mtun17x63",
+      "status": "failed",
+      "authority": {
+        "connectionRef": "connector:conn_617696bb35b1503c",
+        "posture": "refused_outside_envelope",
+        "reason": "standing_envelope_exceeded",
+        "refusalReceiptRef": "receipt://hypervisor/standing-refusal/e2428f851909fa56",
+        "refusedBound": "max_usages",
+        "wideningPath": "/__ioi/connections"
+      }
+    },
+    "revocation": {
+      "status": 200,
+      "next_launch": 412
+    }
+  },
+  "nonclaims": [
+    "packaged release / signer / supply-chain evidence",
+    "update and rollback of the release",
+    "workload-bound isolation (host_spawn only)",
+    "the authority node is a source build launched in this checkout, not a packaged component"
+  ],
+  "finished_at": "2026-09-09T22:01:16.641Z",
+  "summary": {
+    "passed": 38,
+    "total": 38
+  }
+}

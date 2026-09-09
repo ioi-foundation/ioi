@@ -103,6 +103,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/collection-page/v1", "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7"),
     ("schema://ioi/components/hypervisor/collection-query/v1", "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5"),
     ("schema://ioi/components/hypervisor/auth-factor-receipt/v1", "sha256:962d48d7696928d69ad6daf56289632eb7d556fa0609352bd1e9cf9de26fb2c2"),
+    ("schema://ioi/components/hypervisor/auth-factor-receipt/v2", "sha256:c44a293e5a4afcc366acac338882577d1ff55acde88c0207328fafc1f7d86224"),
     ("schema://ioi/components/hypervisor/c8-certificate/v3", "sha256:b29daef4a3b18681c4c65beefe8ed8e662ab8bd3a08b82201f0ba14b2b84dd63"),
     ("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", "sha256:1834df26ab76fd1fc15066a8db5cabb24de5185b8b5299a920233cc88078aa53"),
     ("schema://ioi/aft/u1-campaign-result/v1", "sha256:53f9a944ed1379a4509a691d16bc35fc93a9e10f293d80724c7355e33097c802"),
@@ -23682,6 +23683,352 @@ impl<'de> serde::Deserialize<'de> for HypervisorAuthFactorReceiptV1EffectAuthori
             ))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorAuthFactorReceiptV2 {
+    pub schema_version: HypervisorAuthFactorReceiptV2SchemaVersion,
+    pub receipt_id: String,
+    pub receipt_hash: String,
+    pub ceremony_id: String,
+    pub principal_id: String,
+    pub principal_ref: Option<String>,
+    pub factor_kind: HypervisorAuthFactorReceiptV2FactorKind,
+    pub credential_id_hash: String,
+    pub user_verification: HypervisorAuthFactorReceiptV2UserVerification,
+    pub purpose: HypervisorAuthFactorReceiptV2Purpose,
+    pub approval_ceremony_context_ref: Option<String>,
+    pub approval_ceremony_context_hash: Option<String>,
+    pub authorization_subject: Option<HypervisorAuthFactorReceiptV2AuthorizationSubject>,
+    pub policy_hash: Option<String>,
+    pub effect_authority_created: HypervisorAuthFactorReceiptV2EffectAuthorityCreated,
+    pub created_at: String,
+    pub custody_tier_evidence: Option<HypervisorAuthFactorReceiptV2CustodyTierEvidence>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorAuthFactorReceiptV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/auth-factor-receipt/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/auth-factor-receipt/v2","title":"HypervisorAuthFactorReceipt","x-ioi-schema-version":"ioi.hypervisor.auth-factor-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_hash","ceremony_id","principal_id","principal_ref","factor_kind","credential_id_hash","user_verification","purpose","approval_ceremony_context_ref","approval_ceremony_context_hash","authorization_subject","policy_hash","effect_authority_created","created_at","custody_tier_evidence"],"properties":{"schema_version":{"const":"ioi.hypervisor.auth-factor-receipt.v2"},"receipt_id":{"type":"string","pattern":"^afr_[a-z0-9]{8,64}$"},"receipt_hash":{"$ref":"#/$defs/hash"},"ceremony_id":{"type":"string","pattern":"^pkc_[A-Za-z0-9_-]{1,128}$"},"principal_id":{"type":"string","minLength":1,"maxLength":256},"principal_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"factor_kind":{"enum":["passkey","deployment_local_operator"]},"credential_id_hash":{"$ref":"#/$defs/hash"},"user_verification":{"enum":["required_and_verified","deployment_local_key_custody"]},"purpose":{"enum":["custody_enrollment","identity_authentication","standing_effect_authority"]},"approval_ceremony_context_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"approval_ceremony_context_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"authorization_subject":{"anyOf":[{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},{"type":"null"}]},"policy_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"effect_authority_created":{"const":false},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"custody_tier_evidence":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["host_ref","key_path_hash","key_mode_octal","operator_acknowledged_at"],"properties":{"host_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"key_path_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"key_mode_octal":{"const":"600"},"operator_acknowledged_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}],"description":"Null for a passkey. For deployment_local_operator it is what the deployment can actually attest — the host the key lives on, the hash of its path, that it is readable by its owner alone, and when the operator performed this ceremony. It attests CUSTODY, never a person."}},"allOf":[{"if":{"properties":{"purpose":{"const":"standing_effect_authority"}}},"then":{"properties":{"approval_ceremony_context_ref":{"$ref":"#/$defs/ref"},"approval_ceremony_context_hash":{"$ref":"#/$defs/hash"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},"policy_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"}}},"else":{"properties":{"approval_ceremony_context_ref":{"type":"null"},"approval_ceremony_context_hash":{"type":"null"},"authorization_subject":{"type":"null"},"policy_hash":{"type":"null"},"principal_ref":{"type":"null"}}}},{"if":{"type":"object","properties":{"factor_kind":{"const":"passkey"}},"required":["factor_kind"]},"then":{"type":"object","properties":{"user_verification":{"const":"required_and_verified"},"custody_tier_evidence":{"type":"null"}}}},{"if":{"type":"object","properties":{"factor_kind":{"const":"deployment_local_operator"}},"required":["factor_kind"]},"then":{"type":"object","properties":{"user_verification":{"const":"deployment_local_key_custody"},"custody_tier_evidence":{"type":"object","additionalProperties":false,"required":["host_ref","key_path_hash","key_mode_octal","operator_acknowledged_at"],"properties":{"host_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"key_path_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"key_mode_octal":{"const":"600"},"operator_acknowledged_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"description":"The authentication-factor receipt for a consent ceremony, widened by ONE recognized custody tier. v1 pinned factor_kind to `passkey`, which is the right floor for a person at a device and the wrong one for a deployment whose operator holds the approver key on the host itself: the bounded alpha could therefore never mint a standing envelope at all. v2 admits `deployment_local_operator` beside `passkey` under the SAME rules — one ceremony, receipted before the effect, creating no effect authority of its own — and binds the verification mode to the tier so neither can borrow the other's evidence."}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorAuthFactorReceiptV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ceremony_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ceremony_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ceremony_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            factor_kind: serde_json::from_value::<HypervisorAuthFactorReceiptV2FactorKind>(
+                object
+                    .remove(r#"factor_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"factor_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            credential_id_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"credential_id_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"credential_id_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            user_verification: serde_json::from_value::<
+                HypervisorAuthFactorReceiptV2UserVerification,
+            >(
+                object
+                    .remove(r#"user_verification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"user_verification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purpose: serde_json::from_value::<HypervisorAuthFactorReceiptV2Purpose>(
+                object
+                    .remove(r#"purpose"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purpose"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"approval_ceremony_context_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"approval_ceremony_context_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authorization_subject: serde_json::from_value::<
+                Option<HypervisorAuthFactorReceiptV2AuthorizationSubject>,
+            >(
+                object
+                    .remove(r#"authorization_subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authorization_subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_authority_created: serde_json::from_value::<
+                HypervisorAuthFactorReceiptV2EffectAuthorityCreated,
+            >(
+                object
+                    .remove(r#"effect_authority_created"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"effect_authority_created"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            custody_tier_evidence: serde_json::from_value::<
+                Option<HypervisorAuthFactorReceiptV2CustodyTierEvidence>,
+            >(
+                object
+                    .remove(r#"custody_tier_evidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"custody_tier_evidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorAuthFactorReceiptV2SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.auth-factor-receipt.v2"#)]
+    IoiHypervisorAuthFactorReceiptV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorAuthFactorReceiptV2FactorKind {
+    #[serde(rename = r#"passkey"#)]
+    Passkey,
+    #[serde(rename = r#"deployment_local_operator"#)]
+    DeploymentLocalOperator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorAuthFactorReceiptV2UserVerification {
+    #[serde(rename = r#"required_and_verified"#)]
+    RequiredAndVerified,
+    #[serde(rename = r#"deployment_local_key_custody"#)]
+    DeploymentLocalKeyCustody,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorAuthFactorReceiptV2Purpose {
+    #[serde(rename = r#"custody_enrollment"#)]
+    CustodyEnrollment,
+    #[serde(rename = r#"identity_authentication"#)]
+    IdentityAuthentication,
+    #[serde(rename = r#"standing_effect_authority"#)]
+    StandingEffectAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorAuthFactorReceiptV2AuthorizationSubject {
+    pub kind: HypervisorAuthFactorReceiptV2AuthorizationSubjectKind,
+    pub subject_ref: String,
+    pub subject_hash: String,
+    pub validation_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorAuthFactorReceiptV2AuthorizationSubject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/auth-factor-receipt/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<HypervisorAuthFactorReceiptV2AuthorizationSubjectKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"validation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorAuthFactorReceiptV2AuthorizationSubjectKind {
+    #[serde(rename = r#"exact_effect"#)]
+    ExactEffect,
+    #[serde(rename = r#"batch_manifest"#)]
+    BatchManifest,
+    #[serde(rename = r#"standing_envelope"#)]
+    StandingEnvelope,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorAuthFactorReceiptV2EffectAuthorityCreated {
+    False,
+}
+
+impl serde::Serialize for HypervisorAuthFactorReceiptV2EffectAuthorityCreated {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorAuthFactorReceiptV2EffectAuthorityCreated {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorAuthFactorReceiptV2CustodyTierEvidence {
+    pub host_ref: String,
+    pub key_path_hash: String,
+    pub key_mode_octal: HypervisorAuthFactorReceiptV2CustodyTierEvidenceKeyModeOctal,
+    pub operator_acknowledged_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorAuthFactorReceiptV2CustodyTierEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/auth-factor-receipt/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["host_ref","key_path_hash","key_mode_octal","operator_acknowledged_at"],"properties":{"host_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"key_path_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"key_mode_octal":{"const":"600"},"operator_acknowledged_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            host_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"host_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            key_path_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"key_path_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_path_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            key_mode_octal: serde_json::from_value::<
+                HypervisorAuthFactorReceiptV2CustodyTierEvidenceKeyModeOctal,
+            >(
+                object
+                    .remove(r#"key_mode_octal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_mode_octal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operator_acknowledged_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operator_acknowledged_at"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operator_acknowledged_at"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorAuthFactorReceiptV2CustodyTierEvidenceKeyModeOctal {
+    #[serde(rename = r#"600"#)]
+    Value600,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -135277,6 +135624,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/auth-factor-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/positive-deployment-local-operator.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/auth-factor-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/negative-tier-evidence-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/c8-certificate/v3",
         path: "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
         expected_accept: true,
@@ -147987,6 +148350,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/components/hypervisor/auth-factor-receipt/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/positive-deployment-local-operator.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/auth-factor-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/positive-deployment-local-operator.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/negative-tier-evidence-mismatch.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/auth-factor-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/negative-tier-evidence-mismatch.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -160851,6 +161236,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/collection-page/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/collection-page/v1","title":"HypervisorCollectionPage","x-ioi-schema-version":"ioi.hypervisor.collection_page.v1","type":"object","additionalProperties":false,"required":["schema_version","query_ref","items","facets","next_cursor","snapshot_revision","serialized_bytes","total_policy_visible","policy_filtered_before_counts_and_cache"],"properties":{"schema_version":{"const":"ioi.hypervisor.collection_page.v1"},"query_ref":{"type":"string","pattern":"^query://hypervisor/\\S+$"},"items":{"type":"array","items":{}},"facets":{"type":"array","items":{"type":"object"}},"next_cursor":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"snapshot_revision":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"serialized_bytes":{"type":"integer","minimum":0,"maximum":1048576},"total_policy_visible":{"type":"integer","minimum":0,"maximum":9007199254740991},"policy_filtered_before_counts_and_cache":{"const":true}}}"#),
     ("schema://ioi/components/hypervisor/collection-query/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/collection-query/v1","title":"HypervisorCollectionQuery","x-ioi-schema-version":"ioi.hypervisor.collection_query.v1","type":"object","additionalProperties":false,"required":["org_ref","collection","filters","sort","facets","page_size"],"properties":{"user_ref":{"type":"string","pattern":"^(?:user|wallet)://\\S+$"},"org_ref":{"type":"string","pattern":"^org://\\S+$"},"collection":{"enum":["work_runs","sessions","projects","systems","automations","notifications"]},"typed_context_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},"search":{"anyOf":[{"type":"string"},{"type":"null"}]},"filters":{"type":"array","items":{"type":"object"}},"sort":{"type":"array","items":{"type":"object"}},"facets":{"type":"array","items":{"type":"string"},"uniqueItems":true},"cursor":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"page_size":{"type":"integer","minimum":1,"maximum":50}}}"#),
     ("schema://ioi/components/hypervisor/auth-factor-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/auth-factor-receipt/v1","title":"HypervisorAuthFactorReceipt","x-ioi-schema-version":"ioi.hypervisor.auth-factor-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_hash","ceremony_id","principal_id","principal_ref","factor_kind","credential_id_hash","user_verification","purpose","approval_ceremony_context_ref","approval_ceremony_context_hash","authorization_subject","policy_hash","effect_authority_created","created_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.auth-factor-receipt.v1"},"receipt_id":{"type":"string","pattern":"^afr_[a-z0-9]{8,64}$"},"receipt_hash":{"$ref":"#/$defs/hash"},"ceremony_id":{"type":"string","pattern":"^pkc_[A-Za-z0-9_-]{1,128}$"},"principal_id":{"type":"string","minLength":1,"maxLength":256},"principal_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"factor_kind":{"const":"passkey"},"credential_id_hash":{"$ref":"#/$defs/hash"},"user_verification":{"const":"required_and_verified"},"purpose":{"enum":["custody_enrollment","identity_authentication","standing_effect_authority"]},"approval_ceremony_context_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"approval_ceremony_context_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"authorization_subject":{"anyOf":[{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},{"type":"null"}]},"policy_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"effect_authority_created":{"const":false},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"purpose":{"const":"standing_effect_authority"}}},"then":{"properties":{"approval_ceremony_context_ref":{"$ref":"#/$defs/ref"},"approval_ceremony_context_hash":{"$ref":"#/$defs/hash"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},"policy_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"}}},"else":{"properties":{"approval_ceremony_context_ref":{"type":"null"},"approval_ceremony_context_hash":{"type":"null"},"authorization_subject":{"type":"null"},"policy_hash":{"type":"null"},"principal_ref":{"type":"null"}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
+    ("schema://ioi/components/hypervisor/auth-factor-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/auth-factor-receipt/v2","title":"HypervisorAuthFactorReceipt","x-ioi-schema-version":"ioi.hypervisor.auth-factor-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_hash","ceremony_id","principal_id","principal_ref","factor_kind","credential_id_hash","user_verification","purpose","approval_ceremony_context_ref","approval_ceremony_context_hash","authorization_subject","policy_hash","effect_authority_created","created_at","custody_tier_evidence"],"properties":{"schema_version":{"const":"ioi.hypervisor.auth-factor-receipt.v2"},"receipt_id":{"type":"string","pattern":"^afr_[a-z0-9]{8,64}$"},"receipt_hash":{"$ref":"#/$defs/hash"},"ceremony_id":{"type":"string","pattern":"^pkc_[A-Za-z0-9_-]{1,128}$"},"principal_id":{"type":"string","minLength":1,"maxLength":256},"principal_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"factor_kind":{"enum":["passkey","deployment_local_operator"]},"credential_id_hash":{"$ref":"#/$defs/hash"},"user_verification":{"enum":["required_and_verified","deployment_local_key_custody"]},"purpose":{"enum":["custody_enrollment","identity_authentication","standing_effect_authority"]},"approval_ceremony_context_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"approval_ceremony_context_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"authorization_subject":{"anyOf":[{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},{"type":"null"}]},"policy_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"effect_authority_created":{"const":false},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"custody_tier_evidence":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["host_ref","key_path_hash","key_mode_octal","operator_acknowledged_at"],"properties":{"host_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"key_path_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"key_mode_octal":{"const":"600"},"operator_acknowledged_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}],"description":"Null for a passkey. For deployment_local_operator it is what the deployment can actually attest — the host the key lives on, the hash of its path, that it is readable by its owner alone, and when the operator performed this ceremony. It attests CUSTODY, never a person."}},"allOf":[{"if":{"properties":{"purpose":{"const":"standing_effect_authority"}}},"then":{"properties":{"approval_ceremony_context_ref":{"$ref":"#/$defs/ref"},"approval_ceremony_context_hash":{"$ref":"#/$defs/hash"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},"policy_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"}}},"else":{"properties":{"approval_ceremony_context_ref":{"type":"null"},"approval_ceremony_context_hash":{"type":"null"},"authorization_subject":{"type":"null"},"policy_hash":{"type":"null"},"principal_ref":{"type":"null"}}}},{"if":{"type":"object","properties":{"factor_kind":{"const":"passkey"}},"required":["factor_kind"]},"then":{"type":"object","properties":{"user_verification":{"const":"required_and_verified"},"custody_tier_evidence":{"type":"null"}}}},{"if":{"type":"object","properties":{"factor_kind":{"const":"deployment_local_operator"}},"required":["factor_kind"]},"then":{"type":"object","properties":{"user_verification":{"const":"deployment_local_key_custody"},"custody_tier_evidence":{"type":"object","additionalProperties":false,"required":["host_ref","key_path_hash","key_mode_octal","operator_acknowledged_at"],"properties":{"host_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"key_path_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"key_mode_octal":{"const":"600"},"operator_acknowledged_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"description":"The authentication-factor receipt for a consent ceremony, widened by ONE recognized custody tier. v1 pinned factor_kind to `passkey`, which is the right floor for a person at a device and the wrong one for a deployment whose operator holds the approver key on the host itself: the bounded alpha could therefore never mint a standing envelope at all. v2 admits `deployment_local_operator` beside `passkey` under the SAME rules — one ceremony, receipted before the effect, creating no effect authority of its own — and binds the verification mode to the tier so neither can borrow the other's evidence."}"##),
     ("schema://ioi/components/hypervisor/c8-certificate/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/c8-certificate/v3","title":"C8CertificateV3","x-ioi-schema-version":"ioi.components.hypervisor.c8-certificate.v3","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","predecessor_certificate_schema_version","predecessor_certificate_ref","predecessor_certificate_hash","source_basis_refs","operator_principal_ref","governed_request_ref","governed_request_hash","claim_manifest_ref","claim_manifest_hash","isolation_binding_ref","isolation_binding_hash","workload_image_ref","workload_image_digest","workload_readiness_evidence","campaign_certificate_ref","campaign_certificate_hash","campaign_id","benchmark_source_commit","benchmark_protocol_version","result_contract_ref","result_contract_hash","result_ref","result_hash","result_retrieval_receipt_ref","result_retrieval_receipt_hash","environment_ref","environment_hash","variance_evidence_ref","variance_evidence_hash","environment_class","honesty_class","authority_draw","trajectory_binding","brokered_secret_use_posture","secret_use_evidence","relying_party_audience_ref","terminal_acceptance_prerequisites","journal_binding","terminal_settlement_ref","terminal_settlement_hash","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.c8-certificate.v3"},"certificate_ref":{"$ref":"#/$defs/ref"},"certificate_hash":{"$ref":"#/$defs/hash"},"predecessor_certificate_schema_version":{"const":"ioi.hypervisor.c7-c8-certificate.v2"},"predecessor_certificate_ref":{"$ref":"#/$defs/ref"},"predecessor_certificate_hash":{"$ref":"#/$defs/hash"},"source_basis_refs":{"type":"array","minItems":2,"items":{"$ref":"#/$defs/refHash"}},"operator_principal_ref":{"$ref":"#/$defs/ref"},"governed_request_ref":{"$ref":"#/$defs/ref"},"governed_request_hash":{"$ref":"#/$defs/hash"},"claim_manifest_ref":{"$ref":"#/$defs/ref"},"claim_manifest_hash":{"$ref":"#/$defs/hash"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"workload_image_ref":{"$ref":"#/$defs/ref"},"workload_image_digest":{"$ref":"#/$defs/hash"},"workload_readiness_evidence":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"campaign_certificate_ref":{"$ref":"#/$defs/ref"},"campaign_certificate_hash":{"$ref":"#/$defs/hash"},"campaign_id":{"$ref":"#/$defs/name"},"benchmark_source_commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"benchmark_protocol_version":{"$ref":"#/$defs/name"},"result_contract_ref":{"$ref":"#/$defs/ref"},"result_contract_hash":{"$ref":"#/$defs/hash"},"result_ref":{"$ref":"#/$defs/ref"},"result_hash":{"$ref":"#/$defs/hash"},"result_retrieval_receipt_ref":{"$ref":"#/$defs/ref"},"result_retrieval_receipt_hash":{"$ref":"#/$defs/hash"},"environment_ref":{"$ref":"#/$defs/ref"},"environment_hash":{"$ref":"#/$defs/hash"},"variance_evidence_ref":{"$ref":"#/$defs/ref"},"variance_evidence_hash":{"$ref":"#/$defs/hash"},"environment_class":{"enum":["measured_container","attested_pinned_bare_metal"]},"honesty_class":{"enum":["same_provider_container_unknown_host","attested_pinned_bare_metal","variance_caveated"]},"authority_draw":{"$ref":"#/$defs/authorityDraw"},"trajectory_binding":{"$ref":"#/$defs/trajectoryBinding"},"brokered_secret_use_posture":{"enum":["no_secret_required","opaque_handle_final_invoker","attested_secret_release"]},"secret_use_evidence":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"relying_party_audience_ref":{"$ref":"#/$defs/ref"},"terminal_acceptance_prerequisites":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"journal_binding":{"$ref":"#/$defs/journalBinding"},"terminal_settlement_ref":{"$ref":"#/$defs/ref"},"terminal_settlement_hash":{"$ref":"#/$defs/hash"},"generated_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"authorityDraw":{"type":"object","additionalProperties":false,"required":["standing_envelope_ref","standing_envelope_hash","draw_request_ref","draw_request_hash","draw_receipt_ref","draw_receipt_hash"],"properties":{"standing_envelope_ref":{"$ref":"#/$defs/ref"},"standing_envelope_hash":{"$ref":"#/$defs/hash"},"draw_request_ref":{"$ref":"#/$defs/ref"},"draw_request_hash":{"$ref":"#/$defs/hash"},"draw_receipt_ref":{"$ref":"#/$defs/ref"},"draw_receipt_hash":{"$ref":"#/$defs/hash"}}},"trajectoryBinding":{"type":"object","additionalProperties":false,"required":["state_before_ref","state_before_hash","decision_ref","decision_hash","state_after_ref","state_after_hash"],"properties":{"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"}}},"journalBinding":{"type":"object","additionalProperties":false,"required":["intent_root","outcome_predecessor_root","outcome_root"],"properties":{"intent_root":{"$ref":"#/$defs/hash"},"outcome_predecessor_root":{"$ref":"#/$defs/hash"},"outcome_root":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1","title":"GovernedEffectClaimManifest","x-ioi-schema-version":"ioi.components.hypervisor.governed-effect-claim-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","manifest_ref","manifest_hash","subject_ref","subject_hash","protection_profile","claims","source_basis_refs","generated_at"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.governed-effect-claim-manifest.v1"},"manifest_ref":{"$ref":"#/$defs/ref"},"manifest_hash":{"$ref":"#/$defs/hash"},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"protection_profile":{"enum":["development_cooperative","trusted_host_hostile_guest","unattested_remote_host_bounded_authority","attested_confidential_worker"]},"claims":{"type":"array","minItems":1,"maxItems":11,"items":{"$ref":"#/$defs/claim"}},"source_basis_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"claimId":{"enum":["governed_infrastructure_lifecycle","workload_readiness","workload_result_binding","logical_policy_mediation","workload_bound_isolation_enforced","worker_secret_non_possession_tested","separate_verifier","independently_reproduced","third_party_verified","provider_neutrality","bare_metal_placement"]},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"claim":{"type":"object","additionalProperties":false,"required":["claim_id","status","evidence_refs","limitation_note"],"properties":{"claim_id":{"$ref":"#/$defs/claimId"},"status":{"enum":["demonstrated","not_demonstrated","indeterminate","not_applicable"]},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"limitation_note":{"type":"string","minLength":1,"maxLength":500}}}}}"##),
     ("schema://ioi/aft/u1-campaign-result/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/aft/u1-campaign-result/v1","title":"AftU1CampaignResult","x-ioi-schema-version":"ioi.aft.benchmark-campaign.v1","type":"object","additionalProperties":false,"required":["schema_version","campaign_id","measured_passes","row_count_per_pass","threshold_policy","verdict","all_rows_within_threshold","summaries","pass_artifacts"],"properties":{"schema_version":{"const":"ioi.aft.benchmark-campaign.v1"},"campaign_id":{"$ref":"#/$defs/name"},"measured_passes":{"type":"integer","minimum":2,"maximum":64},"row_count_per_pass":{"type":"integer","minimum":1,"maximum":256},"threshold_policy":{"$ref":"#/$defs/thresholds"},"verdict":{"enum":["reproduced_within_threshold","variance_caveated"]},"all_rows_within_threshold":{"type":"boolean"},"summaries":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/summary"}},"pass_artifacts":{"type":"array","minItems":2,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^run-[1-9][0-9]*[.]json$"}}},"$defs":{"name":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"nonNegative":{"type":"number","minimum":0},"thresholds":{"type":"object","additionalProperties":false,"required":["injection_tps","sustained_tps","commit_p50_ms","commit_p95_ms","commit_p99_ms","commit_max_ms"],"properties":{"injection_tps":{"$ref":"#/$defs/nonNegative"},"sustained_tps":{"$ref":"#/$defs/nonNegative"},"commit_p50_ms":{"$ref":"#/$defs/nonNegative"},"commit_p95_ms":{"$ref":"#/$defs/nonNegative"},"commit_p99_ms":{"$ref":"#/$defs/nonNegative"},"commit_max_ms":{"$ref":"#/$defs/nonNegative"}}},"metric":{"type":"object","additionalProperties":false,"required":["values","min","median","max","median_absolute_deviation","coefficient_of_variation","bootstrap_median_95","relative_spread","threshold","within_threshold"],"properties":{"values":{"type":"array","minItems":2,"maxItems":64,"items":{"$ref":"#/$defs/nonNegative"}},"min":{"$ref":"#/$defs/nonNegative"},"median":{"$ref":"#/$defs/nonNegative"},"max":{"$ref":"#/$defs/nonNegative"},"median_absolute_deviation":{"$ref":"#/$defs/nonNegative"},"coefficient_of_variation":{"$ref":"#/$defs/nonNegative"},"bootstrap_median_95":{"type":"array","minItems":2,"maxItems":2,"items":{"$ref":"#/$defs/nonNegative"}},"relative_spread":{"$ref":"#/$defs/nonNegative"},"threshold":{"$ref":"#/$defs/nonNegative"},"within_threshold":{"type":"boolean"}}},"metrics":{"type":"object","additionalProperties":false,"required":["injection_tps","sustained_tps","commit_p50_ms","commit_p95_ms","commit_p99_ms","commit_max_ms"],"properties":{"injection_tps":{"$ref":"#/$defs/metric"},"sustained_tps":{"$ref":"#/$defs/metric"},"commit_p50_ms":{"$ref":"#/$defs/metric"},"commit_p95_ms":{"$ref":"#/$defs/metric"},"commit_p99_ms":{"$ref":"#/$defs/metric"},"commit_max_ms":{"$ref":"#/$defs/metric"}}},"summary":{"type":"object","additionalProperties":false,"required":["scenario","lane","within_threshold","metrics"],"properties":{"scenario":{"$ref":"#/$defs/name"},"lane":{"$ref":"#/$defs/name"},"within_threshold":{"type":"boolean"},"metrics":{"$ref":"#/$defs/metrics"}}}}}"##),
@@ -161116,6 +161502,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/collection-page/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/collection-query/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/auth-factor-receipt/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/auth-factor-receipt/v2", r#"[]"#),
     ("schema://ioi/components/hypervisor/c8-certificate/v3", r#"[]"#),
     ("schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", r#"[]"#),
     ("schema://ioi/aft/u1-campaign-result/v1", r#"[]"#),
@@ -166176,6 +166563,8 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json"))),
     ("docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/positive-deployment-local-operator.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/positive-deployment-local-operator.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/negative-tier-evidence-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v2/negative-tier-evidence-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json"))),
     ("docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json"))),
     ("docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json"))),
@@ -167517,6 +167906,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/auth-factor-receipt/v2" => {
+            serde_json::from_value::<HypervisorAuthFactorReceiptV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/c8-certificate/v3" => {
             serde_json::from_value::<C8CertificateV3>(value.clone())
                 .map(|_| ())
@@ -168833,6 +169227,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/auth-factor-receipt/v2" => {
+            let projection = serde_json::from_value::<HypervisorAuthFactorReceiptV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/c8-certificate/v3" => {
             let projection = serde_json::from_value::<C8CertificateV3>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -169979,8 +170378,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1291,
-            "the registered golden corpus must remain the explicit 1291-fixture bar",
+            1293,
+            "the registered golden corpus must remain the explicit 1293-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

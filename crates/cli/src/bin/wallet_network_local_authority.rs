@@ -67,9 +67,13 @@ use ioi_cli::testing::{
     wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
-use ioi_services::wallet_network::RegisterApprovalAuthorityParams;
+use ioi_services::wallet_network::{
+    RecordStandingApprovalGrantParams, RegisterApprovalAuthorityParams,
+    RevokeStandingApprovalGrantParams,
+};
 use ioi_types::app::action::ApprovalAuthority;
 use ioi_types::app::action::ApprovalGrant;
+use ioi_types::app::action::StandingApprovalGrant;
 use ioi_types::app::wallet_network::{
     IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingHeadV1,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityBindingStatementV1,
@@ -150,6 +154,39 @@ enum Command {
     Status {
         #[arg(long)]
         state_dir: PathBuf,
+    },
+    /// Record an operator-signed STANDING approval grant on the chain (R-14: the deployment-local
+    /// operator key is a recognized custody tier for a standing envelope, under the same
+    /// one-ceremony, receipted, non-widening rules as a passkey step-up).
+    RecordStandingApproval {
+        #[arg(long)]
+        state_dir: PathBuf,
+        /// JSON file holding the StandingApprovalGrant the operator signed (`-` reads stdin).
+        #[arg(long)]
+        grant_file: String,
+        /// JSON file holding the registered SessionStandingEnvelope the grant binds.
+        #[arg(long)]
+        envelope_file: String,
+        /// JSON file holding the ApprovalCeremonyContext for this one ceremony.
+        #[arg(long)]
+        context_file: String,
+        /// JSON file holding the v2 AuthFactorReceipt attesting the deployment-local custody tier.
+        #[arg(long)]
+        factor_file: String,
+    },
+    /// Print the node's latest COMMITTED chain timestamp as one line of JSON. A standing
+    /// envelope's validity window is judged against the chain clock, never the host's assumption.
+    ChainTimestamp {
+        #[arg(long)]
+        state_dir: PathBuf,
+    },
+    /// Revoke a recorded standing approval grant; the next draw refuses within one commit.
+    RevokeStandingApproval {
+        #[arg(long)]
+        state_dir: PathBuf,
+        /// The standing grant's hash (64 hex characters).
+        #[arg(long)]
+        grant_hash: String,
     },
     /// Record an operator-signed one-use approval grant on the chain (the approval act).
     RecordApproval {
@@ -235,6 +272,18 @@ async fn main() -> Result<()> {
         Command::Status { state_dir } => status(&state_dir).await,
         Command::RecordApproval { state_dir, grant_file, target_scope, reason } => {
             record_approval(&state_dir, &grant_file, &target_scope, &reason).await
+        }
+        Command::RecordStandingApproval { state_dir, grant_file, envelope_file, context_file, factor_file } => {
+            record_standing_approval(&state_dir, &grant_file, &envelope_file, &context_file, &factor_file).await
+        }
+        Command::RevokeStandingApproval { state_dir, grant_hash } => {
+            revoke_standing_approval(&state_dir, &grant_hash).await
+        }
+        Command::ChainTimestamp { state_dir } => {
+            let ready = read_ready(&state_dir)?;
+            let chain_timestamp_ms = latest_committed_chain_timestamp_ms(&ready.rpc_addr).await?;
+            println!("{}", serde_json::json!({ "ok": true, "chain_timestamp_ms": chain_timestamp_ms }));
+            Ok(())
         }
     }
 }
@@ -643,6 +692,113 @@ fn acquire_transaction_lock(path: &Path) -> Result<TransactionLock> {
             return Err(error.into());
         }
     }
+}
+
+fn read_json_arg(path: &str, label: &str) -> Result<String> {
+    if path == "-" {
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
+        Ok(text)
+    } else {
+        std::fs::read_to_string(path).with_context(|| format!("read {label} from {path}"))
+    }
+}
+
+/// R-14: record a STANDING approval grant signed by the deployment's custodied approver. The
+/// deployment-local operator key is a recognized custody tier, so the ceremony evidence this
+/// submits carries the v2 auth-factor receipt; the wallet re-validates the whole tuple (envelope
+/// containment, one-ceremony consumption, tier/posture match) and this binary asserts only what a
+/// deployment can: the grant is the custodied approver's, its audience is this deployment's
+/// capability account, and it does not widen the envelope it names.
+async fn record_standing_approval(
+    state_dir: &Path,
+    grant_file: &str,
+    envelope_file: &str,
+    context_file: &str,
+    factor_file: &str,
+) -> Result<()> {
+    let ready = read_ready(state_dir)?;
+    let record = read_authority_record(state_dir)?;
+    if record.binding_status != "active" {
+        bail!("the principal's binding is {}; nothing can be approved", record.binding_status);
+    }
+    let guardian_pass = guardian_pass()?;
+    let sealed = std::fs::read(&ready.capability_key_path)?;
+    let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, &guardian_pass)
+        .map_err(|error| anyhow!("open capability key: {error}"))?;
+    let capability_seed: [u8; 32] = capability_seed.0.as_slice().try_into().map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability = keypair(&capability_seed)?;
+    let capability_account_id = account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
+    // RECORDING a standing grant is a CONTROL-PLANE act (client_auth gates the method to
+    // WalletAuthRole::ControlPlane, exactly as it gates authority registration and revocation):
+    // it creates standing authority rather than spending it, so the deployment's control root
+    // signs it. The CAPABILITY account remains the grant's audience — the signer that will later
+    // consume each draw — and is checked below.
+    let root_seed = read_seed_hex(&state_dir.join("keys").join("root.seed"))?;
+    let root = keypair(&root_seed)?;
+    let root_account_id = account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
+
+    let grant: StandingApprovalGrant = serde_json::from_str(&read_json_arg(grant_file, "standing approval grant")?)
+        .context("standing approval grant JSON")?;
+    grant.verify().map_err(|error| anyhow!("standing approval grant is structurally invalid: {error}"))?;
+    if hex::encode(grant.authority_id) != record.approver_authority_id
+        || hex::encode(&grant.approver_public_key) != record.approver_public_key
+    {
+        bail!("the standing grant is not signed by the custodied approver ({}); refusing to record a foreign approval", record.approver_authority_id);
+    }
+    if grant.audience != capability_account_id {
+        bail!("the standing grant's audience is not this deployment's capability account {}", hex::encode(capability_account_id));
+    }
+    let envelope_json = read_json_arg(envelope_file, "standing envelope")?;
+    let context_json = read_json_arg(context_file, "approval ceremony context")?;
+    let factor_json = read_json_arg(factor_file, "auth factor receipt")?;
+    let envelope: serde_json::Value = serde_json::from_str(&envelope_json).context("standing envelope JSON")?;
+    let factor: serde_json::Value = serde_json::from_str(&factor_json).context("auth factor receipt JSON")?;
+    if factor.get("factor_kind").and_then(serde_json::Value::as_str) != Some("deployment_local_operator") {
+        bail!("this recorder records the deployment-local operator custody tier only; the factor receipt names another tier");
+    }
+    if envelope.get("body_hash").and_then(serde_json::Value::as_str)
+        != Some(format!("sha256:{}", hex::encode(grant.standing_envelope_hash)).as_str())
+    {
+        bail!("the standing grant does not bind the envelope submitted with it");
+    }
+    let params = RecordStandingApprovalGrantParams {
+        grant: grant.clone(),
+        standing_envelope_json: serde_jcs::to_vec(&envelope)?,
+        approval_ceremony_context_json: serde_jcs::to_vec(&serde_json::from_str::<serde_json::Value>(&context_json).context("approval ceremony context JSON")?)?,
+        auth_factor_receipt_json: serde_jcs::to_vec(&factor)?,
+    };
+    let grant_hash = grant.artifact_hash().map_err(|error| anyhow!("standing grant hash: {error}"))?;
+    let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
+    let nonce = account_nonce(&ready.rpc_addr, &root_account_id).await?;
+    submit(&ready.rpc_addr, &root, ChainId(ready.chain_id), nonce, "record_standing_approval_grant@v1", &params).await?;
+    println!("{}", serde_json::json!({
+        "ok": true,
+        "standing_grant_hash": hex::encode(grant_hash),
+        "standing_envelope_hash": hex::encode(grant.standing_envelope_hash),
+        "custody_tier": "deployment_local_operator",
+        "recorded": "committed",
+        "nonce": nonce,
+    }));
+    Ok(())
+}
+
+async fn revoke_standing_approval(state_dir: &Path, grant_hash: &str) -> Result<()> {
+    let ready = read_ready(state_dir)?;
+    // Revoking a recorded standing grant is a CONTROL-PLANE act (client_auth gates it to the
+    // control-plane role), so it is signed by the deployment's control root, which lives beside
+    // the other keys the operator custodies.
+    let root_seed = read_seed_hex(&state_dir.join("keys").join("root.seed"))?;
+    let root = keypair(&root_seed)?;
+    let root_account_id = account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
+    let decoded = hex::decode(grant_hash.trim()).context("standing grant hash is not hex")?;
+    let grant_hash_bytes: [u8; 32] = decoded.as_slice().try_into().map_err(|_| anyhow!("standing grant hash must be 32 bytes"))?;
+    let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
+    let nonce = account_nonce(&ready.rpc_addr, &root_account_id).await?;
+    submit(&ready.rpc_addr, &root, ChainId(ready.chain_id), nonce, "revoke_standing_approval_grant@v1",
+        &RevokeStandingApprovalGrantParams { grant_hash: grant_hash_bytes }).await?;
+    println!("{}", serde_json::json!({ "ok": true, "standing_grant_hash": grant_hash.trim(), "standing_grant_status": "revoked", "nonce": nonce }));
+    Ok(())
 }
 
 async fn record_approval(state_dir: &Path, grant_file: &str, target_scope: &str, reason: &str) -> Result<()> {

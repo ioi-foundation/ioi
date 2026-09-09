@@ -599,12 +599,23 @@ async function handleImpl(pathname, bodyText) {
           authorityProfile: extractAuthorityProfile(body),
         });
       } catch (error) {
-        if (error?.code && error?.status) {
-          // The daemon refused the composer's authority profile (e.g. an UNBOUNDED connection):
-          // surface the typed refusal, never a run under a profile the daemon did not admit.
-          return { status: error.status, contentType: "application/json", body: JSON.stringify({ error: { code: error.code, message: String(error.message || error), widening_path: error.body?.error?.widening_path || null } }) };
-        }
-        throw error;
+        // Every failure to create a run ANSWERS. A thrown error here used to escape the handler and
+        // drop the socket, which reaches the caller as a transport failure — indistinguishable from
+        // a dead serve, and a client cannot act on it. The daemon's typed refusal (an UNBOUNDED
+        // connection in the composer's authority profile, say) keeps its own status; anything else
+        // is reported as an honest 500 naming what threw.
+        const typed = Boolean(error?.code && error?.status);
+        return {
+          status: typed ? error.status : 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: {
+              code: typed ? error.code : "agent_session_create_failed",
+              message: String(error?.message || error),
+              widening_path: error?.body?.error?.widening_path || null,
+            },
+          }),
+        };
       }
       const { agentExecutionId, environment, userInputBlockId } = started;
       return json({ environment, agentExecutionId, userInputBlockId });

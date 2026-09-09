@@ -206,9 +206,6 @@ export function standingLeaseRecorderMode() {
 // custody refusal, so the attach surface can render the reason and the journey can record it.
 export async function bindStandingLease({ connector, bounds: rawBounds, daemonFetch }) {
   const mode = standingLeaseRecorderMode();
-  if (mode === "deployment") {
-    return { ok: false, status: 501, code: STANDING_LEASE_CUSTODY_TIER_UNRULED, message: "Standing envelopes are recorded on wallet.network only through an interactive step-up ceremony with a passkey factor receipt; the bounded alpha's deployment-local operator key has no admitted posture for standing authority. An owner ruling on the alpha's custody tier for standing envelopes is pending; nothing was fabricated." };
-  }
   if (mode === "none") {
     return { ok: false, status: 501, code: "standing_lease_recorder_not_configured", message: "no authority node is configured to record a standing grant; an unrecorded grant can never be drawn" };
   }
@@ -219,13 +216,14 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
   const account = await daemonFetch("/v1/hypervisor/authority/capability-account").then((r) => r.json()).catch(() => null);
   const audience = account?.audience;
   if (!/^[0-9a-f]{64}$/u.test(String(audience || ""))) return { ok: false, status: 502, code: "capability_audience_unavailable", message: "the daemon did not report its wallet capability account; a grant without the audience can never be consumed" };
-  const { sealSessionStandingEnvelope, syntheticStandingCeremony, randomHex32 } = await import("./standing-authority-evidence.mjs");
+  const { sealSessionStandingEnvelope, syntheticStandingCeremony, deploymentLocalOperatorCeremony, randomHex32 } = await import("./standing-authority-evidence.mjs");
   const { mintStandingApprovalGrant } = await import("../../../../scripts/lib/mint-standing-approval-grant.mjs");
   const { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, rmSync } = await import("node:fs");
   const { randomUUID } = await import("node:crypto");
   const path = await import("node:path");
   const commandsDir = process.env[FIXTURE_COMMANDS_DIR];
   const fixtureCommand = async (payload) => {
+    if (!commandsDir) throw new Error("no fixture command directory is configured");
     const dir = path.join(commandsDir, randomUUID());
     mkdirSync(dir, { mode: 0o700 });
     writeFileSync(path.join(dir, "request.json.tmp"), JSON.stringify(payload), { mode: 0o600 });
@@ -239,8 +237,7 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
   };
   // The envelope's and ceremony's windows are judged against the authority node's committed
   // chain clock, so the attach pass reads that clock rather than assuming the host's.
-  const clock = await fixtureCommand({ schema_version: 1, operation: "read_chain_timestamp", principal_ref: "fixture://wallet-network/chain-clock" });
-  const nowMs = Number.isSafeInteger(clock?.chain_timestamp_ms) && clock.chain_timestamp_ms > 0 ? clock.chain_timestamp_ms : Date.now();
+  const nowMs = await standingLeaseChainClockMs(mode, fixtureCommand);
   const marker = randomHex32().slice(0, 16);
   const policyHash = `sha256:${randomHex32()}`;
   const reviewReceiptHash = `sha256:${randomHex32()}`;
@@ -256,17 +253,84 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
     trajectory_policy_ref: "policy://hypervisor/session-standing-envelope/trajectory/v1", trajectory_policy_hash: policyHash,
     approval_mode: "standing_envelope", recovery_posture: "recovery_never_widens_or_resets_drawdown",
   });
-  const ceremony = syntheticStandingCeremony({ principalRef, envelope, policyHash, reviewReceiptHash, validationProfileRef: SESSION_ENVELOPE_CONTRACT, nowMs, marker });
+  // R-14: in deployment mode the ceremony is the operator's own act with the key they custody on
+  // this host; in fixture mode it is the labelled synthetic contract ceremony.
+  const ceremony = mode === "deployment"
+    ? deploymentLocalOperatorCeremony({
+      principalRef,
+      hostRef: process.env.IOI_HYPERVISOR_AUTHORITY_HOST_REF || `deployment-host://${principalRef.replace(/^[a-z]+:\/\//u, "")}`,
+      keyPath: process.env[LOCAL_APPROVER_KEY_PATH],
+      envelope, policyHash, reviewReceiptHash, validationProfileRef: SESSION_ENVELOPE_CONTRACT, nowMs, marker,
+    })
+    : syntheticStandingCeremony({ principalRef, envelope, policyHash, reviewReceiptHash, validationProfileRef: SESSION_ENVELOPE_CONTRACT, nowMs, marker });
   const seed = await readLocalApproverSeedHex();
   const grant = mintStandingApprovalGrant({ seed, standingEnvelopeHash: envelope.body_hash, policyHash, audience, nonce: randomHex32(), counter: 1, issuedAtMs: nowMs, expiresAtMs: envelope.expires_at_ms, maxUsages: bounds.maxUsages, maxCumulativeDepositMicrousd: bounds.budgetMicro, maxCumulativeSpendMicrousd: bounds.budgetMicro, reviewReceiptHash, approvalCeremonyContextHash: ceremony.contextHash, authFactorReceiptHash: ceremony.factor.receipt_hash });
-  // Record on the fixture authority node through its command directory (the same protocol the
-  // exact-approval act uses), then bind on the daemon.
-  const response = await fixtureCommand({ schema_version: 1, operation: "record_standing_approval_grant", principal_ref: principalRef, standing_approval_grant: grant, standing_authority_envelope: envelope, approval_ceremony_context: ceremony.context, auth_factor_receipt: ceremony.factor });
+  // Record on the deployment's authority node — through its control binary in deployment mode
+  // (the same protocol the exact-approval act uses), through the fixture's command directory in
+  // qualification mode — then bind on the daemon.
+  const response = mode === "deployment"
+    ? await recordStandingOnDeploymentNode({ grant, envelope, ceremony })
+    : await fixtureCommand({ schema_version: 1, operation: "record_standing_approval_grant", principal_ref: principalRef, standing_approval_grant: grant, standing_authority_envelope: envelope, approval_ceremony_context: ceremony.context, auth_factor_receipt: ceremony.factor });
   if (!response.ok) return { ok: false, status: 502, code: "standing_grant_record_refused", message: `the authority node refused to record the standing grant: ${response.error || JSON.stringify(response).slice(0, 300)}` };
   const bind = await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/standing-lease`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant, envelope }) });
   const bound = await bind.json().catch(() => ({}));
   if (bind.status !== 200 || !bound.ok) return { ok: false, status: bind.status, code: bound.error?.code || "standing_lease_bind_refused", message: bound.error?.message || "the daemon refused to bind the standing lease" };
   return { ok: true, recorder: "fixture", factor_origin: ceremony.factor_origin, standing_grant_hash: response.standing_grant_hash || null, standing_lease: bound.standing_lease };
+}
+
+/// The chain clock the envelope's and ceremony's validity windows are judged against: the
+/// authority node's own committed clock, never the host's assumption.
+async function standingLeaseChainClockMs(mode, fixtureCommand) {
+  if (mode === "deployment") {
+    const status = await deploymentAuthorityAct(["chain-timestamp"]);
+    const parsed = Number(status?.chain_timestamp_ms);
+    if (Number.isSafeInteger(parsed) && parsed > 0) return parsed;
+    return Date.now();
+  }
+  const clock = await fixtureCommand({ schema_version: 1, operation: "read_chain_timestamp", principal_ref: "fixture://wallet-network/chain-clock" });
+  return Number.isSafeInteger(clock?.chain_timestamp_ms) && clock.chain_timestamp_ms > 0 ? clock.chain_timestamp_ms : Date.now();
+}
+
+/// Run one act against the deployment-local authority node's control binary and parse its
+/// single-line JSON result. The guardian passphrase is read from the node's own key directory
+/// exactly as the exact-approval recorder does.
+async function deploymentAuthorityAct(args, files = {}) {
+  const { spawnSync } = await import("node:child_process");
+  const { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const path = await import("node:path");
+  const os = await import("node:os");
+  const stateDir = process.env[LOCAL_AUTHORITY_STATE_DIR];
+  if (!stateDir) throw new Error("no deployment authority node is configured");
+  const binary = process.env.IOI_WALLET_AUTHORITY_BINARY || path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../../../target/debug/wallet-network-local-authority");
+  if (!existsSync(binary)) throw new Error(`authority control binary is absent at ${binary}`);
+  const passFile = path.join(stateDir, "keys", "guardian.pass");
+  const env = { ...process.env, ...(process.env.IOI_GUARDIAN_KEY_PASS ? {} : existsSync(passFile) ? { IOI_GUARDIAN_KEY_PASS: readFileSync(passFile, "utf8").trim() } : {}) };
+  const tmp = mkdtempSync(path.join(os.tmpdir(), "ioi-standing-act-"));
+  try {
+    const fileArgs = [];
+    for (const [flag, value] of Object.entries(files)) {
+      const file = path.join(tmp, `${flag}.json`);
+      writeFileSync(file, JSON.stringify(value), { mode: 0o600 });
+      fileArgs.push(`--${flag}`, file);
+    }
+    const result = spawnSync(binary, [...args, "--state-dir", stateDir, ...fileArgs], { encoding: "utf8", env });
+    const line = (result.stdout || "").trim().split("\n").reverse().find((l) => l.startsWith("{"));
+    if (result.status !== 0) {
+      return { ok: false, error: `${args[0]} failed: ${(`${result.stdout || ""}\n${result.stderr || ""}`).trim().slice(-1200)}` };
+    }
+    return line ? JSON.parse(line) : { ok: true };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+async function recordStandingOnDeploymentNode({ grant, envelope, ceremony }) {
+  return deploymentAuthorityAct(["record-standing-approval"], {
+    "grant-file": grant,
+    "envelope-file": envelope,
+    "context-file": ceremony.context,
+    "factor-file": ceremony.factor,
+  });
 }
 
 export async function revokeStandingLease({ connectorId, daemonFetch }) {

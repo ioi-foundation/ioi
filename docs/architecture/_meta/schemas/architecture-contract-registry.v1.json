@@ -3239,7 +3239,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v2",
         "compatibility": "initial",
         "migration_policy": "explicit_adapter_required",
         "predecessor_remains_valid": false,
@@ -3267,6 +3267,49 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v2",
+      "canonical_name": "HypervisorAuthFactorReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#approvalceremonycontextenvelope",
+      "schema_version": "ioi.hypervisor.auth-factor-receipt.v2",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+        "successor_contract_id": null,
+        "compatibility": "widening",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "auth-factor-receipt.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorAuthFactorReceiptV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorAuthFactorReceiptV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/auth-factor-receipt-v2/positive-deployment-local-operator.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/auth-factor-receipt-v2/negative-tier-evidence-mismatch.json",
           "expected_failure": "schema"
         }
       ]

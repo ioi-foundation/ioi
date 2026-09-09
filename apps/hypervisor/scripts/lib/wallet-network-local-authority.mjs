@@ -157,6 +157,11 @@ export async function startLocalAuthority({
     // The approval act records the grant on THIS node through the control binary.
     IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR: stateDir,
     IOI_WALLET_AUTHORITY_BINARY: bin,
+    // The attach-time standing envelope (M13.3) names the deployment principal in its envelope and
+    // ceremony, so the serve needs the same principal ref the daemon resolves authority for; and
+    // the deployment-local operator custody tier (R-14) attests the host the approver key sits on.
+    IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: ready.principal_ref,
+    IOI_HYPERVISOR_AUTHORITY_HOST_REF: `deployment-host://${String(ready.principal_ref).replace(/^[a-z]+:\/\//u, "")}`,
   };
   const envText = (obj) => `${Object.entries(obj).map(([k, v]) => `${k}=${v}`).join("\n")}\n`;
   writeSecretFile(path.join(stateDir, "daemon.env"), envText(daemonEnv));

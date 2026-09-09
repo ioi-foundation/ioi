@@ -191,6 +191,7 @@ let SERVE = "";
 let COOKIE = "";
 let daemonLog = "";
 let serveLog = "";
+let serveStopping = false;
 let daemonEnv = {};
 
 async function startDaemon() {
@@ -208,9 +209,18 @@ async function stopDaemon(signal = "SIGKILL") {
 }
 let serveEnv = {};
 async function startServe() {
+  serveStopping = false;
   serve = spawn(process.execPath, [serveScript], { cwd: NO_CHECKOUT ? pkg.current : ROOT, env: serveEnv, stdio: ["ignore", "pipe", "pipe"] });
   serve.stdout.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-40_000); });
   serve.stderr.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-40_000); });
+  // A serve that DIES mid-journey turns every later request into a transport failure, which reads
+  // downstream as "no run" and hides the actual cause. Record the exit and the log tail the moment
+  // it happens, so the assertion that trips can name a dead serve instead of an undefined.
+  serve.once("exit", (code, signal) => {
+    if (!serveStopping) {
+      evidence.serve_died = { code, signal, at: new Date().toISOString(), log_tail: serveLog.slice(-4_000) };
+    }
+  });
   try {
     await waitFor(`${SERVE}/__ioi/login`, 90_000);
   } catch (error) {
@@ -220,14 +230,22 @@ async function startServe() {
 }
 async function stopServe() {
   if (!serve) return;
+  serveStopping = true;
   const exited = new Promise((resolve) => serve.once("exit", resolve));
   serve.kill("SIGTERM");
   await Promise.race([exited, sleep(5_000)]);
   serve = null;
 }
 
-const jd = (base, p, init = {}, withCookie = true) => fetch(`${base}${p}`, {
+// The composer's submit blocks until a real environment exists and has started, which on a loaded
+// host outruns the HTTP client's SILENT default transport budget (~300 s in undici) — the request
+// then throws and the journey reads it as "no run", which is a client budget masquerading as a
+// product failure. The budget is therefore explicit and generous; a real refusal still arrives as
+// a status, and only a genuinely unanswered request trips it.
+const CLIENT_TRANSPORT_BUDGET_MS = Number(process.env.IOI_ALPHA_JOURNEY_CLIENT_TIMEOUT_MS || 900_000);
+const jdOnce = (base, p, init = {}, withCookie = true) => fetch(`${base}${p}`, {
   ...init,
+  signal: init.signal ?? AbortSignal.timeout(CLIENT_TRANSPORT_BUDGET_MS),
   redirect: "manual",
   headers: {
     ...(init.body && !init.headers?.["content-type"] ? { "content-type": "application/json" } : {}),
@@ -240,6 +258,18 @@ const jd = (base, p, init = {}, withCookie = true) => fetch(`${base}${p}`, {
   try { body = text ? JSON.parse(text) : {}; } catch { body = { _raw: text }; }
   return { status: r.status, body, text, headers: r.headers };
 }).catch((e) => ({ status: 0, body: {}, text: "", headers: new Headers(), error: String(e?.message || e) }));
+
+// A TRANSPORT failure is not an answer. After a long gap (a real model run takes minutes) the
+// client's pooled keep-alive socket can be closed by the server while the pool still believes it
+// is live, and the next request fails as a socket hang-up — which downstream reads as "the serve
+// returned no run". One retry on a fresh connection distinguishes a dead socket from a dead
+// server: a genuine refusal still arrives as a status and is never retried.
+const jd = async (base, p, init = {}, withCookie = true) => {
+  const first = await jdOnce(base, p, init, withCookie);
+  if (first.status !== 0) return first;
+  const retried = await jdOnce(base, p, { ...init, headers: { ...(init.headers || {}), connection: "close" } }, withCookie);
+  return retried.status === 0 ? { ...retried, error: `${first.error} (retried on a fresh connection: ${retried.error})` } : retried;
+};
 
 const readReceipts = (predicate) => {
   const found = [];
@@ -288,7 +318,11 @@ async function run() {
         Object.assign(process.env, { PATH: cargoFreePath(process.env.PATH), CARGO: "/nonexistent/cargo", CARGO_HOME: "/nonexistent/cargo-home", RUSTUP_HOME: "/nonexistent/rustup", IOI_NODE_BINARY_DIR: packageEnv.IOI_NODE_BINARY_DIR });
         ({ startLocalAuthority: launch } = await import(path.join(pkg.current, "apps", "hypervisor", "scripts", "lib", "wallet-network-local-authority.mjs")));
       }
-      authorityNode = await launch({ stateDir, principalRef: DEPLOYMENT_NODE_PRINCIPAL_REF, binary: packageEnv.IOI_WALLET_AUTHORITY_BINARY || undefined, log: () => {} });
+      // WALL CLOCK: an attach-time standing envelope promises real time ("expires in 2 hours"),
+      // and the daemon checks that promise against the host clock at every bind and draw. A
+      // deployment that mints standing envelopes therefore runs its authority node on the wall
+      // clock; the deterministic clock is for lanes that make no real-time promise.
+      authorityNode = await launch({ stateDir, principalRef: DEPLOYMENT_NODE_PRINCIPAL_REF, binary: packageEnv.IOI_WALLET_AUTHORITY_BINARY || undefined, wallClock: true, log: () => {} });
     } catch (error) {
       console.error(`BLOCKED: the deployment-local authority node did not come up — ${error?.message ?? error}`);
       cleanup();
@@ -440,9 +474,13 @@ async function run() {
   const envelopeA = await jd(SERVE, `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`, { method: "POST", body: JSON.stringify({ max_usages: 1, budget_usd: 0.01, expires_hours: 2 }) });
   const STANDING = envelopeA.status === 200 && envelopeA.body?.ok === true && envelopeA.body?.standing_lease?.status === "active";
   if (AUTHORITY_MODE === "deployment") {
-    ok("5c-envelope", "DEPLOYMENT MODE: setting a standing envelope at attach refuses TYPED (standing_lease_custody_tier_unruled) — the deployment-local operator key has no admitted passkey posture for standing authority; nothing was fabricated to make it pass", envelopeA.status === 501 && envelopeA.body?.code === "standing_lease_custody_tier_unruled", `${envelopeA.status}/${envelopeA.body?.code}`);
-    record("5c-envelope", "standing envelope minted at attach; silent run to done; over-envelope run fails closed; revocation refuses", "NOT QUALIFIED in deployment mode — awaits the owner's custody-tier ruling for standing envelopes (auth-factor receipt contract is passkey-only); qualified in fixture authority mode");
-    evidence.standing_lease = { mode: "deployment", status: "blocked_typed", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null };
+    // R-14 (ruled 2026-09-09): the deployment-local operator key is a RECOGNIZED custody tier for
+    // recording a standing grant. The ceremony is the operator's own act with the key they custody
+    // on this host; the v2 auth-factor receipt attests that custody (host, key-path hash, mode
+    // 0600, the moment they acknowledged it) and never a person, and the wallet re-validates the
+    // whole tuple. Before the ruling this step refused typed; it is now qualified here.
+    ok("5c-envelope", "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage · $0.01 · 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A", STANDING && envelopeA.body?.standing_lease?.bounds?.max_usages === 1 && envelopeA.body?.factor_origin === "deployment_local_operator_key_custody" && String(envelopeA.body?.standing_grant_hash || "").length === 64, `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${envelopeA.body?.message ? String(envelopeA.body.message).slice(0, 200) : JSON.stringify(envelopeA.body?.standing_lease?.bounds || null).slice(0, 140)} · factor ${envelopeA.body?.factor_origin || ""}`);
+    evidence.standing_lease = { mode: "deployment", custody_tier: "deployment_local_operator", ruling: "R-14 (2026-09-09, owner-reversible)", status: STANDING ? "bound" : "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, factor_origin: envelopeA.body?.factor_origin || null, bounds: envelopeA.body?.standing_lease?.bounds || null, grant_hash: envelopeA.body?.standing_grant_hash || null };
   } else if (AUTHORITY_PRESENT) {
     ok("5c-envelope", "FIXTURE MODE: the attach pass minted the standing envelope (1 usage · $0.01 · 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record", STANDING && envelopeA.body?.standing_lease?.bounds?.max_usages === 1 && String(envelopeA.body?.standing_grant_hash || "").length === 64, `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${envelopeA.body?.message ? String(envelopeA.body.message).slice(0, 200) : JSON.stringify(envelopeA.body?.standing_lease?.bounds || null).slice(0, 140)} · factor ${envelopeA.body?.factor_origin || ""}`);
     evidence.standing_lease = { mode: "fixture", status: STANDING ? "bound" : "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, factor_origin: envelopeA.body?.factor_origin || null, bounds: envelopeA.body?.standing_lease?.bounds || null, grant_hash: envelopeA.body?.standing_grant_hash || null };
@@ -633,7 +671,7 @@ async function run() {
     ...(PACKAGE_MODE ? ["v2 differs from v1 only by the daemon crate version (same sources); the packaged build is the debug cargo profile", "the authority node is launched from the source checkout (its validator launcher is not relocatable)"] : ["packaged release / signer / supply-chain evidence", "update and rollback of the release"]),
     "workload-bound isolation (host_spawn only)",
     ...(AUTHORITY_MODE === "fixture" ? ["the wallet.network fixture is test material with a public approver seed"] : []),
-    ...(AUTHORITY_MODE === "deployment" ? ["the authority node's chain clock is the deterministic single-node clock (not wall time) unless brought up with --wall-clock", "the authority node is a source build launched in this checkout, not a packaged component"] : [])];
+    ...(AUTHORITY_MODE === "deployment" ? ["the authority node is a source build launched in this checkout, not a packaged component"] : [])];
 
   // ---- 13. App and headless agree ------------------------------------------------------------
   const headless = await jd(DAEMON, "/v1/hypervisor/sessions");
@@ -647,6 +685,11 @@ async function run() {
 async function driveRun(intent, { approve }) {
   const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify({ initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: "local-workspace-v0" }) });
   const runId = create.body?.agentExecutionId || "";
+  if (!runId) {
+    // A composer submit that returns no run is a FINDING, not a silent undefined downstream: carry
+    // what the serve actually answered so the assertion consuming this can report a cause.
+    return { runId: "", sessionRef: "", transcript: null, createFailed: true, createStatus: create.status ?? 0, createBody: `${JSON.stringify(create.body || {}).slice(0, 300)} ${create.error || ""}`.trim() };
+  }
   let transcript = null;
   const parkDeadline = Date.now() + 120_000;
   while (Date.now() < parkDeadline) {
@@ -684,7 +727,7 @@ async function qualifyRotationAndRevocation() {
   evidence.deployment_authority.rotation = { binding_ref: after.binding_ref, version: after.binding_version, retired_key: path.relative(stateDir, retiredPath) };
   const second = await driveRun("Create a file named ROTATED.md whose first line is exactly: approved under the rotated key", { approve: true });
   const secondReceipts = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === second.sessionRef);
-  ok("2c-rotation", "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts", second.approveResult?.status === 202 && second.transcript?.status === "done" && (second.transcript?.changed_files || []).length > 0 && secondReceipts.length >= 1, `${second.approveResult?.status} · ${second.transcript?.status} · ${JSON.stringify(second.transcript?.changed_files || []).slice(0, 120)} · ${second.transcript?.error || ""}`);
+  ok("2c-rotation", "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts", second.approveResult?.status === 202 && second.transcript?.status === "done" && (second.transcript?.changed_files || []).length > 0 && secondReceipts.length >= 1, `${second.createFailed ? `composer submit returned NO run: HTTP ${second.createStatus} ${second.createBody} · ` : ""}${second.approveResult?.status} · ${second.transcript?.status} · ${JSON.stringify(second.transcript?.changed_files || []).slice(0, 120)} · ${second.transcript?.error || ""}`);
   evidence.deployment_authority.rotated_run = { run_id: second.runId, session_ref: second.sessionRef, status: second.transcript?.status };
 
   const revoked = authorityAct("revoke", { stateDir, reason: "alpha journey: operator revoked the deployment approver" });

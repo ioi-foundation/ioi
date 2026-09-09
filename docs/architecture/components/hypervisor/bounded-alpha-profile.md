@@ -206,17 +206,17 @@ signer's public key on every installing host.
   The cargo test fixture (public `07…` seed) is no longer used for
   qualification of steps 2b, 6 and 7; fixture mode remains available to the
   journey for comparison only.
-- No claim that the alpha's deployment-local operator can mint a **standing
-  envelope** (2026-09-08, the M13.3/M13.5 consumer loop). wallet.network records
-  a standing grant only through an interactive step-up ceremony whose
-  auth-factor receipt is passkey-only, and the alpha's approver key has no
-  admitted posture for standing authority; the attach flow refuses typed
-  (`standing_lease_custody_tier_unruled`) in deployment mode. The loop itself
-  (attach-time envelope, silent draw-down, exact-effect review, typed refusal,
-  revocation) is qualified on the direct daemon path and in the journey's
-  **fixture** authority mode with the synthetic contract ceremony the
-  broker-contract verifier uses, labelled as such. Ruling the alpha's custody
-  tier for standing authority is the owner's (private register R-14).
+- The alpha's deployment-local operator **can** mint a standing envelope, under
+  the recognized `deployment_local_operator` custody tier (ADR 0052 § 7, ruled
+  2026-09-09, owner-reversible). The ceremony is the operator's own act with the
+  key they custody on the host; the registered `auth-factor-receipt/v2` receipt
+  attests that custody — host, key-path hash, mode 0600, the moment of
+  acknowledgement — and never a person, and recording is a control-plane act
+  signed by the deployment's control root. **No claim of a passkey**: this tier
+  is a floor, and a deployment that enrols a passkey keeps the stronger one.
+  **No claim on a deterministic clock**: a deployment that mints standing
+  envelopes runs its authority node on the wall clock, because an envelope's
+  expiry is a real-time promise the daemon checks at every bind and draw.
 - No claim of general availability: `production_candidate` names a bounded
   alpha whose every unqualified row in the tables above stays unqualified.
 - No claim of an end-to-end standalone product pass; that remains the
