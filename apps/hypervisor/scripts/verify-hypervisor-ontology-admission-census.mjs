@@ -463,11 +463,15 @@ const PINNED = {
   // compile-time assembly, 40 opaque initialisers, 60 foreign-qualified names, two bare-undeclared names, and six non-ODK literal plus five
   // runtime-parameter writer calls. The ODK family-resolving population (281), the family mention
   // count (285), the ODK family writer bucket (57) and the raw filesystem call count (234) are
-  // unchanged: no new ontology admitter, no new owner spine. The lifecycle_routes growth writes
+  // unchanged: no new ontology admitter, no new owner spine.
+  // Moved again the same day (4780250c8's own change): `governance_ownership_consistent` and its
+  // unit test in system_policy_routes.rs add 47 source tokens and nothing else — no family
+  // mention, no writer call, no resolution-bucket movement. Re-pinned because a pin that lags
+  // the commit it ships in is a pin that certifies the previous tree. The lifecycle_routes growth writes
   // connector records and session receipts through the existing record writers only.
   modules: 114,
   familyMentions: 285,
-  tokenMentions: 146252,
+  tokenMentions: 146299,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 307 },
   productionFsCalls: 234,
