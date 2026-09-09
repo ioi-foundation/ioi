@@ -1,0 +1,52 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-15-consumer-afternoon-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-15"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-15 consumer-afternoon journey over the existing done-bars of the planes it crosses, on one basis, and say out loud which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-consumer-afternoon -- --with-alpha-journey runs check:session-truth-rebind, check-landing-designations --exit-gate, check:standing-consumer-loop, check:session-authority-profile, check:named-gap-truth and check:alpha-journey (fixture authority mode) sequentially in one process, clears the shared-daemon/replay redirection for every child except the alpha journey's own wallet fixture, re-reads the git basis after every clause, and reports PARTIAL \u2014 never PASS \u2014 while any clause is a typed absence; a planted red clause fails the journey.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/connectors-tools/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-consumer-afternoon.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-consumer-afternoon\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-standing-consumer-loop.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/acc15-composed-journey-2026-09-09.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "npm run mutate:acceptance-consumer-afternoon plants a red clause and requires the composed verdict to fail; the runner's own first run caught two real defects \u2014 a self-referential N4 assertion in the runner and two drifted coverage pins in check:named-gap-truth (806\u2192856 routes, 77\u2192106 absence labels) \u2014 before any clause could read green.",
+  "remaining_nonclaims": [
+    "PARTIAL, not a pass: five clauses are typed absences \u2014 clause 1's timing and kernel-vocabulary scan (M13.1), clause 6's one-step retrieval (M13.4/M06.1), clause 7's browser head (M13.6, unbuilt), N2's vocabulary scan (M13.4) and N3's check:worker-secret-non-possession (M03.13, named by M03's acceptance and absent).",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "Memory provenance (M13.7) is outside ACC-15's clause list and is not claimed here."
+  ],
+  "source_provenance": "Authored 2026-09-09 by standing-lease program 2, leg 2; recorded in canon-to-code-delta.md \u00a7 Journey verification XXIII.",
+  "last_status_transaction": "2026-09-09"
+}

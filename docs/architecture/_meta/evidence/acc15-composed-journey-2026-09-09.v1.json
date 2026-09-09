@@ -1,0 +1,149 @@
+{
+  "evidence_format": "ioi.acceptance_journey_run.v1",
+  "gate": "ACC-15",
+  "basis": {
+    "head": "d06a4625e",
+    "dirty": true
+  },
+  "verdict": "PARTIAL",
+  "executed_checks": 8,
+  "typed_absences": 5,
+  "alpha_journey": "executed in this run (fixture authority mode)",
+  "fixtures": "disabled for every clause except the alpha journey's own wallet fixture, which IS that lane's authority node and is labelled",
+  "recorded_at": "2026-09-09T19:37:36.124Z",
+  "results": [
+    {
+      "id": "1",
+      "kind": "cited",
+      "ok": true,
+      "label": "CITED, not executed: the alpha journey's first-run bootstrap → project → bounded connection → session (steps 2a, 4, 5b, 5c)",
+      "detail": "docs/architecture/_meta/evidence/m13-alpha-journey-fixture-standing-2026-09-08.v1.json"
+    },
+    {
+      "id": "1",
+      "kind": "absence",
+      "ok": false,
+      "label": "TYPED ABSENCE — Two minutes, zero vocabulary: a fresh principal reaches a running session with one scoped connection attached without meeting a kernel noun",
+      "detail": "no verifier TIMES the fresh-principal path, and none scans the consumer path for kernel vocabulary · owner: M13.1 (the declaration exists; its claim-specific gate does not)"
+    },
+    {
+      "id": "2",
+      "kind": "check",
+      "ok": true,
+      "label": "check:session-truth-rebind (@ioi/hypervisor-app)",
+      "detail": "exit 0 · 11/11 passed · 6s"
+    },
+    {
+      "id": "2",
+      "kind": "check",
+      "ok": true,
+      "label": "node apps/hypervisor/scripts/check-landing-designations.mjs --exit-gate",
+      "detail": "exit 0 · 10/10 passed · targets: 38 (NOW=29 · GRE=8 · TERMINAL=1) · 0s"
+    },
+    {
+      "id": "3",
+      "kind": "composed",
+      "ok": true,
+      "label": "The view renders daemon truth: request, activity, artifacts and the proof band reproduce from the daemon's own records",
+      "detail": "proven inside the clause 2 done-bar already executed above"
+    },
+    {
+      "id": "4",
+      "kind": "check",
+      "ok": true,
+      "label": "check:standing-consumer-loop (@ioi/hypervisor-app)",
+      "detail": "exit 0 · PASS check:standing-consumer-loop — 24/24 assertions · factor_origin synthetic_contract_fixture_not_physical_passkey · 740s"
+    },
+    {
+      "id": "5",
+      "kind": "composed",
+      "ok": true,
+      "label": "Out of bounds refuses, typed: the daemon names the bound, the surface routes widening to Connections, and the same probe via direct daemon invoke refuses identically",
+      "detail": "proven inside the clause 4 done-bar already executed above"
+    },
+    {
+      "id": "6",
+      "kind": "composed",
+      "ok": true,
+      "label": "Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
+      "detail": "proven inside the clause 2 done-bar already executed above"
+    },
+    {
+      "id": "6",
+      "kind": "absence",
+      "ok": false,
+      "label": "TYPED ABSENCE — Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
+      "detail": "the ONE-STEP answer is not itself asserted: the proof band and the draw/refusal receipts are proven, the single-step retrieval path is not · owner: M13.4 (surface) with M06.1 (receipts)"
+    },
+    {
+      "id": "7",
+      "kind": "absence",
+      "ok": false,
+      "label": "TYPED ABSENCE — Watching is a projection, touching is a crossing: the browser watch pane replays the receipted session and a take-over produces the same admission and receipts",
+      "detail": "the browser head is UNBUILT — no watch pane, no take-over crossing, no verifier · owner: M13.6"
+    },
+    {
+      "id": "8",
+      "kind": "composed",
+      "ok": true,
+      "label": "Leaving is real: revoking the connection ends the authority, the next session naming it refuses at create or first draw, and the revocation is receipted",
+      "detail": "proven inside the clause 4 done-bar already executed above"
+    },
+    {
+      "id": "N1",
+      "kind": "composed",
+      "ok": true,
+      "label": "No in-run approval prompt appears for an in-envelope silent_within_policy action, and conversely an exact-effect review required by current policy cannot be suppressed by the standing envelope or device posture",
+      "detail": "proven inside the clause 4 done-bar already executed above"
+    },
+    {
+      "id": "N2",
+      "kind": "absence",
+      "ok": false,
+      "label": "TYPED ABSENCE — No governance vocabulary appears on the consumer path, and no daemon object is renamed to achieve that",
+      "detail": "no verifier scans the consumer path's rendered text against the kernel vocabulary · owner: M13.4"
+    },
+    {
+      "id": "N3",
+      "kind": "absence",
+      "ok": false,
+      "label": "TYPED ABSENCE — No credential is present in the session's environment at any point a probe can observe (non-possession holds even mid-run)",
+      "detail": "check:worker-secret-non-possession is named by M03's acceptance and DOES NOT EXIST · owner: M03.13"
+    },
+    {
+      "id": "N4",
+      "kind": "check",
+      "ok": true,
+      "label": "No pixel similarity to the reference seed is cited as evidence for any clause",
+      "detail": "7 executed/cited evidence entries, none pictorial"
+    },
+    {
+      "id": "E",
+      "kind": "check",
+      "ok": true,
+      "label": "check:session-authority-profile (@ioi/hypervisor-app)",
+      "detail": "exit 0 · 22/22 passed · 8s"
+    },
+    {
+      "id": "E",
+      "kind": "check",
+      "ok": true,
+      "label": "check:named-gap-truth (@ioi/hypervisor-app)",
+      "detail": "exit 0 · 3/3 mutations RED-ON-TARGET; temporary tree restored · 1s"
+    },
+    {
+      "id": "A",
+      "kind": "check",
+      "ok": true,
+      "label": "check:alpha-journey (@ioi/hypervisor-app)",
+      "detail": "exit 0 · 33/33 passed · 564s"
+    },
+    {
+      "id": "basis",
+      "kind": "check",
+      "ok": true,
+      "label": "the journey ran on one basis",
+      "detail": "d06a4625e dirty → d06a4625e dirty"
+    }
+  ]
+}

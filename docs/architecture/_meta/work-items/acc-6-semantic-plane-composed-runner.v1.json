@@ -5,7 +5,7 @@
   "required_work": [
     "ACC-6"
   ],
-  "status": "evidence_ready",
+  "status": "verified",
   "objective": "Compose the ACC-6 semantic-plane journey (M05 ontology, M03 authority, M01 daemon effect boundary) into one runnable check over the existing unit done-bars, on one basis, against each done-bar's own real daemon with fixtures disabled.",
   "falsifiable_claim": "npm run check:acceptance-semantic-plane runs every ACC-6 positive clause's done-bar and the minutes-scale negative-clause battery sequentially in one process, re-reads the git basis after every clause, clears every shared-daemon/replay redirection variable for every child, and reports PASS only when every clause (including every negative clause's executed mutation battery) is green; without `-- --mutation-batteries` it reports PARTIAL at best, never PASS.",
   "canon_owners": [
@@ -36,15 +36,16 @@
     }
   ],
   "evidence_refs": [
+    "docs/architecture/_meta/evidence/acc6-composed-journey-full-depth-2026-09-09.v1.json",
     "docs/architecture/_meta/evidence/acc6-composed-journey-2026-09-08.v1.json",
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
   "pr": null,
-  "adversarial_or_fault_proof": "npm run mutate:acceptance-semantic-plane plants a red clause and asserts the composed verdict fails; the run of 2026-09-08 itself went red on two real findings (check:env-lease-authority R1_DERIVED_CLOSED_WORLD and check:ontology-admission-census 23/27) that the per-unit accounting had been citing as real without re-running.",
+  "adversarial_or_fault_proof": "npm run mutate:acceptance-semantic-plane proves a planted red clause fails the journey; the full-depth run executes every negative clause's planted mutation battery and requires each red-on-target: semantic-mapping 27/27, admission-census 41 anchors, data-recipe 23/23, version-lifecycle 10/10, provenance-assertion 21/21, action-contract 22/22, invariant-11 23/23. The runner's earlier runs caught two censuses the release accounting had been citing as real without re-running, and then caught leg 1's own stale census pin on the committed tree.",
   "remaining_nonclaims": [
-    "The composed journey is RED on e8bc1d809: clause 5 (check:env-lease-authority 18/19, R1_DERIVED_CLOSED_WORLD) and negative clause N2 (check:ontology-admission-census 23/27 and its mutation drill) fail; the six multi-hour M05 batteries were not executed on this basis. ACC-6 is therefore not proven; the runner is the instrument, not the proof.",
-    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage."
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "Without --mutation-batteries the runner reports PARTIAL: the negative clauses are unproven in that lane by construction."
   ],
   "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1; recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
-  "last_status_transaction": "2026-09-08"
+  "last_status_transaction": "2026-09-09"
 }

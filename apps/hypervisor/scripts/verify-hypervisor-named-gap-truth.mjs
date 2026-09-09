@@ -132,7 +132,13 @@ const FIELD_SEMANTICS = {
  * everything" that survives an edit.
  */
 const PINNED = {
-  registeredRoutes: 806,
+  // 806 -> 856 (2026-09-09, basis d06a4625e): fifty routes were registered between 2026-08-20 and
+  // today and the pin never moved, so this gate's COVERAGE claim had been stale for three weeks
+  // while its substantive claims (92/92 missing-authority contracts declared, the explicit
+  // denials, the atlas mentions) kept passing. Re-derived here, not adjusted to fit: the gate's
+  // own balanced-paren algorithm now finds 857 `.route(` occurrences, 857 with a path literal and
+  // 856 distinct paths, and `/v1` — the route that serves the derivation — is still among them.
+  registeredRoutes: 856,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
@@ -142,8 +148,13 @@ const PINNED = {
   // world stops being one.
   // 75 -> 77 (2026-08-20): #350's C3 credential-isolation leg added two absence-worded assertions
   // to verify-hypervisor-byo-provider-plane.mjs. Both are honest and neither resolves a probe URL.
-  verifierAbsenceLabels: 77,
-  verifierAbsenceLabelsResolvingAUrl: 15,
+  // 77 -> 106 (2026-09-09, basis d06a4625e): twenty-nine absence-worded assertions were added by
+  // the verifiers written since — the session authority profile, the session truth rebind, the
+  // standing-lease consumer loop and the standing-lease population drills among them — and two of
+  // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
+  // coverage count that lags its population stops being a closed world.
+  verifierAbsenceLabels: 106,
+  verifierAbsenceLabelsResolvingAUrl: 17,
 };
 
 /**
