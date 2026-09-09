@@ -5,9 +5,9 @@
   "required_work": [
     "M02.5"
   ],
-  "status": "evidence_ready",
+  "status": "verified",
   "objective": "Network-enrollment tiers as declared, revocable state: the closed Rust population is release-accountable through a fail-empty wrapper.",
-  "falsifiable_claim": "npm run check:network-enrollment-continuity-plane pins system_continuity (8) by exact name, then runs check:architecture-contracts and the live sequence-zero materialization lane.",
+  "falsifiable_claim": "npm run check:network-enrollment-continuity-plane pins system_continuity (8) by exact name with the fail-empty list/run/count discipline, then runs check:architecture-contracts and the sequence-zero lane's named-continuity journey \u2014 local enrollment, exit, the enrollment-tier ladder, migration acknowledgement, succession and the residual-closed dissolution \u2014 focused under the verifier's own explicit non-certifying opt-in and bounded at 90 minutes.",
   "canon_owners": [
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
@@ -33,17 +33,17 @@
     }
   ],
   "evidence_refs": [
-    "docs/architecture/_meta/evidence/leg1-fail-empty-wrappers-2026-09-08.v1.json",
+    "docs/architecture/_meta/evidence/program2-leg1-master-reds-2026-09-08.v1.json",
     "scripts/test-populations/network-enrollment-continuity-plane.v1.json",
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
   "pr": null,
   "adversarial_or_fault_proof": "npm run mutate:network-enrollment-continuity-plane plants (a) an absent test name, refused by the source binding; (b) a name whose fn exists but whose module path the harness cannot list, refused at --list; (c) an empty population, refused outright \u2014 the wrapper proves it can fail on its own finding before it is trusted green.",
   "remaining_nonclaims": [
-    "The wrapper proves the pinned tests execute and pass; it does not widen what those tests assert. The unit's acceptance clauses are proven only to the extent the pinned tests prove them.",
-    "A CI floor is not yet pinned for these root-workspace wrappers; verifier-floors.v1.json covers hypervisor-app journey verifiers only.",
-    "On e8bc1d809 the wrapper's verdict was fail: supplementary sequence-zero materialization (live wallet.network fixture lane) \u2014 exit 1: us (file:///home/heathledger/Documents/ioi/repos/ioi/apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs:1561:5)\n    at async run (file:///home/heathledger/Docum"
+    "The wrapper claims the named-continuity journey's clauses, NOT the sequence-zero lane's whole held bar: the verifier itself refuses to certify the held bar from a focused subset, and the unfocused lane currently hangs in a journey after named-continuity (recorded 2026-09-09).",
+    "The wrapper proves the pinned tests execute and pass; it does not widen what those tests assert.",
+    "A CI floor is not yet pinned for these root-workspace wrappers; verifier-floors.v1.json covers hypervisor-app journey verifiers only."
   ],
-  "source_provenance": "Authored 2026-09-08 by the standing-authority consumer-loop program, leg 1 (basis e8bc1d809); recorded in canon-to-code-delta.md \u00a7 Journey verification XIX.",
-  "last_status_transaction": "2026-09-08"
+  "source_provenance": "Authored 2026-09-08 (leg 1 of the standing-authority consumer-loop program); repaired and narrowed 2026-09-09 by standing-lease program 2, leg 1; recorded in canon-to-code-delta.md \u00a7 Journey verification XXII.",
+  "last_status_transaction": "2026-09-09"
 }

@@ -91,6 +91,43 @@ pub(crate) fn load_active_system_policies(
     bind_active_system_policies(&admission.record, &system_id, &exact)
 }
 
+/// The active constitution names the CONSTITUTED governance owner; a committed named-continuity
+/// succession transfers governing authority to `resulting_governing_authority_ref` without
+/// amending the constitution (succession is a continuity transition under its own scope, not an
+/// amendment). Ownership is therefore consistent when the constitution and the chain head agree,
+/// OR when the chain head's single owner is exactly the governing authority the committed
+/// lifecycle state carries (the succession wrote both; every later protected transition under the
+/// successor — pause, resume, … — keeps both, while the status moves on from `successor_governed`).
+/// Every other disagreement refuses — a chain head naming an owner the committed state does not
+/// is not governance truth.
+/// (2026-09-08: the 2026-08-25 policy consumer compared the two verbatim and refused every
+/// protected transition after a completed succession; the M1.5d held journey found it.)
+pub(crate) fn governance_ownership_consistent(
+    constitution: &Value,
+    chain_head: &Value,
+    lifecycle_state: &Value,
+) -> Result<(), VErr> {
+    let constituted = constitution.pointer("/governance/governance_owner_refs");
+    let chain_owners = chain_head.get("governance_owner_refs");
+    if constituted == chain_owners {
+        return Ok(());
+    }
+    let single_chain_owner = chain_owners
+        .and_then(Value::as_array)
+        .filter(|owners| owners.len() == 1)
+        .and_then(|owners| owners[0].as_str());
+    let state_owner = lifecycle_state
+        .get("governing_authority_ref")
+        .and_then(Value::as_str);
+    if single_chain_owner.is_some() && single_chain_owner == state_owner {
+        return Ok(());
+    }
+    Err(verr(
+        "system_policy_constitution_refused",
+        "active constitution and chain disagree on governance ownership",
+    ))
+}
+
 /// Bind already-loaded lifecycle truth to its selected immutable policy bodies.
 /// This function performs no discovery, so source loaders may enforce it
 /// without creating a second store or a recursive load path.
@@ -126,16 +163,11 @@ pub(crate) fn bind_active_system_policies(
         CONSTITUTION_CONTRACT,
         system_id,
     )?;
-    if exact
-        .predecessor_constitution
-        .pointer("/governance/governance_owner_refs")
-        != exact.chain_head.get("governance_owner_refs")
-    {
-        return Err(verr(
-            "system_policy_constitution_refused",
-            "active constitution and chain disagree on governance ownership",
-        ));
-    }
+    governance_ownership_consistent(
+        &exact.predecessor_constitution,
+        &exact.chain_head,
+        &exact.previous_step.state,
+    )?;
 
     let bundle = genesis_record
         .get("initial_profile_bundle")
@@ -298,6 +330,55 @@ mod tests {
         assert_eq!(
             require_single_writer_plane(&profile).unwrap_err().0,
             "system_policy_ordering_profile_refused"
+        );
+    }
+
+    #[test]
+    fn a_completed_succession_transfers_governance_without_amending_the_constitution() {
+        let constitution =
+            json!({ "governance": { "governance_owner_refs": ["org://acme/research"] } });
+        let state = json!({ "governing_authority_ref": "org://acme/successor-authority" });
+        // Constituted owner still governing: consistent.
+        assert!(governance_ownership_consistent(
+            &constitution,
+            &json!({ "status": "active", "governance_owner_refs": ["org://acme/research"] }),
+            &json!({ "governing_authority_ref": "org://acme/research" }),
+        )
+        .is_ok());
+        // A committed succession: the chain head's single owner is exactly the lifecycle state's
+        // governing authority — consistent without an amendment, and it stays consistent through
+        // the successor's later protected transitions (pause → status "paused", owners unchanged).
+        for status in ["successor_governed", "paused", "suspended", "active"] {
+            assert!(governance_ownership_consistent(
+                &constitution,
+                &json!({ "status": status, "governance_owner_refs": ["org://acme/successor-authority"] }),
+                &state,
+            )
+            .is_ok(), "{status}");
+        }
+        // Every other disagreement refuses by name: a chain owner the committed state does not
+        // carry, two owners, or a state with no governing authority at all.
+        for chain_head in [
+            json!({ "status": "successor_governed", "governance_owner_refs": ["org://attacker"] }),
+            json!({ "status": "successor_governed", "governance_owner_refs": ["org://acme/successor-authority", "org://attacker"] }),
+        ] {
+            assert_eq!(
+                governance_ownership_consistent(&constitution, &chain_head, &state)
+                    .unwrap_err()
+                    .0,
+                "system_policy_constitution_refused",
+                "{chain_head}"
+            );
+        }
+        assert_eq!(
+            governance_ownership_consistent(
+                &constitution,
+                &json!({ "status": "active", "governance_owner_refs": ["org://acme/successor-authority"] }),
+                &json!({}),
+            )
+            .unwrap_err()
+            .0,
+            "system_policy_constitution_refused"
         );
     }
 

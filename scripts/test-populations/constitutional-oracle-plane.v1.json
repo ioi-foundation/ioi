@@ -12,6 +12,7 @@
       ],
       "source": "crates/node/src/bin/hypervisor_daemon_routes/system_policy_routes.rs",
       "tests": [
+        "system_policy_routes::tests::a_completed_succession_transfers_governance_without_amending_the_constitution",
         "system_policy_routes::tests::non_single_writer_profile_refuses_the_single_writer_plane",
         "system_policy_routes::tests::selected_body_mutation_breaks_its_active_root"
       ]
@@ -45,6 +46,6 @@
       ]
     }
   ],
-  "pinned_on": "2026-09-08",
+  "pinned_on": "2026-09-08 (moved with the succession-governance fix)",
   "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
 }

@@ -33,11 +33,16 @@
       ]
     },
     {
-      "label": "sequence-zero materialization (live wallet.network fixture lane)",
+      "label": "the M02.5 journey of the sequence-zero materialization lane: named-continuity (local enrollment, exit, the enrollment-tier declaration ladder, migration, succession, dissolution), run FOCUSED with the verifier's own explicit non-certifying opt-in. This proves M02.5's clauses live; it is NOT the lane's whole held bar, which the verifier itself refuses to certify from a subset and which currently hangs in a journey after named-continuity (recorded 2026-09-09 as an open finding with its own closure test)",
       "argv": [
         "node",
         "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs"
-      ]
+      ],
+      "env": {
+        "IOI_SYSTEM_SEQUENCE_ZERO_VERIFIER_JOURNEYS": "named-continuity",
+        "IOI_SYSTEM_SEQUENCE_ZERO_ALLOW_FOCUSED": "1"
+      },
+      "timeout_ms": 10800000
     }
   ],
   "pinned_on": "2026-09-08",

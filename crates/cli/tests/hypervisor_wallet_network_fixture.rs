@@ -124,7 +124,13 @@ const PROTECTED_TRANSITION_OPS: [&str; 14] = [
     "revoke",
     "decommission",
 ];
-const NAMED_CONTINUITY_SCOPES: [&str; 10] = [
+// Every governance scope the daemon requires of a SUCCESSOR authority (system_continuity_routes
+// SUCCESSOR_GOVERNANCE_SCOPES) must be in this allowlist, or `complete_succession` refuses the
+// fixture's successor as incomplete. 8c65d5d92 added `network_enrollment_change` to the daemon's
+// list without adding it here, which made the held named-continuity journey crash at succession
+// for two weeks while the orphan verifier that carried it was run by nothing.
+const NAMED_CONTINUITY_SCOPES: [&str; 11] = [
+    "scope:autonomous_system.network_enrollment_change",
     "scope:autonomous_system.continuity.initiate_succession",
     "scope:autonomous_system.continuity.complete_succession",
     "scope:autonomous_system.continuity.migrate",

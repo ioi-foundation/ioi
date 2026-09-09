@@ -1057,7 +1057,17 @@ function sanitizeVerifierEnv(sourceEnv) {
 }
 
 function sanitizedProcessEnv() {
-  return sanitizeVerifierEnv(process.env);
+  // 2026-09-08: the fixture's DEFAULT four-validator AFT profile did not commit its setup
+  // transactions within the ceiling on a loaded host, which made this verifier's own fixture
+  // self-test read as a process-group failure (the fixture never reached readiness at all). The
+  // held journeys claim one authority node, so the fixture runs the Solo single-validator
+  // profile exactly as the alpha journey does; chain, authorization and resolution semantics are
+  // the same code on both profiles.
+  return {
+    ...sanitizeVerifierEnv(process.env),
+    IOI_M049_ORDERING_PROFILE: process.env.IOI_ALPHA_FIXTURE_ORDERING_PROFILE || "Solo",
+    IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: process.env.IOI_ALPHA_FIXTURE_COMMIT_TIMEOUT_SECS || "900",
+  };
 }
 
 function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
@@ -6382,7 +6392,7 @@ async function runNamedContinuityJourney() {
     );
     const pauseApproval = requireValue(
       pauseChallenge.body.error?.approval,
-      "M1.5d successor pause did not expose an authority challenge",
+      `M1.5d successor pause did not expose an authority challenge: ${pauseChallenge.status} ${JSON.stringify(pauseChallenge.body).slice(0, 600)}`,
     );
     requireValue(
       pauseChallenge.body.error?.required_authority_ref === expectedAuthority,

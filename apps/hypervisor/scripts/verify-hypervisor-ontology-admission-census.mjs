@@ -455,11 +455,21 @@ const PINNED = {
   // five foreign-qualified names. The family-resolving population, ODK-family mention count,
   // production writer buckets and raw-filesystem call count remain unchanged, so this is a closed
   // world census movement without a new ontology admitter or owner spine.
-  modules: 112,
+  // Re-derivation 2026-09-08 (basis 1f6c5ac3e, pins last moved at 7c63a63ec): two reachable
+  // modules were added — cloud_job_routes (49eecf0bc, the decentralized-cloud job primitive) and
+  // release_change_plan_routes (f4e3e9907, admitted release change plans) — and the attach-time
+  // standing lease / policy-derived posture (1f6c5ac3e) grew lifecycle_routes. Together: 1,768
+  // source tokens, two `include_str!` reads (one with a non-literal argument), one test-region
+  // compile-time assembly, 40 opaque initialisers, 60 foreign-qualified names, two bare-undeclared names, and six non-ODK literal plus five
+  // runtime-parameter writer calls. The ODK family-resolving population (281), the family mention
+  // count (285), the ODK family writer bucket (57) and the raw filesystem call count (234) are
+  // unchanged: no new ontology admitter, no new owner spine. The lifecycle_routes growth writes
+  // connector records and session receipts through the existing record writers only.
+  modules: 114,
   familyMentions: 285,
-  tokenMentions: 144484,
+  tokenMentions: 146252,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 307 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -478,17 +488,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4457,
-    "opaque-initialiser": 2707,
-    "bare-undeclared": 532,
+    "foreign-qualified": 4517,
+    "opaque-initialiser": 2747,
+    "bare-undeclared": 534,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 91, dataBytes: 0, dataOpaqueArg: 22 },
+  includes: { splicedCode: 0, dataStr: 93, dataBytes: 0, dataOpaqueArg: 23 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 24 },
+  compileAssembly: { production: 0, test: 25 },
 };
 
 /**

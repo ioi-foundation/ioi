@@ -63,11 +63,15 @@ function run(argv, opts = {}) {
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
     env: { ...process.env, CARGO_TERM_COLOR: "never", ...(opts.env ?? {}) },
+    // A supplementary command that HANGS must fail this check, not hang it: an unbounded wait
+    // reads as "still running" forever and is indistinguishable from a pass that never arrives.
+    ...(opts.timeoutMs ? { timeout: opts.timeoutMs, killSignal: "SIGKILL" } : {}),
   });
   return {
     status: child.status,
     stdout: child.stdout ?? "",
     stderr: child.stderr ?? "",
+    timedOut: child.error?.code === "ETIMEDOUT" || (opts.timeoutMs !== undefined && child.signal === "SIGKILL"),
     seconds: Math.round((Date.now() - started) / 1000),
   };
 }
@@ -219,9 +223,13 @@ for (const family of population.families) {
 }
 for (const pin of population.source_pins ?? []) allOk &= checkSourcePin(pin);
 for (const sup of population.supplementary ?? []) {
-  const out = run(sup.argv);
-  let ok = out.status === 0;
-  let detail = ok ? `exit 0 (${out.seconds}s)` : `exit ${out.status}: ${(out.stderr || out.stdout).slice(-400)}`;
+  const out = run(sup.argv, { env: sup.env ?? {}, timeoutMs: sup.timeout_ms });
+  let ok = out.status === 0 && !out.timedOut;
+  let detail = out.timedOut
+    ? `TIMED OUT after ${out.seconds}s (bound ${Math.round((sup.timeout_ms ?? 0) / 1000)}s): ${(out.stdout || out.stderr).slice(-400)}`
+    : ok
+      ? `exit 0 (${out.seconds}s)`
+      : `exit ${out.status}: ${(out.stderr || out.stdout).slice(-400)}`;
   if (ok && typeof sup.min_passed === "number") {
     // A whole-crate regression suite is not name-pinned, but it must not be empty either.
     const passed = [...out.stdout.matchAll(/^test result: ok\. (\d+) passed;/gmu)].reduce((n, m) => n + Number(m[1]), 0);

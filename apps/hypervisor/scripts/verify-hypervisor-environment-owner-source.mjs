@@ -129,11 +129,19 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
-  census.registered_route_handlers === 1097 && census.workspace_route_handlers === 38
-    && census.routes.length === 44 && census.unresolved.length === 0 && census.unclassified.length === 0
+  // Re-pinned 2026-09-08 (basis 1f6c5ac3e) from 1097/44 at 7c63a63ec: eleven registered handlers
+  // were added by 49eecf0bc (decentralized-cloud job primitive: cloud-jobs list/create/get/execute
+  // — execute is a POLICY_CONTEXT read of the environment plane, classified by its own marker),
+  // f4e3e9907 (admitted release change plans: list/admit/get/action), and 1f6c5ac3e (the
+  // attach-time standing lease bind/revoke and the capability-account read). None is a new
+  // owner-authorized environment route or a second create seam; every route resolves and
+  // classifies (unresolved 0, unclassified 0).
+  census.registered_route_handlers === 1108 && census.workspace_route_handlers === 38
+    && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
     && policyContextRoutes.join(",") === [
+      "cloud_job_routes::handle_cloud_job_execute",
       "placement_failover_routes::handle_failover_evaluate",
       "placement_failover_routes::handle_failover_run",
       "provider_routes::handle_provider_op",

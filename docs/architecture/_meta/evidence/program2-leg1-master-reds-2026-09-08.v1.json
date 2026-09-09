@@ -1,0 +1,63 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "standing-lease program 2",
+  "leg": 1,
+  "title": "The reds master inherited, repaired for the right reason",
+  "basis": {
+    "head": "1f6c5ac3e",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-09",
+  "runs": {
+    "check:env-lease-authority": {
+      "verdict": "pass",
+      "assertions": "76/76",
+      "cause": "R1_DERIVED_CLOSED_WORLD pinned 1097 registered handlers / 44 routes at 7c63a63ec; eleven handlers added by 49eecf0bc (cloud jobs; execute is a policy-context read), f4e3e9907 (release change plans) and 1f6c5ac3e (standing lease, capability account). Re-pinned 1108/45 with the additions named; no new owner-authorized environment route, no second create seam, unresolved 0, unclassified 0."
+    },
+    "check:ontology-admission-census": {
+      "verdict": "pass",
+      "assertions": "27/27 passed",
+      "cause": "The token/module/writer/include buckets pinned at 7c63a63ec grew with the same commits: 2 reachable modules, 1,768 tokens, 40 opaque initialisers, 60 foreign-qualified names, 6 literal + 5 runtime-parameter writer calls, 2 include_str reads, 1 test-region assembly, 2 bare-undeclared names. The ODK family-resolving population (281), family mentions (285), family writer bucket (57) and raw filesystem calls (234) did not move: no new admitter, no new owner spine.",
+      "mutation_battery": [
+        "  ok   tree restored \u2014 the gate is green again on the tree this battery was handed",
+        "",
+        "41 anchors RED-ON-TARGET, 4 named residuals still open, 46/46 anchors as recorded"
+      ]
+    },
+    "check:constitutional-oracle-plane (M02.2, re-pinned)": {
+      "verdict": "pass",
+      "note": "The population now pins 3 system_policy tests: the succession-governance rule added by this leg is unit-tested and in the pinned set."
+    },
+    "sequence-zero named-continuity journey (focused, non-certifying)": {
+      "verdict": "pass",
+      "assertions": "38/38",
+      "lines": [
+        "PASS: M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart - cleared=true sequence=19 status=dissolving entries=7",
+        "PASS: M1.5d TERMINAL FLOOR: completion refuses over pending domains and admits only the fully terminal disposition record - pending=422/complete_dissolution is admissible only over a terminal disposition record completed=20/dissolved",
+        "PASS: M1.5d RECEIPT BINDING: the committed completion carries the record's receipt union and mints the dissolution receipt exactly once - union=[\"receipt://acme/dissolution/active_work\",\"receipt://acme/dissolution/authority_revocation\",\"receipt://acme/dissolution/data_export_retention_and_erasure\",\"",
+        "PASS: M1.5d STATUS LADDER: dissolved is reachable only through the full disposition ladder while generic transitions refuse the dissolving System - reserved=422/system_lifecycle_plan_invalid/predecessor status dissolving is outside the generic family ladder=initiate_dissolution,open_dissolution_disp",
+        "PASS: M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain - receipts=15 states=18 dispositions=9",
+        "PASS: TEARDOWN: the nonempty exact verifier-owned resource ledger is fully removed - owned=2 removed=2 process_groups=3 descendants_remaining=0"
+      ]
+    },
+    "check:network-enrollment-continuity-plane (M02.5)": {
+      "verdict": "pass",
+      "lines": [
+        "PASS family system_continuity: 8 pinned tests selected and passed \u2014 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1142 filtered out; finished in 51.70s (52s)",
+        "PASS supplementary architecture contracts \u2014 exit 0 (5s)",
+        "PASS supplementary the M02.5 journey of the sequence-zero materialization lane: named-continuity (local enrollment, exit, the enrollment-tier declaration ladder, migration, succession, dissolution), run FOCUSED with the verifier's own explicit non-certifying opt-in. This proves M02.5's clauses live;",
+        "PASS check:network-enrollment-continuity-plane: 3/3 checks; 8 pinned tests"
+      ]
+    }
+  },
+  "estate_fixes": [
+    "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs \u2014 the lane's fixture ran the default four-validator AFT profile and never reached readiness on a loaded host, so the verifier's own fixture self-test read as a process-group failure; pinned to the Solo profile the alpha journey uses.",
+    "crates/cli/tests/hypervisor_wallet_network_fixture.rs \u2014 8c65d5d92 (M02.5) added scope:autonomous_system.network_enrollment_change to the daemon's required SUCCESSOR governance scopes without adding it to the wallet fixture's authority allowlist, so complete_succession refused every successor from 2026-08-24.",
+    "crates/node/src/bin/hypervisor_daemon_routes/system_policy_routes.rs \u2014 2054ce756 (M02.2) compared the constitution's governance owners with the chain head verbatim and refused every protected transition after a completed succession; governance_ownership_consistent now accepts a chain head whose single owner is exactly the governing authority the committed lifecycle state carries, and refuses every other disagreement.",
+    "scripts/check-cargo-test-population.mjs \u2014 supplementary commands take an env and a timeout; a hung supplementary now fails as TIMED OUT rather than hanging the check."
+  ],
+  "findings": [
+    "The sequence-zero lane's whole held bar hangs in a journey after named-continuity: 9.4 hours at 0% CPU in ep_poll with a live hypervisor-daemon child and no fixture. Every journey after named-continuity had been masked by the complete_succession crash and has never completed on this host. M02.5's wrapper therefore runs the M02.5 journey focused, under the verifier's own non-certifying opt-in, bounded at 90 minutes.",
+    "Left typed and untouched: cargo test -p ioi-consensus default targets still do not compile (frozen AFT example aft_hash_async_bench.rs); the M02.4 wrapper runs --lib --features aft."
+  ]
+}
