@@ -125,7 +125,7 @@ const RISK_CLASSES: &[&str] = &[
 const PHYSICAL_ACTION_RISK_CLASS: &str = "physical_action";
 
 /// Frozen by the same owner: what may happen after timeout, provider failure or an ambiguous effect.
-const EFFECT_RECOVERY_CLASSES: &[&str] = &[
+pub(crate) const EFFECT_RECOVERY_CLASSES: &[&str] = &[
     "replayable",
     "checkpointable",
     "compensatable",

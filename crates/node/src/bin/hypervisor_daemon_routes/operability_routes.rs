@@ -2526,7 +2526,12 @@ mod command_execution_guardrail_tests {
     #[test]
     fn every_mcp_route_has_one_startup_classification() {
         verify_mcp_route_classification().expect("closed MCP route classification");
-        assert_eq!(MCP_ROUTE_CLASSIFICATIONS.len(), 36);
+        // 36 → 38 on 2026-09-09 (standing-lease program 2, leg 3): `c80621ac2` added exactly two
+        // MCP-bearing routes, `/v1/model-mount/mcp/act/tools` (`standing_lease_projection`) and
+        // `/v1/model-mount/mcp/act` (`standing_lease_delegate`), and classified both. The count is
+        // re-pinned to the growth those two routes account for and nothing else, so an
+        // unclassified or accidental third route is still red here as well as at startup.
+        assert_eq!(MCP_ROUTE_CLASSIFICATIONS.len(), 38);
     }
 
     #[test]

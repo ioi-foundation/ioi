@@ -1,0 +1,80 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "standing-lease program 2",
+  "leg": 3,
+  "unit": "M06.2",
+  "title": "Typed effect recovery, enforced at the two-phase claim gate",
+  "basis": {
+    "head": "c80621ac2",
+    "tree": "dirty (this unit's own files)"
+  },
+  "recorded_at": "2026-09-09",
+  "runs": {
+    "check:typed-effect-recovery": {
+      "verdict": "pass",
+      "assertions": "7/7 checks; 12 pinned tests across 2 families; 5 source pins",
+      "lines": [
+        "PASS family typed_effect_recovery: 6 pinned tests selected and passed \u2014 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1150 filtered out; finished in 0.00s (0s)",
+        "PASS family two_phase_claim_substrate: 6 pinned tests selected and passed \u2014 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1150 filtered out; finished in 0.00s (0s)",
+        "PASS source pin the declared class is WIRED into the claim path, not an uncalled module \u2014 crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs /let base = evaluate_claim_transition_substrate\\(disposition, record, incarnation_id\\);/ hit 1 (expect 1)",
+        "PASS source pin the recovery class set is closed and an undeclared effect is refused rather than defaulted \u2014 crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs /declares no recovery class; an effect with no declared recovery is refused, never defaulted/ hit 1 (expect 1)",
+        "PASS source pin only an external-system readback reconciles an ambiguity \u2014 a restore never does \u2014 crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs /== \"external_system_readback\"/ hit 1 (expect 1)",
+        "PASS source pin NO SECOND SPINE: the claim path reads the canonical effect_recovery_class field, not a private synonym \u2014 crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs /pub\\(crate\\) const EFFECT_RECOVERY_CLASS_FIELD: &str = \"effect_recovery_class\";/ hit 1 (expect 1)",
+        "PASS source pin the frozen member set stays owned by the ontology action contract and is READ here, never re-declared \u2014 crates/node/src/bin/hypervisor_daemon_routes/ontology_action_contract_routes.rs /pub\\(crate\\) const EFFECT_RECOVERY_CLASSES: &\\[&str\\] = &\\[/ hit 1 (expect 1)",
+        "PASS check:typed-effect-recovery: 7/7 checks; 12 pinned tests"
+      ]
+    },
+    "mutate:typed-effect-recovery": {
+      "verdict": "pass",
+      "assertions": "6/6 planted defects red, every file restored byte-for-byte",
+      "lines": [
+        "PASS baseline scripts/test-populations/typed-effect-recovery.v1.json is green",
+        "PASS mutation \"the recovery class defaults instead of refusing an undeclared effect\" \u2192 RED as required",
+        "PASS mutation \"ambiguity stops blocking the retry of a reconciliation_required effect\" \u2192 RED as required",
+        "PASS mutation \"a restore satisfies reconciliation (any source counts)\" \u2192 RED as required",
+        "PASS mutation \"RESTART: an orphaned claim from a dead incarnation is re-granted instead of reconciled\" \u2192 RED as required",
+        "PASS mutation \"NO SECOND SPINE: the frozen canonical member set is widened on one side only\" \u2192 RED as required",
+        "PASS mutation \"the declared class stops narrowing the claim (the module becomes uncalled)\" \u2192 RED as required",
+        "PASS restore: every mutated file was written back from its backup (0 backup(s) remain)",
+        "PASS mutate:typed-effect-recovery: 6 planted defects"
+      ]
+    },
+    "cargo test -p ioi-node --bin hypervisor-daemon governed_authority::": {
+      "verdict": "pass",
+      "assertions": "26 passed; 0 failed \u2014 the six new typed tests plus every pre-existing claim, standing-envelope, portable-intent and publication-scope test in the module"
+    },
+    "cargo test -p ioi-node --bin hypervisor-daemon ontology_action_contract": {
+      "verdict": "pass",
+      "assertions": "9 passed; 0 failed \u2014 the member set's owning module after its visibility change"
+    },
+    "npm run check:architecture-contracts": {
+      "verdict": "pass",
+      "assertions": "projections up to date"
+    },
+    "npm run check:architecture-docs": {
+      "verdict": "pass",
+      "assertions": "200 files, 11 rules; 31 work-item records, 156 code anchors"
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon (the whole suite, as CI runs it)": {
+      "verdict": "pass (after repairing a red this program itself had left)",
+      "assertions": "1148 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out",
+      "note": "First run of this step in leg 3 was RED at 1147/1: operability_routes::command_execution_guardrail_tests::every_mcp_route_has_one_startup_classification asserted MCP_ROUTE_CLASSIFICATIONS.len() == 36 while the tree had 38."
+    }
+  },
+  "what_is_enforced": [
+    "The declared class SUBTRACTS. evaluate_claim_transition calls evaluate_claim_transition_substrate first and returns early on anything but Grant, so a class can refuse a claim the substrate would grant and can never grant one the substrate refuses.",
+    "Ambiguity blocks retry. A reconciliation_required prior with no reconciliation refuses checkpointable, reconciliation_required and non_retryable by name, sends compensatable to CompensateFirst, and admits only replayable, whose exact replay changes nothing either way.",
+    "Restore never reconciles. effect_is_reconciled requires reconciliation.source == external_system_readback AND an outcome of effect_landed or effect_did_not_land; a restored environment, a restored backup or a re-read local record satisfies neither.",
+    "Restart reconciles rather than re-invokes. A claim stamped with a dead incarnation becomes ReconcileOrphanedClaim, and the drill proves the check sees it if that turns into a Grant.",
+    "One member set. RecoveryClass is closed over exactly the ontology action contract's frozen EFFECT_RECOVERY_CLASSES, which is exactly canon's list; the drill widens the frozen list on one side and requires red."
+  ],
+  "findings": [
+    "A RED THIS PROGRAM LEFT ON MASTER, found and fixed here. Commit c80621ac2 (M08.13/M08.14) added two MCP-bearing routes and classified both in MCP_ROUTE_CLASSIFICATIONS, which was necessary for the daemon to reach readiness \u2014 but a separate pinned COUNT test asserted the map held exactly 36 entries, and that pin was not moved. The unit's own verifier (check:standing-consumer-loop, 34/34) and the alpha journey were both green, because neither runs the daemon's whole suite; CI's `cargo test -p ioi-node --bin hypervisor-daemon` step would have failed. Re-pinned 36 \u2192 38 with the two routes named in the comment. LESSON, the same one leg 1 recorded: a unit's own green verifier does not prove the estate is green \u2014 run the suite the pin lives in before claiming a cut landed.",
+    "SECOND VOCABULARY ON A CANONICAL FIELD (not fixed here \u2014 M04.6's owner): crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs, added by 704c4d0dd on 2026-08-25, matches the field named effect_recovery_class against none | reversible | compensatable | irreversible | ambiguous, and refuses anything else as work_lifecycle_cancellation_recovery_class_invalid. Canon's member set for that field is replayable | checkpointable | compensatable | reconciliation_required | non_retryable. Only compensatable is common to both, so a WorkRun child carrying the canonical class reconciliation_required is refused by the cancellation planner as invalid, and one carrying irreversible would be refused by the ontology action contract. Closure test: one member set for one field name, with a pinned test asserting the lifecycle planner's arms are exactly EFFECT_RECOVERY_CLASSES; recorded as R-16.",
+    "The unit's title says 'every action declares its recovery class'. What is enforced is that a DECLARED class is typed and honoured. No producer is yet required to declare one, and an admission with no class keeps the substrate's decision; making the declaration mandatory would refuse every existing effect path and is a separate, wider cut."
+  ],
+  "nonclaims": [
+    "Pure claim-gate proof: no live external system, no provider call, no clock.",
+    "backup/restore as a whole remains check:backup-restore; this unit claims only that a restore does not satisfy reconciliation."
+  ]
+}

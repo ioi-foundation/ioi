@@ -95,6 +95,8 @@
     "mutate:standing-drawdown-metering": "node scripts/mutate-standing-lease.mjs --unit standing-drawdown-metering",
     "check:standing-lease-lifecycle": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/standing-lease-lifecycle.v1.json",
     "mutate:standing-lease-lifecycle": "node scripts/mutate-standing-lease.mjs --unit standing-lease-lifecycle",
+    "check:typed-effect-recovery": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/typed-effect-recovery.v1.json",
+    "mutate:typed-effect-recovery": "node scripts/mutate-standing-lease.mjs --unit typed-effect-recovery",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
     "build:workbench": "npm run build --workspace=@ioi/hypervisor-workbench",
     "build:workspace-substrate": "npm run build --workspace=@ioi/workspace-substrate",

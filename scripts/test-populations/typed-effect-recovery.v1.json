@@ -1,0 +1,75 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:typed-effect-recovery",
+  "unit": "M06.2",
+  "pinned_on": "2026-09-09",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved.",
+  "families": [
+    {
+      "name": "typed_effect_recovery",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::typed_effect_recovery_tests::a_completed_effect_is_never_retried_and_non_retryable_never_is_at_all",
+        "governed_authority::typed_effect_recovery_tests::an_ambiguous_outcome_blocks_the_retry_of_every_class_that_can_land_twice",
+        "governed_authority::typed_effect_recovery_tests::every_recovery_class_parses_and_an_undeclared_one_refuses",
+        "governed_authority::typed_effect_recovery_tests::restore_never_satisfies_reconciliation",
+        "governed_authority::typed_effect_recovery_tests::the_declared_class_narrows_the_claim_and_never_widens_it",
+        "governed_authority::typed_effect_recovery_tests::the_typed_class_set_is_exactly_the_frozen_canonical_member_set"
+      ]
+    },
+    {
+      "name": "two_phase_claim_substrate",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "tests": [
+        "governed_authority::final_invocation_claim_tests::a_claim_from_a_dead_process_becomes_reconciliation_and_is_never_reinvoked",
+        "governed_authority::final_invocation_claim_tests::a_consumed_admission_starts_admitted_so_it_is_claimable_exactly_once",
+        "governed_authority::final_invocation_claim_tests::a_second_claim_in_this_process_never_reaches_a_second_invocation",
+        "governed_authority::final_invocation_claim_tests::an_unclaimed_admission_grants_exactly_one_claim",
+        "governed_authority::final_invocation_claim_tests::dispositions_round_trip_through_their_durable_labels",
+        "governed_authority::final_invocation_claim_tests::every_terminal_and_reconciling_disposition_refuses_a_new_invocation"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "the declared class is WIRED into the claim path, not an uncalled module",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "pattern": "let base = evaluate_claim_transition_substrate\\(disposition, record, incarnation_id\\);",
+      "expect": 1
+    },
+    {
+      "label": "the recovery class set is closed and an undeclared effect is refused rather than defaulted",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "pattern": "declares no recovery class; an effect with no declared recovery is refused, never defaulted",
+      "expect": 1
+    },
+    {
+      "label": "only an external-system readback reconciles an ambiguity \u2014 a restore never does",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "pattern": "== \"external_system_readback\"",
+      "expect": 1
+    },
+    {
+      "label": "NO SECOND SPINE: the claim path reads the canonical effect_recovery_class field, not a private synonym",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "pattern": "pub\\(crate\\) const EFFECT_RECOVERY_CLASS_FIELD: &str = \"effect_recovery_class\";",
+      "expect": 1
+    },
+    {
+      "label": "the frozen member set stays owned by the ontology action contract and is READ here, never re-declared",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/ontology_action_contract_routes.rs",
+      "pattern": "pub\\(crate\\) const EFFECT_RECOVERY_CLASSES: &\\[&str\\] = &\\[",
+      "expect": 1
+    }
+  ]
+}

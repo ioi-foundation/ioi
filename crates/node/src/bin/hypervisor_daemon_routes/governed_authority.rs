@@ -1797,6 +1797,42 @@ fn evaluate_claim_transition(
     record: &Value,
     incarnation_id: &str,
 ) -> ClaimTransition {
+    // M06.2 — the declared recovery class SUBTRACTS from what the substrate would allow, and can
+    // never add to it. A claim the two-phase machinery already refuses stays refused; a claim it
+    // would grant is additionally refused when the action's own declared recovery says a second
+    // attempt is not recoverable (non_retryable at all, compensatable before its compensation).
+    // An action that declares nothing is left exactly as the substrate had it — the typing is not
+    // retrofitted onto effects that never declared one, and `check:typed-effect-recovery` pins
+    // that this narrowing is wired here rather than living as an uncalled module.
+    let base = evaluate_claim_transition_substrate(disposition, record, incarnation_id);
+    if !matches!(base, ClaimTransition::Grant) {
+        return base;
+    }
+    match RecoveryClass::parse(record
+            .get(EFFECT_RECOVERY_CLASS_FIELD)
+            .and_then(Value::as_str)) {
+        Ok(class) => match evaluate_recovery(class, disposition, effect_is_reconciled(record)) {
+            RecoveryDecision::Retry { .. } => base,
+            RecoveryDecision::CompensateFirst => ClaimTransition::Refuse(format!(
+                "this effect declares recovery class '{}': a failed attempt is undone by an explicit compensating act and recorded before any retry",
+                class.label()
+            )),
+            RecoveryDecision::Refuse(reason) => ClaimTransition::Refuse(format!(
+                "declared recovery class '{}': {reason}",
+                class.label()
+            )),
+        },
+        // Undeclared: the substrate's own decision stands. M06.2's refusal of an undeclared
+        // recovery applies where an action DECLARES its effect, not retroactively at the claim.
+        Err(_) => base,
+    }
+}
+
+fn evaluate_claim_transition_substrate(
+    disposition: FinalInvocationDisposition,
+    record: &Value,
+    incarnation_id: &str,
+) -> ClaimTransition {
     match disposition {
         FinalInvocationDisposition::Admitted => ClaimTransition::Grant,
         FinalInvocationDisposition::Claimed => {
@@ -4901,5 +4937,445 @@ mod standing_envelope_tests {
             refused.contains("undeclared field 'standing_envelope_hash'"),
             "{refused}"
         );
+    }
+}
+
+// ---- M06.2 — TYPED EFFECT RECOVERY: the declaration, and the refusal ---------------------------
+//
+// M01.6 built the two-phase substrate: an admitted effect is claimed durably before its final
+// invoker runs, so a crash in the dispatch window always leaves evidence that the external effect
+// is of unknown disposition, and re-entry fails closed into `reconciliation_required` instead of
+// re-invoking. What that substrate does NOT do is say what each action's recovery actually is.
+//
+// This is the typing and the refusal. Every governed action declares exactly one recovery class,
+// and the runtime honours the declaration:
+//
+//   replayable             an exact replay of the same effect is safe; a retry is admitted.
+//   checkpointable         progress is durable; a retry resumes from the checkpoint, never restarts.
+//   compensatable          a failed effect is undone by an explicit compensating act, not retried;
+//                          the compensation must be recorded before any further attempt.
+//   reconciliation_required an ambiguous outcome must be reconciled against the external system's
+//                          own truth before any retry; the daemon cannot decide it locally.
+//   non_retryable          one attempt, ever. A second attempt is refused whatever the outcome was.
+//
+// Two rules the whole unit exists to enforce, and which no amount of substrate implies:
+//   1. AMBIGUITY BLOCKS RETRY. An indeterminate outcome is not a failure to retry; it is an
+//      unknown to resolve. Every class except `replayable` refuses the retry until the ambiguity
+//      is reconciled, and `replayable` is admitted only because an exact replay changes nothing.
+//   2. RESTORE NEVER SATISFIES RECONCILIATION. Restoring an environment or a backup returns local
+//      bytes; it says nothing about what the external system did. A pending reconciliation
+//      survives restore, and a restore that appears to clear one is the defect this refuses.
+/// The CANONICAL wire field. `effect_recovery_class` is the name canon froze
+/// (foundations/canonical-enums.md) and the name the ontology action contract already admits
+/// under; this unit reads that field rather than minting a second one for the same posture.
+pub(crate) const EFFECT_RECOVERY_CLASS_FIELD: &str = "effect_recovery_class";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RecoveryClass {
+    Replayable,
+    Checkpointable,
+    Compensatable,
+    ReconciliationRequired,
+    NonRetryable,
+}
+
+impl RecoveryClass {
+    /// The CLOSED set. An action that declares nothing, or declares something this daemon does not
+    /// know, has no recovery posture — and an effect with no declared recovery is refused rather
+    /// than defaulted, because the safe default is exactly the one nobody would choose on purpose.
+    pub(crate) fn parse(value: Option<&str>) -> Result<Self, String> {
+        match value.map(str::trim) {
+            Some("replayable") => Ok(Self::Replayable),
+            Some("checkpointable") => Ok(Self::Checkpointable),
+            Some("compensatable") => Ok(Self::Compensatable),
+            Some("reconciliation_required") => Ok(Self::ReconciliationRequired),
+            Some("non_retryable") => Ok(Self::NonRetryable),
+            Some(other) if !other.is_empty() => Err(format!(
+                "recovery class '{other}' is not one of replayable, checkpointable, compensatable, reconciliation_required, non_retryable"
+            )),
+            _ => Err(
+                "this action declares no recovery class; an effect with no declared recovery is refused, never defaulted"
+                    .to_string(),
+            ),
+        }
+    }
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Replayable => "replayable",
+            Self::Checkpointable => "checkpointable",
+            Self::Compensatable => "compensatable",
+            Self::ReconciliationRequired => "reconciliation_required",
+            Self::NonRetryable => "non_retryable",
+        }
+    }
+}
+
+/// What the runtime is permitted to do with a second attempt at an effect that already has a
+/// durable disposition. `evidence` is the admission intent record; `reconciled` says whether an
+/// external-truth reconciliation for THIS effect has been recorded (a restore never sets it).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum RecoveryDecision {
+    /// The retry may proceed (and, for `checkpointable`, must resume rather than restart).
+    Retry { resume_from_checkpoint: bool },
+    /// The retry is refused, by name.
+    Refuse(String),
+    /// The effect must be compensated first; a retry before the compensation is refused.
+    CompensateFirst,
+}
+
+/// Decide the second attempt. Deliberately pure: no I/O, no clock, no wallet — the crash-window
+/// and ambiguity semantics are provable directly, which is what `check:typed-effect-recovery`
+/// mutation-tests.
+pub(crate) fn evaluate_recovery(
+    class: RecoveryClass,
+    prior: FinalInvocationDisposition,
+    reconciled: bool,
+) -> RecoveryDecision {
+    // An effect that reached its invoker exactly once is done, whatever its class says: the class
+    // governs RECOVERY, never a second bite at a completed effect.
+    if prior == FinalInvocationDisposition::Invoked {
+        return RecoveryDecision::Refuse(
+            "this effect already reached its final invoker exactly once".to_string(),
+        );
+    }
+    // AMBIGUITY. `reconciliation_required` is the durable Unknown; only external truth resolves it.
+    if prior == FinalInvocationDisposition::ReconciliationRequired && !reconciled {
+        return match class {
+            // An exact replay of a replayable effect changes nothing whether or not the first
+            // attempt landed, so it is the one class ambiguity does not block.
+            RecoveryClass::Replayable => RecoveryDecision::Retry {
+                resume_from_checkpoint: false,
+            },
+            RecoveryClass::Checkpointable => RecoveryDecision::Refuse(
+                "the outcome of this checkpointable effect is ambiguous; reconcile it against the external system before resuming"
+                    .to_string(),
+            ),
+            RecoveryClass::Compensatable => RecoveryDecision::CompensateFirst,
+            RecoveryClass::ReconciliationRequired => RecoveryDecision::Refuse(
+                "this effect declares reconciliation_required and its outcome is ambiguous; record the external system's own truth before any retry"
+                    .to_string(),
+            ),
+            RecoveryClass::NonRetryable => RecoveryDecision::Refuse(
+                "this effect is non_retryable and its outcome is ambiguous; it is never retried"
+                    .to_string(),
+            ),
+        };
+    }
+    match class {
+        RecoveryClass::NonRetryable => RecoveryDecision::Refuse(
+            "this effect is non_retryable: one attempt, whatever its outcome".to_string(),
+        ),
+        RecoveryClass::Compensatable if prior == FinalInvocationDisposition::Refused => {
+            RecoveryDecision::CompensateFirst
+        }
+        RecoveryClass::Checkpointable => RecoveryDecision::Retry {
+            resume_from_checkpoint: true,
+        },
+        _ => RecoveryDecision::Retry {
+            resume_from_checkpoint: false,
+        },
+    }
+}
+
+/// Whether an external-truth reconciliation exists for this effect. It is a RECONCILIATION record
+/// naming the effect, and nothing else counts — in particular a restored environment, a restored
+/// backup or a re-read local record is not external truth and does not clear an ambiguity.
+pub(crate) fn effect_is_reconciled(record: &Value) -> bool {
+    record
+        .get("reconciliation")
+        .and_then(Value::as_object)
+        .is_some_and(|reconciliation| {
+            reconciliation
+                .get("source")
+                .and_then(Value::as_str)
+                .is_some_and(|source| source == "external_system_readback")
+                && reconciliation
+                    .get("outcome")
+                    .and_then(Value::as_str)
+                    .is_some_and(|outcome| {
+                        matches!(outcome, "effect_landed" | "effect_did_not_land")
+                    })
+        })
+}
+
+#[cfg(test)]
+mod typed_effect_recovery_tests {
+    use super::*;
+
+    /// NO SECOND SPINE: the typed set here is exactly the member set the ontology action
+    /// contract freezes, which is exactly what canon lists. A member added on either side
+    /// without the other fails here rather than drifting into two vocabularies.
+    #[test]
+    fn the_typed_class_set_is_exactly_the_frozen_canonical_member_set() {
+        use super::super::ontology_action_contract_routes::EFFECT_RECOVERY_CLASSES;
+        let typed = [
+            RecoveryClass::Replayable,
+            RecoveryClass::Checkpointable,
+            RecoveryClass::Compensatable,
+            RecoveryClass::ReconciliationRequired,
+            RecoveryClass::NonRetryable,
+        ];
+        assert_eq!(typed.len(), EFFECT_RECOVERY_CLASSES.len());
+        for class in typed {
+            assert!(
+                EFFECT_RECOVERY_CLASSES.contains(&class.label()),
+                "typed class {} is not in the frozen canonical member set",
+                class.label()
+            );
+        }
+        for member in EFFECT_RECOVERY_CLASSES {
+            assert_eq!(
+                RecoveryClass::parse(Some(member))
+                    .expect("every frozen member is typed")
+                    .label(),
+                *member
+            );
+        }
+    }
+
+    #[test]
+    fn every_recovery_class_parses_and_an_undeclared_one_refuses() {
+        for label in [
+            "replayable",
+            "checkpointable",
+            "compensatable",
+            "reconciliation_required",
+            "non_retryable",
+        ] {
+            assert_eq!(
+                RecoveryClass::parse(Some(label)).expect("declared class").label(),
+                label
+            );
+        }
+        // An effect with NO declared recovery is refused, never defaulted.
+        assert!(RecoveryClass::parse(None)
+            .unwrap_err()
+            .contains("declares no recovery class"));
+        assert!(RecoveryClass::parse(Some(""))
+            .unwrap_err()
+            .contains("declares no recovery class"));
+        assert!(RecoveryClass::parse(Some("best_effort"))
+            .unwrap_err()
+            .contains("is not one of"));
+    }
+
+    #[test]
+    fn an_ambiguous_outcome_blocks_the_retry_of_every_class_that_can_land_twice() {
+        // Replayable is the ONE class an ambiguity does not block: an exact replay changes nothing.
+        assert_eq!(
+            evaluate_recovery(
+                RecoveryClass::Replayable,
+                FinalInvocationDisposition::ReconciliationRequired,
+                false
+            ),
+            RecoveryDecision::Retry {
+                resume_from_checkpoint: false
+            }
+        );
+        for class in [
+            RecoveryClass::Checkpointable,
+            RecoveryClass::ReconciliationRequired,
+            RecoveryClass::NonRetryable,
+        ] {
+            match evaluate_recovery(
+                class,
+                FinalInvocationDisposition::ReconciliationRequired,
+                false,
+            ) {
+                RecoveryDecision::Refuse(reason) => {
+                    assert!(reason.contains("ambiguous"), "{class:?}: {reason}")
+                }
+                other => panic!("{class:?} must refuse an ambiguous retry, got {other:?}"),
+            }
+        }
+        assert_eq!(
+            evaluate_recovery(
+                RecoveryClass::Compensatable,
+                FinalInvocationDisposition::ReconciliationRequired,
+                false
+            ),
+            RecoveryDecision::CompensateFirst
+        );
+        // Reconciled against the EXTERNAL system, the same retries are admitted (except the ones
+        // their own class forbids).
+        assert_eq!(
+            evaluate_recovery(
+                RecoveryClass::Checkpointable,
+                FinalInvocationDisposition::ReconciliationRequired,
+                true
+            ),
+            RecoveryDecision::Retry {
+                resume_from_checkpoint: true
+            }
+        );
+        assert!(matches!(
+            evaluate_recovery(
+                RecoveryClass::NonRetryable,
+                FinalInvocationDisposition::ReconciliationRequired,
+                true
+            ),
+            RecoveryDecision::Refuse(_)
+        ));
+    }
+
+    #[test]
+    fn a_completed_effect_is_never_retried_and_non_retryable_never_is_at_all() {
+        for class in [
+            RecoveryClass::Replayable,
+            RecoveryClass::Checkpointable,
+            RecoveryClass::Compensatable,
+            RecoveryClass::ReconciliationRequired,
+            RecoveryClass::NonRetryable,
+        ] {
+            assert!(
+                matches!(
+                    evaluate_recovery(class, FinalInvocationDisposition::Invoked, true),
+                    RecoveryDecision::Refuse(_)
+                ),
+                "{class:?} must refuse a second bite at a completed effect"
+            );
+            assert!(matches!(
+                evaluate_recovery(RecoveryClass::NonRetryable, FinalInvocationDisposition::Admitted, true),
+                RecoveryDecision::Refuse(_)
+            ));
+            let _ = class;
+        }
+        assert_eq!(
+            evaluate_recovery(
+                RecoveryClass::Checkpointable,
+                FinalInvocationDisposition::Admitted,
+                false
+            ),
+            RecoveryDecision::Retry {
+                resume_from_checkpoint: true
+            }
+        );
+        assert_eq!(
+            evaluate_recovery(
+                RecoveryClass::Compensatable,
+                FinalInvocationDisposition::Refused,
+                false
+            ),
+            RecoveryDecision::CompensateFirst
+        );
+    }
+
+    #[test]
+    fn the_declared_class_narrows_the_claim_and_never_widens_it() {
+        let incarnation = "inc_test";
+        let admitted = |class: Option<&str>| {
+            let mut record = json!({ "final_invoker_status": "admitted" });
+            if let Some(class) = class {
+                record[EFFECT_RECOVERY_CLASS_FIELD] = json!(class);
+            }
+            record
+        };
+        // Undeclared: exactly what the substrate decided.
+        assert!(matches!(
+            evaluate_claim_transition(
+                FinalInvocationDisposition::Admitted,
+                &admitted(None),
+                incarnation
+            ),
+            ClaimTransition::Grant
+        ));
+        // Declared replayable/checkpointable: still granted — the typing adds nothing.
+        for class in ["replayable", "checkpointable", "reconciliation_required"] {
+            assert!(
+                matches!(
+                    evaluate_claim_transition(
+                        FinalInvocationDisposition::Admitted,
+                        &admitted(Some(class)),
+                        incarnation
+                    ),
+                    ClaimTransition::Grant
+                ),
+                "{class} must not be narrowed on a clean admitted claim"
+            );
+        }
+        // Declared non_retryable: refused where the substrate alone would have granted.
+        match evaluate_claim_transition(
+            FinalInvocationDisposition::Admitted,
+            &admitted(Some("non_retryable")),
+            incarnation,
+        ) {
+            ClaimTransition::Refuse(reason) => {
+                assert!(reason.contains("non_retryable"), "{reason}")
+            }
+            other => panic!("non_retryable must refuse, got {other:?}"),
+        }
+        // A refusal the substrate already made is never turned into a grant by any class.
+        for class in [
+            "replayable",
+            "checkpointable",
+            "compensatable",
+            "reconciliation_required",
+            "non_retryable",
+        ] {
+            let mut invoked = admitted(Some(class));
+            invoked["final_invoker_status"] = json!("invoked");
+            assert!(
+                matches!(
+                    evaluate_claim_transition(
+                        FinalInvocationDisposition::Invoked,
+                        &invoked,
+                        incarnation
+                    ),
+                    ClaimTransition::Refuse(_)
+                ),
+                "{class} must not widen an already-invoked effect"
+            );
+            let mut ambiguous = admitted(Some(class));
+            ambiguous["final_invoker_status"] = json!("reconciliation_required");
+            assert!(
+                matches!(
+                    evaluate_claim_transition(
+                        FinalInvocationDisposition::ReconciliationRequired,
+                        &ambiguous,
+                        incarnation
+                    ),
+                    ClaimTransition::Refuse(_)
+                ),
+                "{class} must not widen an ambiguous effect at the claim"
+            );
+        }
+    }
+
+    #[test]
+    fn restore_never_satisfies_reconciliation() {
+        // ONLY an external-system readback naming a landed/not-landed outcome reconciles. A
+        // restored environment, a restored backup, a local re-read or a caller's assertion do not.
+        assert!(effect_is_reconciled(&json!({
+            "reconciliation": { "source": "external_system_readback", "outcome": "effect_landed" }
+        })));
+        assert!(effect_is_reconciled(&json!({
+            "reconciliation": { "source": "external_system_readback", "outcome": "effect_did_not_land" }
+        })));
+        for imposter in [
+            json!({ "reconciliation": { "source": "environment_restore", "outcome": "effect_landed" } }),
+            json!({ "reconciliation": { "source": "backup_restore", "outcome": "effect_did_not_land" } }),
+            json!({ "reconciliation": { "source": "local_record_reread", "outcome": "effect_landed" } }),
+            json!({ "reconciliation": { "source": "external_system_readback", "outcome": "assumed_landed" } }),
+            json!({ "reconciliation": { "source": "external_system_readback" } }),
+            json!({ "restored_from_backup": true }),
+            json!({}),
+        ] {
+            assert!(
+                !effect_is_reconciled(&imposter),
+                "restore or assumption must not reconcile: {imposter}"
+            );
+        }
+        // And the refusal survives it: an ambiguous reconciliation_required effect whose record
+        // was restored rather than reconciled still refuses its retry.
+        let restored = json!({ "restored_from_backup": true });
+        assert!(matches!(
+            evaluate_recovery(
+                RecoveryClass::ReconciliationRequired,
+                FinalInvocationDisposition::ReconciliationRequired,
+                effect_is_reconciled(&restored)
+            ),
+            RecoveryDecision::Refuse(_)
+        ));
     }
 }

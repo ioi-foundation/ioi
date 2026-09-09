@@ -1,0 +1,73 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-2-typed-effect-recovery",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.2"
+  ],
+  "status": "verified",
+  "objective": "An action's declared external-effect recovery class is typed at the daemon's two-phase claim gate and honoured there: it may only narrow what the substrate would allow, ambiguity blocks the retry of every class that can land twice, and restoring local bytes never clears a pending reconciliation.",
+  "falsifiable_claim": "npm run check:typed-effect-recovery pins twelve tests by exact name across two families and three source pins, proving that evaluate_claim_transition reads the canonical effect_recovery_class field, calls evaluate_claim_transition_substrate first and returns Refuse where the declared class refuses (non_retryable at all, compensatable before its compensation, any ambiguity-blocked class) while never turning a substrate Refuse into a Grant; that RecoveryClass::parse is closed over exactly the ontology action contract's frozen member set and refuses an undeclared class rather than defaulting; and that effect_is_reconciled requires an external_system_readback source with a landed/did-not-land outcome, so a restore leaves the ambiguity standing. npm run mutate:typed-effect-recovery plants six defects and requires each to go red. The check is CI-BOUND: ci.yml runs it in build_and_test immediately after the daemon's whole suite, so deleting or renaming any of the twelve tests is red rather than quiet.",
+  "canon_owners": [
+    "docs/architecture/foundations/canonical-enums.md",
+    "docs/architecture/foundations/aiip.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "literal": "EFFECT_RECOVERY_CLASS_FIELD",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "literal": "evaluate_claim_transition_substrate",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "literal": "evaluate_recovery",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "literal": "effect_is_reconciled",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/ontology_action_contract_routes.rs",
+      "literal": "EFFECT_RECOVERY_CLASSES",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/typed-effect-recovery.v1.json",
+      "literal": "typed_effect_recovery",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/mutate-standing-lease.mjs",
+      "literal": "typed-effect-recovery",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "check:typed-effect-recovery",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m06-2-typed-effect-recovery-2026-09-09.v1.json",
+    "scripts/test-populations/typed-effect-recovery.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Six planted defects, each required to turn the check red and each restored byte-for-byte: the class defaults to replayable instead of refusing an undeclared effect; the ambiguity block is disabled for reconciliation_required; any reconciliation source counts, so a restore clears an ambiguity; RESTART, where an orphaned claim from a dead incarnation is re-granted instead of reconciled; the frozen canonical member set is widened on one side only; and the declared class stops narrowing the claim so the module becomes uncalled.",
+  "remaining_nonclaims": [
+    "The class is honoured where an action DECLARES it. An admission carrying no effect_recovery_class keeps the two-phase substrate's own decision; this unit does not retroactively assign a class to effects that never declared one, so 'every action declares its recovery class' is not yet true of every producer.",
+    "The proof is at the claim gate and is pure: no live external system, no provider, no clock. Provider-side recovery, the reconciliation planner and the receipt contracts named in canon remain planned.",
+    "The work lifecycle log's cancellation planner (M04.6) matches the same effect_recovery_class field against a DIFFERENT vocabulary (none, reversible, compensatable, irreversible, ambiguous). That divergence is recorded, not resolved here: it belongs to M04.6's owner.",
+    "backup/restore remains its own check (check:backup-restore); this unit proves only that a restore does not satisfy reconciliation, which is the claim canon makes about it."
+  ],
+  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXVI.",
+  "last_status_transaction": "2026-09-09"
+}

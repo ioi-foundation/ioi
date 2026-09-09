@@ -547,8 +547,26 @@ ambiguous external effect. Environment restoration never proves outcome
 restoration. `reconciliation_required` and `non_retryable` must fail closed
 rather than replaying an effect whose prior commit state is unknown.
 
-Implementation grounding: planned across ontology actions, provider recovery,
-runtime reconciliation, and receipt contracts.
+Implementation grounding: ENFORCED at the daemon's two-phase claim gate, and
+still planned elsewhere. The claim path types this field and lets the declared
+class only NARROW what the two-phase substrate would already allow: it never
+grants a claim the substrate refuses. Ambiguity blocks the retry of every class
+that could land twice; `non_retryable` is refused whatever the outcome;
+`compensatable` must compensate before a retry; and only an external-system
+readback clears an ambiguity, so restoring an environment or a backup leaves a
+pending reconciliation exactly as pending as it was. An admission that declares
+no class keeps the substrate's own decision — this unit types the actions that
+declare an effect and does not retroactively assign a class to those that never
+did. Provider recovery, runtime reconciliation planning and the receipt
+contracts remain planned. Checked by `npm run check:typed-effect-recovery` and
+`npm run mutate:typed-effect-recovery` (M06.2).
+
+The member set above is owned once, by the ontology action contract's frozen
+list, and read by the daemon's typed class; a member added on one side without
+the other is red. One divergence is on record and is NOT this list: the work
+lifecycle log's cancellation planner matches the same field name against a
+different vocabulary (`none`, `reversible`, `compensatable`, `irreversible`,
+`ambiguous`). See `_meta/canon-to-code-delta.md`.
 
 ## Model-Route Commercial Rights
 

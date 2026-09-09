@@ -21,6 +21,7 @@ const HANDLER = "crates/services/src/wallet_network/handlers/standing_authority.
 const GOVERNED = "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs";
 const PROVIDER = "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs";
 const LEASE = "crates/services/src/agentic/runtime/policy_lease.rs";
+const ONTOLOGY = "crates/node/src/bin/hypervisor_daemon_routes/ontology_action_contract_routes.rs";
 
 const MUTATIONS = {
   "standing-envelope-template": [
@@ -32,6 +33,14 @@ const MUTATIONS = {
     { label: "the cumulative spend ceiling is disabled in the wallet draw", file: HANDLER, find: "    if next_spend > grant_state.grant.max_cumulative_spend_microusd {\n", replace: "    if false && next_spend > grant_state.grant.max_cumulative_spend_microusd {\n" },
     { label: "the journal re-derivation is skipped (a rotted counter authorises)", file: HANDLER, find: "    if derived\n        != (StandingApprovalLedgerTotals {", replace: "    if false && derived\n        != (StandingApprovalLedgerTotals {" },
     { label: "a refused draw still appends to the journal (double accounting)", file: HANDLER, find: "    journal.consumption_ids.push(params.consumption_id);\n", replace: "    journal.consumption_ids.push(params.consumption_id);\n    journal.consumption_ids.push(params.consumption_id);\n" },
+  ],
+  "typed-effect-recovery": [
+    { label: "the recovery class defaults instead of refusing an undeclared effect", file: GOVERNED, find: "            _ => Err(\n                \"this action declares no recovery class", replace: "            _ => Ok(Self::Replayable), #[allow(unreachable_patterns)] None => Err(\n                \"this action declares no recovery class" },
+    { label: "ambiguity stops blocking the retry of a reconciliation_required effect", file: GOVERNED, find: "    if prior == FinalInvocationDisposition::ReconciliationRequired && !reconciled {", replace: "    if false && prior == FinalInvocationDisposition::ReconciliationRequired && !reconciled {" },
+    { label: "a restore satisfies reconciliation (any source counts)", file: GOVERNED, find: "                .is_some_and(|source| source == \"external_system_readback\")", replace: "                .is_some_and(|source| !source.is_empty())" },
+    { label: "RESTART: an orphaned claim from a dead incarnation is re-granted instead of reconciled", file: GOVERNED, find: "            } else {\n                ClaimTransition::ReconcileOrphanedClaim\n            }", replace: "            } else {\n                ClaimTransition::Grant\n            }" },
+    { label: "NO SECOND SPINE: the frozen canonical member set is widened on one side only", file: ONTOLOGY, find: "pub(crate) const EFFECT_RECOVERY_CLASSES: &[&str] = &[\n    \"replayable\",", replace: "pub(crate) const EFFECT_RECOVERY_CLASSES: &[&str] = &[\n    \"best_effort\",\n    \"replayable\"," },
+    { label: "the declared class stops narrowing the claim (the module becomes uncalled)", file: GOVERNED, find: "    let base = evaluate_claim_transition_substrate(disposition, record, incarnation_id);\n    if !matches!(base, ClaimTransition::Grant) {\n        return base;\n    }", replace: "    return evaluate_claim_transition_substrate(disposition, record, incarnation_id);\n    #[allow(unreachable_code)]\n    let base = evaluate_claim_transition_substrate(disposition, record, incarnation_id);\n    #[allow(unreachable_code)]\n    if !matches!(base, ClaimTransition::Grant) {\n        return base;\n    }" },
   ],
   "standing-lease-lifecycle": [
     { label: "revoke leaves the lease Active", file: HANDLER, find: "    record.status = StandingApprovalGrantStatus::Revoked;\n", replace: "    record.status = StandingApprovalGrantStatus::Active;\n" },
