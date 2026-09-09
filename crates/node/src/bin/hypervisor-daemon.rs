@@ -1019,6 +1019,16 @@ async fn async_main() -> anyhow::Result<()> {
         .route("/v1/model-mount/mcp", get(handle_mcp_list))
         .route("/v1/model-mount/mcp/import", post(handle_mcp_import))
         .route("/v1/model-mount/mcp/invoke", post(handle_mcp_invoke))
+        // M08.13/M08.14 — the `act` tool: a read projection of the daemon-resolved standing lease
+        // and a delegation to the one draw-down gate. Interactive (session) or headless (handle).
+        .route(
+            "/v1/model-mount/mcp/act/tools",
+            get(lifecycle_routes::handle_act_tool_list),
+        )
+        .route(
+            "/v1/model-mount/mcp/act",
+            post(lifecycle_routes::handle_act_tool_invoke),
+        )
         .route(
             "/v1/model-mount/routes",
             get(handle_routes_list).post(handle_routes_create),

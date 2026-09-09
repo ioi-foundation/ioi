@@ -1199,6 +1199,12 @@ pub(crate) const MCP_ROUTE_CLASSIFICATIONS: &[(&str, &str)] = &[
     ("/v1/model-mount/mcp", "compatibility_projection"),
     ("/v1/model-mount/mcp/import", "compatibility_import"),
     ("/v1/model-mount/mcp/invoke", "compatibility_delegate"),
+    // M08.13/M08.14 — the `act` draw-down client. The tool listing is a READ PROJECTION of the
+    // daemon-resolved standing lease and the invoke DELEGATES to the connector-invoke draw-down
+    // gate; neither mints authority, which is why they classify beside the compatibility lane
+    // rather than as a canonical thread surface.
+    ("/v1/model-mount/mcp/act/tools", "standing_lease_projection"),
+    ("/v1/model-mount/mcp/act", "standing_lease_delegate"),
     ("/v1/threads/:id/mcp/status", "canonical_thread"),
     ("/v1/threads/:id/mcp/validate", "canonical_thread"),
     ("/v1/threads/:id/mcp/import", "canonical_thread"),

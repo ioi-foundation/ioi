@@ -119,7 +119,8 @@ async function run() {
   const register = (name) => jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ service: "ping-service", name, base_url: `http://127.0.0.1:${toolPort}`, kind: "bearer", requires_credential: false, allowed_tools: [{ name: "ping", method: "GET", path: "/ping" }, { name: "wipe", method: "POST", path: "/wipe" }] }) });
   const A = (await register("bounded-a")).body?.connector; const B = (await register("unbounded-b")).body?.connector;
   const C = (await register("review-c")).body?.connector; const D = (await register("wallet-revoke-d")).body?.connector;
-  ok("four real connectors register in the Connections estate", A?.connector_id && B?.connector_id && C?.connector_id && D?.connector_id, `${A?.connector_id} ${B?.connector_id} ${C?.connector_id} ${D?.connector_id}`);
+  const E = (await register("act-tool-e")).body?.connector;
+  ok("five real connectors register in the Connections estate", A?.connector_id && B?.connector_id && C?.connector_id && D?.connector_id && E?.connector_id, `${A?.connector_id} ${B?.connector_id} ${C?.connector_id} ${D?.connector_id} ${E?.connector_id}`);
 
   // ---- M13.3: attach-time envelope ------------------------------------------------------------
   const N = 3;
@@ -193,6 +194,54 @@ async function run() {
   ok("ACC-15 §8 (attach side): revoking the attach-time lease refuses the very next act (standing_lease_revoked, before any wallet call) and the next session create (412, lease_status revoked)", revokeA.status === 200 && afterRevoke.status === 403 && afterRevoke.body?.reason === "standing_lease_revoked" && createAfterRevoke.status === 412 && createAfterRevoke.body?.error?.lease_status === "standing_lease_revoked", `${revokeA.status} ${JSON.stringify(revokeA.body).slice(0, 120)} → ${afterRevoke.status}/${afterRevoke.body?.reason} · create ${createAfterRevoke.status}/${createAfterRevoke.body?.error?.code}/${createAfterRevoke.body?.error?.lease_status}`);
   const revocations = readReceipts("hypervisor.session.standing_revocation");
   ok("the revocation is receipted", revocations.length === 1 && revocations[0].connector_id === A.connector_id, `${revocations.length}`);
+
+  // ---- M08.13/M08.14: the act tool as a draw-down client ------------------------------------
+  const leaseE = await mintLease(E, { maxUsages: 3 });
+  await jd(`/v1/hypervisor/connectors/${encodeURIComponent(E.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: leaseE.grant, envelope: leaseE.envelope }) });
+  const eRef = (await createSession([`connector:${E.connector_id}`])).body?.session_ref || "";
+  const tools = await jd("/v1/model-mount/mcp/act/tools");
+  const eTool = (tools.body?.tools || []).find((t) => t.connection_ref === `connector:${E.connector_id}`);
+  const bTool = (tools.body?.tools || []).find((t) => t.connection_ref === `connector:${B.connector_id}`);
+  ok("M08.13: the act tool's advertised filters ARE the daemon's lease projection — operations, tools, metered unit, usages, budget and expiry rendered from the connector record, with the capability handle and an explicit host_config_is_authority=false",
+    tools.status === 200 && eTool?.actable === true && JSON.stringify(eTool.filters.allowed_tools) === JSON.stringify(["ping"]) && eTool.filters.max_usages === 3 && eTool.filters.per_operation_spend_microusd === 1000 && eTool.capability_handle === leaseE.recorded.standing_grant_hash.replace(/^/u, "sha256:") && eTool.host_config_is_authority === false,
+    `${tools.status} ${JSON.stringify(eTool?.filters || null).slice(0, 160)} handle=${String(eTool?.capability_handle || "").slice(0, 20)}`);
+  ok("an UNBOUNDED connection advertises no filters and says why — it is not actable", bTool?.actable === false && bTool?.filters === null && bTool?.reason === "standing_lease_absent" && bTool?.widening_path === "/__ioi/connections", `${bTool?.actable}/${bTool?.reason}`);
+  const actOne = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: { n: 1 }, session_ref: eRef }) });
+  ok("M08.13: an interactive act completes WITHOUT a per-call signature — it draws against the caller's standing lease and the daemon records the draw",
+    actOne.status === 200 && actOne.body?.ok === true && actOne.body.act_posture === "interactive" && actOne.body.authority_source === "daemon_lease_projection" && readReceipts("hypervisor.session.standing_draw", eRef).length === 1,
+    `${actOne.status} · ${readReceipts("hypervisor.session.standing_draw", eRef).length} draw receipt(s)`);
+  // MUTATION DRILL: widen the host-side filter config beyond the lease. The daemon re-derives from
+  // the lease and refuses at the bound; the host's filters are read and ignored, and it says so.
+  const widened = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "wipe", request: {}, session_ref: eRef, host_filters: { allowed_tools: ["ping", "wipe"], max_usages: 9999, per_operation_spend_microusd: 999999 } }) });
+  ok("MUTATION DRILL (M08.13): widening the HOST config's filters beyond the lease changes nothing the daemon enforces — the act still refuses at the lease bound (tool outside the template) and the answer says the host filters were ignored",
+    widened.status === 403 && widened.body?.reason === "standing_envelope_tool_outside_template" && widened.body.host_filters_ignored === true && widened.body.host_config_is_authority === false,
+    `${widened.status}/${widened.body?.reason} host_filters_ignored=${widened.body?.host_filters_ignored}`);
+  // M08.14 — headless: an opaque capability handle minted out of band, no session, no cookie.
+  const handle = eTool.capability_handle;
+  const headless = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: { n: 1 }, capability_handle: handle }) });
+  const headlessSession = headless.body?.receipt?.session_ref || null;
+  const headlessDraws = readReceipts("hypervisor.session.standing_draw").filter((r) => r.connector_id === E.connector_id && r.session_ref !== eRef);
+  ok("M08.14: a HEADLESS act presenting only the out-of-band capability handle draws under the same lease — no product session and no per-call signature; the caller's own identity is still resolved, because a handle selects a lease and never becomes a principal",
+    headless.status === 200 && headless.body?.ok === true && headless.body.act_posture === "headless" && headlessDraws.length === 1,
+    `${headless.status} · ${headlessDraws.length} headless draw receipt(s)`);
+  const interactiveDraw = readReceipts("hypervisor.session.standing_draw", eRef)[0];
+  const headlessDraw = headlessDraws[0];
+  const receiptShape = (r) => Object.keys(r || {}).sort().join(",");
+  ok("M08.14: the interactive and headless draws produce receipt chains that are byte-identical except their subject identity — same kind, same field set, same envelope and grant, same posture, both admitted through the same intent family",
+    receiptShape(interactiveDraw) === receiptShape(headlessDraw) && interactiveDraw?.standing_envelope_hash === headlessDraw?.standing_envelope_hash && interactiveDraw?.grant_hash_ref === headlessDraw?.grant_hash_ref && interactiveDraw?.posture === headlessDraw?.posture && String(headlessDraw?.admission_intent_ref || "").startsWith("authority-admission-intents/"),
+    `${receiptShape(interactiveDraw) === receiptShape(headlessDraw)} · ${interactiveDraw?.posture}/${headlessDraw?.posture}`);
+  const noAuthority = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: {}, host_filters: { allowed_tools: ["ping"] } }) });
+  ok("M08.14: an act with NO lease authority — no session, no handle — refuses typed and never falls back to the host's configuration",
+    noAuthority.status === 403 && noAuthority.body?.reason === "act_no_authority" && noAuthority.body.host_config_is_authority === false,
+    `${noAuthority.status}/${noAuthority.body?.reason}`);
+  const forgedHandle = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: {}, capability_handle: `sha256:${"f".repeat(64)}` }) });
+  ok("a capability handle that names no active lease refuses — the handle SELECTS a lease, it never authorizes one",
+    forgedHandle.status === 403 && forgedHandle.body?.reason === "act_capability_handle_unknown", `${forgedHandle.status}/${forgedHandle.body?.reason}`);
+  const exhausted = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: {}, capability_handle: handle }) });
+  const overBound = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: {}, capability_handle: handle }) });
+  ok("the act tool draws down the SAME envelope as every other path: the third draw exhausts the 3-usage lease and the fourth refuses at the bound",
+    exhausted.status === 200 && overBound.status === 403 && overBound.body?.refused_bound === "max_usages",
+    `${exhausted.status} then ${overBound.status}/${overBound.body?.refused_bound}`);
 
   // ---- restart -----------------------------------------------------------------------------------
   await stopDaemon();

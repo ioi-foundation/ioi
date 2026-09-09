@@ -1,0 +1,61 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-13-act-tool-drawdown-client",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.13"
+  ],
+  "status": "verified",
+  "objective": "The model-mount MCP `act` tool is a draw-down client: its advertised filters are a read projection of the daemon-resolved standing lease, and editing the host's own filter config changes nothing the daemon enforces.",
+  "falsifiable_claim": "GET /v1/model-mount/mcp/act/tools renders one act descriptor per connection whose filters (operations, tools, metered unit, usages, budget, expiry) and capability handle come from the connector record's standing lease, with host_config_is_authority=false and an unbounded connection advertised as not actable with its reason; POST /v1/model-mount/mcp/act completes a bounded act without a per-call signature by delegating to the SAME connector-invoke draw-down gate, and a request carrying widened host_filters still refuses at the lease bound while the answer states the host filters were ignored.",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "ACT_AUTHORITY_SOURCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "handle_act_tool_list",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "handle_act_tool_invoke",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "host_filters_ignored",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs",
+      "literal": "standing_lease_projection",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-standing-consumer-loop.mjs",
+      "literal": "MUTATION DRILL (M08.13)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg3-act-tool-2026-09-09.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The mutation drill widens the host config's filters beyond the lease (a tool the template does not name, 9999 usages, a 999999-microUSD unit) and requires the daemon to refuse at the lease bound anyway, with host_filters_ignored=true on the answer; the act tool draws the same envelope as every other path, so its third draw exhausts a 3-usage lease and its fourth refuses on max_usages.",
+  "remaining_nonclaims": [
+    "The act tool mints no authority and owns no second gate: it projects the lease and delegates to the connector-invoke draw-down path, so everything it can do is what that gate admits.",
+    "The tool is advertised over the daemon's own model-mount route; no agent host's tool registry is modified by this unit, which is the point \u2014 a host's registry is a projection.",
+    "Provider-side spend (M03.10's provider envelope) is a separate lane; this unit's acts are connector operations."
+  ],
+  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXV.",
+  "last_status_transaction": "2026-09-09"
+}

@@ -11249,6 +11249,200 @@ fn standing_refusal_response(
     )
 }
 
+// ---- M08.13/M08.14 — the `act` tool as a DRAW-DOWN CLIENT ------------------------------------
+//
+// `act` is not a second authority plane. It is (1) a READ PROJECTION of the daemon-resolved
+// standing lease, rendered as the tool's advertised filters, and (2) a delegation to the SAME
+// connector-invoke draw-down gate. Editing whatever config an agent host reads changes nothing
+// the daemon enforces: the lease the daemon re-verifies is the authority, and the filters are its
+// shadow. The caller identifies its authority either by the SESSION whose closed profile names the
+// connection (interactive) or by an OPAQUE CAPABILITY HANDLE minted out of band (headless, M08.14)
+// — the handle is the standing grant's hash ref, which is a public commitment and confers nothing
+// on its own: it selects a lease the daemon then re-verifies. With neither, the act REFUSES; it
+// never falls back to a host-side filter, a credential or a config.
+pub(crate) const ACT_TOOL_NAME: &str = "act";
+pub(crate) const ACT_AUTHORITY_SOURCE: &str = "daemon_lease_projection";
+
+/// The `act` tool descriptor for one connection: its advertised filters ARE the lease's bounds,
+/// read from the connector record at request time. A connection with no active lease advertises
+/// nothing and says why — an unbounded connection is not actable.
+fn act_tool_descriptor(connector: &Value, now_ms: u64) -> Value {
+    let id = connector["connector_id"].as_str().unwrap_or_default();
+    match connector_active_standing_lease(connector, now_ms) {
+        Ok(lease) => json!({
+            "name": ACT_TOOL_NAME,
+            "connection_ref": format!("connector:{id}"),
+            "service": connector["service"].clone(),
+            "actable": true,
+            // THE PROJECTION. Every field below is rendered from the daemon's lease; a host that
+            // edits its own copy changes its own copy.
+            "filters": {
+                "operations": lease["bounds"]["operations"].clone(),
+                "allowed_tools": lease["bounds"]["allowed_tools"].clone(),
+                "per_operation_spend_microusd": lease["bounds"]["per_operation_spend_microusd"].clone(),
+                "max_usages": lease["bounds"]["max_usages"].clone(),
+                "max_cumulative_spend_microusd": lease["bounds"]["max_cumulative_spend_microusd"].clone(),
+                "expires_at_ms": lease["bounds"]["expires_at_ms"].clone(),
+            },
+            "capability_handle": lease["grant_hash_ref"].clone(),
+            "standing_envelope_hash": lease["envelope_hash_ref"].clone(),
+            "authority_source": ACT_AUTHORITY_SOURCE,
+            "host_config_is_authority": false,
+            "runtimeTruthSource": "daemon-runtime",
+        }),
+        Err(reason) => json!({
+            "name": ACT_TOOL_NAME,
+            "connection_ref": format!("connector:{id}"),
+            "service": connector["service"].clone(),
+            "actable": false,
+            "reason": reason,
+            "filters": Value::Null,
+            "authority_source": ACT_AUTHORITY_SOURCE,
+            "host_config_is_authority": false,
+            "widening_path": STANDING_WIDENING_PATH,
+            "runtimeTruthSource": "daemon-runtime",
+        }),
+    }
+}
+
+/// GET /v1/model-mount/mcp/act/tools — the act tool as the model mount advertises it, one entry
+/// per connection in the Connections estate. Read-only projection; grants nothing.
+pub(crate) async fn handle_act_tool_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let now_ms = wall_now_ms();
+    let tools: Vec<Value> = read_record_dir(&st.data_dir, "connectors")
+        .iter()
+        .map(|connector| act_tool_descriptor(connector, now_ms))
+        .collect();
+    Json(json!({
+        "ok": true,
+        "tools": tools,
+        "contract": "the advertised filters are a READ PROJECTION of the daemon-resolved standing lease; editing an agent host's own filter config changes nothing this daemon enforces",
+        "runtimeTruthSource": "daemon-runtime",
+    }))
+}
+
+/// POST /v1/model-mount/mcp/act — draw one bounded act against the caller's standing lease.
+/// Delegates to the connector-invoke gate, which owns the draw: same admission, same receipts,
+/// same typed refusals. Interactive callers name a `session_ref`; headless callers present the
+/// opaque `capability_handle`. Host-supplied filter material is accepted and IGNORED, and the
+/// response says so — that is the M08.13 mutation drill's whole point.
+pub(crate) async fn handle_act_tool_invoke(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let connection_ref = body
+        .get("connection_ref")
+        .and_then(Value::as_str)
+        .map(|value| value.trim().trim_start_matches("connector:").to_string())
+        .unwrap_or_default();
+    let session_ref = body
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let capability_handle = body
+        .get("capability_handle")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let tool = body
+        .get("tool")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_default()
+        .to_string();
+    if connection_ref.is_empty() || tool.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "reason": "act_request_invalid", "message": "act requires connection_ref and tool" }),
+            ),
+        );
+    }
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connection_ref.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown_connector_id" })),
+        );
+    };
+    let now_ms = wall_now_ms();
+    // NO AUTHORITY, NO ACT — and never a fallback. A caller with neither an admitting session nor
+    // a capability handle is refused here, before any credential, filter or config is consulted.
+    let resolved_session = match (session_ref.clone(), capability_handle.clone()) {
+        (Some(session_ref), None) => Some(session_ref),
+        // The handle crosses to the ONE gate as it was presented; that gate resolves the lease it
+        // names, re-verifies it, and writes the draw under a handle-derived subject. The act route
+        // mints no session of its own: a fabricated session record would be a second authority
+        // story about the same draw.
+        (None, Some(_)) => None,
+        (Some(_), Some(_)) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({ "ok": false, "reason": "act_authority_mode_ambiguous", "message": "present a session_ref or a capability_handle, never both" }),
+                ),
+            )
+        }
+        (None, None) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "reason": "act_no_authority",
+                    "message": "act draws against a standing lease named by a session profile or an out-of-band capability handle; with neither it refuses and never falls back to host configuration",
+                    "connection_ref": format!("connector:{connection_ref}"),
+                    "host_config_is_authority": false,
+                    "widening_path": STANDING_WIDENING_PATH,
+                    "runtimeTruthSource": "daemon-runtime",
+                })),
+            )
+        }
+    };
+    let headless = capability_handle.is_some();
+    // Delegate to the ONE draw-down gate. Host-supplied filter material never reaches it, and the
+    // acting subject crosses exactly as it was presented: a session, or the opaque handle.
+    let mut invoke_body = match (resolved_session.as_deref(), capability_handle.as_deref()) {
+        (Some(session_ref), _) => json!({
+            "tool": tool,
+            "request": body.get("request").cloned().unwrap_or_else(|| json!({})),
+            "session_ref": session_ref,
+        }),
+        (None, Some(handle)) => json!({
+            "tool": tool,
+            "request": body.get("request").cloned().unwrap_or_else(|| json!({})),
+            "capability_handle": handle,
+        }),
+        (None, None) => unreachable!("the no-authority case refused above"),
+    };
+    let (status, Json(mut result)) = handle_connector_invoke(
+        State(st),
+        AxumPath(connection_ref.clone()),
+        headers,
+        Json(invoke_body.take()),
+    )
+    .await;
+    if let Some(object) = result.as_object_mut() {
+        object.insert(
+            "act_posture".into(),
+            json!(if headless { "headless" } else { "interactive" }),
+        );
+        object.insert("authority_source".into(), json!(ACT_AUTHORITY_SOURCE));
+        object.insert("host_config_is_authority".into(), json!(false));
+        if body.get("host_filters").is_some() {
+            // Said out loud on every answer: the host's filters were read and ignored.
+            object.insert("host_filters_ignored".into(), json!(true));
+        }
+    }
+    (status, Json(result))
+}
+
 /// GET /v1/hypervisor/authority/capability-account — the daemon's wallet capability account
 /// (the audience a grant must name to be consumable) and the deployment principal it resolves
 /// authority for. Public coordinate material, never a secret; absent when no wallet client is
@@ -16597,8 +16791,96 @@ pub(crate) async fn handle_connector_invoke(
         && org_policy["exact_review_tools"]
             .as_array()
             .is_some_and(|tools| tools.iter().any(|t| t.as_str() == Some(tool_name.as_str())));
+    // M08.14 — the HEADLESS subject. A caller with no product session may present the OPAQUE
+    // CAPABILITY HANDLE of a standing lease minted out of band. The handle is a public commitment:
+    // it SELECTS the lease this act draws on and confers nothing by itself, the daemon re-verifies
+    // that lease exactly as it does for a session, and the caller's own identity is still resolved
+    // above. Receipts are written under a handle-derived subject so the chain is the same shape.
+    let capability_handle = body
+        .get("capability_handle")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    if session_ref.is_some() && capability_handle.is_some() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "reason": "session_authority_mode_ambiguous", "message": "present a session_ref or a capability_handle, never both" }),
+            ),
+        );
+    }
+    let standing_subject: Option<String> = session_ref.clone().or_else(|| {
+        capability_handle
+            .as_deref()
+            .map(|handle| format!("capability-handle:{}", short_hash(handle)))
+    });
     let mut standing_draw: Option<StandingCapabilityDraw> = None;
     let mut standing_lease_view: Option<Value> = None;
+    if let Some(handle) = capability_handle.as_deref() {
+        let subject = standing_subject.clone().unwrap_or_default();
+        let lease = match connector_active_standing_lease(&connector, wall_now_ms()) {
+            Ok(lease) => lease.clone(),
+            Err(status) => {
+                return standing_refusal_response(
+                    &st.data_dir,
+                    &subject,
+                    &id,
+                    &tool_name,
+                    status,
+                    "status",
+                    connector.get("standing_lease"),
+                    None,
+                );
+            }
+        };
+        if lease["grant_hash_ref"].as_str() != Some(handle) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(
+                    json!({ "ok": false, "reason": "act_capability_handle_unknown", "message": "the capability handle does not name this connection's active standing lease", "connection_ref": format!("connector:{id}"), "runtimeTruthSource": "daemon-runtime" }),
+                ),
+            );
+        }
+        if !lease_covers_operation(&lease, CONNECTOR_INVOKE_OPERATION) {
+            return standing_refusal_response(
+                &st.data_dir,
+                &subject,
+                &id,
+                &tool_name,
+                "standing_envelope_operation_outside_template",
+                "operations",
+                Some(&lease),
+                None,
+            );
+        }
+        if !lease_covers_tool(&lease, &tool_name) {
+            return standing_refusal_response(
+                &st.data_dir,
+                &subject,
+                &id,
+                &tool_name,
+                "standing_envelope_tool_outside_template",
+                "allowed_tools",
+                Some(&lease),
+                None,
+            );
+        }
+        standing_draw = standing_draw_from_connector_lease(&lease);
+        if standing_draw.is_none() {
+            return standing_refusal_response(
+                &st.data_dir,
+                &subject,
+                &id,
+                &tool_name,
+                "standing_lease_invalid",
+                "record",
+                Some(&lease),
+                None,
+            );
+        }
+        standing_lease_view = Some(lease);
+    }
     if let Some(session_ref) = session_ref.as_deref() {
         if !exact_review_required {
             let lease = match connector_active_standing_lease(&connector, now_ms) {
@@ -16683,7 +16965,7 @@ pub(crate) async fn handle_connector_invoke(
         // A standing draw is one USAGE of the envelope, so identical acts must each draw: the
         // daemon mints a per-draw nonce into the facets so the C2 intent slot (and the wallet's
         // consumption id) are unique per act while an exact-grant act keeps its exactly-once slot.
-        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args), "session_ref": session_ref.clone(), "standing_draw_nonce": standing_draw.as_ref().map(|_| standing_draw_nonce()) }),
+        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args), "session_ref": session_ref.clone(), "acting_subject": standing_subject.clone(), "standing_draw_nonce": standing_draw.as_ref().map(|_| standing_draw_nonce()) }),
         credential_connector_id: Some(id.clone()),
         credential_store: "connector-credentials".to_string(),
         credential_required: requires_credential,
@@ -16750,13 +17032,13 @@ pub(crate) async fn handle_connector_invoke(
                     );
                 }
             }
-            if let (Some(session_ref), Some(lease)) =
-                (session_ref.as_deref(), standing_lease_view.as_ref())
+            if let (Some(subject), Some(lease)) =
+                (standing_subject.as_deref(), standing_lease_view.as_ref())
             {
                 let (reason, bound) = classify_standing_refusal(&challenge);
                 return standing_refusal_response(
                     &st.data_dir,
-                    session_ref,
+                    subject,
                     &id,
                     &tool_name,
                     reason,
@@ -16768,13 +17050,14 @@ pub(crate) async fn handle_connector_invoke(
             return (code, Json(challenge));
         }
     };
-    if let (Some(session_ref), Some(view)) = (session_ref.as_deref(), standing_lease_view.as_ref())
+    if let (Some(subject), Some(view)) = (standing_subject.as_deref(), standing_lease_view.as_ref())
     {
-        // silent_within_policy: the draw is receipted on the session; no prompt exists anywhere.
+        // silent_within_policy: the draw is receipted on the acting subject — the session, or the
+        // capability handle for a headless act; no prompt exists anywhere on either path.
         persist_session_standing_receipt(
             &st.data_dir,
             "hypervisor.session.standing_draw",
-            session_ref,
+            subject,
             &id,
             &tool_name,
             json!({

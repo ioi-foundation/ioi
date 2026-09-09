@@ -1,0 +1,37 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "standing-lease program 2",
+  "leg": 3,
+  "title": "M08.13 the act tool as a draw-down client \u00b7 M08.14 the headless posture",
+  "basis": {
+    "head": "faa78130a",
+    "tree": "dirty (this slice's files)"
+  },
+  "recorded_at": "2026-09-09",
+  "runs": {
+    "check:standing-consumer-loop": {
+      "verdict": "pass",
+      "assertions": "PASS check:standing-consumer-loop \u2014 33/33 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey",
+      "fixture": "real wallet.network principal-authority fixture, Solo ordering profile",
+      "act_tool_clauses": [
+        "PASS M08.13: the act tool's advertised filters ARE the daemon's lease projection \u2014 operations, tools, metered unit, usages, budget and expiry rendered from the connector record, with the capability handle and an explicit host_config_is_authority=false \u2014 200 {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":",
+        "PASS M08.13: an interactive act completes WITHOUT a per-call signature \u2014 it draws against the caller's standing lease and the daemon records the draw \u2014 200 \u00b7 1 draw receipt(s)",
+        "PASS MUTATION DRILL (M08.13): widening the HOST config's filters beyond the lease changes nothing the daemon enforces \u2014 the act still refuses at the lease bound (tool outside the template) and the answer says the host filters were ignored \u2014 403/standing_envelope_tool_outside_template host_filters_ig",
+        "PASS M08.14: a HEADLESS act presenting only the out-of-band capability handle draws under the same lease \u2014 no product session and no per-call signature; the caller's own identity is still resolved, because a handle selects a lease and never becomes a principal \u2014 200 \u00b7 1 headless draw receipt(s)",
+        "PASS M08.14: the interactive and headless draws produce receipt chains that are byte-identical except their subject identity \u2014 same kind, same field set, same envelope and grant, same posture, both admitted through the same intent family \u2014 true \u00b7 silent_within_policy/silent_within_policy",
+        "PASS M08.14: an act with NO lease authority \u2014 no session, no handle \u2014 refuses typed and never falls back to the host's configuration \u2014 403/act_no_authority",
+        "PASS a capability handle that names no active lease refuses \u2014 the handle SELECTS a lease, it never authorizes one \u2014 403/act_capability_handle_unknown",
+        "PASS the act tool draws down the SAME envelope as every other path: the third draw exhausts the 3-usage lease and the fourth refuses at the bound \u2014 200 then 403/max_usages"
+      ]
+    }
+  },
+  "what_changed": [
+    "daemon: GET /v1/model-mount/mcp/act/tools renders the act tool per connection from the connector record's standing lease (a read projection); POST /v1/model-mount/mcp/act delegates to the connector-invoke draw-down gate and states that host filters were ignored.",
+    "daemon: the connector-invoke gate accepts an OPAQUE CAPABILITY HANDLE as the acting subject beside a session_ref (never both); the handle must name the connection's active lease exactly, receipts are written under a handle-derived subject, and the acting subject is folded into the request facets so a session's grant cannot replay as a handle act.",
+    "daemon: both act routes are classified in the MCP route census, which fails daemon readiness closed on an unclassified MCP route \u2014 it caught these two before they could serve."
+  ],
+  "findings": [
+    "A headless act is NOT anonymous: the caller's identity is still resolved by the daemon, and the handle only selects the lease. The first cut modelled headless as cookie-less and was refused 401 by the session gate, correctly.",
+    "The act route minted a session record for headless draws in its first cut; that was a second authority story about the same draw and was removed \u2014 the handle crosses to the one gate as it was presented."
+  ]
+}

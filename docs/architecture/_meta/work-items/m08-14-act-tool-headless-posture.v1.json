@@ -1,0 +1,56 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-14-act-tool-headless-posture",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.14"
+  ],
+  "status": "verified",
+  "objective": "The headless/CI operator posture: a non-interactive caller holds an opaque capability handle minted out of band, its draws produce the same receipt chain as an interactive draw, and with no lease it refuses instead of falling back to configuration.",
+  "falsifiable_claim": "POST /v1/model-mount/mcp/act with a capability_handle and no session draws under the same standing lease: the handle must name the connection's active lease exactly (a forged handle refuses act_capability_handle_unknown), the draw is receipted under a handle-derived acting subject whose receipt has the same kind, field set, envelope hash, grant hash and posture as an interactive draw and an admission intent in the same family, and an act presenting neither a session nor a handle refuses act_no_authority with host_config_is_authority=false \u2014 never a config fallback.",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "capability-handle:",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "act_no_authority",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "act_capability_handle_unknown",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "acting_subject",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-standing-consumer-loop.mjs",
+      "literal": "M08.14: the interactive and headless draws produce receipt chains",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/leg3-act-tool-2026-09-09.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Three negatives run beside the positive: a forged handle, an act with no authority at all, and the exhausted envelope refusing the next headless draw at max_usages. The handle is a public commitment \u2014 it selects a lease and the daemon re-verifies it, so it can never become a principal.",
+  "remaining_nonclaims": [
+    "The caller's own identity is still resolved by the daemon: headless means no product session and no per-call signature, NOT anonymous. A handle names a lease; it does not name a person.",
+    "Receipt parity is asserted over the receipt's kind, field set and lease-binding fields, not over a byte-for-byte serialization: the acting subject and the draw nonce necessarily differ, and that is the difference the assertion allows.",
+    "The out-of-band mint is the Connections attach flow (M13.3); this unit does not add a second way to create a lease."
+  ],
+  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXV.",
+  "last_status_transaction": "2026-09-09"
+}
