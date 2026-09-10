@@ -314,6 +314,29 @@ async function run() {
     exhausted.status === 200 && overBound.status === 403 && overBound.body?.refused_bound === "max_usages",
     `${exhausted.status} then ${overBound.status}/${overBound.body?.refused_bound}`);
 
+  // ---- R-19 DRILL: the exact-review requirement binds EVERY acting subject ------------------
+  // M08.14 added the headless capability-handle subject, and the requirement read
+  // `session_ref.is_some() && ...` — so a headless act on a review-marked tool stopped requiring
+  // review and drew the standing envelope silently. That is the substitution M13.5 asserts is
+  // impossible for a session; M03.15 generalizes it to every subject. Two halves had to be fixed,
+  // and a drill on the boolean alone would have missed the second: the headless branch also armed
+  // the standing draw unconditionally, so the envelope admitted the act regardless.
+  const markE = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(E.connector_id)}/policy`, { method: "POST", body: JSON.stringify({ allowed_tools: null, risk_posture: "standard", exact_review_tools: ["ping"] }) });
+  const drawsBeforeR19 = readReceipts("hypervisor.session.standing_draw").filter((r) => r.connector_id === E.connector_id).length;
+  const intentsBeforeR19 = consumedIntents();
+  ok("R-19 drill: the connection's policy marks the tool for individual exact-effect review", markE.body?.ok === true, `${markE.status}`);
+
+  const headlessReviewed = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${E.connector_id}`, tool: "ping", request: { n: 1 }, capability_handle: handle }) });
+  const drawsAfterR19 = readReceipts("hypervisor.session.standing_draw").filter((r) => r.connector_id === E.connector_id).length;
+  ok("R-19: a HEADLESS act on a review-marked tool does NOT draw the standing envelope — a standing envelope may never satisfy a policy requiring individual exact-effect review, whoever presents it",
+    headlessReviewed.status !== 200 && drawsAfterR19 === drawsBeforeR19 && consumedIntents() === intentsBeforeR19,
+    `${headlessReviewed.status}/${headlessReviewed.body?.reason || headlessReviewed.body?.decision} · draws ${drawsBeforeR19}→${drawsAfterR19} · intents unchanged=${consumedIntents() === intentsBeforeR19}`);
+
+  const headlessReviews = readReceipts("hypervisor.session.exact_effect_review").filter((r) => r.connector_id === E.connector_id);
+  ok("R-19: the review object is written under the HANDLE-DERIVED subject — a headless caller cannot review in a browser, but the object an exact grant resolves against exists either way",
+    headlessReviews.length >= 1 && headlessReviews.some((r) => String(r.session_ref || "").startsWith("capability-handle:")),
+    `${headlessReviews.length} review object(s) · subjects ${headlessReviews.map((r) => String(r.session_ref || "").slice(0, 28)).join(",")}`);
+
   // ---- restart -----------------------------------------------------------------------------------
   await stopDaemon();
   await startDaemon();

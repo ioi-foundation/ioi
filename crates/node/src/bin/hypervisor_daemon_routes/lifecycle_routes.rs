@@ -16935,10 +16935,16 @@ pub(crate) async fn handle_connector_invoke(
     //   · otherwise an act inside the envelope draws one usage silently, before any effect;
     //   · an act outside it refuses typed, naming the bound, with widening pointed at Connections.
     let now_ms = wall_now_ms();
-    let exact_review_required = session_ref.is_some()
-        && org_policy["exact_review_tools"]
-            .as_array()
-            .is_some_and(|tools| tools.iter().any(|t| t.as_str() == Some(tool_name.as_str())));
+    // R-19 — THE REQUIREMENT IS A PROPERTY OF THE EFFECT, NOT OF WHO IS ASKING. This read
+    // `session_ref.is_some() && ...`, so the moment M08.14 added the headless capability-handle
+    // subject (which carries no session_ref) an act on an exact-review tool stopped requiring
+    // review and drew the standing envelope silently instead. That is exactly the substitution
+    // M13.5 asserts is impossible for a session — a standing envelope may never satisfy a policy
+    // requiring individual exact-effect review — and M03.15 generalizes the requirement to EVERY
+    // acting subject. The org policy marks the TOOL; who presents it changes nothing.
+    let exact_review_required = org_policy["exact_review_tools"]
+        .as_array()
+        .is_some_and(|tools| tools.iter().any(|t| t.as_str() == Some(tool_name.as_str())));
     // M08.14 — the HEADLESS subject. A caller with no product session may present the OPAQUE
     // CAPABILITY HANDLE of a standing lease minted out of band. The handle is a public commitment:
     // it SELECTS the lease this act draws on and confers nothing by itself, the daemon re-verifies
@@ -17014,8 +17020,15 @@ pub(crate) async fn handle_connector_invoke(
                 None,
             );
         }
-        standing_draw = standing_draw_from_connector_lease(&lease);
-        if standing_draw.is_none() {
+        // R-19 — mirror the session branch: when the policy marks this tool for individual
+        // exact-effect review, the standing envelope is NOT armed. Arming it here is what let a
+        // headless act be admitted by the envelope and skip review entirely; leaving it unarmed
+        // makes the capability-lease authorization fail with the approval challenge below, which
+        // is what parks the act on a review object.
+        if !exact_review_required {
+            standing_draw = standing_draw_from_connector_lease(&lease);
+        }
+        if standing_draw.is_none() && !exact_review_required {
             return standing_refusal_response(
                 &st.data_dir,
                 &subject,
@@ -17133,7 +17146,11 @@ pub(crate) async fn handle_connector_invoke(
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
         Err((code, challenge)) => {
-            if let (Some(session_ref), true) = (session_ref.as_deref(), exact_review_required) {
+            // R-19 — park under the ACTING SUBJECT, which is the session when there is one and
+            // the handle-derived subject when the act is headless. A headless caller cannot review
+            // in a browser, but the review OBJECT is what an exact grant resolves against, so it
+            // is written either way and the act is refused admission until one exists.
+            if let (Some(review_subject), true) = (standing_subject.as_deref(), exact_review_required) {
                 // The exact-effect REVIEW OBJECT: the daemon's own commitments for this exact
                 // payload/destination/subject, written durably, resolvable only by an exact
                 // grant bound to them. Budget and standing authority existing changes nothing.
@@ -17146,7 +17163,7 @@ pub(crate) async fn handle_connector_invoke(
                     let review_ref = persist_session_standing_receipt(
                         &st.data_dir,
                         "hypervisor.session.exact_effect_review",
-                        session_ref,
+                        review_subject,
                         &id,
                         &tool_name,
                         json!({
@@ -17170,6 +17187,9 @@ pub(crate) async fn handle_connector_invoke(
                             "reason": "exact_effect_review_required",
                             "message": format!("Org policy marks '{tool_name}' for individual exact-effect review; the standing envelope cannot admit it. Approve exactly this request to proceed."),
                             "review_ref": review_ref,
+                            // The subject the review is bound to: a session_ref for an
+                            // interactive act, a capability-handle subject for a headless one.
+                            "acting_subject": review_subject,
                             "session_ref": session_ref,
                             "connection_ref": format!("connector:{id}"),
                             "approval": approval,
