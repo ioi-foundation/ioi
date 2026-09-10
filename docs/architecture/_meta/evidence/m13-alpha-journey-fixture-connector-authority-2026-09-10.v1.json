@@ -1,0 +1,327 @@
+{
+  "schema": "ioi.hypervisor.alpha-journey-evidence.v1",
+  "started_at": "2026-09-10T23:02:59.415Z",
+  "steps": [
+    {
+      "step": "1-install",
+      "name": "build provenance",
+      "recorded": true,
+      "detail": "6bc07025d4a366ae0c5787e96165c95c5890fe7f (10 dirty paths) · daemon 5d19672e63c4fbff · linux x64 6.17.9-76061709-generic",
+      "at": "2026-09-10T23:03:01.372Z"
+    },
+    {
+      "step": "1-install",
+      "name": "the release is a SOURCE BUILD of this checkout — no packaged release was under test in this run (typed absence, recorded not passed; package mode qualifies step 1)",
+      "pass": true,
+      "detail": "not_built_in_this_run: packaged release",
+      "at": "2026-09-10T23:03:01.372Z"
+    },
+    {
+      "step": "2b-authority",
+      "name": "deployment-local wallet.network node",
+      "recorded": true,
+      "detail": "ready in 268s · Solo single-node ordering profile · chain 1 · approver key custodied at /tmp/ioi-alpha-journey-9ZIcdZ/approver.key (mode 0600; FIXTURE seed = public test material)",
+      "at": "2026-09-10T23:07:29.418Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the daemon printed a one-boot bootstrap token",
+      "pass": true,
+      "detail": "ioi_bootstrap_3ddfae",
+      "at": "2026-09-10T23:07:31.857Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-10T23:07:31.862Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the first-run form creates the operator account and lands on the product with an operator session",
+      "pass": true,
+      "detail": "302 → /ai",
+      "at": "2026-09-10T23:07:33.832Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+      "pass": true,
+      "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+      "at": "2026-09-10T23:07:33.890Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+      "pass": true,
+      "detail": "200/409",
+      "at": "2026-09-10T23:07:33.935Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the operator can sign in again with the email and password they chose",
+      "pass": true,
+      "detail": "302",
+      "at": "2026-09-10T23:07:35.867Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "daemon health, doctor and substrate status answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-10T23:07:35.873Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "model route",
+      "recorded": true,
+      "detail": "qwen2.5:7b served at http://127.0.0.1:11434/v1 (verified via /api/tags before start)",
+      "at": "2026-09-10T23:07:35.873Z"
+    },
+    {
+      "step": "4-project",
+      "name": "a project can be created and listed",
+      "pass": true,
+      "detail": "201 project:alpha-journey · 1 project(s)",
+      "at": "2026-09-10T23:07:35.875Z"
+    },
+    {
+      "step": "5a-selection",
+      "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+      "pass": true,
+      "detail": "200 · 6 harness · 1 routes · 0 connections",
+      "at": "2026-09-10T23:07:36.568Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "FIXTURE MODE: the attach pass minted the standing envelope (1 usage · $0.01 · 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record",
+      "pass": true,
+      "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1789088853261,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u · factor synthetic_contract_fixture_not_physical_passkey",
+      "at": "2026-09-10T23:07:59.765Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number)",
+      "pass": true,
+      "detail": "200 standing=true",
+      "at": "2026-09-10T23:07:59.775Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule",
+      "pass": true,
+      "detail": "412/session_authority_connection_unbounded",
+      "at": "2026-09-10T23:07:59.806Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile",
+      "pass": true,
+      "detail": "202 session:hyp-68f2505dd817a9f0762f607408966ecb71a0fcf8a6a2410dbd247bbe5c09acf1 [\"connector:conn_617696bb35b1503c\"]",
+      "at": "2026-09-10T23:07:59.941Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+      "pass": true,
+      "detail": "403/session_authority_out_of_profile",
+      "at": "2026-09-10T23:07:59.983Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the composer submit creates a real environment, a session and a registered run",
+      "pass": true,
+      "detail": "200 run agent_mtw51fau0 env env_ddf3f2dc2f5b48869f8d3590048707e4353a52f452fa43d490956a22b04a1d59",
+      "at": "2026-09-10T23:08:00.179Z"
+    },
+    {
+      "step": "6-work",
+      "name": "SILENT WITHIN POLICY: the run never parks on an approval card — its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)",
+      "pass": true,
+      "detail": "done · {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\",\"standing\":true}",
+      "at": "2026-09-10T23:09:45.493Z"
+    },
+    {
+      "step": "6-work",
+      "name": "Work / Sessions shows NO approval card for the silent run",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-10T23:09:45.573Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the silently authorized run completes on the qualified harness/model and writes at least one file (0s)",
+      "pass": true,
+      "detail": "done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devco · ",
+      "at": "2026-09-10T23:09:45.573Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed",
+      "pass": true,
+      "detail": "1 draw receipt(s)",
+      "at": "2026-09-10T23:09:45.574Z"
+    },
+    {
+      "step": "6-work",
+      "name": "OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound",
+      "pass": true,
+      "detail": "200 failed · {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_envelope\",\"reason\":\"standing_envelope_exceeded\",\"refusalReceiptRef\":\"receipt://hyp · exec 0 · refusals 1",
+      "at": "2026-09-10T23:10:18.918Z"
+    },
+    {
+      "step": "6-work",
+      "name": "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) — leaving is real",
+      "pass": true,
+      "detail": "200 → 412/session_authority_connection_unbounded",
+      "at": "2026-09-10T23:10:18.980Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the written artifacts of the silently authorized run are in the session's workspace on disk",
+      "pass": true,
+      "detail": "/tmp/ioi-alpha-journey-9ZIcdZ/data/environments/env_ddf3f2dc2f5b48869f8d3590048707e4353a52f452fa43d490956a22b04a1d59/workspace · ALPHA_JOURNEY.md",
+      "at": "2026-09-10T23:10:19.007Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission",
+      "pass": true,
+      "detail": "1 receipt(s)",
+      "at": "2026-09-10T23:10:19.007Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "cost/consumption, the run timeline and the work ledger answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-10T23:10:19.017Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
+      "pass": true,
+      "detail": "200 → torn_down",
+      "at": "2026-09-10T23:10:19.165Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "revoking a connection refuses every later use under the sessions that named it",
+      "pass": true,
+      "detail": "200 → 400",
+      "at": "2026-09-10T23:10:19.224Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (done), its execute receipts (1) and the Sessions surface are all recovered exactly as they were",
+      "pass": true,
+      "detail": "200 · run done · 1 receipt(s) · page 200",
+      "at": "2026-09-10T23:10:21.398Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "the operator's identity and session survive the restart",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-10T23:10:21.464Z"
+    },
+    {
+      "step": "10-backup",
+      "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
+      "pass": true,
+      "detail": "exit 0 · 76/76 passed",
+      "at": "2026-09-10T23:10:46.455Z"
+    },
+    {
+      "step": "11-diagnostics",
+      "name": "doctor, the audit trail, the Operations surface and the developer route ledger answer",
+      "pass": true,
+      "detail": "200/200/200/200",
+      "at": "2026-09-10T23:10:46.538Z"
+    },
+    {
+      "step": "12-update",
+      "name": "the release change-plan family answers on the daemon, but this run is NOT on a packaged release, so update/rollback is recorded as NOT QUALIFIED here (package mode qualifies it), never as a pass",
+      "pass": true,
+      "detail": "200 · not_qualified_in_this_run",
+      "at": "2026-09-10T23:11:05.969Z"
+    },
+    {
+      "step": "13-agree",
+      "name": "the App's Sessions surface and the headless client render the same daemon-owned sessions",
+      "pass": true,
+      "detail": "3 session(s)",
+      "at": "2026-09-10T23:11:06.046Z"
+    }
+  ],
+  "checkout": {
+    "head": "6bc07025d4a366ae0c5787e96165c95c5890fe7f",
+    "dirty_paths": 10,
+    "node": "v22.22.0",
+    "host": "linux x64 6.17.9-76061709-generic"
+  },
+  "daemon_binary": {
+    "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "sha256": "5d19672e63c4fbfff0ebc115f9d00b4686e46f4089b78771aee914799d9c848e",
+    "mtime": "2026-09-10T22:45:10.413Z"
+  },
+  "authority_mode": "fixture",
+  "fixture_ordering_profile": "Solo",
+  "standing_lease": {
+    "mode": "fixture",
+    "status": "bound",
+    "code": null,
+    "message": null,
+    "factor_origin": "synthetic_contract_fixture_not_physical_passkey",
+    "bounds": {
+      "allowed_tools": [
+        "ping"
+      ],
+      "expires_at_ms": 1789088853261,
+      "max_cumulative_deposit_microusd": 10000,
+      "max_cumulative_spend_microusd": 10000,
+      "max_usages": 1,
+      "not_before_ms": 1789081593261,
+      "operations": [
+        "session_execute",
+        "connector_invoke"
+      ],
+      "per_operation_deposit_microusd": 10000,
+      "per_operation_spend_microusd": 10000
+    },
+    "grant_hash": "eb557125f960ad01b15b444d9dac9cb3b9d8cc02f02b85fd46fdb108051d0eac",
+    "silent_run": {
+      "run_id": "agent_mtw51fau0",
+      "status": "done",
+      "draw_receipts": 1
+    },
+    "over_envelope_run": {
+      "run_id": "agent_mtw53ot03",
+      "status": "failed",
+      "authority": {
+        "connectionRef": "connector:conn_617696bb35b1503c",
+        "posture": "refused_outside_envelope",
+        "reason": "standing_envelope_exceeded",
+        "refusalReceiptRef": "receipt://hypervisor/standing-refusal/dbf6fc4065408d1d",
+        "refusedBound": "max_usages",
+        "wideningPath": "/__ioi/connections"
+      }
+    },
+    "revocation": {
+      "status": 200,
+      "next_launch": 412
+    }
+  },
+  "nonclaims": [
+    "packaged release / signer / supply-chain evidence",
+    "update and rollback of the release",
+    "workload-bound isolation (host_spawn only)",
+    "the wallet.network fixture is test material with a public approver seed"
+  ],
+  "finished_at": "2026-09-10T23:11:06.047Z",
+  "summary": {
+    "passed": 33,
+    "total": 33
+  }
+}

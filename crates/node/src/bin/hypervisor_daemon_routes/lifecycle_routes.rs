@@ -11540,7 +11540,10 @@ pub(crate) async fn handle_connector_bind_standing_lease(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let caller_id = caller["principal_id"].as_str().unwrap_or_default().to_string();
+    let caller_id = caller["principal_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
     let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
@@ -11619,7 +11622,10 @@ pub(crate) async fn handle_connector_revoke_standing_lease(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let caller_id = caller["principal_id"].as_str().unwrap_or_default().to_string();
+    let caller_id = caller["principal_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
     let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
@@ -15481,10 +15487,40 @@ pub(crate) async fn handle_capability_lease_list(
 // ================================================================================================
 
 /// POST /v1/hypervisor/connectors — register a generic service connector (no credential yet).
+///
+/// R-20 + R-22 (ruled 2026-09-10, owner-reversible; ADR 0052 § 8). A connector's identity binds
+/// the principal that registered it, and the four connector authority routes — register, bind,
+/// revoke, invoke — refuse an unresolved caller with ONE typed answer. Until this ruling this
+/// handler took no `HeaderMap`: it resolved nobody, and because the id is derived from
+/// `{service}:{name}:{base_url}` alone, a second caller presenting the same triple silently
+/// OVERWROTE the first caller's record — `org_policy.principal_scoped` included — which is the
+/// scoping R-17 built bind and revoke on. The daemon's auth middleware defaults OFF on loopback
+/// (`auth_gate`), so in-handler resolution is the entire gate in the posture the bounded alpha
+/// ships; the resolve is the FIRST statement so an unresolved caller never learns whether an id
+/// exists.
+///
+/// The id derivation is unchanged on purpose: re-keying by principal would orphan every existing
+/// record — session profiles name `connector:<id>` as a closed set; lease grants, standing leases
+/// and credentials join on it — and the ruling forbids a silent re-key. The holder is recorded
+/// instead (`owner_ref`, server-resolved, never from the body), and an EXISTING id is never
+/// overwritten by anyone: the holder's own re-register would rewrite its standing lease, admitted
+/// policy and credential posture in place, and widening is a new binding on record. Records
+/// registered before this ruling carry no `owner_ref`; the daemon never backfills one (that would
+/// attribute a registration to a principal who did not perform it) and nothing reads it for
+/// authority — bind, revoke and invoke keep R-17's single ownership notion.
 pub(crate) async fn handle_connector_register(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let caller = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let owner_ref = format!(
+        "user://{}",
+        caller["principal_id"].as_str().unwrap_or_default()
+    );
     let service = body
         .get("service")
         .and_then(Value::as_str)
@@ -15547,11 +15583,30 @@ pub(crate) async fn handle_connector_register(
         "conn_{}",
         short_hash(&format!("{service}:{name}:{base_url}"))
     );
+    // An existing id is refused, never overwritten — for every caller (see the doc comment). The
+    // read follows the caller resolution above (rule E: no record read before identity).
+    if read_record_dir(&st.data_dir, "connectors")
+        .iter()
+        .any(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "connector_already_registered",
+                    "message": "a connector with this service, name and base_url is already registered; a registration is never overwritten — remove it or register under another name"
+                },
+                "connector_id": connector_id,
+            })),
+        );
+    }
     let connector = json!({
         "schema_version": "ioi.hypervisor.connector.v1",
         "connector_id": connector_id, "service": service, "kind": kind, "name": name,
         "base_url": base_url, "allowed_tools": allowed_tools, "requires_credential": requires_credential,
         "auth_profile": auth_profile, "org_policy": org_policy,
+        "owner_ref": owner_ref,
         "auth_posture": if requires_credential { "token-lease:unbound" } else { "open" }, "created_at": iso_now(),
     });
     // The response hands back the connector as registered state, and every later authority decision
@@ -16753,15 +16808,23 @@ pub(crate) async fn handle_connector_invoke(
     // to answer 400 "unknown connector_id" first, a record-existence oracle for callers who would
     // fail the principal-scope gate below. Identity scopes WHO may request the crossing; it does NOT
     // replace the wallet authority that authorizes the crossing itself.
-    let caller = resolve_principal(&st.data_dir, &headers);
-    let caller_id = caller
-        .as_ref()
-        .and_then(|p| p["principal_id"].as_str())
-        // The bare principal id is the join key for principal-lease-grants and the receipt subject.
-        // Unauthenticated requests only reach here in local dev (inbound auth middleware refuses
-        // them under enforcement, and principal-scoped connectors additionally refuse `caller ==
-        // None` below); attribute those to the local operator, never an out-of-namespace literal.
-        .unwrap_or("local-operator")
+    //
+    // R-22 (ruled 2026-09-10; ADR 0052 § 8) — AND REFUSE AN UNRESOLVED CALLER. After R-17, bind and
+    // revoke refused an anonymous caller while this route — the one that SPENDS the envelope —
+    // attributed it to a literal `"local-operator"` and refused only when the connector was
+    // principal-scoped: an anonymous caller could DRAW a standing envelope it could neither mint
+    // nor revoke, and revoke is the safety act. The four connector authority routes now answer an
+    // unresolved caller identically (401 `hypervisor.authentication_required`), before any record
+    // read. The daemon's auth middleware defaults OFF on loopback, so this in-handler resolution
+    // is the entire gate in the posture the bounded alpha ships.
+    let caller = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    // The bare principal id is the join key for principal-lease-grants and the receipt subject.
+    let caller_id = caller["principal_id"]
+        .as_str()
+        .unwrap_or_default()
         .to_string();
     let Some(connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
@@ -16907,17 +16970,10 @@ pub(crate) async fn handle_connector_invoke(
 
     // PRINCIPAL-SCOPE gate (hardening #3) — least-privilege per principal. When the connector is
     // principal-scoped, the CALLING principal must hold a lease grant for (connector, tool); roles
-    // grant nothing here — only an explicit per-principal grant does. Off → any caller (still
-    // wallet-gated). This composes BEFORE the wallet crossing.
+    // grant nothing here — only an explicit per-principal grant does. Off → any authenticated
+    // caller (still wallet-gated). This composes BEFORE the wallet crossing. The caller is always
+    // resolved by this point (R-22), so the former `principal_required` arm is gone.
     if org_policy["principal_scoped"].as_bool().unwrap_or(false) {
-        if caller.is_none() {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(
-                    json!({ "ok": false, "reason": "principal_required", "message": "This integration is principal-scoped; the caller must be an authenticated principal." }),
-                ),
-            );
-        }
         if !principal_has_lease_grant(&st.data_dir, &caller_id, &id, &tool_name) {
             return (
                 StatusCode::FORBIDDEN,
@@ -17150,7 +17206,9 @@ pub(crate) async fn handle_connector_invoke(
             // the handle-derived subject when the act is headless. A headless caller cannot review
             // in a browser, but the review OBJECT is what an exact grant resolves against, so it
             // is written either way and the act is refused admission until one exists.
-            if let (Some(review_subject), true) = (standing_subject.as_deref(), exact_review_required) {
+            if let (Some(review_subject), true) =
+                (standing_subject.as_deref(), exact_review_required)
+            {
                 // The exact-effect REVIEW OBJECT: the daemon's own commitments for this exact
                 // payload/destination/subject, written durably, resolvable only by an exact
                 // grant bound to them. Budget and standing authority existing changes nothing.

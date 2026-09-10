@@ -266,6 +266,89 @@ async function run() {
     (myGrant.status === 201 || myGrant.status === 200) && grantedBind.status !== 404,
     `my grant ${myGrant.status} · bind ${grantedBind.status} (past the scope gate; the envelope itself is still validated)`);
 
+  // ---- R-20 / R-22 DRILL: one language at the four connector authority routes -----------------
+  // R-20: a connector's identity binds the principal that registered it — until 2026-09-10 register
+  // took no headers and derived the id from the triple alone, so a second caller presenting the same
+  // triple OVERWROTE the first caller's record, principal_scoped included, which is the scoping the
+  // R-17 drill above proves. R-22: after R-17 an anonymous caller was refused at bind and revoke but
+  // could still DRAW through invoke. Three cases × four routes; every refusal is asserted by status
+  // AND typed code, and the record on disk is read back after each collision so a refusal that
+  // happened AFTER an overwrite cannot pass.
+  const jdAs = (cookie, p, init) => fetch(`${DAEMON}${p}`, { ...init, headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...(cookie ? { cookie: `ioi_session=${cookie}` } : {}) } })
+    .then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch((e) => ({ status: 0, body: { fetch_error: String(e?.message || e) } }));
+  const recordOnDisk = (id) => { try { return JSON.parse(fs.readFileSync(path.join(dataDir, "connectors", `${id}.json`), "utf8")); } catch { return null; } };
+  const triple = { service: "ping-service", name: "r20-drill", base_url: `http://127.0.0.1:${toolPort}`, kind: "bearer", requires_credential: false, allowed_tools: [{ name: "ping", method: "GET", path: "/ping" }] };
+  const registered = await jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify(triple) });
+  const X = registered.body?.connector;
+  ok("R-20 drill: the operator registers a REAL connector and the record carries the registering principal as owner_ref, server-resolved",
+    registered.status === 200 && typeof X?.connector_id === "string" && X.owner_ref === `user://${me}` && recordOnDisk(X.connector_id)?.owner_ref === `user://${me}`,
+    `${registered.status} · ${X?.connector_id} · owner_ref ${X?.owner_ref}`);
+  await jd(`/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/policy`, { method: "POST", body: JSON.stringify({ principal_scoped: true }) });
+  const scopedBefore = recordOnDisk(X.connector_id)?.org_policy?.principal_scoped === true;
+
+  // (1) UNRESOLVED CALLER — all four routes, one typed answer, byte-identical bodies.
+  const anonRegister = await jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ ...triple, name: "r22-anon" }) }, false);
+  const anonBind = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) }, false);
+  const anonRevokeX = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/standing-lease`, { method: "DELETE" }, false);
+  const anonInvoke = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/invoke`, { method: "POST", body: JSON.stringify({ tool: "ping", request: { n: 1 } }) }, false);
+  const four = [anonRegister, anonBind, anonRevokeX, anonInvoke];
+  ok("R-22: register, bind, revoke and invoke refuse an UNRESOLVED caller with ONE typed answer — 401 hypervisor.authentication_required, byte-identical across the four routes",
+    four.every((r) => r.status === 401 && r.body?.code === "hypervisor.authentication_required") && new Set(four.map((r) => JSON.stringify(r.body))).size === 1,
+    four.map((r) => `${r.status}/${r.body?.code || r.body?.reason || "?"}`).join(" · "));
+  const anonInvokeUnknown = await jd(`/v1/hypervisor/connectors/${unknownId}/invoke`, { method: "POST", body: JSON.stringify({ tool: "ping", request: {} }) }, false);
+  ok("R-22: the anonymous invoke refusal precedes the record read — an existing and a made-up connector answer identically (invoke used to say 400 unknown connector_id first)",
+    anonInvokeUnknown.status === 401 && JSON.stringify(anonInvokeUnknown.body) === JSON.stringify(anonInvoke.body), `${anonInvokeUnknown.status}`);
+  const anonAct = await jd("/v1/model-mount/mcp/act", { method: "POST", body: JSON.stringify({ connection_ref: `connector:${X.connector_id}`, tool: "ping", request: {}, capability_handle: `sha256:${"e".repeat(64)}` }) }, false);
+  ok("R-22: an anonymous HEADLESS act (handle only) refuses at the same gate — the act tool delegates to invoke with the caller's headers, so it can no longer draw as the local operator",
+    anonAct.status === 401 && anonAct.body?.code === "hypervisor.authentication_required", `${anonAct.status}/${anonAct.body?.code || anonAct.body?.reason}`);
+  ok("R-20/R-22 drill: the anonymous probes changed nothing on the record — owner_ref and principal_scoped are as the operator left them",
+    recordOnDisk(X.connector_id)?.owner_ref === `user://${me}` && recordOnDisk(X.connector_id)?.org_policy?.principal_scoped === true && scopedBefore, JSON.stringify(recordOnDisk(X.connector_id)?.org_policy));
+
+  // (2) CROSS-PRINCIPAL CALLER — a REAL second principal with its own session (the R-17 drill seeded a
+  // foreign grant on disk; this mints the foreign CALLER through the routes).
+  const other = await jd("/v1/hypervisor/principals", { method: "POST", body: JSON.stringify({ email: "other-principal@ioi.local", name: "Other Principal", role: "member", password: "other-principal-v1" }) });
+  const otherId = other.body?.principal?.principal_id || "";
+  const otherLogin = await jd("/v1/hypervisor/auth/login", { method: "POST", body: JSON.stringify({ email: "other-principal@ioi.local", password: "other-principal-v1" }) }, false);
+  const OTHER = otherLogin.body?.session_token || "";
+  const otherMe = (await jdAs(OTHER, "/v1/hypervisor/auth/whoami")).body?.principal?.principal_id || "";
+  ok("R-20 drill: a SECOND principal exists, logs in, and resolves as itself — the cross-principal caller is real, not a seeded file",
+    (other.status === 201 || other.status === 200) && OTHER.startsWith("ioi_sess_") && otherMe === otherId && otherId !== me, `${other.status} · ${otherId} · login ${otherLogin.status}`);
+  const collide = await jdAs(OTHER, "/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ ...triple, org_policy: { allowed_tools: null, risk_posture: "standard", principal_scoped: false } }) });
+  const afterCollide = recordOnDisk(X.connector_id);
+  ok("R-20: the second principal re-registering the SAME triple is refused 409 connector_already_registered — and the operator's record is untouched: owner_ref still the operator, principal_scoped still true (this exact request used to overwrite both)",
+    collide.status === 409 && collide.body?.error?.code === "connector_already_registered" && collide.body?.connector_id === X.connector_id
+      && afterCollide?.owner_ref === `user://${me}` && afterCollide?.org_policy?.principal_scoped === true,
+    `${collide.status}/${collide.body?.error?.code} · owner_ref ${afterCollide?.owner_ref} · scoped ${afterCollide?.org_policy?.principal_scoped}`);
+  const otherBind = await jdAs(OTHER, `/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) });
+  const otherRevoke = await jdAs(OTHER, `/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/standing-lease`, { method: "DELETE" });
+  const otherInvoke = await jdAs(OTHER, `/v1/hypervisor/connectors/${encodeURIComponent(X.connector_id)}/invoke`, { method: "POST", body: JSON.stringify({ tool: "ping", request: { n: 1 } }) });
+  ok("R-20/R-17: with the scoping intact, the cross-principal caller cannot bind (404, indistinguishable from unknown), cannot revoke (404), and cannot draw (403 principal_not_authorized) — the overwrite that would have opened all three is closed",
+    otherBind.status === 404 && otherRevoke.status === 404 && otherInvoke.status === 403 && otherInvoke.body?.reason === "principal_not_authorized",
+    `bind ${otherBind.status} · revoke ${otherRevoke.status} · invoke ${otherInvoke.status}/${otherInvoke.body?.reason}`);
+
+  // (3) RE-REGISTRATION COLLISION by the holder, and a record that predates the ruling.
+  const holderAgain = await jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ ...triple, allowed_tools: [] }) });
+  ok("R-20: the HOLDER re-registering its own triple is refused identically — a registration is never overwritten, not even by its owner (the retry carried allowed_tools: [] and the record still declares ping)",
+    holderAgain.status === 409 && holderAgain.body?.error?.code === "connector_already_registered" && recordOnDisk(X.connector_id)?.allowed_tools?.[0]?.name === "ping",
+    `${holderAgain.status}/${holderAgain.body?.error?.code} · tools ${JSON.stringify(recordOnDisk(X.connector_id)?.allowed_tools?.map((t) => t.name))}`);
+  const differentName = await jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ ...triple, name: "r20-drill-sibling" }) });
+  ok("R-20: a different triple by the same caller still registers (200, a new id) — the refusal is about the id, not the caller",
+    differentName.status === 200 && differentName.body?.connector?.connector_id && differentName.body.connector.connector_id !== X.connector_id, `${differentName.status} · ${differentName.body?.connector?.connector_id}`);
+  // A record registered BEFORE the ruling carries no owner_ref on disk. Register one through the
+  // route, then rewrite its bytes exactly as such a record exists in every pre-2026-09-10 deployment.
+  const legacy = (await jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ ...triple, name: "r20-legacy" }) })).body?.connector;
+  const legacyId = legacy?.connector_id || "conn_legacy_unregistered";
+  const legacyBytes = recordOnDisk(legacyId) || {};
+  delete legacyBytes.owner_ref;
+  legacyBytes.org_policy = { allowed_tools: null, risk_posture: "standard", principal_scoped: true };
+  fs.writeFileSync(path.join(dataDir, "connectors", `${legacyId}.json`), JSON.stringify(legacyBytes));
+  const legacyAgain = await jd("/v1/hypervisor/connectors", { method: "POST", body: JSON.stringify({ ...triple, name: "r20-legacy", allowed_tools: [] }) });
+  const legacyAfter = recordOnDisk(legacyId);
+  const legacyListed = (await jd("/v1/hypervisor/connectors")).body?.connectors?.find((c) => c.connector_id === legacyId);
+  ok("R-20: a record that PREDATES the ruling (no owner_ref on disk) is neither re-keyed nor reinterpreted — re-registration refuses 409 by id, the bytes are unchanged, and the projection carries no owner_ref (a typed absence, never a backfilled principal)",
+    legacy?.connector_id && legacyAgain.status === 409 && legacyAgain.body?.connector_id === legacyId && legacyAfter?.owner_ref === undefined && legacyAfter?.org_policy?.principal_scoped === true && legacyListed && !("owner_ref" in legacyListed),
+    `${legacyAgain.status} · owner_ref ${String(legacyAfter?.owner_ref)} · listed ${Boolean(legacyListed)}`);
+
   // ---- M08.13/M08.14: the act tool as a draw-down client ------------------------------------
   const leaseE = await mintLease(E, { maxUsages: 3 });
   await jd(`/v1/hypervisor/connectors/${encodeURIComponent(E.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: leaseE.grant, envelope: leaseE.envelope }) });

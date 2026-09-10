@@ -274,6 +274,18 @@ async function run() {
   }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
   ok("an ANONYMOUS session-scoped invocation refuses typed 401 before the session record is read (identity precedes the profile gate)",
     anon.status === 401, `${anon.status}/${anon.body?.error?.code || anon.body?.reason || ""}`);
+  // R-22 (2026-09-10, ADR 0052 § 8): the four connector authority routes speak one language to an
+  // unresolved caller. Asserted here, on the CI-bound verifier, so a route that drifts back to a
+  // local-operator attribution is red in CI; the three-case drill lives in check:standing-consumer-loop.
+  const anonFour = await Promise.all([
+    fetch(`${DAEMON}/v1/hypervisor/connectors`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ service: "ping-service", name: "r22-anon", base_url: `http://127.0.0.1:${toolPort}` }) }),
+    fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(A)}/standing-lease`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant: {}, envelope: {} }) }),
+    fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(A)}/standing-lease`, { method: "DELETE" }),
+    fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(A)}/invoke`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool: "ping", request: {} }) }),
+  ].map((p) => p.then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }))));
+  ok("R-22: register, bind, revoke and invoke answer an UNRESOLVED caller with one typed refusal — 401 hypervisor.authentication_required, byte-identical on all four routes, before any record read",
+    anonFour.every((r) => r.status === 401 && r.body?.code === "hypervisor.authentication_required") && new Set(anonFour.map((r) => JSON.stringify(r.body))).size === 1,
+    anonFour.map((r) => `${r.status}/${r.body?.code || r.body?.reason || ""}`).join(" · "));
 
   // -- revocation fences ----------------------------------------------------------------------------
   const del = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(A)}`, { method: "DELETE" });

@@ -403,7 +403,11 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_connector_oauth_callback",
   "lifecycle_routes.rs::handle_connector_oauth_discover",
   "lifecycle_routes.rs::handle_connector_oauth_start",
-  "lifecycle_routes.rs::handle_connector_register",
+  // "lifecycle_routes.rs::handle_connector_register" — LEFT the baseline 2026-09-10 (R-20/R-22,
+  // ADR 0052 § 8): register now resolves its caller with `require_authenticated_principal` as its
+  // first statement, records the holder, and refuses an existing id instead of overwriting it. A
+  // baseline entry asserts a handler has NO in-handler identity call; that assertion is now false,
+  // so the entry is deleted rather than re-pinned — the ratchet improving, not a stale pin.
   "lifecycle_routes.rs::handle_connector_revoke_credential",
   "lifecycle_routes.rs::handle_connector_set_policy",
   "lifecycle_routes.rs::handle_conversation_artifact_create",

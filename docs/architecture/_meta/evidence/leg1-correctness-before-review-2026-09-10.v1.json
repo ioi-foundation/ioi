@@ -1,0 +1,80 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "correctness program before the 2026-09-12 review (2026-09-10)",
+  "leg": 1,
+  "title": "R-20 and R-22 ruled and implemented: a registration binds its principal and is never overwritten, and the four connector authority routes refuse an unresolved caller identically",
+  "basis": {
+    "head": "6bc07025d",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-10",
+  "rulings_carried": [
+    "R-20 (owner-ruled, implemented as a HOLDER CHECK, not a principal in the id): register resolves its caller first, records owner_ref (server-resolved), and refuses an existing id 409 connector_already_registered for every caller, the holder included; pre-ruling records are never backfilled and never re-keyed. Why not principal-in-id: re-keying would orphan every record that names connector:<id> (session profiles are closed sets; lease grants, standing leases and credentials join on the id), and the ruling forbids a silent re-key.",
+    "R-22 (owner-ruled): register, bind, revoke and invoke answer an unresolved caller 401 hypervisor.authentication_required, byte-identical, before any record read; invoke's local-operator literal and its unreachable principal_required arm are gone; the act tool inherits the refusal.",
+    "Posture: auth_gate defaults to auto (enforce only when exposed or forwarded); the served App stamps x-ioi-forwarded only for a non-loopback browser; bootstrap sets no policy. The shipped alpha enables enforcement NOWHERE, so in-handler resolution is the entire gate; every verifier boots its daemon the same way."
+  ],
+  "runs": {
+    "npm run check:admission-evidence": {
+      "verdict": "pass",
+      "assertions": "exit 0 — 113 files, 17 pinned leads, H-census 201/201 baseline (202 → 201: handle_connector_register left the rule-H baseline, deleted not re-pinned)"
+    },
+    "npm run check:architecture-docs": {
+      "verdict": "pass",
+      "assertions": "200 files, 11 rules; 35 work-item records, 179 code anchors"
+    },
+    "npm run check:named-gap-truth --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "12/12; 3/3 mutations red-on-target; the absence-label pin (106) did not move"
+    },
+    "IOI_VERIFIER_CENSUS_DIR=.artifacts/verifier-census npm run check:session-authority-profile --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "23/23 (was 22/22; +1 R-22 four-route assertion); floor re-pinned 22 → 23, names sha256 cb1a9ce6… → c519a216…",
+      "lines": [
+        "PASS  R-22: register, bind, revoke and invoke answer an UNRESOLVED caller with one typed refusal — 401 hypervisor.authentication_required, byte-identical on all four routes, before any record read — 401/hypervisor.authentication_required · 401/hypervisor.authentication_required · 401/hypervisor.authentication_required · 401/hypervisor.authentication_required"
+      ]
+    },
+    "npm run check:verifier-floors --workspace=@ioi/hypervisor-app (session-authority-profile row)": {
+      "verdict": "pass (row)",
+      "assertions": "the re-pinned row reports nothing; 11 other rows fail locally on stale/missing census artifacts from earlier sessions — CI regenerates them"
+    },
+    "npm run check:standing-consumer-loop --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "56/56 (was 45/45; +11 R-20/R-22 drill assertions) · factor_origin synthetic_contract_fixture_not_physical_passkey · real wallet fixture (Solo profile, debug build) · no fixture or daemon process left behind",
+      "lines": [
+        "PASS R-20 drill: the operator registers a REAL connector and the record carries the registering principal as owner_ref, server-resolved — 200 · conn_f312bf4b6d3b4888 · owner_ref user://00000000-0000-4000-8000-000000000001",
+        "PASS R-22: register, bind, revoke and invoke refuse an UNRESOLVED caller with ONE typed answer — 401 hypervisor.authentication_required, byte-identical across the four routes — 401/hypervisor.authentication_required · 401/hypervisor.authentication_required · 401/hypervisor.authentication_required · 401/hypervisor.authentication_required",
+        "PASS R-22: the anonymous invoke refusal precedes the record read — an existing and a made-up connector answer identically (invoke used to say 400 unknown connector_id first) — 401",
+        "PASS R-22: an anonymous HEADLESS act (handle only) refuses at the same gate — the act tool delegates to invoke with the caller's headers, so it can no longer draw as the local operator — 401/hypervisor.authentication_required",
+        "PASS R-20/R-22 drill: the anonymous probes changed nothing on the record — owner_ref and principal_scoped are as the operator left them — {\"allowed_tools\":null,\"exact_review_tools\":[],\"principal_scoped\":true,\"risk_posture\":\"standard\",\"set_at\":\"2026-09-10T22:58:15.853589508Z\"}",
+        "PASS R-20 drill: a SECOND principal exists, logs in, and resolves as itself — the cross-principal caller is real, not a seeded file — 201 · usr_7a02d9e003e9b757 · login 200",
+        "PASS R-20: the second principal re-registering the SAME triple is refused 409 connector_already_registered — and the operator's record is untouched: owner_ref still the operator, principal_scoped still true (this exact request used to overwrite both) — 409/connector_already_registered · owner_ref user://00000000-0000-4000-8000-000000000001 · scoped true",
+        "PASS R-20/R-17: with the scoping intact, the cross-principal caller cannot bind (404, indistinguishable from unknown), cannot revoke (404), and cannot draw (403 principal_not_authorized) — the overwrite that would have opened all three is closed — bind 404 · revoke 404 · invoke 403/principal_not_authorized",
+        "PASS R-20: the HOLDER re-registering its own triple is refused identically — a registration is never overwritten, not even by its owner (the retry carried allowed_tools: [] and the record still declares ping) — 409/connector_already_registered · tools [\"ping\"]",
+        "PASS R-20: a different triple by the same caller still registers (200, a new id) — the refusal is about the id, not the caller — 200 · conn_2b37e3bd6c26c7d9",
+        "PASS R-20: a record that PREDATES the ruling (no owner_ref on disk) is neither re-keyed nor reinterpreted — re-registration refuses 409 by id, the bytes are unchanged, and the projection carries no owner_ref (a typed absence, never a backfilled principal) — 409 · owner_ref undefined · listed true"
+      ]
+    },
+    "IOI_ALPHA_JOURNEY_AUTHORITY=fixture npm run check:alpha-journey --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "33/33 (same count as the 2026-09-10 re-derivation's fixture run on cc6f73dae) — the App's run lane and the fixture standing legs cross unchanged under the operator's session",
+      "evidence": "docs/architecture/_meta/evidence/m13-alpha-journey-fixture-connector-authority-2026-09-10.v1.json"
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon": {
+      "verdict": "pass",
+      "assertions": "1148 passed, 0 failed, 8 ignored (118 s) — the CI-bound daemon suite on the leg's tree"
+    },
+    "cargo fmt --all -- --check": {
+      "verdict": "RED BEFORE THIS LEG",
+      "assertions": "rustfmt 1.8.0 (toolchain 1.93.1) reports drift in six daemon files this leg did not touch (cloud_job_routes.rs, governed_authority.rs, ioi_intelligence_routes.rs, release_change_plan_routes.rs, runpod_candidate_source.rs, hypervisor-daemon.rs) and in crates/cli/src/bin/wallet_network_local_authority.rs; the four hunks in lifecycle_routes.rs (three from R-17/R-19, one this leg's) are formatted in this leg. ci.yml:79-83 runs this check, so build_and_test's format step is red on 6bc07025d — recorded, not swept (cloud_job_routes.rs is the decentralized-cloud program's)"
+    }
+  },
+  "findings": [
+    "check:connector-estate does not exist in either package.json; no connector verifier is package-bound.",
+    "Six unbound connector scripts (verify-hypervisor-connector-execution, -app-parity-lineage, -app-parity-studio-designer, -governed-build, -provenance-proof-stream-threading, -semantic-journey) register anonymously against the shared daemon; lib/isolated-daemon.mjs already lists them as legacy debt; their first register now answers 401 — closure: each boots an isolated plane and bootstraps a session.",
+    "CI runs the full suite of SIX crates, not two: ioi-types, ioi-api, ioi-pii, ioi-telemetry run under --all-features at ci.yml:187-191 beside the daemon binary and agentgres."
+  ],
+  "not_run": [
+    "IOI_ALPHA_JOURNEY_AUTHORITY=deployment check:alpha-journey (deferred until after the review window, per the program)",
+    "package + no-checkout mode (same)"
+  ]
+}

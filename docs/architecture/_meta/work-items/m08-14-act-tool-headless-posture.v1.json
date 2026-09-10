@@ -52,6 +52,6 @@
     "Receipt parity is asserted over the receipt's kind, field set and lease-binding fields, not over a byte-for-byte serialization: the acting subject and the draw nonce necessarily differ, and that is the difference the assertion allows.",
     "The out-of-band mint is the Connections attach flow (M13.3); this unit does not add a second way to create a lease."
   ],
-  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXV.",
+  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md § Journey verification XXV. Re-run 2026-09-10 on the correctness program's leg 1 basis after R-20/R-22 (ADR 0052 § 8): check:standing-consumer-loop 56/56 (45 → 56, the connector-authority drill); recorded in canon-to-code-delta.md § Journey verification XXXIV.",
   "last_status_transaction": "2026-09-10"
 }

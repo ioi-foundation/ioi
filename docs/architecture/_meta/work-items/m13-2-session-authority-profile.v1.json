@@ -23,12 +23,12 @@
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
   "pr": null,
-  "adversarial_or_fault_proof": "check:session-authority-profile drives the DIRECT daemon path (no UI): empty-profile refusal with a durable receipt, in-profile authority challenge, session-less invoke unchanged, anonymous session-scoped invoke 401 before the record load, bogus session 404, unknown connection 412, malformed profile 422, deletion fencing, and identical refusals after a SIGKILL restart; the verifier is CI-gated and floor-pinned at 21 assertions so a deleted assertion is red.",
+  "adversarial_or_fault_proof": "check:session-authority-profile drives the DIRECT daemon path (no UI): empty-profile refusal with a durable receipt, in-profile authority challenge, session-less invoke unchanged, anonymous session-scoped invoke 401 before the record load, bogus session 404, unknown connection 412, malformed profile 422, deletion fencing, and identical refusals after a SIGKILL restart; the verifier is CI-gated and floor-pinned (23 assertions since 2026-09-10; 21 at landing) so a deleted assertion is red. The 2026-09-10 assertion (R-22, ADR 0052 § 8) proves that register, bind, revoke and invoke answer an unresolved caller with one byte-identical typed 401 before any record read.",
   "remaining_nonclaims": [
     "The generic-cli-local harness makes no connector calls, so on the alpha profile the binding is proven at the daemon path; a harness that calls connectors must carry session_ref (a session-less invoke is the operator's own direct act).",
     "No standing-envelope draw-down, budget or expiry is bound at attach (M13.3); the profile names connectors, not lease facets.",
     "No claim that in-profile invocations complete: the positive path is proven to the wallet authority challenge; completion needs the deployment authority node (see check:alpha-journey)."
   ],
-  "source_provenance": "Landed 2026-09-07 by the bounded-alpha program (commit 3bec178d1); recorded in canon-to-code-delta.md § Journey verification XV.",
+  "source_provenance": "Landed 2026-09-07 by the bounded-alpha program (commit 3bec178d1); recorded in canon-to-code-delta.md § Journey verification XV. R-22 four-route refusal assertion added 2026-09-10 by the correctness program before the review (leg 1); recorded in canon-to-code-delta.md § Journey verification XXXIV.",
   "last_status_transaction": "2026-09-07"
 }

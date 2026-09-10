@@ -159,6 +159,67 @@ promise. And the tier is a floor, not a ceiling: a deployment that enrols a
 passkey keeps the stronger tier, and the recognized set stays closed — a third
 tier is another binding on record, not a configuration flag.
 
+### 8. Connector authority speaks one language: a registration binds its principal, and every connector authority route refuses an unresolved caller identically
+
+> Refinement added 2026-09-10 (owner-reversible; private register R-20 and R-22).
+
+The Connections estate is the only authority surface a session may name
+(Decision 3). After the 2026-09-10 ruling that the routes minting and retiring
+a standing envelope resolve their caller (R-17), the route that registers a
+connector and the route that spends the envelope still did not. Two
+consequences followed. A connector's id was derived from
+`{service}:{name}:{base_url}` alone, so a second caller presenting the same
+triple overwrote the first caller's record — `org_policy.principal_scoped`
+included — and undid the scoping bind and revoke rely on. And an anonymous
+caller, refused at bind and revoke, could still draw an existing envelope
+through invoke; revoke is the safety act, and it was the one that died.
+
+The refinement, in two rules:
+
+- **A connector's identity binds the principal that registered it.** The
+  register route resolves its caller before any record read, refuses an
+  unresolved one, records the holder on the record (`owner_ref`,
+  server-resolved, never taken from the request), and refuses a
+  re-registration of an existing id with a typed `409
+  connector_already_registered` rather than overwriting — for every caller,
+  the holder included, because the holder's own re-register would rewrite its
+  standing lease, admitted policy and credential posture in place, and
+  widening is a new binding on record. The id derivation is unchanged on
+  purpose: session profiles name `connector:<id>` as a closed set, and lease
+  grants, standing leases and credentials join on the id, so re-keying by
+  principal would orphan every existing record. Records registered before this
+  ruling carry no holder; the daemon never backfills one (that would attribute
+  a registration to a principal who did not perform it), refuses their
+  re-registration like any other, and reads the holder for nothing — bind,
+  revoke and invoke keep R-17's single ownership notion (`principal_scoped`
+  plus per-principal lease grants).
+- **Register, bind, revoke and invoke answer an unresolved caller
+  identically:** `401 hypervisor.authentication_required`, before any record
+  read, byte-identical across the four routes. Invoke no longer attributes an
+  anonymous caller to a local-operator literal, and the act tool, which
+  delegates to invoke under the caller's own headers, inherits the refusal.
+  What an authenticated caller receives on any of the four routes is
+  unchanged: on the session-scoped path `session_ref` still resolves the
+  session's write owner after the caller resolves, and the App's run lane
+  crosses under the operator's own session.
+
+Posture, stated plainly. The daemon's auth middleware defaults to `auto`,
+which enforces only for an exposed daemon or a forwarded request; the served
+App marks a request forwarded only when the browser is not on loopback; the
+bootstrap sets no policy. On the alpha's supported deployment — one host, a
+loopback daemon, the browser on that host — neither the App lane nor the
+headless lane is enforced, the shipped alpha turns enforcement on nowhere, and
+every verifier boots its daemon the same way. **The in-handler resolution these
+rules add is therefore the entire gate in the posture the bounded alpha
+ships**, not a second line behind a middleware.
+
+Recorded, not widened: the daemon's own internal dispatches (the per-boot
+internal token) resolve no principal and never invoked a connector; after this
+refinement such a call refuses typed instead of being attributed to the local
+operator. A record read that precedes identity on any other connector route
+(policy, credential, OAuth) stays with its owner; this refinement rules the
+four authority routes only.
+
 ## Non-Goals
 
 - No new orchestration kernel, project-management primitive, or mandatory
@@ -185,6 +246,9 @@ tier is another binding on record, not a configuration flag.
 - The private implementation program promotes the essential M13 session units
   and the M12 zero-to-operable work into the base-alpha critical path without
   moving any other priority.
+- The connector record gains `owner_ref` at register; the four connector
+  authority routes share one unresolved-caller refusal; the admission-evidence
+  gate's rule-H baseline loses `handle_connector_register` (Decision 8).
 
 ## Cost Of Being Wrong And Reversal
 
@@ -192,8 +256,11 @@ Decisions 1, 2 and 6 are scoping rulings; reversing them re-widens the alpha
 and costs re-qualification, not lost guarantees. Decision 3 adds a field with
 an empty default and one admission check; reversal deletes both and every
 session created meanwhile remains valid. Decisions 4 and 5 are re-homing and
-presentation moves reversible from git history. None of them touch the frozen
-AFT surfaces.
+presentation moves reversible from git history. Decision 8 adds one
+server-resolved field and two refusals; reversal deletes the refusals and the
+field's use, and every connector registered meanwhile remains valid, because
+nothing reads `owner_ref` for authority. None of them touch the frozen AFT
+surfaces.
 
 ## Canonical References
 

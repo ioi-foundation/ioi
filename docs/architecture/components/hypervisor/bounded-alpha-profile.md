@@ -210,7 +210,14 @@ package-mode run on `cc6f73dae` failed step 5c and its run took the approval
 lane, 46/47 — recorded, not repaired away). One source-mode run on `cc6f73dae`
 failed 6-work at host load ≈10 immediately after two daemon builds (35/38); the
 same commit ran the identical silent lane to done in 70 s in fixture mode, and
-the deployment re-run on a quiet host is the 38/38 above. **Typed absence, not a
+the deployment re-run on a quiet host is the 38/38 above. **After the re-derivation (2026-09-10, leg 1 of the correctness program before
+the review; ADR 0052 § 8):** the four connector authority routes changed — a
+registration binds its principal and is never overwritten, and register, bind,
+revoke and invoke refuse an unresolved caller with one typed 401 — so the tree
+is again newer than the qualified bytes. The fixture-mode journey is re-proven
+33/33 on that tree (row below); deployment mode and package mode were not
+re-run before the review window, so the 38/38 and 46/46 above stand for
+`8281d915e` only, never for the current tree. **Typed absence, not a
 pass:** the *release* cargo profile was not rebuilt on this tree during the
 independent review window (host kept quiet); the 2026-09-08 release-profile
 evidence stands for `23424ea93`/`5c5340ea6` only. Closure test: package +
@@ -288,6 +295,7 @@ absent claim. Failures are recorded as they happened.
 | **Recorded failure** — package + no-checkout mode: step 5c `standing_lease_request_invalid — Failed to build mint-standing-approval-grant`; the run fell to the approval lane | `IOI_ALPHA_JOURNEY_PACKAGE=1 IOI_ALPHA_JOURNEY_NO_CHECKOUT=1 …` | `cc6f73dae` | 46/47 — **R-23**, fixed `8281d915e` |
 | **THE ESSENTIAL JOURNEY WITH THE DEPLOYMENT AUTHORITY NODE**, from source, quiet host (load 4.3) | `IOI_ALPHA_JOURNEY_AUTHORITY=deployment check:alpha-journey` | `8281d915e` (clean) | **38/38** — [`m13-alpha-journey-deployment-standing-2026-09-10.v1.json`](../../_meta/evidence/m13-alpha-journey-deployment-standing-2026-09-10.v1.json) |
 | **THE ESSENTIAL JOURNEY ON PACKAGES WITHOUT A CHECKOUT**: v1 `0.1.0-alpha.8` / v2 `0.1.0-alpha.9` (debug profile, both grant signers shipped) verified under the run's signer, installed, v1 activated; 5c MINTED under `deployment_local_operator`; 6-work silent lane; update admitted, daemon observed digest `465fb0dc…` = v2; rollback observed | `IOI_ALPHA_JOURNEY_AUTHORITY=deployment IOI_ALPHA_JOURNEY_PACKAGE=1 IOI_ALPHA_JOURNEY_NO_CHECKOUT=1 check:alpha-journey` | `8281d915e` (clean) | **46/46** — [`m12-alpha-journey-release-no-checkout-2026-09-10.v1.json`](../../_meta/evidence/m12-alpha-journey-release-no-checkout-2026-09-10.v1.json) |
+| Connector authority rulings R-20/R-22 (ADR 0052 § 8; the correctness program before the review, leg 1): register resolves and binds its caller and never overwrites, and the four connector authority routes refuse an unresolved caller identically — the essential journey re-run in fixture mode on the tree carrying them; deployment and package modes NOT re-run before the review window | `IOI_ALPHA_JOURNEY_AUTHORITY=fixture check:alpha-journey` | `6bc07025d` + leg 1's files | **33/33** — [`m13-alpha-journey-fixture-connector-authority-2026-09-10.v1.json`](../../_meta/evidence/m13-alpha-journey-fixture-connector-authority-2026-09-10.v1.json) |
 | Release cargo profile on this tree | — | — | **not run** (typed absence; review-window quiet host) |
 
 ## Related Canon

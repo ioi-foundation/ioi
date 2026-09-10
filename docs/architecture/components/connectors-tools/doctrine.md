@@ -391,6 +391,20 @@ path (owner:
 a binding is created, inspected, or revoked; a session never widens its own
 profile.
 
+A connector's identity binds the principal that registered it, and the four
+connector authority routes — register, bind a standing envelope, revoke it,
+and invoke — speak one language to an unresolved caller: the daemon resolves
+the caller before any record read and refuses an anonymous one with one typed
+answer on all four, before any existence check, on every posture including
+loopback (owner:
+[ADR 0052](../../../decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md)
+§ 8). A registration is never overwritten: an existing connector id refuses
+re-registration typed, for every caller, and a change of authority posture is
+a new binding through the Connections cockpit, never a re-register. The holder
+recorded at register is attribution, not a second ownership notion: which
+principal may bind, revoke or draw on a connection is decided by the
+connection's admitted policy and per-principal lease grants, as before.
+
 ## Connector Mappings and Data Recipes
 
 Connectors expose provider data. They do not define the domain by themselves.

@@ -61,6 +61,6 @@
     "The review expiry (15 minutes) is recorded on the object but not yet enforced by a sweeper; an exact grant is bound to the request hash regardless.",
     "The silent posture is proven on the connector path by this verifier and on the execute path by check:alpha-journey in fixture authority mode; deployment mode is blocked on the custody-tier ruling."
   ],
-  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXI.",
+  "source_provenance": "Landed 2026-09-08 by the standing-authority consumer-loop program, leg 3; recorded in canon-to-code-delta.md § Journey verification XXI. Re-run 2026-09-10 on the correctness program's leg 1 basis after R-20/R-22 (ADR 0052 § 8): check:standing-consumer-loop 56/56 (45 → 56, the connector-authority drill); recorded in canon-to-code-delta.md § Journey verification XXXIV.",
   "last_status_transaction": "2026-09-08"
 }

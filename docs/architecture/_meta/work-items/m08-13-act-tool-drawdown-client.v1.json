@@ -56,6 +56,6 @@
     "The tool is advertised over the daemon's own model-mount route; no agent host's tool registry is modified by this unit, which is the point \u2014 a host's registry is a projection.",
     "Provider-side spend (M03.10's provider envelope) is a separate lane; this unit's acts are connector operations."
   ],
-  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXV.",
+  "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md § Journey verification XXV. Re-run 2026-09-10 on the correctness program's leg 1 basis after R-20/R-22 (ADR 0052 § 8): check:standing-consumer-loop 56/56 (45 → 56, the connector-authority drill); recorded in canon-to-code-delta.md § Journey verification XXXIV.",
   "last_status_transaction": "2026-09-09"
 }

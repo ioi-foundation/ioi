@@ -3070,6 +3070,14 @@ Rules:
   object to existing connector/lease objects; possession, admission, refusal
   and receipts remain daemon truth, and the profile confers no authority the
   named connector's own lease does not carry.
+- **One language at the authority routes.** Registering a connector, binding
+  or revoking its standing envelope, and invoking it resolve the caller first
+  and refuse an unresolved caller identically on every posture, loopback
+  included; a registration binds the principal that made it and is never
+  overwritten
+  ([ADR 0052](../../../decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md)
+  § 8; [`connectors-tools/doctrine.md`](../connectors-tools/doctrine.md)
+  § *Connector Authority*).
 
 #### Attach-time envelope and policy-derived posture
 
