@@ -6,12 +6,12 @@
       "step": "1-install",
       "name": "build provenance",
       "recorded": true,
-      "detail": "cfaa3e9ff2033780d9252f203b781f5ce8332c63 (14 dirty paths) · daemon 313756e3a0ddcb01 · linux x64 6.17.9-76061709-generic",
+      "detail": "cfaa3e9ff2033780d9252f203b781f5ce8332c63 (14 dirty paths) \u00b7 daemon 313756e3a0ddcb01 \u00b7 linux x64 6.17.9-76061709-generic",
       "at": "2026-09-09T21:52:13.617Z"
     },
     {
       "step": "1-install",
-      "name": "the release is a SOURCE BUILD of this checkout — no packaged release was under test in this run (typed absence, recorded not passed; package mode qualifies step 1)",
+      "name": "the release is a SOURCE BUILD of this checkout \u2014 no packaged release was under test in this run (typed absence, recorded not passed; package mode qualifies step 1)",
       "pass": true,
       "detail": "not_built_in_this_run: packaged release",
       "at": "2026-09-09T21:52:13.617Z"
@@ -20,7 +20,7 @@
       "step": "2b-authority",
       "name": "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env",
       "pass": true,
-      "detail": "ready in 125s · wallet.network://principal-authority-binding/6b8bcf1912aee03ab9b0f37629b7b1e4447718872e4b1c73fd4ce471ea83bcda · key mode 600",
+      "detail": "ready in 125s \u00b7 wallet.network://principal-authority-binding/6b8bcf1912aee03ab9b0f37629b7b1e4447718872e4b1c73fd4ce471ea83bcda \u00b7 key mode 600",
       "at": "2026-09-09T21:54:18.720Z"
     },
     {
@@ -41,7 +41,7 @@
       "step": "2a-identity",
       "name": "the first-run form creates the operator account and lands on the product with an operator session",
       "pass": true,
-      "detail": "302 → /ai",
+      "detail": "302 \u2192 /ai",
       "at": "2026-09-09T21:54:23.310Z"
     },
     {
@@ -83,21 +83,21 @@
       "step": "4-project",
       "name": "a project can be created and listed",
       "pass": true,
-      "detail": "201 project:alpha-journey · 1 project(s)",
+      "detail": "201 project:alpha-journey \u00b7 1 project(s)",
       "at": "2026-09-09T21:54:25.619Z"
     },
     {
       "step": "5a-selection",
       "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
       "pass": true,
-      "detail": "200 · 6 harness · 1 routes · 0 connections",
+      "detail": "200 \u00b7 6 harness \u00b7 1 routes \u00b7 0 connections",
       "at": "2026-09-09T21:54:26.331Z"
     },
     {
       "step": "5c-envelope",
-      "name": "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage · $0.01 · 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A",
+      "name": "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage \u00b7 $0.01 \u00b7 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A",
       "pass": true,
-      "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788998072241,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u · factor deployment_local_operator_key_custody",
+      "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1788998072241,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u \u00b7 factor deployment_local_operator_key_custody",
       "at": "2026-09-09T21:54:59.422Z"
     },
     {
@@ -109,7 +109,7 @@
     },
     {
       "step": "5c-envelope",
-      "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule",
+      "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections \u2014 configure-once is the admission rule",
       "pass": true,
       "detail": "412/session_authority_connection_unbounded",
       "at": "2026-09-09T21:54:59.468Z"
@@ -137,9 +137,9 @@
     },
     {
       "step": "6-work",
-      "name": "SILENT WITHIN POLICY: the run never parks on an approval card — its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)",
+      "name": "SILENT WITHIN POLICY: the run never parks on an approval card \u2014 its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)",
       "pass": true,
-      "detail": "done · {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\",\"standing\":true}",
+      "detail": "done \u00b7 {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\",\"standing\":true}",
       "at": "2026-09-09T21:56:11.069Z"
     },
     {
@@ -153,12 +153,12 @@
       "step": "6-work",
       "name": "the silently authorized run completes on the qualified harness/model and writes at least one file (0s)",
       "pass": true,
-      "detail": "done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devco · ",
+      "detail": "done \u00b7 [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devco \u00b7 ",
       "at": "2026-09-09T21:56:11.148Z"
     },
     {
       "step": "6-work",
-      "name": "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed",
+      "name": "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session \u2014 the draw-down receipt exists, no dialog was suppressed",
       "pass": true,
       "detail": "1 draw receipt(s)",
       "at": "2026-09-09T21:56:11.148Z"
@@ -167,26 +167,26 @@
       "step": "6-work",
       "name": "OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound",
       "pass": true,
-      "detail": "200 failed · {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_envelope\",\"reason\":\"standing_envelope_exceeded\",\"refusalReceiptRef\":\"receipt://hyp · exec 0 · refusals 1",
+      "detail": "200 failed \u00b7 {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_envelope\",\"reason\":\"standing_envelope_exceeded\",\"refusalReceiptRef\":\"receipt://hyp \u00b7 exec 0 \u00b7 refusals 1",
       "at": "2026-09-09T21:56:47.483Z"
     },
     {
       "step": "6-work",
-      "name": "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) — leaving is real",
+      "name": "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) \u2014 leaving is real",
       "pass": true,
-      "detail": "200 → 412/session_authority_connection_unbounded",
+      "detail": "200 \u2192 412/session_authority_connection_unbounded",
       "at": "2026-09-09T21:56:47.536Z"
     },
     {
       "step": "7-inspect",
       "name": "the written artifacts of the silently authorized run are in the session's workspace on disk",
       "pass": true,
-      "detail": "/tmp/ioi-alpha-journey-KE6P89/data/environments/env_fdff0e210d2447408d2cfa87fadaca16df69814d7775489989b1bbf1411957d5/workspace · ALPHA_JOURNEY.md",
+      "detail": "/tmp/ioi-alpha-journey-KE6P89/data/environments/env_fdff0e210d2447408d2cfa87fadaca16df69814d7775489989b1bbf1411957d5/workspace \u00b7 ALPHA_JOURNEY.md",
       "at": "2026-09-09T21:56:47.566Z"
     },
     {
       "step": "7-inspect",
-      "name": "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission",
+      "name": "the session record carries the execute receipt binding the consumed capability lease \u2014 the standing draw is the lease's admission",
       "pass": true,
       "detail": "1 receipt(s)",
       "at": "2026-09-09T21:56:47.566Z"
@@ -195,28 +195,28 @@
       "step": "2c-rotation",
       "name": "the operator rotates the approver key: a NEW key is custodied at the same path, the retired key is versioned read-only, and the chain holds an Active successor binding (version n+1) for the new authority",
       "pass": true,
-      "detail": "ok · v1→v2 · wallet.network://principal-authority-binding/7c90c11ff107ed3",
+      "detail": "ok \u00b7 v1\u2192v2 \u00b7 wallet.network://principal-authority-binding/7c90c11ff107ed3",
       "at": "2026-09-09T21:57:04.240Z"
     },
     {
       "step": "2c-rotation",
       "name": "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts",
       "pass": true,
-      "detail": "202 · done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontain · ",
+      "detail": "202 \u00b7 done \u00b7 [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontain \u00b7 ",
       "at": "2026-09-09T21:59:59.622Z"
     },
     {
       "step": "2c-revocation",
       "name": "the operator revokes the principal's approval authority: the chain holds a Revoked successor that retains the exact prior authority snapshot",
       "pass": true,
-      "detail": "ok · v3 revoked",
+      "detail": "ok \u00b7 v3 revoked",
       "at": "2026-09-09T22:00:05.378Z"
     },
     {
       "step": "2c-revocation",
-      "name": "AFTER revocation a new run fails CLOSED with a typed authority error before any harness runs — no approval card, no execute receipt, nothing written",
+      "name": "AFTER revocation a new run fails CLOSED with a typed authority error before any harness runs \u2014 no approval card, no execute receipt, nothing written",
       "pass": true,
-      "detail": "failed · Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPE · 0 receipt(s)",
+      "detail": "failed \u00b7 Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPE \u00b7 0 receipt(s)",
       "at": "2026-09-09T22:00:27.694Z"
     },
     {
@@ -230,21 +230,21 @@
       "step": "8-stop",
       "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
       "pass": true,
-      "detail": "200 → torn_down",
+      "detail": "200 \u2192 torn_down",
       "at": "2026-09-09T22:00:27.882Z"
     },
     {
       "step": "8-stop",
       "name": "revoking a connection refuses every later use under the sessions that named it",
       "pass": true,
-      "detail": "200 → 400",
+      "detail": "200 \u2192 400",
       "at": "2026-09-09T22:00:27.947Z"
     },
     {
       "step": "9-recover",
       "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (done), its execute receipts (1) and the Sessions surface are all recovered exactly as they were",
       "pass": true,
-      "detail": "200 · run done · 1 receipt(s) · page 200",
+      "detail": "200 \u00b7 run done \u00b7 1 receipt(s) \u00b7 page 200",
       "at": "2026-09-09T22:00:30.136Z"
     },
     {
@@ -258,7 +258,7 @@
       "step": "10-backup",
       "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
       "pass": true,
-      "detail": "exit 0 · 76/76 passed",
+      "detail": "exit 0 \u00b7 76/76 passed",
       "at": "2026-09-09T22:00:56.920Z"
     },
     {
@@ -272,7 +272,7 @@
       "step": "12-update",
       "name": "the release change-plan family answers on the daemon, but this run is NOT on a packaged release, so update/rollback is recorded as NOT QUALIFIED here (package mode qualifies it), never as a pass",
       "pass": true,
-      "detail": "200 · not_qualified_in_this_run",
+      "detail": "200 \u00b7 not_qualified_in_this_run",
       "at": "2026-09-09T22:01:16.538Z"
     },
     {
@@ -390,5 +390,30 @@
   "summary": {
     "passed": 38,
     "total": 38
+  },
+  "reverified_2026_09_10": {
+    "basis": "e458c8744 (clean tree)",
+    "verdict": "38/38 passed, 0 failed",
+    "why": "Leg 3 changed the two-phase claim gate that every draw crosses (M06.2) and registered two new MCP routes (M08.13/M08.14) AFTER this journey first proved R-14 at faa78130a. The deployment-mode journey is the ONLY end-to-end proof of the ruled custody tier, so it was re-run on the basis leg 3 actually left behind rather than the one it was first proved on.",
+    "reproves": [
+      "5c-envelope (R-14): the attach pass minted the standing envelope (1 usage \u00b7 $0.01 \u00b7 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A \u2014 factor deployment_local_operator_key_custody.",
+      "The Connections card renders bounded-vs-unbounded from the daemon record, never a client-side number.",
+      "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded).",
+      "2c-rotation: the approver key rotates, the retired key is versioned read-only, the chain holds an Active successor (v1\u2192v2), and a run approved AFTER rotation is signed with the new key, accepted, executed and receipted.",
+      "2c-revocation: the chain holds a Revoked successor retaining the exact prior authority snapshot, and a later run fails CLOSED with a typed authority error before any harness runs \u2014 no card, no execute receipt, nothing written.",
+      "9-recover: after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth, its execute receipts and the Sessions surface are recovered exactly as they were.",
+      "10-backup: the two-daemon backup/restore verifier passes 76/76 (export, import into a fresh daemon, restore, kill/restart, deletion)."
+    ],
+    "raw_run_record": "/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/255707c2-7c7e-4701-bcb2-b68b09a7e564/scratchpad/alpha-deployment3/alpha-journey-2026-09-10T01-00-09-356Z.json",
+    "summary": {
+      "passed": 38,
+      "total": 38
+    },
+    "nonclaims_from_the_run": [
+      "packaged release / signer / supply-chain evidence",
+      "update and rollback of the release",
+      "workload-bound isolation (host_spawn only)",
+      "the authority node is a source build launched in this checkout, not a packaged component"
+    ]
   }
 }
