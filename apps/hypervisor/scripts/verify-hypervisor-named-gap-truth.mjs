@@ -138,7 +138,14 @@ const PINNED = {
   // denials, the atlas mentions) kept passing. Re-derived here, not adjusted to fit: the gate's
   // own balanced-paren algorithm now finds 857 `.route(` occurrences, 857 with a path literal and
   // 856 distinct paths, and `/v1` — the route that serves the derivation — is still among them.
-  registeredRoutes: 856,
+  //
+  // 856 -> 858 (2026-09-09, basis 2162403ce): `c80621ac2` (M08.13/M08.14) registered exactly two
+  // MCP-bearing routes, `/v1/model-mount/mcp/act/tools` and `/v1/model-mount/mcp/act`, and this
+  // COVERAGE pin was not moved with them — the same omission, in a second place, as the
+  // `MCP_ROUTE_CLASSIFICATIONS` count that commit also left at 36. Re-derived, not adjusted to
+  // fit: 859 `.route(` occurrences, 859 with a path literal, 858 distinct paths, `/v1` still
+  // among them, and the growth is exactly those two paths and nothing else.
+  registeredRoutes: 858,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

@@ -136,7 +136,13 @@ check("R1_DERIVED_CLOSED_WORLD",
   // attach-time standing lease bind/revoke and the capability-account read). None is a new
   // owner-authorized environment route or a second create seam; every route resolves and
   // classifies (unresolved 0, unclassified 0).
-  census.registered_route_handlers === 1108 && census.workspace_route_handlers === 38
+  //
+  // Re-pinned 2026-09-09 (basis 2162403ce) from 1108: c80621ac2 (M08.13/M08.14) registered exactly
+  // two handlers, the model-mount MCP `act` tool's list and invoke. Neither is an environment
+  // route and neither is a create seam: both delegate to the connector-invoke draw-down gate,
+  // which is why the candidate count is unchanged at 45. Derived, not adjusted to fit — the
+  // growth is exactly those two and unresolved/unclassified are still 0.
+  census.registered_route_handlers === 1110 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
