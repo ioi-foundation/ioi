@@ -2,43 +2,43 @@
   "evidence_format": "ioi.acceptance_journey_run.v1",
   "gate": "ACC-15",
   "basis": {
-    "head": "d06a4625e",
-    "dirty": true
+    "head": "5e2e01c99",
+    "dirty": false
   },
   "verdict": "PARTIAL",
   "executed_checks": 8,
   "typed_absences": 5,
   "alpha_journey": "executed in this run (fixture authority mode)",
   "fixtures": "disabled for every clause except the alpha journey's own wallet fixture, which IS that lane's authority node and is labelled",
-  "recorded_at": "2026-09-09T19:37:36.124Z",
+  "recorded_at": "2026-09-10T00:58:45.930Z",
   "results": [
     {
       "id": "1",
       "kind": "cited",
       "ok": true,
-      "label": "CITED, not executed: the alpha journey's first-run bootstrap → project → bounded connection → session (steps 2a, 4, 5b, 5c)",
+      "label": "CITED, not executed: the alpha journey's first-run bootstrap \u2192 project \u2192 bounded connection \u2192 session (steps 2a, 4, 5b, 5c)",
       "detail": "docs/architecture/_meta/evidence/m13-alpha-journey-fixture-standing-2026-09-08.v1.json"
     },
     {
       "id": "1",
       "kind": "absence",
       "ok": false,
-      "label": "TYPED ABSENCE — Two minutes, zero vocabulary: a fresh principal reaches a running session with one scoped connection attached without meeting a kernel noun",
-      "detail": "no verifier TIMES the fresh-principal path, and none scans the consumer path for kernel vocabulary · owner: M13.1 (the declaration exists; its claim-specific gate does not)"
+      "label": "TYPED ABSENCE \u2014 Two minutes, zero vocabulary: a fresh principal reaches a running session with one scoped connection attached without meeting a kernel noun",
+      "detail": "no verifier TIMES the fresh-principal path, and none scans the consumer path for kernel vocabulary \u00b7 owner: M13.1 (the declaration exists; its claim-specific gate does not)"
     },
     {
       "id": "2",
       "kind": "check",
       "ok": true,
       "label": "check:session-truth-rebind (@ioi/hypervisor-app)",
-      "detail": "exit 0 · 11/11 passed · 6s"
+      "detail": "exit 0 \u00b7 11/11 passed \u00b7 7s"
     },
     {
       "id": "2",
       "kind": "check",
       "ok": true,
       "label": "node apps/hypervisor/scripts/check-landing-designations.mjs --exit-gate",
-      "detail": "exit 0 · 10/10 passed · targets: 38 (NOW=29 · GRE=8 · TERMINAL=1) · 0s"
+      "detail": "exit 0 \u00b7 10/10 passed \u00b7 targets: 38 (NOW=29 \u00b7 GRE=8 \u00b7 TERMINAL=1) \u00b7 0s"
     },
     {
       "id": "3",
@@ -52,7 +52,7 @@
       "kind": "check",
       "ok": true,
       "label": "check:standing-consumer-loop (@ioi/hypervisor-app)",
-      "detail": "exit 0 · PASS check:standing-consumer-loop — 24/24 assertions · factor_origin synthetic_contract_fixture_not_physical_passkey · 740s"
+      "detail": "exit 0 \u00b7 PASS check:standing-consumer-loop \u2014 33/33 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey \u00b7 997s"
     },
     {
       "id": "5",
@@ -72,15 +72,15 @@
       "id": "6",
       "kind": "absence",
       "ok": false,
-      "label": "TYPED ABSENCE — Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
-      "detail": "the ONE-STEP answer is not itself asserted: the proof band and the draw/refusal receipts are proven, the single-step retrieval path is not · owner: M13.4 (surface) with M06.1 (receipts)"
+      "label": "TYPED ABSENCE \u2014 Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
+      "detail": "the ONE-STEP answer is not itself asserted: the proof band and the draw/refusal receipts are proven, the single-step retrieval path is not \u00b7 owner: M13.4 (surface) with M06.1 (receipts)"
     },
     {
       "id": "7",
       "kind": "absence",
       "ok": false,
-      "label": "TYPED ABSENCE — Watching is a projection, touching is a crossing: the browser watch pane replays the receipted session and a take-over produces the same admission and receipts",
-      "detail": "the browser head is UNBUILT — no watch pane, no take-over crossing, no verifier · owner: M13.6"
+      "label": "TYPED ABSENCE \u2014 Watching is a projection, touching is a crossing: the browser watch pane replays the receipted session and a take-over produces the same admission and receipts",
+      "detail": "the browser head is UNBUILT \u2014 no watch pane, no take-over crossing, no verifier \u00b7 owner: M13.6"
     },
     {
       "id": "8",
@@ -100,15 +100,15 @@
       "id": "N2",
       "kind": "absence",
       "ok": false,
-      "label": "TYPED ABSENCE — No governance vocabulary appears on the consumer path, and no daemon object is renamed to achieve that",
-      "detail": "no verifier scans the consumer path's rendered text against the kernel vocabulary · owner: M13.4"
+      "label": "TYPED ABSENCE \u2014 No governance vocabulary appears on the consumer path, and no daemon object is renamed to achieve that",
+      "detail": "no verifier scans the consumer path's rendered text against the kernel vocabulary \u00b7 owner: M13.4"
     },
     {
       "id": "N3",
       "kind": "absence",
       "ok": false,
-      "label": "TYPED ABSENCE — No credential is present in the session's environment at any point a probe can observe (non-possession holds even mid-run)",
-      "detail": "check:worker-secret-non-possession is named by M03's acceptance and DOES NOT EXIST · owner: M03.13"
+      "label": "TYPED ABSENCE \u2014 No credential is present in the session's environment at any point a probe can observe (non-possession holds even mid-run)",
+      "detail": "check:worker-secret-non-possession is named by M03's acceptance and DOES NOT EXIST \u00b7 owner: M03.13"
     },
     {
       "id": "N4",
@@ -122,28 +122,30 @@
       "kind": "check",
       "ok": true,
       "label": "check:session-authority-profile (@ioi/hypervisor-app)",
-      "detail": "exit 0 · 22/22 passed · 8s"
+      "detail": "exit 0 \u00b7 22/22 passed \u00b7 8s"
     },
     {
       "id": "E",
       "kind": "check",
       "ok": true,
       "label": "check:named-gap-truth (@ioi/hypervisor-app)",
-      "detail": "exit 0 · 3/3 mutations RED-ON-TARGET; temporary tree restored · 1s"
+      "detail": "exit 0 \u00b7 3/3 mutations RED-ON-TARGET; temporary tree restored \u00b7 1s"
     },
     {
       "id": "A",
       "kind": "check",
       "ok": true,
       "label": "check:alpha-journey (@ioi/hypervisor-app)",
-      "detail": "exit 0 · 33/33 passed · 564s"
+      "detail": "exit 0 \u00b7 33/33 passed \u00b7 610s"
     },
     {
       "id": "basis",
       "kind": "check",
       "ok": true,
       "label": "the journey ran on one basis",
-      "detail": "d06a4625e dirty → d06a4625e dirty"
+      "detail": "5e2e01c99 \u2192 5e2e01c99"
     }
-  ]
+  ],
+  "supersedes": "the first ACC-15 run of 2026-09-09, recorded at basis d06a4625e with a DIRTY tree. This run is the same gate on a CLEAN committed basis (5e2e01c99) after leg 3 landed M08.13/M08.14, M06.2 and the three coverage re-pins, and it carries the same verdict: PARTIAL. The superseded run executed 8 clause checks with 5 typed absences.",
+  "basis_discipline": "A run between these two, on 2162403ce, was REFUSED by the runner's own one-basis guard: the tree was edited mid-run (a coverage pin was being repaired) and the guard read 2162403ce \u2192 2162403ce+dirty. Its alpha journey passed 33/33 and every clause was green, and it is still not evidence, because a composed journey that did not run on one basis proves nothing about any basis."
 }

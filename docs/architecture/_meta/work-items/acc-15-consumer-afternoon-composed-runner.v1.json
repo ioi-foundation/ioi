@@ -47,6 +47,6 @@
     "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
     "Memory provenance (M13.7) is outside ACC-15's clause list and is not claimed here."
   ],
-  "source_provenance": "Authored 2026-09-09 by standing-lease program 2, leg 2; recorded in canon-to-code-delta.md \u00a7 Journey verification XXIII.",
+  "source_provenance": "Authored 2026-09-09 by standing-lease program 2, leg 2; recorded in canon-to-code-delta.md \u00a7 Journey verification XXIII. Re-run 2026-09-09 on the CLEAN committed basis 5e2e01c99 after leg 3: eight executed clause checks green (session truth 11/11, landing designations 10/10, standing consumer loop 33/33, session authority profile 22/22, named-gap truth 3/3 mutations, alpha journey 33/33), five typed absences, one basis. Verdict PARTIAL, unchanged.",
   "last_status_transaction": "2026-09-09"
 }
