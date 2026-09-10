@@ -169,6 +169,7 @@ if (PACKAGE_MODE) {
     IOI_PRODUCT_UI_PUBLIC: path.join(current, "apps", "hypervisor", "product-ui", "owned", "public"),
     IOI_HYPERVISOR_HARNESS_SHIM: path.join(current, "packages", "hypervisor-harness-shims", "generic-cli-local.mjs"),
     IOI_MINT_APPROVAL_GRANT_BINARY: path.join(current, "bin", "mint-approval-grant"),
+    IOI_MINT_STANDING_APPROVAL_GRANT_BINARY: path.join(current, "bin", "mint-standing-approval-grant"),
     IOI_WALLET_AUTHORITY_BINARY: path.join(current, "bin", "wallet-network-local-authority"),
     // The authority node launches the PACKAGED validator binaries and never builds.
     IOI_NODE_BINARY_DIR: path.join(current, "node-bins"),

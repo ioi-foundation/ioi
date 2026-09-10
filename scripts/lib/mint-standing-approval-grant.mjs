@@ -17,8 +17,19 @@ const required = (value, label) => {
 };
 
 export function mintStandingApprovalGrant(options = {}) {
-  const binary = path.join(repoRoot, "target", "debug", "mint-standing-approval-grant");
+  // A packaged release ships the signer at bin/mint-standing-approval-grant outside any cargo
+  // target dir, exactly as it ships bin/mint-approval-grant; the installed prefix names it here.
+  // Until 2026-09-10 this signer had no such override, so R-14's deployment attach pass — which
+  // landed AFTER the package-mode qualification — fell back to `cargo build` on a no-checkout host
+  // where cargo is deliberately unreachable, and step 5c failed with "Failed to build". An env
+  // that names an ABSENT binary is refused rather than silently rebuilt: a package must carry
+  // what it claims to carry.
+  const binary = process.env.IOI_MINT_STANDING_APPROVAL_GRANT_BINARY
+    || path.join(repoRoot, "target", "debug", "mint-standing-approval-grant");
   if (!built && !existsSync(binary)) {
+    if (process.env.IOI_MINT_STANDING_APPROVAL_GRANT_BINARY) {
+      throw new Error(`IOI_MINT_STANDING_APPROVAL_GRANT_BINARY names an absent signer: ${binary}`);
+    }
     const build = spawnSync(
       "cargo",
       ["build", "-p", "ioi-node", "--bin", "mint-standing-approval-grant"],

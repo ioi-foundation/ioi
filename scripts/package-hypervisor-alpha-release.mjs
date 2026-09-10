@@ -168,7 +168,10 @@ async function main() {
   const profile = options.profile || "debug";
   if (!["debug", "release"].includes(profile)) throw new Error("--profile must be debug or release");
   const daemon = path.resolve(ROOT, options.daemon || `target/${profile}/hypervisor-daemon`);
-  const bins = { "hypervisor-daemon": daemon, "mint-approval-grant": path.join(ROOT, `target/${profile}/mint-approval-grant`), "wallet-network-local-authority": path.join(ROOT, `target/${profile}/wallet-network-local-authority`) };
+  // The two grant signers the App's attach passes invoke out of process: the exact-effect one and,
+  // since R-14 (2026-09-09), the STANDING one the deployment-local operator mints an envelope with.
+  // A package that ships only the first leaves step 5c unable to mint on a no-checkout host.
+  const bins = { "hypervisor-daemon": daemon, "mint-approval-grant": path.join(ROOT, `target/${profile}/mint-approval-grant`), "mint-standing-approval-grant": path.join(ROOT, `target/${profile}/mint-standing-approval-grant`), "wallet-network-local-authority": path.join(ROOT, `target/${profile}/wallet-network-local-authority`) };
   for (const [n, src] of Object.entries(bins)) { if (!fs.existsSync(src)) throw new Error(`missing ${src}; build it first`); copyFile(src, path.join(stage, "bin", n), 0o755); }
   // node-bins/
   const nodeBins = options["node-bins"] ? path.resolve(options["node-bins"]) : nodeBinsDir(profile);
@@ -216,6 +219,7 @@ async function main() {
     components: {
       daemon: component("bin/hypervisor-daemon", { crate: "ioi-node", launch: "bin/hypervisor-daemon with cwd = the release root (env: IOI_HYPERVISOR_DAEMON_ADDR, IOI_HYPERVISOR_DATA_DIR, IOI_HYPERVISOR_MODEL, IOI_HYPERVISOR_MODEL_UPSTREAM, IOI_HYPERVISOR_HARNESS_SHIM=<install>/packages/hypervisor-harness-shims/generic-cli-local.mjs, plus <authority state>/daemon.env)" }),
       grant_signer: component("bin/mint-approval-grant", { crate: "ioi-node" }),
+      standing_grant_signer: component("bin/mint-standing-approval-grant", { crate: "ioi-node", since: "R-14 (2026-09-09): the deployment-local operator's standing envelope" }),
       authority_node_control: component("bin/wallet-network-local-authority", { crate: "ioi-cli" }),
       served_app: { path: "apps/hypervisor/scripts/serve-product-ui.mjs", sha256: byPath.get("apps/hypervisor/scripts/serve-product-ui.mjs").sha256, product_ui_tree: "apps/hypervisor/product-ui/owned/public", launch: "node apps/hypervisor/scripts/serve-product-ui.mjs (env: IOI_HYPERVISOR_DAEMON_URL, PORT, IOI_PRODUCT_UI_PUBLIC=<install>/apps/hypervisor/product-ui/owned/public, IOI_MINT_APPROVAL_GRANT_BINARY=<install>/bin/mint-approval-grant, plus <authority state>/serve.env)", npm_packages: graph.bare },
       harness_shim: component("packages/hypervisor-harness-shims/generic-cli-local.mjs", { harness: "generic-cli-local" }),
