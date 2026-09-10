@@ -105,6 +105,30 @@ fn mail_connector_setup_tools_do_not_inherit_conversation_capability() {
     assert!(caps.is_empty());
 }
 
+// R-21 pin (2026-09-10): the subtraction is exactly the estate's own namespace, in both
+// directions — the wallet's setup siblings and any unbound wallet tool carry nothing, the
+// explicit bindings inside the namespace still win, and the name-shape arm still serves
+// live extension tools outside every estate namespace.
+#[test]
+fn wallet_namespace_tools_gain_no_capability_by_name_shape_but_extension_tools_keep_theirs() {
+    for setup in [
+        "wallet_network__mail_connector_get",
+        "wallet_network__mail_connector_ensure_binding",
+        "wallet_network__anything_unbound",
+    ] {
+        assert!(super::tool_capabilities(setup).is_empty(), "{setup}");
+    }
+    assert_eq!(
+        super::tool_capabilities("notion__get_teams"),
+        vec![CapabilityId::from("extension.invoke")]
+    );
+    // The explicit registry binding, not the mail-tool fallback and not the name-shape arm.
+    assert_eq!(
+        super::tool_capabilities("wallet_network__mail_read_latest"),
+        vec![CapabilityId::from("mail.read.latest")]
+    );
+}
+
 #[test]
 fn memory_access_scope_allows_native_model_memory_tools() {
     let state = ResolvedIntentState {

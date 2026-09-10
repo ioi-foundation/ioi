@@ -754,6 +754,19 @@ pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
     if is_mail_connector_tool(&normalized) {
         return vec![capability("conversation.reply")];
     }
+    // R-21 (ruled 2026-09-10 by the runtime intent-resolver owner, owner-reversible; connectors
+    // doctrine § Capability Tiering). A tool in the estate's OWN `wallet_network__` namespace
+    // carries only the capabilities an explicit binding declares: the four mail tools above, and
+    // the provider-bound reply tool matched by the registry loop before this point. The
+    // mail-connector SETUP tools (`mail_connector_upsert`, `mail_connector_get`,
+    // `mail_connector_ensure_binding`) are configuration acts admitted by the wallet's own
+    // connector-config surface, not conversational tools — the 2026-02-27 test
+    // `mail_connector_setup_tools_do_not_inherit_conversation_capability` said so, and the
+    // name-shape arm below (added 2026-08-24 for live MCP tools) had silently widened them to
+    // `extension.invoke`. Permission is subtraction; a capability is never inferred from a name.
+    if normalized.starts_with("wallet_network__") {
+        return vec![];
+    }
     if normalized.contains("__") {
         return vec![capability("extension.invoke")];
     }

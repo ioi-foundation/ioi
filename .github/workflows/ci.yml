@@ -197,6 +197,97 @@ jobs:
           cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
           cargo test --locked -p ioi-consensus --features aft boundary_ring_reference_trace_matches_committed_golden -- --nocapture
 
+  # THE LIBRARY-SUITE FLOOR (2026-09-10, leg 2 of the correctness program before the review;
+  # private register R-21). Until this job CI ran the full suite of six crates — the shipped daemon
+  # binary and agentgres in build_and_test, and ioi-types/ioi-api/ioi-pii/ioi-telemetry under
+  # --all-features there — plus six individually named tests. Every other crate's library suite was
+  # uncovered, which is how `ioi-services --lib` stayed red from 2026-08-24 (d33965a9f) to
+  # 2026-09-10 without CI noticing. This job runs the library suite of every crate whose suite was
+  # measured GREEN on 6bc07025d (leg 2's measurement: one crate at a time, warm shared target dir,
+  # CARGO_INCREMENTAL=0; each line carries its own tests · compile s · test s · wall s), plus
+  # ioi-services once leg 2's fix landed, so a red in any of them is red here. It is its own job so
+  # the floor's cost never pushes build_and_test past its ceiling and a red here names the crate.
+  #
+  # BUDGET, stated: timeout-minutes 90, the same ceiling as the sibling jobs. Measured cost of the
+  # lines below on the qualification host: 2182 s wall (36.4 min) on a warm target with the crate's
+  # own test target compiled cold; the shared dependency build on a cache miss comes on top and is
+  # the same build build_and_test pays. The whole floor fits the budget, so nothing is left out for
+  # cost. Empty suites (0 tests) are floored anyway: the floor is that the suite RUNS, so an empty
+  # suite that gains its first red test is red here rather than invisible.
+  #
+  # NOT floored here, each a typed absence with a closure test:
+  #   - ioi-types, ioi-api, ioi-pii, ioi-telemetry: run in build_and_test with --all-features.
+  #   - ioi-node: no lib target; its hypervisor-daemon bin suite runs in build_and_test; the suites
+  #     of its other ten bins are unmeasured — closure: `cargo test -p ioi-node --bins` measured and
+  #     floored.
+  #   - aft-c8-verifier, ioi-ontology-census: bin-only crates, no lib target; their bin suites are
+  #     unmeasured — closure: `cargo test -p <crate> --bins` measured and floored.
+  #   - ioi-consensus runs with --features aft, the estate's wrappers' form (its default example
+  #     target does not compile, R-12).
+  rust_library_suite_floor:
+    name: Rust library-suite floor (R-21)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps for kernel build
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run the library suite of every floored crate
+        run: |
+          set -euo pipefail
+          # crate                                                    tests · compile s · test s · wall s (6bc07025d, 2026-09-10)
+          cargo test --locked -p ioi-macros --lib                    #    0 ·   1.9 ·   0.0 ·   1.9
+          cargo test --locked -p ioi-crypto --lib                    #   65 ·  55.8 ·  21.6 ·  77.5
+          cargo test --locked -p ioi-ipc --lib                       #    1 ·  59.8 ·   0.0 ·  59.9
+          cargo test --locked -p ioi-tx --lib                        #    1 · 116.0 ·   0.0 · 116.5
+          cargo test --locked -p ioi-state --lib                     #   17 ·  63.0 ·   8.0 ·  71.5
+          cargo test --locked -p ioi-storage --lib                   #    2 ·  55.1 ·   0.1 ·  55.3
+          cargo test --locked -p ioi-memory --lib                    #    7 ·   5.3 ·   0.0 ·   5.4
+          cargo test --locked -p ioi-networking --lib                #   52 · 111.0 ·  21.8 · 133.2
+          cargo test --locked -p ioi-execution --lib                 #   27 · 109.0 ·   0.0 · 109.3
+          cargo test --locked -p ioi-vm-wasm --lib                   #    0 ·  70.0 ·   0.0 ·  70.9
+          cargo test --locked -p ioi-drivers --lib                   #  196 ·  68.0 ·  26.4 ·  94.6
+          cargo test --locked -p ioi-system --lib                    #    0 ·   9.3 ·   0.0 ·   9.3
+          cargo test --locked -p ioi-validator --lib                 #  292 · 122.0 ·  21.8 · 144.5
+          cargo test --locked -p ioi-finality --lib                  #   52 ·  55.3 · 131.7 · 187.0
+          cargo test --locked -p ioi-consensus --lib --features aft  #  322 ·   7.8 · 167.0 · 174.9
+          cargo test --locked -p ioi-client --lib                    #    3 ·   3.4 ·   0.0 ·   3.5
+          cargo test --locked -p ioi-services --lib                  # 3624 · 120.0 · 253.0 · 374.0  (red on 6bc07025d — R-21; green from leg 2's fix)
+          cargo test --locked -p ioi-cli --lib                       #   15 · 122.0 ·   0.3 · 122.5
+          cargo test --locked -p zk-types --lib                      #    0 ·   2.5 ·   0.0 ·   2.6
+          cargo test --locked -p transport-verifier --lib            #    0 · 120.0 ·   0.0 · 120.1
+          cargo test --locked -p http-rpc-gateway --lib              #    8 ·  62.0 ·   0.0 ·  63.1
+          cargo test --locked -p ioi-plugin-ibc-service --lib        #    0 ·  73.0 ·   0.0 ·  73.3
+          cargo test --locked -p ioi-relayer --lib                   #    0 ·  60.0 ·   0.0 ·  60.3
+          cargo test --locked -p ioi-tee-driver --lib                #    0 ·  49.0 ·   0.0 ·  49.1
+          cargo test --locked -p zk-driver-succinct --lib            #    4 ·   1.5 ·   0.0 ·   1.6
+
   # These verifiers are JavaScript orchestrators, but each intentionally
   # launches focused Cargo tests or a Rust extractor. Give that family its own
   # Rust-capable runner instead of extending the already-long build_and_test

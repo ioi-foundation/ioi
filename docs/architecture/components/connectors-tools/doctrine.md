@@ -450,6 +450,18 @@ of these two tiers instead of recreating a generic capability bag; a lease is
 how an authority scope is GRANTED at runtime (the CapabilityLease gateway),
 not a third contract field.
 
+A capability is never inferred from a tool's name shape (ruled 2026-09-10 by
+the runtime intent-resolver owner, owner-reversible; private register R-21).
+Permission is subtraction: a tool in one of the estate's own namespaces —
+`wallet_network__` first among them — carries at the intent resolver only the
+capabilities an explicit binding declares, and a namespaced tool with no
+binding carries none. The one name-shaped resolution that exists, a
+double-underscore tool resolving to the `extension.invoke` intent, is for
+live extension (MCP) tools outside every estate namespace; it never reaches
+the wallet's mail-connector setup tools, which are configuration acts admitted
+by the wallet's own connector-config surface and are not conversational
+tools.
+
 MCP tools, external agent tools, and workflow-as-tool subgraphs must compile to
 the same contract split:
 

@@ -1,0 +1,541 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "correctness program before the 2026-09-12 review (2026-09-10)",
+  "leg": 2,
+  "title": "The test floor the estate did not have: every workspace crate's library suite measured once on the committed tree, R-21 ruled and fixed, and a CI floor installed over every green suite with its measured cost beside it",
+  "basis": {
+    "head": "6bc07025d",
+    "tree": "measurement on the clean committed tree 6bc07025d; the fix, its pin test and the CI floor on top of be4d708dc (leg 1)"
+  },
+  "recorded_at": "2026-09-10",
+  "measurement": {
+    "method": "cargo test --locked -p <crate> --lib, one crate at a time, in its own process group with a 5400 s deadline and a 6 GiB disk guard, CARGO_INCREMENTAL=0 on the warm shared target dir (target/); ioi-consensus with --features aft (the estate's wrappers' form; its default example target does not compile, R-12). Wall = the crate's own test-target compile + its tests; the shared dependency rlibs were warm. Measured by this program's runner (scratch leg2-measure/run.py), not by CI.",
+    "workspace_members": 33,
+    "with_lib_target": 30,
+    "green": 29,
+    "red": 1,
+    "no_lib_target": 3,
+    "totals_s": {
+      "compile": 1813,
+      "test": 1198,
+      "wall": 3021
+    },
+    "crates": [
+      {
+        "crate": "aft-c8-verifier",
+        "result": "no_lib_target",
+        "reason": "cargo metadata: package has no lib target"
+      },
+      {
+        "crate": "ioi-ontology-census",
+        "result": "no_lib_target",
+        "reason": "cargo metadata: package has no lib target"
+      },
+      {
+        "crate": "ioi-node",
+        "result": "no_lib_target",
+        "reason": "cargo metadata: package has no lib target"
+      },
+      {
+        "crate": "ioi-macros",
+        "command": "cargo test --locked -p ioi-macros --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 1.86,
+        "test_s": 0.0,
+        "wall_s": 1.9,
+        "failing_tests": [],
+        "log": "ioi-macros.log"
+      },
+      {
+        "crate": "ioi-crypto",
+        "command": "cargo test --locked -p ioi-crypto --lib",
+        "result": "green",
+        "passed": 65,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 55.78,
+        "test_s": 21.64,
+        "wall_s": 77.5,
+        "failing_tests": [],
+        "log": "ioi-crypto.log"
+      },
+      {
+        "crate": "ioi-types",
+        "command": "cargo test --locked -p ioi-types --lib",
+        "result": "green",
+        "passed": 466,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 116.0,
+        "test_s": 479.41,
+        "wall_s": 596.1,
+        "failing_tests": [],
+        "log": "ioi-types.log"
+      },
+      {
+        "crate": "ioi-pii",
+        "command": "cargo test --locked -p ioi-pii --lib",
+        "result": "green",
+        "passed": 26,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 52.4,
+        "test_s": 0.0,
+        "wall_s": 52.5,
+        "failing_tests": [],
+        "log": "ioi-pii.log"
+      },
+      {
+        "crate": "ioi-telemetry",
+        "command": "cargo test --locked -p ioi-telemetry --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 6.71,
+        "test_s": 0.0,
+        "wall_s": 6.8,
+        "failing_tests": [],
+        "log": "ioi-telemetry.log"
+      },
+      {
+        "crate": "ioi-api",
+        "command": "cargo test --locked -p ioi-api --lib",
+        "result": "green",
+        "passed": 364,
+        "failed": 0,
+        "ignored": 1,
+        "compile_s": 60.0,
+        "test_s": 0.92,
+        "wall_s": 62.0,
+        "failing_tests": [],
+        "log": "ioi-api.log"
+      },
+      {
+        "crate": "ioi-ipc",
+        "command": "cargo test --locked -p ioi-ipc --lib",
+        "result": "green",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 59.77,
+        "test_s": 0.0,
+        "wall_s": 59.9,
+        "failing_tests": [],
+        "log": "ioi-ipc.log"
+      },
+      {
+        "crate": "ioi-tx",
+        "command": "cargo test --locked -p ioi-tx --lib",
+        "result": "green",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 116.0,
+        "test_s": 0.0,
+        "wall_s": 116.5,
+        "failing_tests": [],
+        "log": "ioi-tx.log"
+      },
+      {
+        "crate": "ioi-state",
+        "command": "cargo test --locked -p ioi-state --lib",
+        "result": "green",
+        "passed": 17,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 63.0,
+        "test_s": 7.96,
+        "wall_s": 71.5,
+        "failing_tests": [],
+        "log": "ioi-state.log"
+      },
+      {
+        "crate": "ioi-storage",
+        "command": "cargo test --locked -p ioi-storage --lib",
+        "result": "green",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 55.09,
+        "test_s": 0.05,
+        "wall_s": 55.3,
+        "failing_tests": [],
+        "log": "ioi-storage.log"
+      },
+      {
+        "crate": "ioi-memory",
+        "command": "cargo test --locked -p ioi-memory --lib",
+        "result": "green",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 5.33,
+        "test_s": 0.01,
+        "wall_s": 5.4,
+        "failing_tests": [],
+        "log": "ioi-memory.log"
+      },
+      {
+        "crate": "ioi-networking",
+        "command": "cargo test --locked -p ioi-networking --lib",
+        "result": "green",
+        "passed": 52,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 111.0,
+        "test_s": 21.84,
+        "wall_s": 133.2,
+        "failing_tests": [],
+        "log": "ioi-networking.log"
+      },
+      {
+        "crate": "ioi-execution",
+        "command": "cargo test --locked -p ioi-execution --lib",
+        "result": "green",
+        "passed": 27,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 109.0,
+        "test_s": 0.0,
+        "wall_s": 109.3,
+        "failing_tests": [],
+        "log": "ioi-execution.log"
+      },
+      {
+        "crate": "ioi-vm-wasm",
+        "command": "cargo test --locked -p ioi-vm-wasm --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 70.0,
+        "test_s": 0.0,
+        "wall_s": 70.9,
+        "failing_tests": [],
+        "log": "ioi-vm-wasm.log"
+      },
+      {
+        "crate": "ioi-drivers",
+        "command": "cargo test --locked -p ioi-drivers --lib",
+        "result": "green",
+        "passed": 196,
+        "failed": 0,
+        "ignored": 2,
+        "compile_s": 68.0,
+        "test_s": 26.41,
+        "wall_s": 94.6,
+        "failing_tests": [],
+        "log": "ioi-drivers.log"
+      },
+      {
+        "crate": "ioi-system",
+        "command": "cargo test --locked -p ioi-system --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 9.26,
+        "test_s": 0.0,
+        "wall_s": 9.3,
+        "failing_tests": [],
+        "log": "ioi-system.log"
+      },
+      {
+        "crate": "ioi-validator",
+        "command": "cargo test --locked -p ioi-validator --lib",
+        "result": "green",
+        "passed": 292,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 122.0,
+        "test_s": 21.84,
+        "wall_s": 144.5,
+        "failing_tests": [],
+        "log": "ioi-validator.log"
+      },
+      {
+        "crate": "ioi-finality",
+        "command": "cargo test --locked -p ioi-finality --lib",
+        "result": "green",
+        "passed": 52,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 55.28,
+        "test_s": 131.65,
+        "wall_s": 187.0,
+        "failing_tests": [],
+        "log": "ioi-finality.log"
+      },
+      {
+        "crate": "ioi-consensus",
+        "command": "cargo test --locked -p ioi-consensus --lib --features aft",
+        "result": "green",
+        "passed": 322,
+        "failed": 0,
+        "ignored": 1,
+        "compile_s": 7.79,
+        "test_s": 167.04,
+        "wall_s": 174.9,
+        "failing_tests": [],
+        "log": "ioi-consensus.log"
+      },
+      {
+        "crate": "agentgres",
+        "command": "cargo test --locked -p agentgres --lib",
+        "result": "green",
+        "passed": 128,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 55.82,
+        "test_s": 65.75,
+        "wall_s": 121.7,
+        "failing_tests": [],
+        "log": "agentgres.log"
+      },
+      {
+        "crate": "ioi-client",
+        "command": "cargo test --locked -p ioi-client --lib",
+        "result": "green",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 3.4,
+        "test_s": 0.0,
+        "wall_s": 3.5,
+        "failing_tests": [],
+        "log": "ioi-client.log"
+      },
+      {
+        "crate": "ioi-services",
+        "command": "cargo test --locked -p ioi-services --lib",
+        "result": "red",
+        "passed": 3623,
+        "failed": 1,
+        "ignored": 4,
+        "compile_s": 120.0,
+        "test_s": 253.01,
+        "wall_s": 374.0,
+        "failing_tests": [
+          "agentic::runtime::service::decision_loop::intent_resolver::tests::scope_policy::mail_connector_setup_tools_do_not_inherit_conversation_capability"
+        ],
+        "log": "ioi-services.log"
+      },
+      {
+        "crate": "ioi-cli",
+        "command": "cargo test --locked -p ioi-cli --lib",
+        "result": "green",
+        "passed": 15,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 122.0,
+        "test_s": 0.33,
+        "wall_s": 122.5,
+        "failing_tests": [],
+        "log": "ioi-cli.log"
+      },
+      {
+        "crate": "zk-types",
+        "command": "cargo test --locked -p zk-types --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 2.52,
+        "test_s": 0.0,
+        "wall_s": 2.6,
+        "failing_tests": [],
+        "log": "zk-types.log"
+      },
+      {
+        "crate": "transport-verifier",
+        "command": "cargo test --locked -p transport-verifier --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 120.0,
+        "test_s": 0.0,
+        "wall_s": 120.1,
+        "failing_tests": [],
+        "log": "transport-verifier.log"
+      },
+      {
+        "crate": "http-rpc-gateway",
+        "command": "cargo test --locked -p http-rpc-gateway --lib",
+        "result": "green",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 62.0,
+        "test_s": 0.02,
+        "wall_s": 63.1,
+        "failing_tests": [],
+        "log": "http-rpc-gateway.log"
+      },
+      {
+        "crate": "ioi-plugin-ibc-service",
+        "command": "cargo test --locked -p ioi-plugin-ibc-service --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 73.0,
+        "test_s": 0.0,
+        "wall_s": 73.3,
+        "failing_tests": [],
+        "log": "ioi-plugin-ibc-service.log"
+      },
+      {
+        "crate": "ioi-relayer",
+        "command": "cargo test --locked -p ioi-relayer --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 60.0,
+        "test_s": 0.0,
+        "wall_s": 60.3,
+        "failing_tests": [],
+        "log": "ioi-relayer.log"
+      },
+      {
+        "crate": "ioi-tee-driver",
+        "command": "cargo test --locked -p ioi-tee-driver --lib",
+        "result": "green",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 48.98,
+        "test_s": 0.0,
+        "wall_s": 49.1,
+        "failing_tests": [],
+        "log": "ioi-tee-driver.log"
+      },
+      {
+        "crate": "zk-driver-succinct",
+        "command": "cargo test --locked -p zk-driver-succinct --lib",
+        "result": "green",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "compile_s": 1.48,
+        "test_s": 0.0,
+        "wall_s": 1.6,
+        "failing_tests": [],
+        "log": "zk-driver-succinct.log"
+      }
+    ]
+  },
+  "true_red_set_on_6bc07025d": [
+    {
+      "crate": "ioi-services",
+      "failing_tests": [
+        "agentic::runtime::service::decision_loop::intent_resolver::tests::scope_policy::mail_connector_setup_tools_do_not_inherit_conversation_capability"
+      ],
+      "register": "R-21",
+      "provenance": "test 57bf8f71f (2026-02-27, 'block mail connector setup tools'); generic name-shape arm d33965a9f (2026-08-24, 'normalize live MCP transport'); 3623 passed, 1 failed, 4 ignored"
+    }
+  ],
+  "typed_absences": [
+    {
+      "crate": "ioi-node",
+      "absence": "no lib target; the hypervisor-daemon bin suite is CI-bound; the other ten bins' suites are unmeasured",
+      "closure_test": "cargo test --locked -p ioi-node --bins measured once and floored"
+    },
+    {
+      "crate": "aft-c8-verifier",
+      "absence": "bin-only crate, no lib target; bin suite unmeasured",
+      "closure_test": "cargo test --locked -p aft-c8-verifier --bins measured once and floored"
+    },
+    {
+      "crate": "ioi-ontology-census",
+      "absence": "bin-only crate, no lib target; bin suite unmeasured",
+      "closure_test": "cargo test --locked -p ioi-ontology-census --bins measured once and floored"
+    },
+    {
+      "crate": "(every crate)",
+      "absence": "integration-test targets (--tests) and doc-tests were not measured; only --lib",
+      "closure_test": "a second measurement of --tests per crate on a committed tree, floored where green"
+    }
+  ],
+  "runs": {
+    "cargo test --locked -p ioi-services --lib (after the fix, first full run)": {
+      "verdict": "FAIL — the program's own pin",
+      "assertions": "3624 passed; 1 failed; 4 ignored (250 s): the R-21 test passed; the NEW pin test failed on its third assertion, which expected conversation.reply for wallet_network__mail_read_latest while the explicit registry binds it to mail.read.latest — the subtraction was right, the pin's expected value was wrong; corrected to the registry's exact value (a stronger pin: the explicit binding, not the fallback)"
+    },
+    "cargo test --locked -p ioi-services --lib scope_policy:: (after the pin correction)": {
+      "verdict": "pass",
+      "assertions": "25 passed; 0 failed; 3604 filtered out"
+    },
+    "cargo test --locked -p ioi-services --lib (after the pin correction, second full run)": {
+      "verdict": "pass",
+      "assertions": "3625 passed; 0 failed; 4 ignored (244.8 s)"
+    },
+    "cargo fmt -p ioi-services -- --check (the two edited files)": {
+      "verdict": "pass",
+      "assertions": "no diff in capabilities.rs or scope_policy.rs"
+    },
+    "npm run check:architecture-docs": {
+      "verdict": "pass",
+      "assertions": "200 files, 11 rules"
+    },
+    "yaml parse of .github/workflows/ci.yml": {
+      "verdict": "pass",
+      "assertions": "jobs: build_and_test, rust_library_suite_floor, rust_backed_verifiers, m4_plane_verifiers, product_surfaces, m061_verified_work_graph, verifier_family_floor, aft_formal_floor"
+    }
+  },
+  "rulings_carried": [
+    "R-21 (ruled by the runtime intent-resolver owner, owner-reversible): the pure function was the wrong side. d33965a9f (2026-08-24, 'normalize live MCP transport') added a name-shape arm giving every double-underscore tool extension.invoke, which widened the wallet's mail-connector SETUP tools past the 2026-02-27 subtraction (57bf8f71f, 'block mail connector setup tools'); the estate's sibling test already states that name shape confers nothing. Fix: a tool in the estate's own wallet_network__ namespace carries only the capabilities an explicit binding declares; the name-shape arm stays for extension tools outside every estate namespace; a new test pins both directions. Canon: connectors-tools/doctrine.md § Capability Tiering.",
+    "The floor: a new CI job rust_library_suite_floor runs the library suite of every crate measured green plus ioi-services, each line carrying its measured tests · compile s · test s · wall s; budget stated as the job's 90-minute ceiling; measured 2182 s (36.4 min) on a warm target — the whole floor fits, nothing left out for cost."
+  ],
+  "ci_floor": {
+    "job": "rust_library_suite_floor (.github/workflows/ci.yml)",
+    "budget": "timeout-minutes 90 (the sibling jobs' ceiling)",
+    "measured_cost_s": {
+      "wall_sum_of_floored_lines": 2182,
+      "compile": 1813,
+      "test": 1198,
+      "note": "warm shared target, CARGO_INCREMENTAL=0, the crate's own test target compiled cold; a cold dependency build on a cache miss comes on top, the same build build_and_test pays"
+    },
+    "floored": [
+      "ioi-macros",
+      "ioi-crypto",
+      "ioi-ipc",
+      "ioi-tx",
+      "ioi-state",
+      "ioi-storage",
+      "ioi-memory",
+      "ioi-networking",
+      "ioi-execution",
+      "ioi-vm-wasm",
+      "ioi-drivers",
+      "ioi-system",
+      "ioi-validator",
+      "ioi-finality",
+      "ioi-consensus (--features aft)",
+      "ioi-client",
+      "ioi-services",
+      "ioi-cli",
+      "zk-types",
+      "transport-verifier",
+      "http-rpc-gateway",
+      "ioi-plugin-ibc-service",
+      "ioi-relayer",
+      "ioi-tee-driver",
+      "zk-driver-succinct"
+    ],
+    "already_covered_in_build_and_test": [
+      "ioi-node --bin hypervisor-daemon",
+      "agentgres",
+      "ioi-types (--all-features)",
+      "ioi-api (--all-features)",
+      "ioi-pii (--all-features)",
+      "ioi-telemetry (--all-features)"
+    ],
+    "not_floored": "see typed_absences"
+  }
+}
