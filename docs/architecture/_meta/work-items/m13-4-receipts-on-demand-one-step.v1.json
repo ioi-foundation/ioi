@@ -1,0 +1,32 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-4-receipts-on-demand-one-step",
+  "stage_id": "M13",
+  "required_work": ["M13.4"],
+  "status": "verified",
+  "objective": "ACC-15 clause 6: after a run, a person answers what it touched and under what authority in ONE step, citing receipts that resolve rather than a narrative that asserts.",
+  "falsifiable_claim": "npm run check:receipts-on-demand --workspace=@ioi/hypervisor-app drives a real in-envelope draw on a bounded connection, then makes exactly ONE request to the session's own record and requires: the record names receipt refs; EVERY ref resolves to a real receipt; the standing draw is among them naming the connection and the operation (what it touched); the draw carries standing_envelope_hash, grant_hash_ref, admission_intent_ref and posture silent_within_policy (under what authority); and the cited admission intent resolves to a durable record on disk. A hash that names nothing is narrative, and this fails on it.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md"
+  ],
+  "code_anchors": [
+    { "path": "apps/hypervisor/scripts/verify-hypervisor-receipts-on-demand.mjs", "literal": "THE ONE STEP", "present_when": "merged" },
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", "literal": "append_session_receipt_ref", "present_when": "merged" },
+    { "path": "apps/hypervisor/scripts/ioi-run-timeline.mjs", "literal": "standingEnvelopeHash", "present_when": "merged" },
+    { "path": "scripts/check-acceptance-consumer-afternoon.mjs", "literal": "check:receipts-on-demand", "present_when": "merged" }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/acc15-composed-journey-2026-09-09.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The clause was UNPROVABLE AS BUILT and the gate is what established that. Two defects had to be fixed for it to pass honestly: both standing-draw call sites discarded the ref persist_session_standing_receipt returns, so those receipts were written to disk but never named on the session record and were unreachable through the one-step route — findable only by walking the receipts directory, which is the investigator-with-shell-access the clause refuses; and daemonReceiptSummary is a hard field whitelist that dropped posture, the envelope and grant hashes, the admission intent and the operation, so even once the refs arrived the payload would have rendered 'a receipt exists' with no authority in it. The gate asserts resolution, not presence: a ref that resolves to nothing fails, and the cited admission intent must exist as a durable record.",
+  "remaining_nonclaims": [
+    "This proves ONE-STEP RETRIEVAL of the daemon's own records. It does not assert how the surface renders them; the rendered proof band is clause 2's done-bar (check:session-truth-rebind).",
+    "A headless act's draw is receipted under a capability-handle subject, which owns no session record, so it is NOT named on one. The receipt stands on its own and this gate does not claim otherwise.",
+    "The one-step answer is scoped to the session's own receipt refs. The timeline route slices to the last 12 refs; a long-running session's earliest receipts fall out of that window and this gate does not exercise that boundary."
+  ],
+  "source_provenance": "Authored 2026-09-10 by the correctness-reds program, leg 2; recorded in canon-to-code-delta.md § Journey verification XXXI.",
+  "last_status_transaction": "2026-09-10"
+}

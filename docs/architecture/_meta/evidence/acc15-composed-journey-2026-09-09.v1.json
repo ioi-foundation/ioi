@@ -2,16 +2,23 @@
   "evidence_format": "ioi.acceptance_journey_run.v1",
   "gate": "ACC-15",
   "basis": {
-    "head": "5e2e01c99",
+    "head": "0200cf779",
     "dirty": false
   },
   "verdict": "PARTIAL",
-  "executed_checks": 8,
-  "typed_absences": 5,
+  "executed_checks": 10,
+  "typed_absences": 2,
   "alpha_journey": "executed in this run (fixture authority mode)",
   "fixtures": "disabled for every clause except the alpha journey's own wallet fixture, which IS that lane's authority node and is labelled",
-  "recorded_at": "2026-09-10T00:58:45.930Z",
+  "recorded_at": "2026-09-10T16:03:15.161Z",
   "results": [
+    {
+      "id": "1",
+      "kind": "check",
+      "ok": true,
+      "label": "check:consumer-path-vocabulary (@ioi/hypervisor-app)",
+      "detail": "exit 0 \u00b7 PASS check:consumer-path-vocabulary \u2014 14/14 assertions \u00b7 304s"
+    },
     {
       "id": "1",
       "kind": "cited",
@@ -20,18 +27,11 @@
       "detail": "docs/architecture/_meta/evidence/m13-alpha-journey-fixture-standing-2026-09-08.v1.json"
     },
     {
-      "id": "1",
-      "kind": "absence",
-      "ok": false,
-      "label": "TYPED ABSENCE \u2014 Two minutes, zero vocabulary: a fresh principal reaches a running session with one scoped connection attached without meeting a kernel noun",
-      "detail": "no verifier TIMES the fresh-principal path, and none scans the consumer path for kernel vocabulary \u00b7 owner: M13.1 (the declaration exists; its claim-specific gate does not)"
-    },
-    {
       "id": "2",
       "kind": "check",
       "ok": true,
       "label": "check:session-truth-rebind (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 11/11 passed \u00b7 7s"
+      "detail": "exit 0 \u00b7 11/11 passed \u00b7 6s"
     },
     {
       "id": "2",
@@ -52,7 +52,7 @@
       "kind": "check",
       "ok": true,
       "label": "check:standing-consumer-loop (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 PASS check:standing-consumer-loop \u2014 33/33 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey \u00b7 997s"
+      "detail": "exit 0 \u00b7 PASS check:standing-consumer-loop \u2014 42/42 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey \u00b7 980s"
     },
     {
       "id": "5",
@@ -63,17 +63,17 @@
     },
     {
       "id": "6",
+      "kind": "check",
+      "ok": true,
+      "label": "check:receipts-on-demand (@ioi/hypervisor-app)",
+      "detail": "exit 0 \u00b7 PASS check:receipts-on-demand \u2014 9/9 assertions \u00b7 343s"
+    },
+    {
+      "id": "6",
       "kind": "composed",
       "ok": true,
       "label": "Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
       "detail": "proven inside the clause 2 done-bar already executed above"
-    },
-    {
-      "id": "6",
-      "kind": "absence",
-      "ok": false,
-      "label": "TYPED ABSENCE \u2014 Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
-      "detail": "the ONE-STEP answer is not itself asserted: the proof band and the draw/refusal receipts are proven, the single-step retrieval path is not \u00b7 owner: M13.4 (surface) with M06.1 (receipts)"
     },
     {
       "id": "7",
@@ -98,10 +98,10 @@
     },
     {
       "id": "N2",
-      "kind": "absence",
-      "ok": false,
-      "label": "TYPED ABSENCE \u2014 No governance vocabulary appears on the consumer path, and no daemon object is renamed to achieve that",
-      "detail": "no verifier scans the consumer path's rendered text against the kernel vocabulary \u00b7 owner: M13.4"
+      "kind": "composed",
+      "ok": true,
+      "label": "No governance vocabulary appears on the consumer path, and no daemon object is renamed to achieve that",
+      "detail": "proven inside the clause 1 done-bar already executed above"
     },
     {
       "id": "N3",
@@ -115,14 +115,14 @@
       "kind": "check",
       "ok": true,
       "label": "No pixel similarity to the reference seed is cited as evidence for any clause",
-      "detail": "7 executed/cited evidence entries, none pictorial"
+      "detail": "9 executed/cited evidence entries, none pictorial"
     },
     {
       "id": "E",
       "kind": "check",
       "ok": true,
       "label": "check:session-authority-profile (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 22/22 passed \u00b7 8s"
+      "detail": "exit 0 \u00b7 22/22 passed \u00b7 7s"
     },
     {
       "id": "E",
@@ -136,16 +136,24 @@
       "kind": "check",
       "ok": true,
       "label": "check:alpha-journey (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 33/33 passed \u00b7 610s"
+      "detail": "exit 0 \u00b7 33/33 passed \u00b7 579s"
     },
     {
       "id": "basis",
       "kind": "check",
       "ok": true,
       "label": "the journey ran on one basis",
-      "detail": "5e2e01c99 \u2192 5e2e01c99"
+      "detail": "0200cf779 \u2192 0200cf779"
     }
   ],
-  "supersedes": "the first ACC-15 run of 2026-09-09, recorded at basis d06a4625e with a DIRTY tree. This run is the same gate on a CLEAN committed basis (5e2e01c99) after leg 3 landed M08.13/M08.14, M06.2 and the three coverage re-pins, and it carries the same verdict: PARTIAL. The superseded run executed 8 clause checks with 5 typed absences.",
-  "basis_discipline": "A run between these two, on 2162403ce, was REFUSED by the runner's own one-basis guard: the tree was edited mid-run (a coverage pin was being repaired) and the guard read 2162403ce \u2192 2162403ce+dirty. Its alpha journey passed 33/33 and every clause was green, and it is still not evidence, because a composed journey that did not run on one basis proves nothing about any basis."
+  "supersedes": "the 2026-09-09 runs of this gate. Those read PARTIAL on FIVE typed absences with 8 executed clause checks; this run reads PARTIAL on TWO, with 10 executed, after correctness-reds leg 2 built the three gates that were missing.",
+  "absences_closed_2026_09_10": [
+    "clause 1 \u2014 check:consumer-path-vocabulary now TIMES the fresh-principal path against the two-minute number the clause names (27.0-28.8s measured across four runs) and FAILS on it, where the alpha journey only printed durations as detail strings.",
+    "N2 \u2014 the same gate scans every declared consumer surface's rendered text against a tracked forbidden set, and pairs it with the negative control that the daemon did not rename its objects to buy a clean scan. The first run found TEN kernel nouns leaking across /__ioi/connections and /ai; all were fixed in projection.",
+    "clause 6 \u2014 check:receipts-on-demand makes ONE request and requires the answer complete in that response, with the envelope hash, grant hash and admission intent all resolving. It was unprovable as built: both standing-draw call sites discarded their receipt ref, and the timeline summary whitelist dropped every authority field."
+  ],
+  "absences_remaining": [
+    "clause 7 \u2014 the browser head is UNBUILT (M13.6). M13.6 depends on M01.9, which still has three non-real dependencies of its own (M03.13, M07.2, M09.8).",
+    "N3 \u2014 check:worker-secret-non-possession is named by M03's acceptance and DOES NOT EXIST (M03.13)."
+  ]
 }

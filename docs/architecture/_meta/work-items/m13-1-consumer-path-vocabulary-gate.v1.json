@@ -1,0 +1,35 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-1-consumer-path-vocabulary-gate",
+  "stage_id": "M13",
+  "required_work": ["M13.1"],
+  "status": "verified",
+  "objective": "M13.1's claim-specific gate: the fresh-principal path is TIMED against the two minutes clause 1 names, and the consumer path's rendered text is scanned against the kernel vocabulary — paired with the negative control that the daemon did not rename its objects to obtain a clean scan.",
+  "falsifiable_claim": "npm run check:consumer-path-vocabulary --workspace=@ioi/hypervisor-app boots an isolated daemon+serve plane and a real wallet.network authority node, then times the path from the first byte of /__ioi/login through first-run bootstrap, one connection, a bounded standing envelope and a launch, to a daemon-reported session whose authority_profile names exactly one connection — and FAILS when that exceeds IOI_CONSUMER_PATH_BUDGET_MS (default 120000). It then scans every surface declared in apps/hypervisor/consumer-path-vocabulary.v1.json — /__ioi/login and /__ioi/connections as tag-stripped HTML, /ai as chromium innerText — for any term in that record's forbidden set, and requires ZERO hits with a non-empty scan. Finally it re-reads the daemon's own session and connector records and requires latest_receipt_refs, authority_profile, environment_ref, lifecycle_state and standing_lease to still be present under their kernel names.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/_meta/vocabulary.md"
+  ],
+  "code_anchors": [
+    { "path": "apps/hypervisor/scripts/verify-hypervisor-consumer-path-vocabulary.mjs", "literal": "THE TIMED SEGMENT", "present_when": "merged" },
+    { "path": "apps/hypervisor/scripts/verify-hypervisor-consumer-path-vocabulary.mjs", "literal": "NEGATIVE CONTROL", "present_when": "merged" },
+    { "path": "apps/hypervisor/consumer-path-vocabulary.v1.json", "literal": "ioi.hypervisor.consumer-path-vocabulary.v1", "present_when": "merged" },
+    { "path": "apps/hypervisor/scripts/augmentation/05-consumer-vocabulary.js", "literal": "CONSUMER_RELABELS", "present_when": "merged" },
+    { "path": "scripts/check-acceptance-consumer-afternoon.mjs", "literal": "check:consumer-path-vocabulary", "present_when": "merged" }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/acc15-composed-journey-2026-09-09.v1.json",
+    "apps/hypervisor/consumer-path-vocabulary.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The matcher self-drills BEFORE any plane boots: it must find planted kernel nouns in a fixture sentence and stay silent on a benign consumer sentence, because a scanner that silently matches nothing passes every surface. The scan is non-vacuous by assertion — every declared surface must render a non-empty body, so a scan over a blank page is not a clean scan. And the negative control is the adversarial half of N2: a green scan obtained by renaming latest_receipt_refs fails, because the daemon's kernel names are required to still be there. On its first execution the gate found TEN forbidden nouns on the live consumer path (lease x3, capability x5, envelope x2 on /__ioi/connections; environment x1 on /ai).",
+  "remaining_nonclaims": [
+    "The scan covers RENDERED TEXT only — innerText for SPA surfaces, tag-stripped HTML for native ones. Attributes, script bodies and data-* hooks are deliberately out of scope: data-ioi-standing-lease is a test seam, not something a consumer reads.",
+    "Operations and Work surfaces are NOT scanned. M13.4 demotes that readout to Operations, where the kernel nouns are correct and expected; N2's scope is the consumer path.",
+    "The timing is measured with the plane already up. A consumer does not wait for a daemon to boot, so fixture and daemon bring-up are outside the timed segment and the budget claims nothing about them.",
+    "The forbidden set is the M13 §5 boundary list plus its named kin. It is not a complete kernel lexicon, and a noun absent from the record is not asserted to be absent from the surface."
+  ],
+  "source_provenance": "Authored 2026-09-10 by the correctness-reds program, leg 2; recorded in canon-to-code-delta.md § Journey verification XXXI.",
+  "last_status_transaction": "2026-09-10"
+}
