@@ -107,7 +107,7 @@ basis says.
 
 | # | Journey step | Contract owner | Implementation anchor | Check / basis | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Install a supported release | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* | `scripts/package-hypervisor-alpha-release.mjs` (signed manifest: checkout, toolchains, cargo profile, per-file digests, SBOM) → `install.mjs verify/install/activate` against an operator-pinned signer | `test:hypervisor-alpha-release` (4/4); `check:alpha-journey` package + no-checkout mode step 1 (the daemon, App, signer, shim, installer and authority node under test are the installed release-profile bytes; no cargo reachable) | built (2026-09-08, release cargo profile; the package is self-sufficient on a host without a checkout) |
+| 1 | Install a supported release | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* | `scripts/package-hypervisor-alpha-release.mjs` (signed manifest: checkout, toolchains, cargo profile, per-file digests, SBOM) → `install.mjs verify/install/activate` against an operator-pinned signer; the package ships BOTH grant signers (`bin/mint-approval-grant`, and since `8281d915e` `bin/mint-standing-approval-grant` — R-23) | `test:hypervisor-alpha-release` (4/4); `check:alpha-journey` package + no-checkout mode step 1 — re-derived 2026-09-10 on `8281d915e`, 46/46 (the daemon, App, signer, shim, installer and authority node under test are the installed release-profile bytes; no cargo reachable) | built (2026-09-08, release cargo profile; the package is self-sufficient on a host without a checkout) |
 | 2a | Bootstrap identity | `identity-access-and-metering.md` | `startup_auth_notice` prints a one-boot token; `POST /v1/hypervisor/auth/bootstrap` (accepts the operator's name and email); the sign-in page is the first-run setup form (`/__ioi/bootstrap`) while no operator exists | `check:session-authority` (bootstrap → operator session); `check:alpha-journey` step 2a | built (2026-09-07) |
 | 2b | Bootstrap authority | `wallet-network/doctrine.md`; `daemon-runtime/doctrine.md` | `wallet-network-authority.mjs up` (§ *Supported deployment bring-up*): generated control root, sealed capability client key and operator approver key, durable Solo chain, binding v1; `daemon.env`/`serve.env`; the approval act mints one one-use grant for the daemon's capability audience and RECORDS it on the node (`record-approval`) before the daemon consumes it; `rotate` / `revoke` | `check:alpha-journey` deployment + no-checkout mode steps 2b (incl. the closure assertion: launcher, node binaries and installer outside the repository, no cargo on any child PATH), 6, 2c-rotation, 2c-revocation; standalone drills (checkout: up → rotate → revoke → resume → rotate; package: `up` from `/tmp` with cargo absent; empty pinned dir → typed `node_binaries_absent`) | built (2026-09-08); bounded: deterministic chain clock unless `--wall-clock` |
 | 3 | Establish readiness | `daemon-runtime/platform-operability.md` § *Readiness and Degraded States* | `/healthz`, `/readyz` (static), `/v1/doctor`, `/v1/hypervisor/substrate/status`, `ExecutionSubstrate::probe` at execute | inspection; `check:launch-chain` (no-model refusal is typed) | partial (readiness is component-specific only at execute time) |
@@ -120,7 +120,7 @@ basis says.
 | 9 | Restart and recover | `daemon-runtime/doctrine.md` recovery; `managed_runtime_routes.rs` | session-create WAL, pending-execution recovery, launch-chain replay after daemon kill | `check:launch-chain` (kill/restart), `check:session-authority` (restart survival) | built |
 | 10 | Back up and restore | `providers-and-environments.md` archive/restore; `platform-operability.md` § *Checkpoint, Backup, Restore* | managed backup bundle export/import (8 MiB import ceiling), restore plans with writer fence | `check:backup-restore` (two real daemons) | built, bounded (import size disclosed; bundle issuer is not verified) |
 | 11 | Diagnostics | `platform-operability.md`; `operations-support` | `/v1/doctor`, support incidents, `/v1/hypervisor/audit/trail`, `/__ioi/operations` | inspection | partial |
-| 12 | Update / rollback | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* (`HypervisorChangePlan`); `daemon-runtime/api.md` § *Release Change Plans* | `POST /v1/hypervisor/release-change-plans` (admit; no-op and double-admission refused) → `install.mjs activate` / `rollback` + restart → `…/observe` (the daemon hashes its own executable against the target) → receipts | `check:alpha-journey` package mode step 12 (update to v2 completed, rollback to v1 completed, both observed by the daemon's own digest; durable state intact across both) | built (2026-09-08: v2 is a real successor build — `5c5340ea6` adds the running crate version to the change-plan listing — on the release profile) |
+| 12 | Update / rollback | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* (`HypervisorChangePlan`); `daemon-runtime/api.md` § *Release Change Plans* | `POST /v1/hypervisor/release-change-plans` (admit; no-op and double-admission refused) → `install.mjs activate` / `rollback` + restart → `…/observe` (the daemon hashes its own executable against the target) → receipts | `check:alpha-journey` — re-derived 2026-09-10 on `8281d915e` (debug-profile packages v1 `0.1.0-alpha.8` → v2 `0.1.0-alpha.9`, daemon digest observed `465fb0dc…`, rollback observed) package mode step 12 (update to v2 completed, rollback to v1 completed, both observed by the daemon's own digest; durable state intact across both) | built (2026-09-08: v2 is a real successor build — `5c5340ea6` adds the running crate version to the change-plan listing — on the release profile) |
 | 13 | App and headless agree on durable state | `core-clients-surfaces.md` § *First-Class Clients* | both clients read daemon records; the headless client is the HTTP API | `check:session-authority` (served vs daemon reads); `check:alpha-journey` step 13 and step 12 (plans listed by the headless client agree with the installer's activation history) | built for the two alpha clients (no dedicated CLI is claimed) |
 
 ## Supported deployment bring-up (authority node, keys, daemon, App)
@@ -195,6 +195,28 @@ host was shared with other work (approved run 80 s); the signer key in
 qualification was generated for the run — a real release pins the release
 signer's public key on every installing host.
 
+**Re-derivation (2026-09-10, owner-reversible; the 2026-09-08 ruling stands and
+is re-anchored):** thirteen daemon/App commits landed after `5c5340ea6`, so the
+qualified bytes were no longer the tree. On `8281d915e` (clean) the essential
+journey is **38/38 in deployment mode from source** and **46/46 in deployment +
+package + no-checkout mode** on debug-profile packages built from that tree (v1
+`0.1.0-alpha.8`, v2 `0.1.0-alpha.9`, both grant signers shipped); the seven
+standing gates, the doc gates and `check:shipped-products` are green on
+`cc6f73dae`/`8281d915e`. The re-derivation found and fixed one real gap: R-14's
+deployment standing mint (landed 2026-09-09, after the 44/44 ruling) could not
+run on a no-checkout host because the package omitted the standing signer and
+its script fell back to `cargo build` (R-23, fixed `8281d915e`; the first
+package-mode run on `cc6f73dae` failed step 5c and its run took the approval
+lane, 46/47 — recorded, not repaired away). One source-mode run on `cc6f73dae`
+failed 6-work at host load ≈10 immediately after two daemon builds (35/38); the
+same commit ran the identical silent lane to done in 70 s in fixture mode, and
+the deployment re-run on a quiet host is the 38/38 above. **Typed absence, not a
+pass:** the *release* cargo profile was not rebuilt on this tree during the
+independent review window (host kept quiet); the 2026-09-08 release-profile
+evidence stands for `23424ea93`/`5c5340ea6` only. Closure test: package +
+no-checkout mode green on release-profile packages built from the tree that
+claims it. The posture stays `production_candidate`.
+
 ## Nonclaims
 
 - No claim that any provider, harness, model or isolation posture other than
@@ -250,6 +272,23 @@ the command and the checkout it ran on; an absent row is an absent claim.
 | **THE ESSENTIAL JOURNEY on the RELEASE-PROFILE PACKAGES WITHOUT A CHECKOUT** (`IOI_ALPHA_JOURNEY_AUTHORITY=deployment IOI_ALPHA_JOURNEY_PACKAGE=1 IOI_ALPHA_JOURNEY_NO_CHECKOUT=1`): v1 `0.1.0-alpha.4` (release profile, daemon 77.7 MB, digest `6eff5798…`, tree of `23424ea93`) and v2 `0.1.0-alpha.5` (digest `241f514d…`, tree of `5c5340ea6` — a real successor) verified under the pinned signer and installed by the package's own installer outside the repository; the closure assertion holds (launcher binary and node binaries under the prefix, prefix not a git checkout, cargo absent from every child PATH, no child PATH entry inside the repository); every other step as in the 2026-09-07 run; update to v2 and rollback to v1 observed by the daemon's own digest | evidence [`m12-alpha-journey-release-no-checkout-2026-09-08.v1.json`](../../_meta/evidence/m12-alpha-journey-release-no-checkout-2026-09-08.v1.json) | `5c5340ea6` (2 dirty paths: the closure-assertion fix committed next, and the private sequencing file) | **44/44** |
 | Standing gates on the tree of `5c5340ea6` | `check:session-authority-profile` · `check:session-authority` · `check:launch-chain` · `check:session-truth-rebind` · `test:hypervisor-alpha-release` | `5c5340ea6` | 21/21 · 24/24 · 58/58 · 11/11 · 4/4 |
 | `npm run check:shipped-products` is green again: `apps/decentralized-cloud` is dispositioned as a shipped lane at `development_only` (owner may refine) | `npm run check:shipped-products` · `npm run test:shipped-products` | `d9e9da0f5` | 7 lanes · 23/23 |
+
+## Program evidence (2026-09-10 re-derivation)
+
+Each row names the command and the checkout it ran on; an absent row is an
+absent claim. Failures are recorded as they happened.
+
+| Evidence | Command | Checkout | Result |
+| --- | --- | --- | --- |
+| Standing gates on the current tree | `test:hypervisor-alpha-release` · `check:session-authority-profile` · `check:session-authority` · `check:launch-chain` · `check:session-truth-rebind` · `test:hypervisor-route-shell` · `check:backup-restore` | `cc6f73dae` | 4/4 · 22/22 · 24/24 · 58/58 · 11/11 · 17/17 · 76/76 |
+| Doc and contract gates · shipped-products (Hypervisor `production_candidate`, decentralized-cloud `development_only`) | `check:architecture-docs` · `check:architecture-contracts` · `check:shipped-products` | `cc6f73dae` | green (200 files, 11 rules) · up to date · 7 lanes |
+| R-19 closed — a headless act no longer skips exact-effect review | `check:standing-consumer-loop` | `cc6f73dae` | 45/45 |
+| Essential journey, fixture authority mode (the silent lane on this commit) | `IOI_ALPHA_JOURNEY_AUTHORITY=fixture check:alpha-journey` | `cc6f73dae` (+3 uncommitted R-23 files) | 33/33 · 6-work done in 70 s |
+| **Recorded failure** — deployment mode from source at host load ≈10, right after two daemon builds: run registered and the standing draw receipted, but the harness transcript never arrived within 902 s | `IOI_ALPHA_JOURNEY_AUTHORITY=deployment check:alpha-journey` | `cc6f73dae` | 35/38 (6-work ×2, 9-recover cascaded) — environmental; see the 38/38 below |
+| **Recorded failure** — package + no-checkout mode: step 5c `standing_lease_request_invalid — Failed to build mint-standing-approval-grant`; the run fell to the approval lane | `IOI_ALPHA_JOURNEY_PACKAGE=1 IOI_ALPHA_JOURNEY_NO_CHECKOUT=1 …` | `cc6f73dae` | 46/47 — **R-23**, fixed `8281d915e` |
+| **THE ESSENTIAL JOURNEY WITH THE DEPLOYMENT AUTHORITY NODE**, from source, quiet host (load 4.3) | `IOI_ALPHA_JOURNEY_AUTHORITY=deployment check:alpha-journey` | `8281d915e` (clean) | **38/38** — [`m13-alpha-journey-deployment-standing-2026-09-10.v1.json`](../../_meta/evidence/m13-alpha-journey-deployment-standing-2026-09-10.v1.json) |
+| **THE ESSENTIAL JOURNEY ON PACKAGES WITHOUT A CHECKOUT**: v1 `0.1.0-alpha.8` / v2 `0.1.0-alpha.9` (debug profile, both grant signers shipped) verified under the run's signer, installed, v1 activated; 5c MINTED under `deployment_local_operator`; 6-work silent lane; update admitted, daemon observed digest `465fb0dc…` = v2; rollback observed | `IOI_ALPHA_JOURNEY_AUTHORITY=deployment IOI_ALPHA_JOURNEY_PACKAGE=1 IOI_ALPHA_JOURNEY_NO_CHECKOUT=1 check:alpha-journey` | `8281d915e` (clean) | **46/46** — [`m12-alpha-journey-release-no-checkout-2026-09-10.v1.json`](../../_meta/evidence/m12-alpha-journey-release-no-checkout-2026-09-10.v1.json) |
+| Release cargo profile on this tree | — | — | **not run** (typed absence; review-window quiet host) |
 
 ## Related Canon
 

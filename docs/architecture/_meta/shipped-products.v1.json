@@ -192,7 +192,7 @@
           "command": "node scripts/smoke-product-surfaces.mjs"
         }
       ],
-      "release_posture_ruling": "2026-09-08: bounded-alpha-profile.md § Release qualification — release-qualified on the release-profile packages without a checkout (44/44); production_candidate names a bounded alpha, not general availability"
+      "release_posture_ruling": "2026-09-08: bounded-alpha-profile.md § Release qualification — release-qualified on the release-profile packages without a checkout (44/44); production_candidate names a bounded alpha, not general availability Re-derived 2026-09-10 on 8281d915e after thirteen daemon/App commits: essential journey 38/38 from source and 46/46 on packages without a checkout (debug profile; both grant signers shipped — R-23 fixed); the release cargo profile was not rebuilt on that tree during the review window and is a typed absence (profile § Program evidence (2026-09-10 re-derivation)). Posture unchanged."
     },
     {
       "id": "hypervisor-vite-workbench",
