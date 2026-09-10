@@ -10858,6 +10858,30 @@ fn persist_session_authority_refusal(
 /// the authority half of the answer — the draw, its envelope and its admission intent — was
 /// missing from every one-step retrieval. Appending is idempotent and never reorders: a ref
 /// already present is left where it is.
+/// The memory projections bound to this session, as refs, in a stable order.
+///
+/// M13.7 — a run cites what fed it from ITS OWN records. `create_projection_checked` already binds
+/// `session_ref` and `included_entry_refs` on every projection it mints, so the citation is a read
+/// of the existing provenance owner rather than a second store: this resolves the projection refs
+/// and the surface follows them to `/intelligence/projections/:id/explain` for the entries.
+fn session_memory_projection_refs(data_dir: &str, session_ref: &str) -> Vec<String> {
+    if session_ref.is_empty() {
+        return Vec::new();
+    }
+    let mut refs: Vec<String> = read_record_dir(data_dir, "memory-projections")
+        .into_iter()
+        .filter(|p| p.get("session_ref").and_then(Value::as_str) == Some(session_ref))
+        .filter_map(|p| {
+            p.get("projection_ref")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect();
+    refs.sort();
+    refs.dedup();
+    refs
+}
+
 fn append_session_receipt_ref(data_dir: &str, session_ref: &str, receipt_ref: &str) {
     if session_ref.is_empty() || receipt_ref.is_empty() {
         return;
@@ -24874,6 +24898,11 @@ pub(crate) async fn handle_session_execute(
         "id": lane_receipt_ref,
         "kind": "hypervisor.session.execute",
         "session_ref": session_id,
+        // M13.7 — WHICH MEMORY FED THIS RUN, from the run's OWN record. The citation is resolved
+        // here, daemon-side, from the memory projections bound to this session; a provenance label
+        // the surface computed for itself would be decoration wearing evidence's clothes. Absent
+        // projections yield an empty array — never a fabricated ref, and never a missing key.
+        "memory_projection_refs": session_memory_projection_refs(&st.data_dir, &session_id),
         "harness": harness_label,
         "harness_profile_ref": harness_profile_ref,
         "adapter_event_count": outcome.adapter_events.len(),

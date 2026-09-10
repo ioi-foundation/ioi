@@ -128,7 +128,8 @@
     "authority:local": "node scripts/wallet-network-authority.mjs",
     "check:session-truth-rebind": "node scripts/verify-hypervisor-session-truth-rebind.mjs",
     "check:consumer-path-vocabulary": "node scripts/verify-hypervisor-consumer-path-vocabulary.mjs",
-    "check:receipts-on-demand": "node scripts/verify-hypervisor-receipts-on-demand.mjs"
+    "check:receipts-on-demand": "node scripts/verify-hypervisor-receipts-on-demand.mjs",
+    "check:memory-provenance": "node scripts/verify-hypervisor-memory-provenance.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

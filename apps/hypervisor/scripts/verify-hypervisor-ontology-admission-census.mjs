@@ -492,11 +492,22 @@ const PINNED = {
   // family mentions 285, judged token positions 281, the family writer bucket 57 and raw
   // filesystem calls 234 are unchanged — every new line reads records through the existing
   // readers and writes none.
+  //
+  // Re-pinned 2026-09-10 (correctness-reds program, leg 2) from 146615. Two commits moved it:
+  // `0200cf779` added `append_session_receipt_ref` (M13.4's one-step answer — a receipt the
+  // daemon writes must also be NAMED on the session record), and this leg's M13.7 cut made the
+  // memory-entry family proposal-only and receipted the vault-import path. +80 source tokens,
+  // +4 foreign-qualified, +2 opaque-initialiser, and +2 writer calls in the RUNTIME-PARAMETER
+  // bucket — both of them writing a LITERAL family (`"sessions"` and `"receipts"`).
+  // THE INVARIANTS THAT WOULD MEAN A NEW ADMITTER DID NOT MOVE: modules 114, family mentions 285,
+  // judged token positions 281, the FAMILY writer bucket 57, the non-ODK literal writer bucket
+  // 243, and raw production filesystem calls 234 are all unchanged. M13.7 removed two direct
+  // entry writers and added one receipt writer; no new family is admitted anywhere.
   modules: 114,
   familyMentions: 285,
-  tokenMentions: 146615,
+  tokenMentions: 146695,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 307 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 309 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -515,8 +526,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4534,
-    "opaque-initialiser": 2744,
+    "foreign-qualified": 4538,
+    "opaque-initialiser": 2746,
     "bare-undeclared": 534,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

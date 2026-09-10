@@ -13276,8 +13276,32 @@ async function handleEstateRequest(req, res, body) {
           }
           target = { method: "POST", url: `/v1/hypervisor/${api}`, body: JSON.stringify(payload) };
         }
-        const r = await daemonFetch(`${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
+        // M13.7 — A MEMORY ENTRY IS MUTATED THROUGH THE PROPOSAL PATH, never directly. The daemon
+        // now refuses the direct verbs (memory_entry_direct_mutation_refused) because they wrote
+        // no receipt, so an entry could change with nothing on record about who changed it. The
+        // operator's single click is still ONE action here: this proposes and approves in the same
+        // request — the operator IS the approver — and the approval is what writes the
+        // hypervisor.memory-mutation receipt. Skills and affinities keep the direct verbs; the
+        // unit's scope is the memory-entry and memory-mutation owners.
+        let r;
+        let j;
+        if (family === "memory") {
+          const proposal = rid && act
+            ? { operation: act === "archive" || act === "revoke" ? "archive" : "supersede", target_family: "memory", target_ref: `memory-entry://${rid}`, mutation_type: "fact", source_authority: "user", suggested: act === "activate" ? { status: "active" } : {} }
+            : { operation: "add", target_family: "memory", mutation_type: "fact", source_authority: "user", suggested: JSON.parse(target.body) };
+          const proposed = await daemonFetch("/v1/hypervisor/memory-mutation-proposals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal) }).catch(() => null);
+          const pj = proposed ? await proposed.json().catch(() => ({})) : {};
+          const mutationId = pj?.proposal?.mutation_id || "";
+          if (!proposed || proposed.status >= 400 || !mutationId) {
+            r = proposed; j = pj;
+          } else {
+            r = await daemonFetch(`/v1/hypervisor/memory-mutation-proposals/${encodeURIComponent(mutationId)}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reviewer: "operator", note: "approved from Agent Studio" }) }).catch(() => null);
+            j = r ? await r.json().catch(() => ({})) : {};
+          }
+        } else {
+          r = await daemonFetch(`${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
+          j = r ? await r.json().catch(() => ({})) : {};
+        }
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });

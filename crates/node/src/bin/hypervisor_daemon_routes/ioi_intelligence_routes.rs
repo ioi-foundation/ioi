@@ -497,14 +497,73 @@ macro_rules! family_handlers {
     };
 }
 
-family_handlers!(
-    handle_entries_list,
-    handle_entries_create,
-    handle_entries_get,
-    handle_entries_patch,
-    ENTRY_FAMILY,
-    validate_entry
-);
+// M13.7 — THE MEMORY ENTRY FAMILY IS PROPOSAL-ONLY, so `family_handlers!` is not used for it.
+//
+// Every other family keeps the generated create/patch. Memory entries do not, because the unit's
+// claim is that an UNRECEIPTED MUTATION PATH DOES NOT EXIST: `family_create` and `family_patch`
+// persist the record and write no receipt, so a direct POST or PATCH changed what an agent later
+// reads with nothing on record about who changed it or why. The proposal path already exists and
+// already receipts (`handle_proposal_approve` writes `hypervisor.memory-mutation` with the
+// operation, the applied ref, the source run and the source authority), so this refuses the direct
+// verbs and names that path rather than minting a second receipted writer beside it.
+//
+// The approval path is UNAFFECTED: it calls the private `family_create`/`family_patch` directly,
+// not these route handlers, so an approved proposal still applies exactly as before.
+pub(crate) async fn handle_entries_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    (StatusCode::OK, Json(family_list(&st, &ENTRY_FAMILY, &q)))
+}
+
+pub(crate) async fn handle_entries_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    match load(&st, ENTRY_FAMILY.kind, ENTRY_FAMILY.id_key, &id) {
+        Some(record) => (StatusCode::OK, Json(json!({ "ok": true, "record": record }))),
+        None => bad(
+            StatusCode::NOT_FOUND,
+            "intelligence_record_not_found",
+            "Unknown record.",
+        ),
+    }
+}
+
+/// The typed refusal both direct entry verbs now answer with.
+fn memory_entry_direct_mutation_refused(operation: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::CONFLICT,
+        Json(json!({
+            "ok": false,
+            "error": {
+                "code": "memory_entry_direct_mutation_refused",
+                "message": format!(
+                    "a memory entry is not {operation} directly: propose the change at POST /v1/hypervisor/memory-mutation-proposals \
+                     and approve it, so the change carries a hypervisor.memory-mutation receipt naming the operation, the applied \
+                     record and the authority behind it"
+                ),
+                "widening_path": "/v1/hypervisor/memory-mutation-proposals",
+                "receipted_by": "hypervisor.memory-mutation"
+            }
+        })),
+    )
+}
+
+pub(crate) async fn handle_entries_create(
+    State(_st): State<Arc<DaemonState>>,
+    Json(_body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    memory_entry_direct_mutation_refused("created")
+}
+
+pub(crate) async fn handle_entries_patch(
+    State(_st): State<Arc<DaemonState>>,
+    AxumPath(_id): AxumPath<String>,
+    Json(_body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    memory_entry_direct_mutation_refused("edited")
+}
 family_handlers!(
     handle_skills_list,
     handle_skills_create,
@@ -1374,6 +1433,38 @@ pub(crate) async fn handle_vault_import(
             rejected.push(
                 json!({ "path": path, "reason_code": "memory_vault_import_persistence_failed" }),
             );
+            continue;
+        }
+        // M13.7 — AN IMPORT IS A MUTATION, so it is receipted like one. This path writes memory
+        // entries straight past the proposal gate, which is correct (a vault import is a bulk
+        // restore, not a per-entry review) but was the third unreceipted way an entry could
+        // change. The receipt is the SAME kind the approval path writes, so "what changed this
+        // entry and under what authority" has one answer shape whatever route made the change;
+        // `operation: "import"` and the source path distinguish it from a reviewed mutation.
+        let import_receipt_ref = format!(
+            "receipt://hypervisor/memory-mutation/import-{}",
+            sha256_hex_str(&format!("{rid}:{path}"))
+        );
+        let import_receipt = json!({
+            "id": import_receipt_ref,
+            "kind": "hypervisor.memory-mutation",
+            "receipt_type": "context_mutation",
+            "operation": "import",
+            "target_family": family,
+            "applied_ref": format!("{}{rid}", if family == "entries" { "memory-entry://" } else if family == "skills" { "skill-entry://" } else { "automation-affinity://" }),
+            "source_path": path,
+            "source_authority": "operator_vault_import",
+            "proposal_ref": Value::Null,
+            "at": iso_now(),
+            "runtimeTruthSource": "daemon-runtime",
+        });
+        if persist_record(&st.data_dir, "receipts", &import_receipt_ref, &import_receipt).is_err() {
+            rejected.push(json!({
+                "path": path,
+                "reason_code": "memory_vault_import_receipt_persistence_failed",
+                "applied_ref": rid,
+                "message": "the record was imported but its context_mutation receipt did not commit",
+            }));
             continue;
         }
         imported[family] = json!(imported[family].as_u64().unwrap_or(0) + 1);
