@@ -2,7 +2,7 @@
   "evidence_format": "ioi.acceptance_journey_run.v1",
   "gate": "ACC-15",
   "basis": {
-    "head": "0200cf779",
+    "head": "c782aca10",
     "dirty": false
   },
   "verdict": "PARTIAL",
@@ -10,14 +10,14 @@
   "typed_absences": 2,
   "alpha_journey": "executed in this run (fixture authority mode)",
   "fixtures": "disabled for every clause except the alpha journey's own wallet fixture, which IS that lane's authority node and is labelled",
-  "recorded_at": "2026-09-10T16:03:15.161Z",
+  "recorded_at": "2026-09-10T17:59:44.996Z",
   "results": [
     {
       "id": "1",
       "kind": "check",
       "ok": true,
       "label": "check:consumer-path-vocabulary (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 PASS check:consumer-path-vocabulary \u2014 14/14 assertions \u00b7 304s"
+      "detail": "exit 0 \u00b7 PASS check:consumer-path-vocabulary \u2014 14/14 assertions \u00b7 303s"
     },
     {
       "id": "1",
@@ -52,7 +52,7 @@
       "kind": "check",
       "ok": true,
       "label": "check:standing-consumer-loop (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 PASS check:standing-consumer-loop \u2014 42/42 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey \u00b7 980s"
+      "detail": "exit 0 \u00b7 PASS check:standing-consumer-loop \u2014 42/42 assertions \u00b7 factor_origin synthetic_contract_fixture_not_physical_passkey \u00b7 995s"
     },
     {
       "id": "5",
@@ -66,7 +66,7 @@
       "kind": "check",
       "ok": true,
       "label": "check:receipts-on-demand (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 PASS check:receipts-on-demand \u2014 9/9 assertions \u00b7 343s"
+      "detail": "exit 0 \u00b7 PASS check:receipts-on-demand \u2014 9/9 assertions \u00b7 342s"
     },
     {
       "id": "6",
@@ -122,7 +122,7 @@
       "kind": "check",
       "ok": true,
       "label": "check:session-authority-profile (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 22/22 passed \u00b7 7s"
+      "detail": "exit 0 \u00b7 22/22 passed \u00b7 8s"
     },
     {
       "id": "E",
@@ -136,17 +136,17 @@
       "kind": "check",
       "ok": true,
       "label": "check:alpha-journey (@ioi/hypervisor-app)",
-      "detail": "exit 0 \u00b7 33/33 passed \u00b7 579s"
+      "detail": "exit 0 \u00b7 33/33 passed \u00b7 609s"
     },
     {
       "id": "basis",
       "kind": "check",
       "ok": true,
       "label": "the journey ran on one basis",
-      "detail": "0200cf779 \u2192 0200cf779"
+      "detail": "c782aca10 \u2192 c782aca10"
     }
   ],
-  "supersedes": "the 2026-09-09 runs of this gate. Those read PARTIAL on FIVE typed absences with 8 executed clause checks; this run reads PARTIAL on TWO, with 10 executed, after correctness-reds leg 2 built the three gates that were missing.",
+  "supersedes": "the 2026-09-09 runs of this gate. Those read PARTIAL on FIVE typed absences with 8 executed clause checks; this run reads PARTIAL on TWO, with 10 executed, after correctness-reds leg 2 built the three gates that were missing. Re-run on c782aca10 after M13.7, because that unit touched lifecycle_routes.rs and the served panel, both of which this journey exercises. Verdict unchanged.",
   "absences_closed_2026_09_10": [
     "clause 1 \u2014 check:consumer-path-vocabulary now TIMES the fresh-principal path against the two-minute number the clause names (27.0-28.8s measured across four runs) and FAILS on it, where the alpha journey only printed durations as detail strings.",
     "N2 \u2014 the same gate scans every declared consumer surface's rendered text against a tracked forbidden set, and pairs it with the negative control that the daemon did not rename its objects to buy a clean scan. The first run found TEN kernel nouns leaking across /__ioi/connections and /ai; all were fixed in projection.",

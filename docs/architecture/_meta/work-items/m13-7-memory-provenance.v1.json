@@ -1,0 +1,33 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-7-memory-provenance",
+  "stage_id": "M13",
+  "required_work": ["M13.7"],
+  "status": "verified",
+  "objective": "Memory provenance in the session loop: a run cites the memory that fed it from its own records, every entry mutation is receipted through the existing owners, and no unreceipted mutation path remains.",
+  "falsifiable_claim": "npm run check:memory-provenance --workspace=@ioi/hypervisor-app PROBES the direct entry verbs and requires 409 memory_entry_direct_mutation_refused naming both the proposal path and the receipt kind; drives add, supersede and archive through the proposal owner and requires each approval to write a hypervisor.memory-mutation receipt carrying operation, applied_ref and source_authority with receipt_type context_mutation; drives the bulk vault import and requires it to receipt each entry it writes with operation import and its source path; and requires the memory projection to be bound to the session in the DAEMON's own records with included_entry_refs present, so the citation is not a label the surface computed.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/portable-memory-vault.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "code_anchors": [
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs", "literal": "memory_entry_direct_mutation_refused", "present_when": "merged" },
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs", "literal": "operator_vault_import", "present_when": "merged" },
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", "literal": "session_memory_projection_refs", "present_when": "merged" },
+    { "path": "apps/hypervisor/scripts/verify-hypervisor-memory-provenance.mjs", "literal": "an unreceipted mutation path does not exist", "present_when": "merged" }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/acc15-composed-journey-2026-09-09.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The load-bearing clause is a claim about ABSENCE, which is satisfied by not looking, so the gate probes rather than asserts: it exercises each direct verb and requires a refusal, and exercises the bulk path and requires a receipt. Before this cut all three paths — create, patch and vault import — wrote a memory entry with no receipt at all. It also requires every mutation receipt to be ATTRIBUTABLE (operation, applied ref, source authority), not merely present, so a receipt that records nothing about who or why does not satisfy it.",
+  "remaining_nonclaims": [
+    "'Delete' means ARCHIVE. There is no DELETE verb on a memory entry and reading the acceptance literally would have invented one; the archive proposal is the delete this unit claims.",
+    "Skills and affinities keep their direct create/patch verbs. The unit's scope is the memory-entry and memory-mutation owners, and closing the shared helper for every family would have gone beyond it.",
+    "The citation proves the projection is BOUND to the session in the daemon's records and carries included_entry_refs. It does not claim the consumer session lane currently mints projections: the M13.4 rebound path does not touch memory, and projections are minted by the GoalRun and agent-launch lanes.",
+    "The thread and agent memory lanes (/v1/threads/:id/memory, /v1/agents/:id/memory) return receipt-shaped strings that are minted rather than persisted. They are a separate owner and are untouched here."
+  ],
+  "source_provenance": "Landed 2026-09-10 by the correctness-reds program, leg 2; recorded in canon-to-code-delta.md § Journey verification XXXII.",
+  "last_status_transaction": "2026-09-10"
+}
