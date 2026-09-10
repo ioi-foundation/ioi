@@ -125,13 +125,13 @@ const RISK_CLASSES: &[&str] = &[
 const PHYSICAL_ACTION_RISK_CLASS: &str = "physical_action";
 
 /// Frozen by the same owner: what may happen after timeout, provider failure or an ambiguous effect.
-pub(crate) const EFFECT_RECOVERY_CLASSES: &[&str] = &[
-    "replayable",
-    "checkpointable",
-    "compensatable",
-    "reconciliation_required",
-    "non_retryable",
-];
+///
+/// R-16 (2026-09-10) moved the member set itself to `ioi_types::app::effect_recovery_class`, the
+/// one crate both this `[[bin]]` and the `ioi-services` work-lifecycle planner can see. This is
+/// now a READ of that set, not a second declaration of it: before the move the planner carried a
+/// different vocabulary under the same field name and only `compensatable` was common to both.
+pub(crate) const EFFECT_RECOVERY_CLASSES: &[&str] =
+    &ioi_types::app::effect_recovery_class::EFFECT_RECOVERY_CLASSES;
 
 /// The closed nonclaim vocabulary. Six of these are mandatory — see `REQUIRED_NONCLAIMS`.
 ///

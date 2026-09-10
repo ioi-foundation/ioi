@@ -209,8 +209,26 @@ const SEAM_FILES = new Set(["lifecycle_routes.rs", "portal_session_exchange_rout
 // them keeps the census's read of a handler's gate symmetric with its read of a
 // handler's writes, so a seam-mediated gate is recognized just as a seam-mediated
 // write is counted.
+//
+// `request_identity` added 2026-09-10 under R-17's second disposition, and added only after the
+// reading the ruling required. It is a THIN WRAPPER of `resolve_request_identity` — six of them
+// exist, one per route module (scm_publication_routes.rs:2097, work_lifecycle_routes.rs:895,
+// foundry_execution_routes.rs:109, package_registry_routes.rs:212, managed_runtime_routes.rs:188,
+// event_stream_routes.rs:112) and each is the same single line: the canonical resolver, with the
+// refusal enum mapped to an HTTP tuple. The wrapper cannot weaken the resolver: it is total on the
+// Err side, with no `.ok()` and no default, and the inner resolver already fails closed with
+// AuthenticationRequired when no principal resolves.
+//
+// ALL 63 CALL SITES WERE READ before this name was added, and every one propagates the Err as an
+// early-return refusal; none swallows it. Had a single site swallowed it, that site would be a
+// finding and this recognizer would have stayed unchanged, because a name recognized here makes a
+// handler count as gated for rules E and H. Two textual look-alikes are deliberately NOT matched:
+// `resolve_request_identity` keeps its own alternative (no word boundary exists inside it, so the
+// bare name cannot match within it), and the local BINDINGS named `request_identity` at
+// scm_publication_routes.rs:2676 and goalrun_routes.rs:4408/7490/7966 are variable reads that
+// never appear as `request_identity(`.
 const IDENTITY =
-  /\b(resolve_request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope)\s*\(/gu;
+  /\b(resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope)\s*\(/gu;
 const RECORD_READ =
   /\b(load|load_record|read_record_dir|find_by_key|read_owner_scoped_head|read_owner_scoped_history)\s*\(/gu;
 // Helper write seams: named persist_*/save_*/*_write wrappers in the daemon route
@@ -292,6 +310,15 @@ const H_BASELINE = [
   "capability_lease_plan_routes.rs::handle_plan_delete",
   "capability_lease_plan_routes.rs::handle_plan_patch",
   "capability_lease_plan_routes.rs::handle_plan_revoke",
+  // R-17 third disposition (2026-09-10) — RECORDED, NOT EDITED, and NOT EXCUSED. These two belong
+  // to the decentralized-cloud program (added by b7eda7dcb and 49eecf0bc); this program coordinates
+  // rather than edits that surface, so they are entered on the ratchet where every NEW site is
+  // still red and the reading they are owed is still owed. They are the same shape the standing-
+  // lease pair had before this cut: a mutating handler that resolves no caller. Closure test, for
+  // that program: each resolves its caller before any record read and refuses an unresolved one,
+  // and these two entries are deleted rather than re-pinned.
+  "cloud_job_routes.rs::handle_cloud_job_create",
+  "cloud_job_routes.rs::handle_cloud_job_execute",
   "connector_execution_routes.rs::handle_run_execute",
   "connector_execution_routes.rs::handle_set_delete",
   "connector_mapping_routes.rs::handle_connector_mapping_create",
@@ -412,7 +439,11 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_thread_delete",
   "lifecycle_routes.rs::handle_workflow_edit_apply",
   "lifecycle_routes.rs::handle_workflow_edit_propose",
-  "managed_runtime_routes.rs::handle_backup_export",
+  // handle_backup_export LEFT this baseline on 2026-09-10, and nothing about the handler changed.
+  // It calls managed_runtime_routes' own `request_identity` wrapper, which R-17's second
+  // disposition added to IDENTITY above; the handler was gated all along and the census simply
+  // could not see the seam. Removed rather than re-pinned: a baseline entry asserts a handler has
+  // NO in-handler identity call, and that assertion is now false.
   "materializing_run_routes.rs::handle_mrun_acquire_lease",
   "materializing_run_routes.rs::handle_mrun_cancel",
   "materializing_run_routes.rs::handle_mrun_create",

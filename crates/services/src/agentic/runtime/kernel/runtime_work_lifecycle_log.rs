@@ -29,6 +29,7 @@
 
 use std::collections::BTreeMap;
 
+use ioi_types::app::effect_recovery_class;
 use ioi_types::app::generated::architecture_contracts::{
     CancellationFanoutPlanV1, WorkLifecycleArchiveSegmentV1, WorkLifecycleProjectionV1,
     WorkLifecycleRecordV1, WorkLifecycleSnapshotV1,
@@ -112,7 +113,11 @@ pub struct WorkLifecycleAppendRecord {
 pub struct ActiveChild {
     pub relation_kind: String,
     pub child_ref: String,
-    pub effect_recovery_class: String,
+    /// The class EXACTLY as the record declares it, including `None` when the record declares
+    /// nothing. R-16: an absent class is never defaulted into a member here — the planner refuses
+    /// it — and a retired member is carried verbatim so a reader of this projection sees what the
+    /// record actually says rather than a value this code invented.
+    pub effect_recovery_class: Option<String>,
 }
 
 /// Cancellation intent admitted on a cancel edge.
@@ -570,8 +575,7 @@ impl WorkLifecycleLogCore {
                         ActiveChild {
                             relation_kind,
                             child_ref,
-                            effect_recovery_class: str_field(child, "effect_recovery_class")
-                                .unwrap_or_else(|| "none".to_string()),
+                            effect_recovery_class: str_field(child, "effect_recovery_class"),
                         },
                     );
                 }
@@ -727,8 +731,7 @@ impl WorkLifecycleLogCore {
                         ActiveChild {
                             relation_kind,
                             child_ref,
-                            effect_recovery_class: str_field(child_object, "effect_recovery_class")
-                                .unwrap_or_else(|| "none".to_string()),
+                            effect_recovery_class: str_field(child_object, "effect_recovery_class"),
                         },
                     );
                 }
@@ -1084,8 +1087,41 @@ impl WorkLifecycleLogCore {
 
         for child in &active {
             let mut actions: Vec<&str> = Vec::new();
-            match child.effect_recovery_class.as_str() {
-                "none" | "reversible" => {
+            // R-16 — ONE field name, ONE member set. The arms below are exactly
+            // `ioi_types::app::effect_recovery_class::EFFECT_RECOVERY_CLASSES`, the frozen
+            // canonical set canon declares and the ontology action contract admits under, and
+            // `the_planner_arms_are_exactly_the_canonical_member_set` pins that equality so the
+            // two cannot drift apart again. A record written under the retired work-lifecycle
+            // vocabulary is MIGRATED by name through a table that states what each retired member
+            // meant; a member of neither vocabulary is refused; and a record that declares NOTHING
+            // is refused rather than defaulted, because defaulting an undeclared effect into the
+            // most permissive posture is precisely the widening the claim gate refuses.
+            let declared = match effect_recovery_class::resolve(child.effect_recovery_class.as_deref()) {
+                effect_recovery_class::RecoveryClassResolution::Canonical(member) => member,
+                effect_recovery_class::RecoveryClassResolution::Migrated { to, .. } => to,
+                effect_recovery_class::RecoveryClassResolution::Undeclared => {
+                    return Err(WorkLifecycleLogError::new(
+                        "work_lifecycle_cancellation_recovery_class_undeclared",
+                        format!(
+                            "active child {} declares no effect_recovery_class; an effect with no declared recovery is refused, never defaulted",
+                            child.child_ref
+                        ),
+                    ));
+                }
+                effect_recovery_class::RecoveryClassResolution::Unknown => {
+                    return Err(WorkLifecycleLogError::new(
+                        "work_lifecycle_cancellation_recovery_class_invalid",
+                        format!(
+                            "unknown effect_recovery_class {}",
+                            child.effect_recovery_class.as_deref().unwrap_or_default()
+                        ),
+                    ));
+                }
+            };
+            match declared {
+                // An exact replay changes nothing outside the boundary, and a checkpointed child
+                // resumes rather than restarts; neither needs a compensating act to cancel.
+                "replayable" | "checkpointable" => {
                     actions.push("request_cancel");
                     actions.push("drain");
                 }
@@ -1103,12 +1139,14 @@ impl WorkLifecycleLogCore {
                     actions.push("drain");
                     actions.push("compensate");
                 }
-                "irreversible" => {
+                // One attempt, whatever its outcome: on cancel the only honest moves are to fence
+                // and reconcile whatever already landed.
+                "non_retryable" => {
                     if intent.effect_reconciliation_policy_ref.is_none() {
                         return Err(WorkLifecycleLogError::new(
                             "work_lifecycle_cancellation_reconciliation_policy_required",
                             format!(
-                                "irreversible active child {} requires an effect-reconciliation policy",
+                                "non_retryable active child {} requires an effect-reconciliation policy",
                                 child.child_ref
                             ),
                         ));
@@ -1116,12 +1154,13 @@ impl WorkLifecycleLogCore {
                     actions.push("fence");
                     actions.push("reconcile_irreversible_effect");
                 }
-                "ambiguous" => {
+                // The durable Unknown: only an external readback resolves it.
+                "reconciliation_required" => {
                     if intent.effect_reconciliation_policy_ref.is_none() {
                         return Err(WorkLifecycleLogError::new(
                             "work_lifecycle_cancellation_reconciliation_policy_required",
                             format!(
-                                "ambiguous active child {} requires an effect-reconciliation policy",
+                                "reconciliation_required active child {} requires an effect-reconciliation policy",
                                 child.child_ref
                             ),
                         ));
@@ -1245,8 +1284,7 @@ fn seed_state_from_projection(
                     ActiveChild {
                         relation_kind: relation_kind.clone(),
                         child_ref,
-                        effect_recovery_class: str_field(child, "effect_recovery_class")
-                            .unwrap_or_else(|| "none".to_string()),
+                        effect_recovery_class: str_field(child, "effect_recovery_class"),
                     },
                 );
             }
@@ -1865,6 +1903,127 @@ mod tests {
         assert_eq!(
             err.code(),
             "work_lifecycle_cancellation_reconciliation_policy_required"
+        );
+    }
+
+    /// Attach a child whose `child_reference` carries NO `effect_recovery_class` at all.
+    fn attach_without_class(id: &str, key: &str, head: &str, at: i64) -> Value {
+        let mut record = attach(id, key, "replayable", head, at);
+        record["child_reference"]
+            .as_object_mut()
+            .expect("child_reference is an object")
+            .remove("effect_recovery_class");
+        record
+    }
+
+    /// R-16 — THE ANTI-DRIFT PIN for this planner. Every member of the frozen canonical set is a
+    /// live arm here (it plans, given the policies its posture requires), and no member outside
+    /// that set is. This is the equality the ruling requires: one field name, one member set,
+    /// asserted against `EFFECT_RECOVERY_CLASSES` itself rather than against a copy of it.
+    #[test]
+    fn the_planner_arms_are_exactly_the_canonical_member_set() {
+        for member in effect_recovery_class::EFFECT_RECOVERY_CLASSES {
+            let core = WorkLifecycleLogCore;
+            let mut log = Vec::new();
+            let head = commit(&core, &mut log, genesis());
+            let head = commit(&core, &mut log, attach("a", "k-a", member, &head, 2_000));
+            let intent = CancellationIntent {
+                requested_by_ref: "actor://owner".into(),
+                reason: "stop".into(),
+                compensation_policy_ref: Some("policy://compensate".into()),
+                effect_reconciliation_policy_ref: Some("policy://reconcile".into()),
+                ..Default::default()
+            };
+            let plan = core
+                .plan_cancellation_fanout(OBJECT, &head, &log, &intent)
+                .unwrap_or_else(|error| {
+                    panic!("canonical member {member} is not a live planner arm: {}", error.code())
+                });
+            assert!(
+                !plan["targets"][0]["actions"]
+                    .as_array()
+                    .expect("actions")
+                    .is_empty(),
+                "canonical member {member} planned no action"
+            );
+        }
+        // A member of NEITHER vocabulary is refused, not guessed.
+        let core = WorkLifecycleLogCore;
+        let mut log = Vec::new();
+        let head = commit(&core, &mut log, genesis());
+        let head = commit(&core, &mut log, attach("a", "k-a", "best_effort", &head, 2_000));
+        let intent = CancellationIntent {
+            requested_by_ref: "actor://owner".into(),
+            reason: "stop".into(),
+            effect_reconciliation_policy_ref: Some("policy://reconcile".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            core.plan_cancellation_fanout(OBJECT, &head, &log, &intent)
+                .unwrap_err()
+                .code(),
+            "work_lifecycle_cancellation_recovery_class_invalid"
+        );
+    }
+
+    /// R-16 — a record written under the RETIRED vocabulary is migrated, and it plans exactly what
+    /// the canonical member it migrates to plans. Migration is a rename with the same meaning; if
+    /// a mapping ever changed behaviour, this fails.
+    #[test]
+    fn every_retired_member_plans_exactly_what_its_canonical_target_plans() {
+        for (retired, canonical) in effect_recovery_class::RETIRED_EFFECT_RECOVERY_CLASSES {
+            let core = WorkLifecycleLogCore;
+            let intent = CancellationIntent {
+                requested_by_ref: "actor://owner".into(),
+                reason: "stop".into(),
+                compensation_policy_ref: Some("policy://compensate".into()),
+                effect_reconciliation_policy_ref: Some("policy://reconcile".into()),
+                ..Default::default()
+            };
+            let plan_for = |class: &str| {
+                let mut log = Vec::new();
+                let head = commit(&core, &mut log, genesis());
+                let head = commit(&core, &mut log, attach("a", "k-a", class, &head, 2_000));
+                core.plan_cancellation_fanout(OBJECT, &head, &log, &intent)
+                    .unwrap_or_else(|e| panic!("{class} did not plan: {}", e.code()))
+            };
+            assert_eq!(
+                plan_for(retired)["targets"][0]["actions"],
+                plan_for(canonical)["targets"][0]["actions"],
+                "retired {retired} must plan exactly what {canonical} plans"
+            );
+        }
+    }
+
+    /// R-16 — an UNDECLARED class is refused, never defaulted. Before this, three projection sites
+    /// minted the literal `none` for an absent field and the planner then treated it as the most
+    /// permissive posture (cancel and drain, no fence, no reconciliation), which is exactly the
+    /// widening the daemon's claim gate refuses.
+    #[test]
+    fn an_undeclared_recovery_class_is_refused_rather_than_defaulted() {
+        let core = WorkLifecycleLogCore;
+        let mut log = Vec::new();
+        let head = commit(&core, &mut log, genesis());
+        let head = commit(&core, &mut log, attach_without_class("a", "k-a", &head, 2_000));
+        let active = core
+            .project_active_children(&log)
+            .expect("the projection still reads the child");
+        assert_eq!(
+            active[0].effect_recovery_class, None,
+            "an absent class must project as absent, never as an invented member"
+        );
+        let intent = CancellationIntent {
+            requested_by_ref: "actor://owner".into(),
+            reason: "stop".into(),
+            compensation_policy_ref: Some("policy://compensate".into()),
+            effect_reconciliation_policy_ref: Some("policy://reconcile".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            core.plan_cancellation_fanout(OBJECT, &head, &log, &intent)
+                .unwrap_err()
+                .code(),
+            "work_lifecycle_cancellation_recovery_class_undeclared"
         );
     }
 

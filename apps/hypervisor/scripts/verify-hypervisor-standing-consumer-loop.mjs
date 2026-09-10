@@ -195,6 +195,77 @@ async function run() {
   const revocations = readReceipts("hypervisor.session.standing_revocation");
   ok("the revocation is receipted", revocations.length === 1 && revocations[0].connector_id === A.connector_id, `${revocations.length}`);
 
+  // ---- R-17 DRILL: the route that MINTS standing authority resolves its caller ---------------
+  // Until 2026-09-10 bind and revoke took no headers at all: the route that mints the envelope
+  // resolved nobody, while invoke — the route that spends it — has resolved its caller since
+  // INV-37. The drill proves BOTH halves of the ruling, and proves the scope half in BOTH
+  // directions: a refusal that happens for the wrong reason proves nothing about scoping.
+  const R = (await register("r17-drill")).body?.connector;
+  ok("R-17 drill: the drill registers a REAL connector — an unwrapped response would address `conn_undefined` and make every assertion below vacuous",
+    typeof R?.connector_id === "string" && R.connector_id.startsWith("conn_"), String(R?.connector_id));
+  const unknownId = "conn_thisconnectordoesnotexist";
+  const me = (await jd("/v1/hypervisor/auth/whoami")).body?.principal?.principal_id || "";
+  ok("R-17 drill: the caller's principal resolves — this is the join key the scope gate uses", me.length > 0, me);
+
+  // (1) UNAUTHENTICATED. Identity is resolved before any record read, so an EXISTING connector and
+  // a made-up one answer identically: a caller who cannot authenticate learns nothing about which
+  // connectors exist.
+  const anonBindKnown = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(R.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) }, false);
+  const anonBindUnknown = await jd(`/v1/hypervisor/connectors/${unknownId}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) }, false);
+  const anonRevoke = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(R.connector_id)}/standing-lease`, { method: "DELETE" }, false);
+  ok("R-17: an UNAUTHENTICATED bind refuses 401 typed, and revoke refuses identically — the minting route resolves its caller",
+    anonBindKnown.status === 401 && anonBindKnown.body?.code === "hypervisor.authentication_required" && anonRevoke.status === 401,
+    `bind ${anonBindKnown.status}/${anonBindKnown.body?.code} · revoke ${anonRevoke.status}`);
+  ok("R-17: the anonymous refusal is NOT a record-existence oracle — an EXISTING connector and a made-up one answer byte-identically",
+    anonBindKnown.status === anonBindUnknown.status && JSON.stringify(anonBindKnown.body) === JSON.stringify(anonBindUnknown.body),
+    `existing ${anonBindKnown.status} ${JSON.stringify(anonBindKnown.body).slice(0, 70)} · unknown ${anonBindUnknown.status}`);
+
+  // (2) SCOPE. Resolution alone was explicitly insufficient: the lookup is global, so an
+  // authenticated caller could otherwise mint on a connection that is not theirs.
+  const scopedPolicy = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(R.connector_id)}/policy`, { method: "POST", body: JSON.stringify({ principal_scoped: true }) });
+  const scopedListed = (await jd("/v1/hypervisor/connectors")).body?.connectors?.find((c) => c.connector_id === R.connector_id);
+  ok("R-17 drill: principal_scoped is actually SET on the record — the policy route answers 200 even when it refuses, so its status alone is not a witness",
+    scopedListed?.org_policy?.principal_scoped === true, `policy ${scopedPolicy.status} · record ${JSON.stringify(scopedListed?.org_policy?.principal_scoped)}`);
+
+  // 2a — scoped, caller holds NO grant: refused, and indistinguishable from unknown.
+  const noGrantBind = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(R.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) });
+  const unknownBind = await jd(`/v1/hypervisor/connectors/${unknownId}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) });
+  ok("R-17: an authenticated caller holding NO lease grant for a principal-scoped connection cannot mint on it",
+    noGrantBind.status === 404, `${noGrantBind.status}`);
+  ok("R-17: the out-of-scope refusal is NOT an existence oracle either — byte-identical to the unknown-connector answer",
+    noGrantBind.status === unknownBind.status && JSON.stringify(noGrantBind.body) === JSON.stringify(unknownBind.body),
+    `scoped ${JSON.stringify(noGrantBind.body).slice(0, 60)} · unknown ${JSON.stringify(unknownBind.body).slice(0, 60)}`);
+
+  // 2b — CROSS-PRINCIPAL: a grant for this connector exists, but it belongs to SOMEONE ELSE. If the
+  // gate joined on "a grant exists" instead of "this caller holds one", this is where it shows.
+  // The grant is SEEDED ON DISK rather than minted through the route, deliberately: the route
+  // refuses `unknown_principal`, and this is a NEGATIVE control — the claim is that the gate
+  // refuses a foreign grant HOWEVER it came to exist, which is stronger than proving it for
+  // grants the route happens to allow. The daemon re-reads the family on every check.
+  const foreignPrincipal = "00000000-0000-4000-8000-0000000000ff";
+  const grantsDir = path.join(dataDir, "principal-lease-grants");
+  fs.mkdirSync(grantsDir, { recursive: true });
+  fs.writeFileSync(path.join(grantsDir, "plg_r17_foreign.json"), JSON.stringify({
+    grant_id: "plg_r17_foreign",
+    principal_id: foreignPrincipal,
+    connector_id: R.connector_id,
+    tools: ["ping", "*"],
+    expires_at_ms: Date.now() + 3_600_000,
+  }));
+  const seededForeign = fs.existsSync(path.join(grantsDir, "plg_r17_foreign.json"));
+  const foreignBind = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(R.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) });
+  ok("R-17: a grant held by ANOTHER principal does not admit this caller — the scope gate joins on the CALLER, not on the existence of a grant",
+    seededForeign && foreignPrincipal !== me && foreignBind.status === 404,
+    `foreign grant seeded=${seededForeign} for ${foreignPrincipal} (caller ${me}) · bind ${foreignBind.status}`);
+
+  // 2c — the gate ADMITS the principal the org actually granted. Without this, every refusal above
+  // is consistent with a gate that refuses everyone, which would prove nothing about scoping.
+  const myGrant = await jd(`/v1/hypervisor/principals/${encodeURIComponent(me)}/lease-grants`, { method: "POST", body: JSON.stringify({ connector_id: R.connector_id, tools: ["ping"], expires_in_seconds: 3600 }) });
+  const grantedBind = await jd(`/v1/hypervisor/connectors/${encodeURIComponent(R.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: {}, envelope: {} }) });
+  ok("R-17: the SAME request passes the scope gate once the caller holds the grant — the gate SCOPES, it does not simply refuse",
+    (myGrant.status === 201 || myGrant.status === 200) && grantedBind.status !== 404,
+    `my grant ${myGrant.status} · bind ${grantedBind.status} (past the scope gate; the envelope itself is still validated)`);
+
   // ---- M08.13/M08.14: the act tool as a draw-down client ------------------------------------
   const leaseE = await mintLease(E, { maxUsages: 3 });
   await jd(`/v1/hypervisor/connectors/${encodeURIComponent(E.connector_id)}/standing-lease`, { method: "POST", body: JSON.stringify({ grant: leaseE.grant, envelope: leaseE.envelope }) });

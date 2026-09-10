@@ -53,6 +53,16 @@
       "path": ".github/workflows/ci.yml",
       "literal": "check:typed-effect-recovery",
       "present_when": "merged"
+    },
+    {
+      "path": "crates/types/src/app/effect_recovery_class.rs",
+      "literal": "the_member_set_is_exactly_the_generated_contract",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs",
+      "literal": "the_planner_arms_are_exactly_the_canonical_member_set",
+      "present_when": "merged"
     }
   ],
   "evidence_refs": [
@@ -65,9 +75,9 @@
   "remaining_nonclaims": [
     "The class is honoured where an action DECLARES it. An admission carrying no effect_recovery_class keeps the two-phase substrate's own decision; this unit does not retroactively assign a class to effects that never declared one, so 'every action declares its recovery class' is not yet true of every producer.",
     "The proof is at the claim gate and is pure: no live external system, no provider, no clock. Provider-side recovery, the reconciliation planner and the receipt contracts named in canon remain planned.",
-    "The work lifecycle log's cancellation planner (M04.6) matches the same effect_recovery_class field against a DIFFERENT vocabulary (none, reversible, compensatable, irreversible, ambiguous). That divergence is recorded, not resolved here: it belongs to M04.6's owner.",
+    "RESOLVED 2026-09-10 (R-16): the work lifecycle log's cancellation planner now reads the same member set. The set is owned once in ioi_types::app::effect_recovery_class, pinned there against the registered contract's generated projection; the planner's arms are asserted equal to it; a record under the retired vocabulary (none/reversible/irreversible/ambiguous) migrates by an explicit table and plans exactly what its canonical target plans; a value in neither vocabulary is refused; and an UNDECLARED class is refused (work_lifecycle_cancellation_recovery_class_undeclared) where three projection sites previously minted 'none' and the planner treated it as the most permissive posture.",
     "backup/restore remains its own check (check:backup-restore); this unit proves only that a restore does not satisfy reconciliation, which is the claim canon makes about it."
   ],
   "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXVI.",
-  "last_status_transaction": "2026-09-09"
+  "last_status_transaction": "2026-09-10"
 }

@@ -270,9 +270,25 @@ WorkLifecycleRecordEnvelope:
       work_run | automation_run | work_result | receipt
     child_ref: typed_ref
     effect_recovery_class:
-      none | reversible | compensatable | irreversible | ambiguous
+      replayable | checkpointable | compensatable |
+      reconciliation_required | non_retryable
   occurred_at_ms: integer_timestamp_ms
 ```
+
+`effect_recovery_class` carries the SAME frozen member set as everywhere else
+it appears — see [`../canonical-enums.md`](../canonical-enums.md) § External-Effect
+Recovery Classes. Until 2026-09-10 this document declared a different vocabulary
+for this one field (`none | reversible | irreversible | ambiguous`, sharing only
+`compensatable` with canon's set), and the cancellation planner enforced that
+second vocabulary: a child declaring the canonical `reconciliation_required` was
+refused as invalid, while one declaring `irreversible` was refused by the
+ontology action contract. R-16 unified them. A record written under the retired
+vocabulary is MIGRATED by an explicit table that states what each retired member
+meant — `none` to `replayable`, `reversible` to `checkpointable`, `irreversible`
+to `non_retryable`, `ambiguous` to `reconciliation_required` — and a value in
+neither vocabulary is refused. A record that declares NO class is refused rather
+than defaulted: it was previously defaulted to the most permissive posture,
+which is the widening the claim gate refuses.
 
 Exactly one of `phase_transition` and `child_reference` is non-null and must
 match `record_type`. The content commitment covers every field except

@@ -6112,7 +6112,11 @@ fn persist_canonical_goal_run_lifecycle(
                 "operation": "attach",
                 "relation_kind": "context_cell",
                 "child_ref": cell_ref,
-                "effect_recovery_class": "reversible",
+                // R-16 — the CANONICAL member. A GoalRun context cell is resumable local state, not
+                // an external effect: cancelling it drains rather than compensates, which is what
+                // `checkpointable` means. It was written as the retired `reversible` until
+                // 2026-09-10; records already on disk under that name migrate by table.
+                "effect_recovery_class": "checkpointable",
             },
             "occurred_at_ms": base_ms + 1,
         });

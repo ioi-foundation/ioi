@@ -561,12 +561,24 @@ did. Provider recovery, runtime reconciliation planning and the receipt
 contracts remain planned. Checked by `npm run check:typed-effect-recovery` and
 `npm run mutate:typed-effect-recovery` (M06.2).
 
-The member set above is owned once, by the ontology action contract's frozen
-list, and read by the daemon's typed class; a member added on one side without
-the other is red. One divergence is on record and is NOT this list: the work
-lifecycle log's cancellation planner matches the same field name against a
-different vocabulary (`none`, `reversible`, `compensatable`, `irreversible`,
-`ambiguous`). See `_meta/canon-to-code-delta.md`.
+The member set above is owned ONCE, in `ioi-types`
+(`app::effect_recovery_class::EFFECT_RECOVERY_CLASSES`), the crate every consumer
+can see, and it is pinned there against the registered contract's own generated
+projection so the list and the contract cannot drift. The daemon's ontology
+action contract reads it, the daemon's typed recovery class reads it, and the
+work-lifecycle cancellation planner's arms are asserted equal to it.
+
+Until 2026-09-10 that last consumer carried a SECOND vocabulary under this same
+field name — `none | reversible | irreversible | ambiguous`, sharing only
+`compensatable` with this list — so a child declaring the canonical
+`reconciliation_required` was refused by the planner as invalid while one
+declaring `irreversible` was refused by the action contract. R-16 unified them.
+A record written under the retired vocabulary is MIGRATED through an explicit
+table that states what each retired member meant (`none` to `replayable`,
+`reversible` to `checkpointable`, `irreversible` to `non_retryable`, `ambiguous`
+to `reconciliation_required`), a value in neither vocabulary is refused, and a
+record declaring NO class is refused rather than defaulted. Never silently
+reinterpreted. See `_meta/canon-to-code-delta.md`.
 
 ## Model-Route Commercial Rights
 

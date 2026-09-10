@@ -22,6 +22,9 @@ pub mod consensus;
 pub mod consequence;
 /// Offline-verifiable distinct slashable-collateral assurance.
 pub mod economic_assurance;
+
+/// The external-effect recovery posture's ONE member set (R-16).
+pub mod effect_recovery_class;
 /// Data structures for unified kernel events.
 pub mod events;
 /// Generated runtime action schema contract shared with Hypervisor Workbench.

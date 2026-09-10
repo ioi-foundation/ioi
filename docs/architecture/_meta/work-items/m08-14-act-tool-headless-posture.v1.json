@@ -47,10 +47,11 @@
   "pr": null,
   "adversarial_or_fault_proof": "Three negatives run beside the positive: a forged handle, an act with no authority at all, and the exhausted envelope refusing the next headless draw at max_usages. The handle is a public commitment \u2014 it selects a lease and the daemon re-verifies it, so it can never become a principal.",
   "remaining_nonclaims": [
+    "OPEN (R-19, found 2026-09-10): a headless act does NOT park on interactive_exact_effect review. handle_connector_invoke computes exact_review_required = session_ref.is_some() && exact_review_tools \u220b tool, and the capability-handle subject this unit added carries no session_ref, so a headless draw on an exact-review tool draws the standing envelope silently. This unit's evidence never exercised an exact_review_tools tool headlessly, which is why 33/33 was green. It is the substitution M13.5 forbids for a session, and M03.15 generalizes the requirement to every acting subject; the closure test is an exact-review tool presented with a handle and no session parking on review (202) with zero usage consumed.",
     "The caller's own identity is still resolved by the daemon: headless means no product session and no per-call signature, NOT anonymous. A handle names a lease; it does not name a person.",
     "Receipt parity is asserted over the receipt's kind, field set and lease-binding fields, not over a byte-for-byte serialization: the acting subject and the draw nonce necessarily differ, and that is the difference the assertion allows.",
     "The out-of-band mint is the Connections attach flow (M13.3); this unit does not add a second way to create a lease."
   ],
   "source_provenance": "Landed 2026-09-09 by standing-lease program 2, leg 3; recorded in canon-to-code-delta.md \u00a7 Journey verification XXV.",
-  "last_status_transaction": "2026-09-09"
+  "last_status_transaction": "2026-09-10"
 }

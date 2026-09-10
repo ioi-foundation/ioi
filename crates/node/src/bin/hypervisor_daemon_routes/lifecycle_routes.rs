@@ -11466,8 +11466,21 @@ pub(crate) async fn handle_authority_capability_account() -> Json<Value> {
 pub(crate) async fn handle_connector_bind_standing_lease(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // R-17 (ruled 2026-09-10) — RESOLVE THE CALLER BEFORE ANY RECORD READ. Binding and revoking a
+    // standing envelope are governed authority acts: they mint and retire the authority under which
+    // later acts draw silently. Until this ruling neither handler took a `HeaderMap` at all, so the
+    // route that MINTS the envelope resolved nobody, while `handle_connector_invoke` — the route
+    // that SPENDS it — has resolved its caller since INV-37. The daemon carries no router-level auth
+    // layer, so in-handler resolution is the whole gate. The resolve is the FIRST statement so an
+    // unresolved caller never learns whether a connector id exists.
+    let caller = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let caller_id = caller["principal_id"].as_str().unwrap_or_default().to_string();
     let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
@@ -11477,6 +11490,24 @@ pub(crate) async fn handle_connector_bind_standing_lease(
             Json(json!({ "ok": false, "reason": "unknown connector_id" })),
         );
     };
+    // ...AND SCOPE THE CONNECTION TO THAT CALLER. Resolution alone is insufficient: the lookup is
+    // over every connector record, so an authenticated caller could otherwise mint on a connection
+    // that is not theirs. The estate's existing ownership notion for a connector is the org policy's
+    // `principal_scoped` flag plus per-principal lease grants — the same pair
+    // `handle_connector_invoke` gates on — so this READS that notion rather than minting a second
+    // one. The refusal is byte-identical to the unknown-connector answer on purpose: a caller
+    // outside the scope must not be able to tell a connection they may not touch from one that does
+    // not exist.
+    if connector["org_policy"]["principal_scoped"]
+        .as_bool()
+        .unwrap_or(false)
+        && !principal_has_connector_grant(&st.data_dir, &caller_id, &id)
+    {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    }
     if connector
         .get("standing_lease")
         .is_some_and(|l| l["status"].as_str() == Some("active"))
@@ -11515,7 +11546,20 @@ pub(crate) async fn handle_connector_bind_standing_lease(
 pub(crate) async fn handle_connector_revoke_standing_lease(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
+    // R-17 (ruled 2026-09-10) — RESOLVE THE CALLER BEFORE ANY RECORD READ. Binding and revoking a
+    // standing envelope are governed authority acts: they mint and retire the authority under which
+    // later acts draw silently. Until this ruling neither handler took a `HeaderMap` at all, so the
+    // route that MINTS the envelope resolved nobody, while `handle_connector_invoke` — the route
+    // that SPENDS it — has resolved its caller since INV-37. The daemon carries no router-level auth
+    // layer, so in-handler resolution is the whole gate. The resolve is the FIRST statement so an
+    // unresolved caller never learns whether a connector id exists.
+    let caller = match require_authenticated_principal(&st.data_dir, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let caller_id = caller["principal_id"].as_str().unwrap_or_default().to_string();
     let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
         .into_iter()
         .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
@@ -11525,6 +11569,24 @@ pub(crate) async fn handle_connector_revoke_standing_lease(
             Json(json!({ "ok": false, "reason": "unknown connector_id" })),
         );
     };
+    // ...AND SCOPE THE CONNECTION TO THAT CALLER. Resolution alone is insufficient: the lookup is
+    // over every connector record, so an authenticated caller could otherwise mint on a connection
+    // that is not theirs. The estate's existing ownership notion for a connector is the org policy's
+    // `principal_scoped` flag plus per-principal lease grants — the same pair
+    // `handle_connector_invoke` gates on — so this READS that notion rather than minting a second
+    // one. The refusal is byte-identical to the unknown-connector answer on purpose: a caller
+    // outside the scope must not be able to tell a connection they may not touch from one that does
+    // not exist.
+    if connector["org_policy"]["principal_scoped"]
+        .as_bool()
+        .unwrap_or(false)
+        && !principal_has_connector_grant(&st.data_dir, &caller_id, &id)
+    {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    }
     let Some(lease) = connector
         .get_mut("standing_lease")
         .filter(|l| l.is_object())
@@ -15730,6 +15792,28 @@ pub(crate) async fn handle_connector_set_policy(
         }}));
     }
     Json(json!({ "ok": true, "connector_id": id, "org_policy": org_policy }))
+}
+
+/// Whether this principal holds ANY unexpired lease grant for this connector.
+///
+/// R-17 — the connector-level narrowing of [`principal_has_lease_grant`]. Binding or revoking a
+/// standing envelope is not a per-tool act, so the tool clause is the only thing dropped; the
+/// record family, the principal join key, the connector join key and the expiry rule are the same.
+/// This is a read of the estate's existing per-principal scoping, not a second ownership notion.
+fn principal_has_connector_grant(data_dir: &str, principal_id: &str, connector_id: &str) -> bool {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or_default();
+    read_record_dir(data_dir, "principal-lease-grants")
+        .iter()
+        .any(|g| {
+            g["principal_id"].as_str() == Some(principal_id)
+                && g["connector_id"].as_str() == Some(connector_id)
+                && g["expires_at_ms"]
+                    .as_u64()
+                    .is_none_or(|expires| expires > now)
+        })
 }
 
 /// True if a principal holds a LIVE lease grant for (connector, tool) — "*" grants all tools.

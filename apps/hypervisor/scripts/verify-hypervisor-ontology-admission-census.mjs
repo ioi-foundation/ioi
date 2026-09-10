@@ -480,9 +480,21 @@ const PINNED = {
   // judged token positions 281, the family writer bucket 57, and raw filesystem calls 234 are all
   // unchanged — the act tool writes through the existing connector/receipt writers and the
   // recovery class is a pure decision over a record already read.
+  //
+  // Re-pinned 2026-09-10 (program 3, leg 1) from 146589: R-17 added the caller resolution and
+  // the principal-scope gate to the two standing-lease handlers plus the connector-level grant
+  // helper in lifecycle_routes.rs, R-16 re-pointed the frozen recovery-class list at its single
+  // owner in ioi-types and moved the GoalRun context-cell writer onto the canonical member.
+  // +26 source tokens; the unadjudicable buckets moved in BOTH directions (foreign-qualified
+  // +11 from std::/StatusCode:: members in the new gate, bare-undeclared -4 and
+  // opaque-initialiser -3 because the inline five-member array literal in the daemon became a
+  // reference to ioi-types). THE INVARIANTS THAT WOULD MEAN A NEW ADMITTER DID NOT MOVE: modules 114,
+  // family mentions 285, judged token positions 281, the family writer bucket 57 and raw
+  // filesystem calls 234 are unchanged — every new line reads records through the existing
+  // readers and writes none.
   modules: 114,
   familyMentions: 285,
-  tokenMentions: 146589,
+  tokenMentions: 146615,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 307 },
   productionFsCalls: 234,
@@ -503,9 +515,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4523,
-    "opaque-initialiser": 2747,
-    "bare-undeclared": 538,
+    "foreign-qualified": 4534,
+    "opaque-initialiser": 2744,
+    "bare-undeclared": 534,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

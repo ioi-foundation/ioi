@@ -209,6 +209,21 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
   if (mode === "none") {
     return { ok: false, status: 501, code: "standing_lease_recorder_not_configured", message: "no authority node is configured to record a standing grant; an unrecorded grant can never be drawn" };
   }
+  // R-17 — PRE-FLIGHT THE CALLER before anything is minted or recorded. The daemon's bind route now
+  // resolves the caller and refuses an unresolved one (401). Everything below this line has side
+  // effects that outlive a refusal: the ceremony is stamped, the grant is minted, and the grant is
+  // RECORDED on the authority node. Discovering the 401 only at the bind would leave a recorded
+  // standing grant with no lease bound to it, once per press. So the identity question is asked
+  // first, and the answer is the daemon's own.
+  const who = await daemonFetch("/v1/hypervisor/auth/whoami").catch(() => null);
+  if (!who || who.status === 401 || who.status === 403) {
+    return {
+      ok: false,
+      status: who?.status ?? 401,
+      code: "hypervisor.authentication_required",
+      message: "an authenticated session is required to bind a standing envelope — sign in and try again; nothing was minted or recorded",
+    };
+  }
   if (!localApproverEnabled()) return { ok: false, status: 501, code: "local_approver_not_configured", message: "no deployment-local approver key is configured" };
   const principalRef = process.env.IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF || "";
   if (!principalRef) return { ok: false, status: 501, code: "authority_principal_not_configured", message: "IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF is required" };
@@ -274,7 +289,18 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
   if (!response.ok) return { ok: false, status: 502, code: "standing_grant_record_refused", message: `the authority node refused to record the standing grant: ${response.error || JSON.stringify(response).slice(0, 300)}` };
   const bind = await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/standing-lease`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant, envelope }) });
   const bound = await bind.json().catch(() => ({}));
-  if (bind.status !== 200 || !bound.ok) return { ok: false, status: bind.status, code: bound.error?.code || "standing_lease_bind_refused", message: bound.error?.message || "the daemon refused to bind the standing lease" };
+  // The daemon refuses in three shapes: `{error:{code,message}}` (the standing-lease validators),
+  // `{code,message}` (require_authenticated_principal's 401) and `{reason}` (unknown connector,
+  // already-active lease). Read all three — reading only the first rendered every 401 and every
+  // unknown-connector answer as a generic "the daemon refused to bind".
+  if (bind.status !== 200 || !bound.ok) {
+    return {
+      ok: false,
+      status: bind.status,
+      code: bound.error?.code || bound.code || bound.reason || "standing_lease_bind_refused",
+      message: bound.error?.message || bound.message || bound.reason || "the daemon refused to bind the standing lease",
+    };
+  }
   return { ok: true, recorder: "fixture", factor_origin: ceremony.factor_origin, standing_grant_hash: response.standing_grant_hash || null, standing_lease: bound.standing_lease };
 }
 

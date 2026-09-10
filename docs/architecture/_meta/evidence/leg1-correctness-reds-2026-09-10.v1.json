@@ -1,0 +1,99 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "correctness-reds program (2026-09-10)",
+  "leg": 1,
+  "title": "R-16 and R-17 implemented as ruled, and the drill that first proved nothing",
+  "basis": {
+    "head": "dcb016bcd",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-10",
+  "rulings_carried": [
+    "R-17 as THREE dispositions: (1) the two standing-lease handlers resolve the caller before any record read, refuse an unresolved one, and scope the lookup to the caller; (2) the release-change-plan handlers are correct and the gate's IDENTITY recognizer was the defect, to be taught the name ONLY after reading every call site of the request_identity seam wrapper; (3) the two cloud-job handlers are recorded and coordinated, not edited.",
+    "R-16: one field name carries one member set; effect_recovery_class unifies on the canonical frozen five; the planner's arms become exactly EFFECT_RECOVERY_CLASSES pinned by an equality test; a persisted record carrying a retired member is migrated or refused with a typed reason, never silently reinterpreted."
+  ],
+  "runs": {
+    "npm run check:admission-evidence": {
+      "verdict": "pass",
+      "assertions": "exit 0 \u2014 113 files, 17 pinned leads, H-census 202/202 baseline",
+      "note": "GREEN with NO pinned exception for either standing-lease handler, which is the ruling's stated end state. The two cloud-job handlers are on the H ratchet with a coordination comment."
+    },
+    "npm run check:standing-consumer-loop": {
+      "verdict": "pass",
+      "assertions": "42/42 (was 33/33; +9 R-17 drill assertions)",
+      "lines": [
+        "PASS R-17 drill: the drill registers a REAL connector \u2014 an unwrapped response would address `conn_undefined` and make every assertion below vacuous \u2014 conn_932e765b46e91863",
+        "PASS R-17 drill: the caller's principal resolves \u2014 this is the join key the scope gate uses \u2014 00000000-0000-4000-8000-000000000001",
+        "PASS R-17: an UNAUTHENTICATED bind refuses 401 typed, and revoke refuses identically \u2014 the minting route resolves its caller \u2014 bind 401/hypervisor.authentication_required \u00b7 revoke 401",
+        "PASS R-17: the anonymous refusal is NOT a record-existence oracle \u2014 an EXISTING connector and a made-up one answer byte-identically \u2014 existing 401 {\"code\":\"hypervisor.authentication_required\",\"message\":\"an authenticat \u00b7 unknown 401",
+        "PASS R-17 drill: principal_scoped is actually SET on the record \u2014 the policy route answers 200 even when it refuses, so its status alone is not a witness \u2014 policy 200 \u00b7 record true",
+        "PASS R-17: an authenticated caller holding NO lease grant for a principal-scoped connection cannot mint on it \u2014 404",
+        "PASS R-17: the out-of-scope refusal is NOT an existence oracle either \u2014 byte-identical to the unknown-connector answer \u2014 scoped {\"ok\":false,\"reason\":\"unknown connector_id\"} \u00b7 unknown {\"ok\":false,\"reason\":\"unknown connector_id\"}",
+        "PASS R-17: a grant held by ANOTHER principal does not admit this caller \u2014 the scope gate joins on the CALLER, not on the existence of a grant \u2014 foreign grant seeded=true for 00000000-0000-4000-8000-0000000000ff (caller 00000000-0000-4000-8000-000000000001) \u00b7 b",
+        "PASS R-17: the SAME request passes the scope gate once the caller holds the grant \u2014 the gate SCOPES, it does not simply refuse \u2014 my grant 200 \u00b7 bind 422 (past the scope gate; the envelope itself is still validated)"
+      ]
+    },
+    "npm run check:session-authority-profile": {
+      "verdict": "pass",
+      "assertions": "22/22"
+    },
+    "npm run check:named-gap-truth": {
+      "verdict": "pass",
+      "assertions": "12/12 + 3/3 mutations RED-ON-TARGET"
+    },
+    "npm run check:env-lease-authority": {
+      "verdict": "pass",
+      "assertions": "76/76 + 23/23 mutations RED-ON-TARGET"
+    },
+    "npm run check:ontology-admission-census": {
+      "verdict": "pass",
+      "assertions": "27/27",
+      "note": "Re-pinned with the growth named: tokens 146589 -> 146615, foreign-qualified +11, bare-undeclared -4, opaque-initialiser -3 (the inline member-set literal became a reference). The invariants that would mean a NEW ADMITTER did not move: modules 114, family mentions 285, judged token positions 281, family writer bucket 57, raw filesystem calls 234."
+    },
+    "npm run check:typed-effect-recovery": {
+      "verdict": "pass",
+      "assertions": "9/9 checks; 12 pinned tests; source pins re-aimed at the new single owner"
+    },
+    "npm run check:alpha-journey (fixture authority mode)": {
+      "verdict": "pass",
+      "assertions": "33/33"
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon": {
+      "verdict": "pass",
+      "assertions": "1148 passed; 0 failed; 8 ignored"
+    },
+    "cargo test --locked -p ioi-types --lib": {
+      "verdict": "pass",
+      "assertions": "466 passed; 0 failed"
+    },
+    "cargo test --locked -p ioi-services --lib": {
+      "verdict": "fail (INHERITED, see R-21)",
+      "assertions": "3623 passed; 1 failed",
+      "note": "intent_resolver::tests::scope_policy::mail_connector_setup_tools_do_not_inherit_conversation_capability. Pre-existing and untouched by this leg: capabilities.rs was last changed by d33965a9f (2026-08-24) and this leg's ioi-services footprint is runtime_work_lifecycle_log.rs, which that module does not call. CI never runs this suite (ci.yml runs one named ioi-services test), so it has been invisible since it broke."
+    },
+    "npm run check:architecture-docs": {
+      "verdict": "pass",
+      "assertions": "200 files, 11 rules; 32 work-item records, 166 code anchors"
+    },
+    "npm run check:alpha-journey (deployment authority mode)": {
+      "verdict": "NOT RUN IN THIS LEG \u2014 typed absence",
+      "note": "The program defers the deployment-mode journey past the independent review window when the host is loaded. Host load averaged 10-13 through this leg with a foreign 23 GB daemon resident and disk at 96-97%. The fixture-mode journey ran green (33/33) and the deployment-mode journey was last proved 38/38 on e458c8744 (2026-09-10, program 2). Recorded as not run, never as a pass."
+    }
+  },
+  "what_the_adversarial_review_caught": [
+    "THE DRILL PROVED NOTHING ON ITS FIRST GREEN RUN. `const R = await register(\"r17-drill\")` did not unwrap `.body?.connector` the way all five sibling registrations do, so `R.connector_id` was undefined and every R-17 URL addressed the literal connector id `undefined`. The cross-principal assertion would have passed with the ENTIRE scope gate deleted: its 404 came from a nonexistent connector, not from the gate. A first run reported 37/37 green on this. Fixed, and the drill now asserts its own precondition so the vacuous path cannot silently return.",
+    "`handle_connector_set_policy` returns `Json<Value>` with no StatusCode, so it answers 200 even when it refuses. `scopedPolicy.status === 200` was therefore not evidence that principal_scoped was ever set. The drill now reads the flag back off the connector record.",
+    "THE SURFACE HALF OF R-17 WAS MISSING. An operator on a loopback posture can reach /__ioi/connections with no session (serve's page gate excludes /__ioi/ paths), and the bind now 401s. `bindStandingLease` read only `bound.error?.code`, but the daemon's 401 carries `code` at the top level, so the refusal rendered as a generic 'the daemon refused to bind'. Worse, the grant is minted and RECORDED on the authority node before the daemon bind, so each refused press left an orphaned standing grant. Fixed in the same cut: an identity pre-flight before anything is minted, and all three refusal shapes read.",
+    "The new helper's doc comment was inserted above four pre-existing W1.5 doc lines, silently re-attaching another function's documentation to it. Restored."
+  ],
+  "findings": [
+    "R-19 \u2014 a headless act skips interactive_exact_effect review: exact_review_required = session_ref.is_some() && ..., and M08.14's capability-handle subject carries no session_ref. Reachable through this lineage's own cut. Leg 3 (M03.15) generalizes the requirement to every acting subject.",
+    "R-20 \u2014 connector re-registration can overwrite another caller's record, including org_policy.principal_scoped, which can undo the R-17 scoping. handle_connector_register resolves no caller and derives its id from service:name:base_url with the principal absent from the identity material.",
+    "R-21 \u2014 cargo test -p ioi-services --lib is red on master and CI does not run that suite.",
+    "R-22 \u2014 after R-17, MINT and REVOKE refuse an unresolved caller but SPEND does not: handle_connector_invoke attributes an unresolved caller to 'local-operator'. A direct consequence of the ruling naming bind and revoke only, so recorded rather than silently widened. Revoke, the safety act, is the one that now dies on an anonymous loopback."
+  ],
+  "nonclaims": [
+    "The scope gate reads the estate's EXISTING ownership notion (org_policy.principal_scoped plus per-principal lease grants). On a connector that is not principal_scoped \u2014 the default \u2014 any authenticated caller may still mint. Closing that would require connector records to carry an owner, which registration cannot populate today (R-20), and minting an owner_ref field would be a second ownership spine competing with the lease-grant notion.",
+    "R-16's migration is proved for the planner's decision. It does not rewrite persisted records: child_reference sits inside a sha256 content commitment, so retired members on disk stay on disk and are migrated on read."
+  ]
+}

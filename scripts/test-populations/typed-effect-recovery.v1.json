@@ -66,10 +66,22 @@
       "expect": 1
     },
     {
-      "label": "the frozen member set stays owned by the ontology action contract and is READ here, never re-declared",
+      "label": "R-16: the member set is owned ONCE, in ioi-types, and the daemon's action contract READS it rather than re-declaring it",
       "path": "crates/node/src/bin/hypervisor_daemon_routes/ontology_action_contract_routes.rs",
-      "pattern": "pub\\(crate\\) const EFFECT_RECOVERY_CLASSES: &\\[&str\\] = &\\[",
+      "pattern": "pub\\(crate\\) const EFFECT_RECOVERY_CLASSES: &\\[&str\\] =\\n    &ioi_types::app::effect_recovery_class::EFFECT_RECOVERY_CLASSES;",
       "expect": 1
+    },
+    {
+      "label": "R-16: the ioi-services work-lifecycle planner reads the SAME set, so one field name cannot carry two vocabularies again",
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs",
+      "pattern": "effect_recovery_class::resolve\\(child\\.effect_recovery_class\\.as_deref\\(\\)\\)",
+      "expect": 1
+    },
+    {
+      "label": "R-16: an undeclared class is refused by the planner, never defaulted \u2014 the production refusal and the test that pins it",
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs",
+      "pattern": "work_lifecycle_cancellation_recovery_class_undeclared",
+      "expect": 2
     }
   ]
 }
