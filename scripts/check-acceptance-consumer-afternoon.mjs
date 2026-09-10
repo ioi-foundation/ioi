@@ -57,10 +57,8 @@ const CLAUSES = [
     id: "1",
     clause: "Two minutes, zero vocabulary: a fresh principal reaches a running session with one scoped connection attached without meeting a kernel noun",
     unit: "M13.1 · M13.2 · M03.8",
+    checks: [app("check:consumer-path-vocabulary")],
     cited: [{ label: "the alpha journey's first-run bootstrap → project → bounded connection → session (steps 2a, 4, 5b, 5c)", evidence: ALPHA_EVIDENCE }],
-    absences: [
-      { what: "no verifier TIMES the fresh-principal path, and none scans the consumer path for kernel vocabulary", owner: "M13.1 (the declaration exists; its claim-specific gate does not)" },
-    ],
   },
   {
     id: "2",
@@ -91,9 +89,7 @@ const CLAUSES = [
     clause: "Receipts on demand: after the run the person can answer what it touched and under what authority, citing receipts rather than narrative",
     unit: "M13.4 · M06.1",
     provenBy: "2",
-    absences: [
-      { what: "the ONE-STEP answer is not itself asserted: the proof band and the draw/refusal receipts are proven, the single-step retrieval path is not", owner: "M13.4 (surface) with M06.1 (receipts)" },
-    ],
+    checks: [app("check:receipts-on-demand")],
   },
   {
     id: "7",
@@ -119,7 +115,10 @@ const CLAUSES = [
     negative: true,
     clause: "No governance vocabulary appears on the consumer path, and no daemon object is renamed to achieve that",
     unit: "M13.4",
-    absences: [{ what: "no verifier scans the consumer path's rendered text against the kernel vocabulary", owner: "M13.4" }],
+    // The SAME run proves this: check:consumer-path-vocabulary scans every declared consumer
+    // surface AND asserts the daemon did not rename its objects to get a clean scan. Pointing at
+    // clause 1 rather than re-listing the check keeps it to one execution on one basis.
+    provenBy: "1",
   },
   {
     id: "N3",

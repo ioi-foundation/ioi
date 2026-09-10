@@ -10846,6 +10846,42 @@ fn persist_session_authority_refusal(
     }
 }
 
+/// Put a receipt this session just produced onto the session's own record.
+///
+/// M13.4's one-step answer ("what did this run touch, and under what authority?") is served by
+/// reading the session record and resolving the refs it names. A receipt that is written to the
+/// receipts directory but never NAMED on the record is invisible to that answer — it exists, and
+/// the only way to find it is to walk the directory off-disk, which is exactly the "narrative
+/// instead of receipts" the clause refuses.
+///
+/// Both standing-draw call sites discarded the ref `persist_session_standing_receipt` returns, so
+/// the authority half of the answer — the draw, its envelope and its admission intent — was
+/// missing from every one-step retrieval. Appending is idempotent and never reorders: a ref
+/// already present is left where it is.
+fn append_session_receipt_ref(data_dir: &str, session_ref: &str, receipt_ref: &str) {
+    if session_ref.is_empty() || receipt_ref.is_empty() {
+        return;
+    }
+    let key = session_record_key(session_ref);
+    let Ok(Some(mut record)) = super::durable_fs::read_record_durable(data_dir, "sessions", &key)
+    else {
+        return;
+    };
+    let mut refs = record
+        .get("latest_receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if refs.iter().any(|v| v.as_str() == Some(receipt_ref)) {
+        return;
+    }
+    refs.push(json!(receipt_ref));
+    if let Some(object) = record.as_object_mut() {
+        object.insert("latest_receipt_refs".into(), json!(refs));
+    }
+    let _ = super::durable_fs::persist_record_durable(data_dir, "sessions", &key, &record);
+}
+
 fn session_receipt_key(receipt_ref: &str) -> String {
     format!(
         "session_receipt_{}",
@@ -14689,7 +14725,10 @@ pub(crate) async fn execute_authority_gate(
                             "runtimeTruthSource": "daemon-runtime",
                         })
                     })?;
-                    persist_session_standing_receipt(
+                    // M13.4 one-step answer — NAME the draw on the session record. Writing the
+                    // receipt is not enough: the retrieval path reads the record's refs, so a
+                    // receipt it does not name is findable only by walking the directory.
+                    let draw_ref = persist_session_standing_receipt(
                         data_dir,
                         "hypervisor.session.standing_draw",
                         session_id,
@@ -14704,6 +14743,7 @@ pub(crate) async fn execute_authority_gate(
                             "policy_hash": policy_hash,
                         }),
                     );
+                    append_session_receipt_ref(data_dir, session_id, &draw_ref);
                     Ok(admitted.admission_intent_ref)
                 }
                 Err((_status, Json(challenge))) => {
@@ -17138,7 +17178,7 @@ pub(crate) async fn handle_connector_invoke(
     {
         // silent_within_policy: the draw is receipted on the acting subject — the session, or the
         // capability handle for a headless act; no prompt exists anywhere on either path.
-        persist_session_standing_receipt(
+        let draw_ref = persist_session_standing_receipt(
             &st.data_dir,
             "hypervisor.session.standing_draw",
             subject,
@@ -17156,6 +17196,11 @@ pub(crate) async fn handle_connector_invoke(
                 },
             }),
         );
+        // Only a SESSION has a record to name it on; a headless act's subject is a capability
+        // handle, which owns no session record (the receipt still stands on its own).
+        if let Some(session_ref) = session_ref.as_deref() {
+            append_session_receipt_ref(&st.data_dir, session_ref, &draw_ref);
+        }
     }
     let token = lease.token.unwrap_or_default();
 

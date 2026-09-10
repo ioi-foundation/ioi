@@ -41,6 +41,18 @@ function daemonReceiptSummary(receipt) {
     authorityScopeRefs: Array.isArray(receipt.authority_scope_refs) ? receipt.authority_scope_refs : [],
     startedAt: receipt.started_at || null,
     recordedAt: receipt.recorded_at || receipt.finished_at || receipt.recovered_at || null,
+    // ACC-15 clause 6 — "under what AUTHORITY". This summary is a hard whitelist, so a field the
+    // daemon writes but this omits is dropped silently and the one-step answer renders without
+    // the half that matters. These are the standing-draw and standing-refusal fields: the posture
+    // the act was admitted under, the envelope and grant it drew against, the admission intent it
+    // consumed, and — when refused — the bound that refused it. Null on receipts that carry none.
+    posture: receipt.posture || null,
+    standingEnvelopeHash: receipt.standing_envelope_hash || null,
+    grantHashRef: receipt.grant_hash_ref || null,
+    admissionIntentRef: receipt.admission_intent_ref || null,
+    connectionRef: receipt.connector_id ? `connector:${receipt.connector_id}` : null,
+    operation: receipt.operation || null,
+    refusedBound: receipt.refused_bound || receipt.reason || null,
     source: "daemon-runtime",
   };
 }

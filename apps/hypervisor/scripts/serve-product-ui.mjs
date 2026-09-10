@@ -589,7 +589,7 @@ function connectionsShell(inner) {
   .cndrawer td{padding:5px 6px;border-bottom:1px solid #1b1d23;word-break:break-all}
   @media(max-width:1100px){.cnwrap{grid-template-columns:1fr}.cndrawer{position:static}}
 </style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div><h1>Connections</h1>
-<p class="sub">Every external capability binding the workspace can use. Agents receive only scoped, policy-gated capability leases — the underlying credentials are sealed in the daemon and never reach a session.</p>
+<p class="sub">Every external connection the workspace can use. Agents receive only scoped, policy-gated access — the underlying credentials are sealed in the daemon and never reach a session.</p>
 ${inner}</div></body></html>`;
 }
 function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
@@ -635,11 +635,11 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     const sl = c.standing_lease && typeof c.standing_lease === "object" ? c.standing_lease : null;
     const slb = sl?.bounds || {};
     const envelopeHtml = sl
-      ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">standing envelope: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} usages · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()"><button class="act ghost" type="submit">Revoke envelope</button></form>` : ""}</div>`
-      : `<div class="meta" data-ioi-standing-lease="absent">no standing envelope — sessions cannot name this connection until one is set <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()"><input name="max_usages" type="number" min="1" placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <button class="act ghost" type="submit">Set envelope</button></form></div>`;
+      ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">limits: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} uses · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()"><button class="act ghost" type="submit">Remove limits</button></form>` : ""}</div>`
+      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()"><input name="max_usages" type="number" min="1" placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <button class="act ghost" type="submit">Set limits</button></form></div>`;
     push(connectionCategory(c), `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span>${sl?.status === "active" ? '<span class="pill ok">bounded</span>' : '<span class="pill warn">unbounded</span>'}</div>
-      <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} lease${myLeases.length > 1 ? "s" : ""} issued` : ""}</div>
+      <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} active grant${myLeases.length > 1 ? "s" : ""}` : ""}</div>
       ${envelopeHtml}
       </div>${action}</div>`);
   }
@@ -669,7 +669,7 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     <a href="/__ioi/slack/setup">+ Connect Slack</a>
     <a href="/__ioi/connections/add?type=bearer">+ API key / service</a>
   </div>`;
-  const drawer = `<div class="cndrawer" id="cn-drawer"><div class="empty" style="padding:12px">Select a connection to inspect its tool contracts, auth posture, and the capability leases issued against it.</div></div>`;
+  const drawer = `<div class="cndrawer" id="cn-drawer"><div class="empty" style="padding:12px">Select a connection to inspect its tools, how it signs in, and the access granted against it.</div></div>`;
   const script = `<script>
     var CN_REG=${JSON.stringify(reg)};
     function cnEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
@@ -683,11 +683,11 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
       h+='<h4>Binding</h4><div class="cngrid">'+cnRow('Connector','<code>'+cnEsc(c.connector_id)+'</code>')+cnRow('Kind',cnEsc(c.kind)+(c.service&&c.service!==c.kind?' · '+cnEsc(c.service):''))+cnRow('Endpoint','<code>'+cnEsc(c.base_url)+'</code>')+cnRow('Auth',cnEsc(c.auth))+cnRow('Posture','<code>'+cnEsc(c.auth_posture)+'</code>')+cnRow('Risk',cnEsc(c.risk))+(c.connected_login?cnRow('Identity','@'+cnEsc(c.connected_login)):'')+(c.scopes.length?cnRow('Scopes',cnEsc(c.scopes.join(', '))):'')+'</div>';
       h+='<div class="cnv" style="margin-top:8px;color:#6f7280;font-size:11.5px">Credential sealed in the daemon — never serialized to this page or any session.</div>';
       h+='<h4>Tool contracts ('+c.allowed_tools.length+')</h4>';
-      if(c.allowed_tools.length){h+='<table><thead><tr><th>Tool</th><th>Method</th><th>Path</th></tr></thead><tbody>'+c.allowed_tools.map(function(t){return '<tr><td><code>'+cnEsc(t.name)+'</code></td><td>'+cnEsc(t.method)+'</td><td>'+cnEsc(t.path)+'</td></tr>';}).join('')+'</tbody></table><div style="color:#6f7280;font-size:11px;margin-top:4px">Only these declared tools are invokable through the lease gateway'+(c.org_allowed_tools?' (org policy further restricts to: '+cnEsc(c.org_allowed_tools.join(', '))+')':'')+'.</div>';}
+      if(c.allowed_tools.length){h+='<table><thead><tr><th>Tool</th><th>Method</th><th>Path</th></tr></thead><tbody>'+c.allowed_tools.map(function(t){return '<tr><td><code>'+cnEsc(t.name)+'</code></td><td>'+cnEsc(t.method)+'</td><td>'+cnEsc(t.path)+'</td></tr>';}).join('')+'</tbody></table><div style="color:#6f7280;font-size:11px;margin-top:4px">Only these declared tools can be used through the gateway'+(c.org_allowed_tools?' (org policy further restricts to: '+cnEsc(c.org_allowed_tools.join(', '))+')':'')+'.</div>';}
       else{h+='<div style="color:#6f7280">'+(c.kind==='mcp'?'Tools are discovered from the MCP server on connect.':(c.t==='scm'?'SCM lanes (publish / PR / revoke) are wallet-authorized crossings, not free-form tools.':'No tools declared — nothing is invokable.'))+'</div>';}
-      h+='<h4>Capability leases issued ('+c.leases.length+')</h4>';
+      h+='<h4>Access granted ('+c.leases.length+')</h4>';
       if(c.leases.length){h+=c.leases.slice(0,8).map(function(l){return '<div style="border:1px solid #1b1d23;border-radius:8px;padding:8px;margin:0 0 6px"><div><code>'+cnEsc(l.lease_id)+'</code>'+(l.receipt_required?' <span class="pill ok">receipted</span>':'')+'</div><div class="cngrid" style="margin-top:4px">'+cnRow('Tools',cnEsc((l.allowed_tools||[]).join(', ')))+cnRow('Issued',cnEsc(cnWhen(l.issued_at)))+cnRow('Expires',cnEsc(cnWhen(l.expires_at)))+cnRow('Authority',cnEsc(l.authority_provider_ref))+cnRow('Revocation','<code>'+cnEsc(l.revocation_ref)+'</code>')+'</div></div>';}).join('')+(c.leases.length>8?'<div style="color:#6f7280;font-size:11px">… '+(c.leases.length-8)+' more</div>':'');}
-      else{h+='<div style="color:#6f7280">No leases issued against this binding yet.</div>';}
+      else{h+='<div style="color:#6f7280">No access granted against this connection yet.</div>';}
       if(c.connect_href){h+='<h4>Actions</h4><a class="act" href="'+cnEsc(c.connect_href)+'" target="_blank" rel="noopener">Connect ↗</a>';}
       d.innerHTML=h;
     });});
@@ -716,8 +716,8 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     </span></div>
     <div class="sub" style="margin:0;text-transform:none;letter-spacing:0">tools: ${[...g.tools].slice(0, 6).map((t) => `<code>${CX_ESC(t)}</code>`).join(" ") || "none declared"}${g.tools.size > 6 ? ` · +${g.tools.size - 6} more` : ""}</div>
   </div>`;
-  const authClients = `<div id="conn-authority-clients"><h2>Authority Clients <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— who holds scoped authority right now, from the lease records themselves; origin binding is not recorded on leases (grouped by credential source · authority provider)</span></h2>
-    ${Object.keys(acGroups).length ? Object.entries(acGroups).sort((a, b) => b[1].n - a[1].n).map(acCard).join("") : `<div class="empty">No capability leases issued yet — every authority crossing mints one, and it appears here.</div>`}</div>`;
+  const authClients = `<div id="conn-authority-clients"><h2>Authority Clients <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— who holds scoped access right now, from the records themselves; origin binding is not recorded (grouped by credential source · authority provider)</span></h2>
+    ${Object.keys(acGroups).length ? Object.entries(acGroups).sort((a, b) => b[1].n - a[1].n).map(acCard).join("") : `<div class="empty">No access granted yet — every crossing records one, and it appears here.</div>`}</div>`;
   // ---- Developer Console (27-developer-console graft; 25-developer-tools folds here) — the
   // external-integration surface as PROBED facts, not promises: the API spine behind the serve
   // /v1 proxy, the MCP gateway's declared tool contracts, and the identity/SCIM endpoints with
@@ -730,7 +730,7 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     <div class="card" style="display:block"><b>API spine</b> <span class="pill ok">proxied at <code>/v1/*</code></span> <span class="pill ${authPosture === "local_development" ? "muted" : authPosture === "authenticated_managed" ? "ok" : "warn"}">${CX_ESC(authPosture)}</span>
       <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Same-origin <code>/v1/hypervisor/*</code> resolves through this serve to the daemon; auth posture governs enforcement (<a href="/__ioi/governance">Governance →</a>).</div></div>
     <div class="card" style="display:block"><b>MCP gateway</b> ${df.mcpTools ? `<span class="pill ok">${mcpToolList.length} declared tool contract${mcpToolList.length === 1 ? "" : "s"}</span>` : `<span class="pill warn">did not answer</span>`}
-      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${mcpToolList.length ? mcpToolList.slice(0, 8).map((t) => `<code>${CX_ESC(t.name || "")}</code>`).join(" ") + (mcpToolList.length > 8 ? ` · +${mcpToolList.length - 8} more` : "") : "No declared tools."} · endpoint <code>/v1/hypervisor/mcp-gateway/tools</code> — only declared contracts are invokable, through the lease gateway.</div></div>
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${mcpToolList.length ? mcpToolList.slice(0, 8).map((t) => `<code>${CX_ESC(t.name || "")}</code>`).join(" ") + (mcpToolList.length > 8 ? ` · +${mcpToolList.length - 8} more` : "") : "No declared tools."} · endpoint <code>/v1/hypervisor/mcp-gateway/tools</code> — only declared contracts can be used, through the gateway.</div></div>
     <div class="card" style="display:block"><b>Identity &amp; provisioning</b> ${scimPill}
       <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">SCIM base <code>/scim/v2</code> · OIDC login <code>/v1/hypervisor/auth/oidc/start</code> · session introspection <code>/v1/hypervisor/auth/whoami</code>. Identity authenticates people; it never becomes machine authority.</div></div>
   </div>`;
@@ -746,10 +746,10 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
   taDeclared.delete("");
   const taNever = [...taDeclared].filter((t) => !taLeased[t]).sort();
   const taTop = Object.entries(taLeased).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  const toolAnalytics = `<div id="conn-tool-analytics"><h2>Tool Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— lease volume per tool vs the declared surface; per-call latency/error is not recorded yet (named gap)</span></h2>
-    <div class="card" style="display:block"><b>Leased tool volume</b>
-      <div class="chips" style="margin:6px 0 0">${taTop.length ? taTop.map(([t, n]) => `<span class="pill ok">${CX_ESC(t)} ×${n}</span>`).join("") : `<span class="sub" style="margin:0">no tool leases yet</span>`}</div></div>
-    <div class="card" style="display:block"><b>Declared but never leased</b> ${taNever.length ? `<span class="pill warn">${taNever.length} unused capabilit${taNever.length === 1 ? "y" : "ies"}</span>` : `<span class="pill ok">none — every declared tool has been leased</span>`}
+  const toolAnalytics = `<div id="conn-tool-analytics"><h2>Tool Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— use volume per tool vs the declared surface; per-call latency/error is not recorded yet (named gap)</span></h2>
+    <div class="card" style="display:block"><b>Tool use volume</b>
+      <div class="chips" style="margin:6px 0 0">${taTop.length ? taTop.map(([t, n]) => `<span class="pill ok">${CX_ESC(t)} ×${n}</span>`).join("") : `<span class="sub" style="margin:0">no tool use yet</span>`}</div></div>
+    <div class="card" style="display:block"><b>Declared but never used</b> ${taNever.length ? `<span class="pill warn">${taNever.length} unused tool${taNever.length === 1 ? "" : "s"}</span>` : `<span class="pill ok">none — every declared tool has been leased</span>`}
       <div class="chips" style="margin:6px 0 0">${taNever.slice(0, 12).map((t) => `<span class="pill muted">${CX_ESC(t)}</span>`).join("")}${taNever.length > 12 ? `<span class="sub" style="margin:0">+${taNever.length - 12} more</span>` : ""}</div></div>
   </div>`;
   return connectionsShell(add + authClients + devConsole + toolAnalytics + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
@@ -13158,7 +13158,7 @@ async function handleEstateRequest(req, res, body) {
           selectable: (c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false) && c.standing_lease?.status === "active",
           reason: !(c.auth_posture === "open" || c.auth_posture === "token-lease:bound" || c.requires_credential === false)
             ? "no credential bound — connect it in Connections first"
-            : (c.standing_lease?.status === "active" ? "" : "no standing envelope — set usages, budget and expiry on Connections first"),
+            : (c.standing_lease?.status === "active" ? "" : "no limits set — set uses, budget and expiry on Connections first"),
         })),
       }));
       return;
@@ -14460,7 +14460,7 @@ async function handleEstateRequest(req, res, body) {
         // refusal included) — the operator sees the daemon's/authority node's reason, never a blank.
         const leaseError = new URL(req.url, "http://x").searchParams.get("standing_lease_error") || "";
         const page = renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus });
-        res.end(leaseError ? page.replace(/<div class="add">/u, `<div class="empty" data-ioi-standing-lease-error="1" style="border-color:#5c4a23;color:#d6a13a">Standing envelope not set — ${CX_ESC(leaseError)}</div><div class="add">`) : page);
+        res.end(leaseError ? page.replace(/<div class="add">/u, `<div class="empty" data-ioi-standing-lease-error="1" style="border-color:#5c4a23;color:#d6a13a">Limits not set — ${CX_ESC(leaseError)}</div><div class="add">`) : page);
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(connectionsShell(`<div class="empty">Daemon unavailable: ${String(e?.message || e)}</div>`));
@@ -14506,18 +14506,18 @@ async function handleEstateRequest(req, res, body) {
              <input name="name" placeholder="Name (e.g. Linear)" required ${inp}>
              <input name="mcp_url" placeholder="https://mcp.example.com/mcp" required ${inp}>
              <button class="act" type="submit">Add &amp; discover</button></form>`
-        : `<h2>Add API key / service</h2><p class="sub">A bearer-token HTTP connector (advanced). The token is sealed in the daemon; the agent only ever gets a scoped lease.</p>
+        : `<h2>Add API key / service</h2><p class="sub">A bearer-token HTTP connector (advanced). The token is sealed in the daemon; the agent only ever gets scoped access.</p>
            <form method="post" action="/__ioi/connections/add?type=bearer">
              <input name="name" placeholder="Name (e.g. Linear API)" required ${inp}>
              <input name="base_url" placeholder="https://api.example.com" required ${inp}>
              <input name="tool_name" placeholder="tool name (e.g. create_issue)" required ${inp}>
              <input name="tool_path" placeholder="/v1/issues" required ${inp}>
              <input name="token" type="password" placeholder="API token (sealed)" required ${inp}>
-             <p class="sub" style="margin:12px 0 4px">Standing envelope — declared at attach, drawn down silently by the sessions that name this connection, never widened in a run. Leave usages empty to attach for your own direct use only (a session cannot name an unbounded connection).</p>
+             <p class="sub" style="margin:12px 0 4px">Limits — set once here, then used silently by the sessions that name this connection, never widened in a run. Leave usages empty to attach for your own direct use only (a session cannot name an unbounded connection).</p>
              <input name="standing_max_usages" type="number" min="1" placeholder="max usages (e.g. 20)" ${inp}>
              <input name="standing_budget_usd" type="number" min="0" step="0.01" placeholder="budget USD (e.g. 1.00)" ${inp}>
              <input name="standing_expires_hours" type="number" min="1" placeholder="expires in hours (default 24)" ${inp}>
-             <button class="act" type="submit">Add + seal token + set envelope</button></form>`;
+             <button class="act" type="submit">Add + seal token + set limits</button></form>`;
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(connectionsShell(`<p><a href="/__ioi/connections" style="color:#9a9da6;text-decoration:none">← Connections</a></p>${form}`));
       return;

@@ -1,0 +1,56 @@
+{
+  "schema": "ioi.hypervisor.consumer-path-vocabulary.v1",
+  "doctrine": "The machine record of M13's §5 boundary: kernel vocabulary stays OFF the consumer path, and renaming happens in projection, never in daemon objects. Two halves, and the second is what makes the first non-trivial. (a) POSITIVE: no forbidden noun appears in the rendered text a consumer reads. (b) NEGATIVE CONTROL: the daemon still calls its objects what it has always called them. A green scan obtained by renaming daemon fields fails (b), which is the cheat this record exists to forbid.",
+  "owner_citations": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md — § Surface Noun Budget: ordinary surfaces render at most three nouns.",
+    "internal-docs/implementation/modules/M13-consumer-session-loop.md § 5 — 'lease, admission, receipt, environment and their kin stay out of the consumer path — renaming happens in projection, never in daemon objects'."
+  ],
+  "allowed_nouns": ["Agent", "Skill", "Schedule"],
+  "forbidden": [
+    {
+      "term": "lease",
+      "source": "M13 §5 boundary list",
+      "why": "the authority primitive; a consumer attaches a connection, they do not take out a lease"
+    },
+    {
+      "term": "admission",
+      "source": "M13 §5 boundary list",
+      "why": "the gate's own word for deciding; a consumer sees allowed or refused"
+    },
+    {
+      "term": "receipt",
+      "source": "M13 §5 boundary list",
+      "why": "the evidence object's kernel name. NOTE: the consumer path may still SHOW evidence — it must not call it this."
+    },
+    {
+      "term": "environment",
+      "source": "M13 §5 boundary list",
+      "why": "the substrate container; a consumer sees a session and its files"
+    },
+    {
+      "term": "capability",
+      "source": "M13 §5 'and their kin' — the lease's sibling primitive",
+      "why": "CapabilityLease is the authority-crossing gateway, not a consumer noun"
+    },
+    {
+      "term": "envelope",
+      "source": "M13 §5 'and their kin' — the standing envelope",
+      "why": "the bounds object's kernel name; a consumer sees limits on a connection"
+    },
+    {
+      "term": "principal",
+      "source": "M13 §5 'and their kin' — the identity primitive",
+      "why": "a consumer is a person with an account, not a principal"
+    }
+  ],
+  "surfaces": [
+    { "path": "/__ioi/login", "render": "native", "why": "the front door a fresh principal meets first" },
+    { "path": "/ai", "render": "spa", "why": "the product home the bootstrap lands on" },
+    { "path": "/__ioi/connections", "render": "native", "why": "where a connection is bounded — the surface most at risk of leaking the authority vocabulary" }
+  ],
+  "nonclaims": [
+    "This scans RENDERED TEXT only (innerText for SPA surfaces, tag-stripped HTML for native ones). It deliberately does not scan HTML attributes, script bodies, or data-* hooks: those are machine surfaces, and a data-ioi-standing-lease attribute is a test seam, not something a consumer reads.",
+    "Operations and Work surfaces are NOT consumer path. M13.4 demotes that readout to Operations, where the kernel nouns are correct and expected.",
+    "The allowed_nouns list is recorded for provenance; this gate enforces the forbidden list, not a positive budget over every noun a surface renders."
+  ]
+}

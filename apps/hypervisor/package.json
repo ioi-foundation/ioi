@@ -126,7 +126,9 @@
     "soak:m4-room-participation-contribution-wallet-authority": "IOI_WALLET_FIXTURE_RELEASE=1 node scripts/verify-m4-room-participation-contribution-plane.mjs",
     "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
     "authority:local": "node scripts/wallet-network-authority.mjs",
-    "check:session-truth-rebind": "node scripts/verify-hypervisor-session-truth-rebind.mjs"
+    "check:session-truth-rebind": "node scripts/verify-hypervisor-session-truth-rebind.mjs",
+    "check:consumer-path-vocabulary": "node scripts/verify-hypervisor-consumer-path-vocabulary.mjs",
+    "check:receipts-on-demand": "node scripts/verify-hypervisor-receipts-on-demand.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
