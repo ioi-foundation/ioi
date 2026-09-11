@@ -28,7 +28,12 @@
       "assertions": "cargo test --locked -p ioi-node --bin hypervisor-daemon: 1148 passed; 0 failed; 8 ignored (104.2 s)"
     },
     "M13.9 remote lane": {
-      "verdict": "TYPED STOP — IOI_ALPHA_PROVIDER_KEY was not in the session's environment; the bar (a provider 200 with usage and the intent's file) stays open for the owner's key"
+      "verdict": "BAR MET — the owner ran the remote lane with a valid key after the leg's commit",
+      "command": "IOI_ALPHA_MODEL_ROUTE=remote IOI_ALPHA_PROVIDER_KEY=<the owner's key, environment only> node apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs (fixture authority, adca48912)",
+      "assertions": "53/53 on 2026-09-11 22:03 UTC",
+      "provider": "gpt-4o-mini via https://api.openai.com/v1 through the daemon's proxy: 1 call, status 200, usage 120 in / 53 out / 173 total; ≈ $0.00005 at list price (an estimate, not billing truth)",
+      "path": "the custody card in Agent Studio (202 → approve 201), the key sealed with a custody lease, posture-only probe, the env-key route refused, the session bound at the daemon's /v1, the run-scoped model-mount token issued and revoked, the harness environment exactly PATH/HOME/upstream/token, ALPHA_JOURNEY.md written from the model's answer, the plaintext in no file of the state tree",
+      "evidence": "_meta/evidence/m13-9-remote-route-live-2026-09-11.v1.json (the run's own evidence file, verbatim)"
     }
   },
   "mechanism": {
@@ -38,7 +43,6 @@
     "journey_drills": "5d-custody: a drill route and a dummy key through the App path (never selected; revoked at the end); 9-recover: the durable run record is planted back to 'running' before the serve restart and must read the receipt's verdict again"
   },
   "typed_absences": [
-    "M13.9's bar: the operator's provider key was not available to this session (typed stop, not a pass)",
     "the release cargo profile stays a typed absence in the review window; packages are debug-profile as recorded",
     "authority mode none is not re-run here (its claims are unchanged: typed refusals only)"
   ]

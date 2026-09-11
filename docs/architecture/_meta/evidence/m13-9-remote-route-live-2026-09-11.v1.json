@@ -1,0 +1,515 @@
+{
+  "schema": "ioi.hypervisor.alpha-journey-evidence.v1",
+  "started_at": "2026-09-11T22:03:08.234Z",
+  "steps": [
+    {
+      "step": "1-install",
+      "name": "build provenance",
+      "recorded": true,
+      "detail": "adca48912937e10b56ab7f728579d583fd8ceb64 (1 dirty paths) · daemon 76aef2f35a9cff74 · linux x64 6.17.9-76061709-generic",
+      "at": "2026-09-11T22:03:08.989Z"
+    },
+    {
+      "step": "1-install",
+      "name": "the release is a SOURCE BUILD of this checkout — no packaged release was under test in this run (typed absence, recorded not passed; package mode qualifies step 1)",
+      "pass": true,
+      "detail": "not_built_in_this_run: packaged release",
+      "at": "2026-09-11T22:03:08.989Z"
+    },
+    {
+      "step": "2b-authority",
+      "name": "deployment-local wallet.network node",
+      "recorded": true,
+      "detail": "ready in 266s · Solo single-node ordering profile · chain 1 · approver key custodied at /tmp/ioi-alpha-journey-0tYAx8/approver.key (mode 0600; FIXTURE seed = public test material)",
+      "at": "2026-09-11T22:07:34.664Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the daemon printed a one-boot bootstrap token",
+      "pass": true,
+      "detail": "ioi_bootstrap_8d907b",
+      "at": "2026-09-11T22:07:36.713Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-11T22:07:36.717Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the first-run form creates the operator account and lands on the product with an operator session",
+      "pass": true,
+      "detail": "302 → /ai",
+      "at": "2026-09-11T22:07:38.613Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+      "pass": true,
+      "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+      "at": "2026-09-11T22:07:38.668Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+      "pass": true,
+      "detail": "200/409",
+      "at": "2026-09-11T22:07:38.711Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the operator can sign in again with the email and password they chose",
+      "pass": true,
+      "detail": "302",
+      "at": "2026-09-11T22:07:40.572Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "daemon health, doctor and substrate status answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-11T22:07:40.578Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "model route",
+      "recorded": true,
+      "detail": "REMOTE lane: gpt-4o-mini at https://api.openai.com/v1 through the daemon's model-mount proxy; the local route is not required for this run",
+      "at": "2026-09-11T22:07:40.578Z"
+    },
+    {
+      "step": "3r-route",
+      "name": "the operator registers a remote OpenAI-compatible route in the model-route registry (the registration carries no secret; a plaintext key would be refused)",
+      "pass": true,
+      "detail": "201 model-route:mrt_18d46398f6a8fc10 · gpt-4o-mini @ https://api.openai.com/v1",
+      "at": "2026-09-11T22:07:40.619Z"
+    },
+    {
+      "step": "3r-route",
+      "name": "establishing custody of the provider key is an AUTHORITY CROSSING: a direct daemon bind parks on the exact commitments (policy and request hashes, tool model.credential.bind, the exact scope, the grant audience) and stores nothing",
+      "pass": true,
+      "detail": "403 model_route_credential_bind_authority_required · sha256:73786f568774ad9a8 · scope scope:hypervisor.live-route.hypervisor-model-route-credential-bind",
+      "at": "2026-09-11T22:08:19.807Z"
+    },
+    {
+      "step": "3r-route",
+      "name": "in the App the submit parks on the custody card (202, the same commitments) and the operator's approval seals the key through the deployment-local approver (mint + record one grant, then the daemon seals)",
+      "pass": true,
+      "detail": "202/awaiting_operator_approval → 201/approved",
+      "at": "2026-09-11T22:10:20.384Z"
+    },
+    {
+      "step": "3r-route",
+      "name": "with the operator's approval recorded, the provider key is SEALED to the route record (credential_binding kind sealed_capability_lease, custody lease on record) and the route's read projection carries no secret",
+      "pass": true,
+      "detail": "201  · binding {\"kind\":\"sealed_capability_lease\",\"sealed\":true,\"lease\":\"lease:lease_812ba506c6cb1db0\"}",
+      "at": "2026-09-11T22:10:20.388Z"
+    },
+    {
+      "step": "3r-route",
+      "name": "the probe is POSTURE-ONLY: credentials_present on the SEALED basis (the daemon sends no secret to a caller-supplied URL) — and the route enables",
+      "pass": true,
+      "detail": "200/credentials_present/sealed_capability_lease · enable 200 ",
+      "at": "2026-09-11T22:10:20.628Z"
+    },
+    {
+      "step": "3r-route",
+      "name": "the PROCESS-ENVIRONMENT key path stays refused by default: the env-key-report route probes credentials_missing (the daemon's environment holds no provider API key and no IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY opt-in) and cannot bind a session (typed refusal, transport_unsupported_for_execution)",
+      "pass": true,
+      "detail": "credentials_missing · bind 409/transport_unsupported_for_execution · daemon env provider keys: []",
+      "at": "2026-09-11T22:10:20.942Z"
+    },
+    {
+      "step": "4-project",
+      "name": "a project can be created and listed",
+      "pass": true,
+      "detail": "201 project:alpha-journey · 1 project(s)",
+      "at": "2026-09-11T22:10:20.944Z"
+    },
+    {
+      "step": "5a-selection",
+      "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+      "pass": true,
+      "detail": "200 · 6 harness · 3 routes · 0 connections",
+      "at": "2026-09-11T22:10:21.593Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "FIXTURE MODE: the attach pass minted the standing envelope (1 usage · $0.01 · 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record",
+      "pass": true,
+      "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1789171824194,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u · factor synthetic_contract_fixture_not_physical_passkey",
+      "at": "2026-09-11T22:10:50.672Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number)",
+      "pass": true,
+      "detail": "200 standing=true",
+      "at": "2026-09-11T22:10:50.681Z"
+    },
+    {
+      "step": "5c-envelope",
+      "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule",
+      "pass": true,
+      "detail": "412/session_authority_connection_unbounded",
+      "at": "2026-09-11T22:10:50.712Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile",
+      "pass": true,
+      "detail": "202 session:hyp-f486c73960ae6340575d94a9903722baaf0844351f20e94a2e6a633ac91d103a [\"connector:conn_617696bb35b1503c\"]",
+      "at": "2026-09-11T22:10:50.849Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+      "pass": true,
+      "detail": "403/session_authority_out_of_profile",
+      "at": "2026-09-11T22:10:50.891Z"
+    },
+    {
+      "step": "5d-custody",
+      "name": "submitting a provider key in the App PARKS on the custody approval card: 202 awaiting_operator_approval with the daemon's exact commitments (policy and request hashes, tool model.credential.bind, the exact scope, the grant audience) and NOTHING sealed yet",
+      "pass": true,
+      "detail": "201 → 202/awaiting_operator_approval · sha256:c41541de421285a96 · binding before approval null",
+      "at": "2026-09-11T22:11:35.843Z"
+    },
+    {
+      "step": "5d-custody",
+      "name": "Agent Studio renders the custody card with both commitments and the approve/deny acts (the plaintext appears nowhere on the page)",
+      "pass": true,
+      "detail": "200 {\"card\":true,\"request_hash\":true,\"approve_act\":true,\"registry\":true,\"plaintext\":false,\"bytes\":32017}",
+      "at": "2026-09-11T22:11:36.303Z"
+    },
+    {
+      "step": "5d-custody",
+      "name": "the operator's approval mints ONE grant with the deployment-local approver, records it on the authority node, and the daemon seals the key (sealed_capability_lease with a custody lease); the read projection carries no secret",
+      "pass": true,
+      "detail": "201/approved  · {\"kind\":\"sealed_capability_lease\",\"lease\":\"lease:lease_8fabeddb678f7dce\"}",
+      "at": "2026-09-11T22:12:51.242Z"
+    },
+    {
+      "step": "5d-custody",
+      "name": "one crossing, one decision: a second approval finds nothing pending (404) and the card is gone from Agent Studio",
+      "pass": true,
+      "detail": "404/credential_bind_not_pending",
+      "at": "2026-09-11T22:12:51.727Z"
+    },
+    {
+      "step": "5d-custody",
+      "name": "the drill key does not outlive the drill: revoking the credential leaves the route with no binding",
+      "pass": true,
+      "detail": "200 → binding null",
+      "at": "2026-09-11T22:12:51.858Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the composer submit creates a real environment, a session and a registered run",
+      "pass": true,
+      "detail": "200 run agent_mtxiidew2 env env_aaf1430978b844baaed1d510ce80a514a864bedf58a24b218d88a41b0f0e1374",
+      "at": "2026-09-11T22:12:52.223Z"
+    },
+    {
+      "step": "6-work",
+      "name": "SILENT WITHIN POLICY: the run never parks on an approval card — its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)",
+      "pass": true,
+      "detail": "done · {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\",\"standing\":true}",
+      "at": "2026-09-11T22:13:48.300Z"
+    },
+    {
+      "step": "6-work",
+      "name": "Work / Sessions shows NO approval card for the silent run",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-11T22:13:48.340Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the silently authorized run completes on the qualified harness/model and writes at least one file (0s)",
+      "pass": true,
+      "detail": "done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devco · ",
+      "at": "2026-09-11T22:13:48.340Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed",
+      "pass": true,
+      "detail": "1 draw receipt(s)",
+      "at": "2026-09-11T22:13:48.340Z"
+    },
+    {
+      "step": "6-work",
+      "name": "OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound",
+      "pass": true,
+      "detail": "200 failed · {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_envelope\",\"reason\":\"standing_envelope_exceeded\",\"refusalReceiptRef\":\"receipt://hyp · exec 0 · refusals 1",
+      "at": "2026-09-11T22:14:24.822Z"
+    },
+    {
+      "step": "6-work",
+      "name": "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) — leaving is real",
+      "pass": true,
+      "detail": "200 → 412/session_authority_connection_unbounded",
+      "at": "2026-09-11T22:14:24.878Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the written artifacts of the silently authorized run are in the session's workspace on disk",
+      "pass": true,
+      "detail": "/tmp/ioi-alpha-journey-0tYAx8/data/environments/env_aaf1430978b844baaed1d510ce80a514a864bedf58a24b218d88a41b0f0e1374/workspace · ALPHA_JOURNEY.md",
+      "at": "2026-09-11T22:14:24.900Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission",
+      "pass": true,
+      "detail": "1 receipt(s)",
+      "at": "2026-09-11T22:14:24.900Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "the execute receipt names the remote route as the run's SESSION BINDING: model_source session_binding, the route ref, the openai_compatible transport and the provider model",
+      "pass": true,
+      "detail": "session_binding · model-route:mrt_18d46398f6a8fc10 · openai_compatible · gpt-4o-mini",
+      "at": "2026-09-11T22:14:24.924Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "the session's route binding executes at the DAEMON's model-mount proxy (execution_endpoint is the daemon, never the provider's URL)",
+      "pass": true,
+      "detail": "http://127.0.0.1:45527/v1 · openai_compatible",
+      "at": "2026-09-11T22:14:24.924Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "NON-POSSESSION: the harness child's environment held exactly PATH, HOME, the daemon-proxy upstream and the run-scoped model-mount token's name — no provider key, no provider URL+key pair (the lane clears its environment and the receipt lists every name it set)",
+      "pass": true,
+      "detail": "[\"PATH\",\"HOME\",\"IOI_HYPERVISOR_MODEL_UPSTREAM\",\"IOI_HYPERVISOR_MODEL_TOKEN\"]",
+      "at": "2026-09-11T22:14:24.924Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "the DAEMON performed the provider call with the sealed credential: every model_invocation receipt on the route names the openai_compatible transport and the sealed basis (the receipt carries the provider's own status)",
+      "pass": true,
+      "detail": "1 invocation(s) · provider status [200]",
+      "at": "2026-09-11T22:14:24.924Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "the PROVIDER ACCEPTED the operator's credential: at least one proxied call answered 200 with reported usage (a 401/403 here is the operator's credential refused by the provider — recorded typed, never a pass)",
+      "pass": true,
+      "detail": "usage {\"prompt\":120,\"completion\":53,\"total\":173}",
+      "at": "2026-09-11T22:14:24.924Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "the run's WORK is the frontier model's: the intent's file (ALPHA_JOURNEY.md) exists in the session workspace, written from the proxied answer",
+      "pass": true,
+      "detail": "ALPHA_JOURNEY.md present",
+      "at": "2026-09-11T22:14:24.925Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "the harness's credential was the estate's OWN: a run-scoped model-mount capability token minted for this run's session (audience = the session, scope model.chat:* only) and REVOKED when the lane returned — never a provider secret",
+      "pass": true,
+      "detail": "1 issued · 1 revoked · scopes [\"model.chat:*\"]",
+      "at": "2026-09-11T22:14:24.925Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "NO PLAINTEXT ANYWHERE: the provider key appears in no file under the daemon's state tree (sealed credential record, receipts, bindings, sessions, workspaces)",
+      "pass": true,
+      "detail": "0 files",
+      "at": "2026-09-11T22:14:24.926Z"
+    },
+    {
+      "step": "7r-route",
+      "name": "cost of the live remote run",
+      "recorded": true,
+      "detail": "173 tokens (120 in / 53 out) ≈ $0.000050 at list price (estimate)",
+      "at": "2026-09-11T22:14:24.927Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "cost/consumption, the run timeline and the work ledger answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-11T22:14:24.936Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
+      "pass": true,
+      "detail": "200 → torn_down",
+      "at": "2026-09-11T22:14:25.097Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "revoking a connection refuses every later use under the sessions that named it",
+      "pass": true,
+      "detail": "200 → 400",
+      "at": "2026-09-11T22:14:25.154Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "IN-FLIGHT DRILL: a run left \"running\" by a serve that died mid-execute is RECONCILED at the next serve boot from the daemon session's execute receipt (its verdict, not the App's memory) — the durable record reads the receipt's outcome again",
+      "pass": true,
+      "detail": "planted 200/true → done · Done — reconciled from the daemon's execute receipt after a restart",
+      "at": "2026-09-11T22:14:27.263Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (done), its execute receipts (1) and the Sessions surface are all recovered exactly as they were",
+      "pass": true,
+      "detail": "200 · run done · 1 receipt(s) · page 200",
+      "at": "2026-09-11T22:14:27.343Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "the operator's identity and session survive the restart",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-11T22:14:27.399Z"
+    },
+    {
+      "step": "10-backup",
+      "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
+      "pass": true,
+      "detail": "exit 0 · 76/76 passed",
+      "at": "2026-09-11T22:14:51.768Z"
+    },
+    {
+      "step": "11-diagnostics",
+      "name": "doctor, the audit trail, the Operations surface and the developer route ledger answer",
+      "pass": true,
+      "detail": "200/200/200/200",
+      "at": "2026-09-11T22:14:51.848Z"
+    },
+    {
+      "step": "12-update",
+      "name": "the release change-plan family answers on the daemon, but this run is NOT on a packaged release, so update/rollback is recorded as NOT QUALIFIED here (package mode qualifies it), never as a pass",
+      "pass": true,
+      "detail": "200 · not_qualified_in_this_run",
+      "at": "2026-09-11T22:15:09.694Z"
+    },
+    {
+      "step": "13-agree",
+      "name": "the App's Sessions surface and the headless client render the same daemon-owned sessions",
+      "pass": true,
+      "detail": "3 session(s)",
+      "at": "2026-09-11T22:15:09.792Z"
+    }
+  ],
+  "checkout": {
+    "head": "adca48912937e10b56ab7f728579d583fd8ceb64",
+    "dirty_paths": 1,
+    "node": "v22.22.0",
+    "host": "linux x64 6.17.9-76061709-generic"
+  },
+  "daemon_binary": {
+    "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "sha256": "76aef2f35a9cff74ba5eb1ce70f1f8b7005be3418792ecff6a2974568651c7df",
+    "mtime": "2026-09-11T20:26:15.548Z"
+  },
+  "authority_mode": "fixture",
+  "fixture_ordering_profile": "Solo",
+  "model_route_lane": {
+    "lane": "remote",
+    "status": "run",
+    "route_ref": "model-route:mrt_18d46398f6a8fc10",
+    "provider_base_url": "https://api.openai.com/v1",
+    "provider_model": "gpt-4o-mini",
+    "credential": "sealed to the route record on the temporary daemon; never logged or written here",
+    "run_id": "agent_mtxiidew2",
+    "session_ref": "session:ai-agent_mtxiidew2",
+    "invocations": 1,
+    "provider_statuses": [
+      200
+    ],
+    "provider_accepted": true,
+    "usage": {
+      "prompt": 120,
+      "completion": 53,
+      "total": 173
+    },
+    "cost_usd_estimate": 0.0000498,
+    "cost_basis": "list price at authoring time (0.15/0.6 USD per 1M input/output tokens) × the provider's reported usage — an estimate, not billing truth",
+    "harness_environment_keys": [
+      "PATH",
+      "HOME",
+      "IOI_HYPERVISOR_MODEL_UPSTREAM",
+      "IOI_HYPERVISOR_MODEL_TOKEN"
+    ],
+    "run_scoped_tokens": {
+      "issued": 1,
+      "revoked": 1
+    }
+  },
+  "standing_lease": {
+    "mode": "fixture",
+    "status": "bound",
+    "code": null,
+    "message": null,
+    "factor_origin": "synthetic_contract_fixture_not_physical_passkey",
+    "bounds": {
+      "allowed_tools": [
+        "ping"
+      ],
+      "expires_at_ms": 1789171824194,
+      "max_cumulative_deposit_microusd": 10000,
+      "max_cumulative_spend_microusd": 10000,
+      "max_usages": 1,
+      "not_before_ms": 1789164564194,
+      "operations": [
+        "session_execute",
+        "connector_invoke"
+      ],
+      "per_operation_deposit_microusd": 10000,
+      "per_operation_spend_microusd": 10000
+    },
+    "grant_hash": "a5d7af1fed74ef5aad924ca4d6d5f54030ef20936774dddb04616f65fa5d4b49",
+    "silent_run": {
+      "run_id": "agent_mtxiidew2",
+      "status": "done",
+      "draw_receipts": 1
+    },
+    "over_envelope_run": {
+      "run_id": "agent_mtxijkzi5",
+      "status": "failed",
+      "authority": {
+        "connectionRef": "connector:conn_617696bb35b1503c",
+        "posture": "refused_outside_envelope",
+        "reason": "standing_envelope_exceeded",
+        "refusalReceiptRef": "receipt://hypervisor/standing-refusal/403cec534b5131f6",
+        "refusedBound": "max_usages",
+        "wideningPath": "/__ioi/connections"
+      }
+    },
+    "revocation": {
+      "status": 200,
+      "next_launch": 412
+    }
+  },
+  "custody_card": {
+    "route_id": "mrt_18d463c5464036ce",
+    "submit": 202,
+    "approve": 201,
+    "replay": 404,
+    "revoke": 200
+  },
+  "nonclaims": [
+    "packaged release / signer / supply-chain evidence",
+    "update and rollback of the release",
+    "workload-bound isolation (host_spawn only)",
+    "the remote route's answer quality (the lane claims the governed path: sealed credential, daemon proxy, run-scoped token, receipts)",
+    "provider billing truth (the recorded cost is a list-price estimate over the provider's reported usage)",
+    "the wallet.network fixture is test material with a public approver seed"
+  ],
+  "finished_at": "2026-09-11T22:15:09.793Z",
+  "summary": {
+    "passed": 53,
+    "total": 53
+  }
+}
