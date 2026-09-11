@@ -47,6 +47,16 @@
         "daemon_source": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs issue_bootstrap_token (called by startup_auth_notice): persist auth-bootstrap/bootstrap, re-read, require own record",
         "daemon_error": "identity bootstrap blocks readiness: authentication bootstrap token was not exactly observable"
       }
+    },
+    "focused constitutional-amendment journey, run 3 (2026-09-11 01:47–02:27, diagnostics retained on the fatal path)": {
+      "verdict": "FAILED WITHIN ITS BOUND at the same named site; the cause is in the retained log tail",
+      "detail": "33 PASS · 0 FAIL, then VERIFIER CRASH at the M1.5c cross-process race: the helper's error carries the daemon's bounded log tail — 'identity bootstrap blocks readiness: authentication bootstrap token was not exactly observable' (pid 1642350, :38969, exit 1). The healthy sibling plane (pid 1642349, :44357) outlived the verifier with its data dir removed underneath it and was reaped by PID. An isolated reproduction (two daemons booted SEQUENTIALLY on one bootstrapped data dir) came up healthy on both — the race is in CONCURRENT boot against M03.8's one-boot token, not in sharing the directory."
+    },
+    "focused constitutional-amendment journey, run 4 (after the sequential-boot fix)": {
+      "verdict": "Run 4 (focused re-proof, 04:13–04:52): both planes boot and the race executes — the authority is consumed exactly once (consumptions 1, reservations 5, the loser 409 system_lifecycle_head_conflict) — but the WINNER answers 500 system_lifecycle_pending_convergence instead of 200, two daemons' recovery loops on one data dir racing the winner's own convergence; 33/34, nothing left behind."
+    },
+    "unfocused lane, run 5 (after the fix; the whole held bar under its bound)": {
+      "verdict": "Run 5 (the whole held bar, 04:55–09:42, RUN deadline 12 h): exit 1 within its bound after 4 h 45 min — TEN of the fourteen journeys executed (dual-system-projection, named-continuity in ~2 h 10 min, constitutional-amendment, protected-transition, system-activation, primary, wallet-replay, partial-prefix-replay, dependency-ordered-replay, unconsumed-revocation), 111 PASS · 8 FAIL, every owned child reaped (32 resources removed, 18 process groups, 0 descendants). The eight failures name three causes: the cross-process winner's 500 pending_convergence (again, deterministic); six byte-exact daemon-tree clauses of primary red on the scheduler heartbeat (now excluded); and the run's end — cross-version-compatibility's pinned M1.3 base daemon (562d1b089, 2026-07-19) refused genesis admission 501 system_genesis_authority_binding_unavailable because it cannot read the current fixture's wallet capability key (the key contract moved after the pin). The nine-hour hang did not reproduce in any of five bounded runs."
     }
   },
   "stranded_children_found": [
@@ -2602,5 +2612,7 @@
   },
   "residue_after_run_2": {
     "/tmp/ioi-test-port-blocks": "port-block directory of the test-node build tooling, created 01:42; recorded, not deleted"
-  }
+  },
+  "fix_after_run_3": "verify-hypervisor-system-sequence-zero-materialization.mjs: the two competing planes of the cross-process race boot one after the other, and a failed second boot stops the first before rethrowing (no sibling left behind); the clause races the chain writer, not the boot. Fatal-path diagnostics name the last journey entered. The daemon-side question — whether the identity bootstrap should tolerate two concurrent boots on one data dir — stays with M03.8's owner, recorded not ruled.",
+  "finding_run_5_heartbeat": "Every 'byte-exact daemon tree' clause from the primary journey on turned red with ONE delta: scheduler-heartbeats/automation-scheduler.json — the W0.6 scheduler liveness heartbeat the daemon persists every tick whether or not a request arrived (loop-derived truth, in the daemon's own words). The clause asks whether a refused request wrote nothing; a timer firing between two snapshots answers a different question. Fix (verifier): the family is excluded from the byte-exact data-plane snapshot at the root, beside the isolated-daemon log names. The daemon-side alternative — heartbeats outside the data-plane tree — is the daemon owner's call."
 }

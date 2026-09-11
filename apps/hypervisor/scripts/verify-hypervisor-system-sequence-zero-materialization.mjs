@@ -2158,10 +2158,19 @@ function recursiveBytesSnapshot(root, { ignoredRootNames = new Set() } = {}) {
   );
 }
 
+// The scheduler's liveness heartbeat (W0.6: `scheduler-heartbeats/automation-scheduler.json`,
+// persisted every SCHED_TICK_SECS whether or not a request arrived) is LOOP-derived truth, not
+// data-plane truth — the daemon's own words. A "byte-exact daemon tree" clause asks whether a
+// REFUSED REQUEST wrote nothing; a timer that fires between two snapshots answers a different
+// question. Run 5 of the bounded lane (2026-09-11) turned five such clauses red with exactly this
+// one-file delta, so the family is excluded here, at the root, beside the helper's own log names.
+const TIMER_DRIVEN_ROOT_FAMILIES = new Set(["scheduler-heartbeats"]);
+
 function recursiveDataDirSnapshot(root) {
-  const ignoredRootNames = new Set(
-    readdirSync(root).filter(isIsolatedDaemonLogName),
-  );
+  const ignoredRootNames = new Set([
+    ...readdirSync(root).filter(isIsolatedDaemonLogName),
+    ...TIMER_DRIVEN_ROOT_FAMILIES,
+  ]);
   return recursiveBytesSnapshot(root, { ignoredRootNames });
 }
 
