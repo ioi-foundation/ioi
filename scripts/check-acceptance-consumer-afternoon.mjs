@@ -95,7 +95,11 @@ const CLAUSES = [
     id: "7",
     clause: "Watching is a projection, touching is a crossing: the browser watch pane replays the receipted session and a take-over produces the same admission and receipts",
     unit: "M13.6",
-    absences: [{ what: "the browser head is UNBUILT — no watch pane, no take-over crossing, no verifier", owner: "M13.6" }],
+    // R-28 (2026-09-11, MVP owner): the supported profile has no browser/computer-use tool family,
+    // so no MVP run operates a browser and this conditional clause never applies at MVP depth. It
+    // is recorded as RULED OUT ON RECORD — a category of its own, never a pass and never silently
+    // dropped — and it no longer holds the gate. It re-enters with M13.6 (worker-construction track).
+    ruledOut: { ruling: "R-28 (2026-09-11, MVP owner; ADR 0053 Amendment 1)", what: "not applicable at MVP depth: the supported profile has no browser/computer-use tool family; the browser head (M13.6) is a worker-construction-track pull" },
   },
   {
     id: "8",
@@ -272,6 +276,7 @@ if (selfDrill) {
 
 let failures = 0;
 let absences = 0;
+let ruledOut = 0;
 for (const c of CLAUSES) {
   for (const check of c.checks ?? []) if (!(await runCheck(c.id, check, start))) failures += 1;
   if (c.structural) {
@@ -287,6 +292,10 @@ for (const c of CLAUSES) {
     record(c.id, "absence", false, `TYPED ABSENCE — ${c.clause}`, `${absence.what} · owner: ${absence.owner}`);
     absences += 1;
   }
+  if (c.ruledOut) {
+    record(c.id, "ruled_out", true, `RULED OUT AT MVP DEPTH (on record, not a pass) — ${c.clause}`, `${c.ruledOut.what} · ruling: ${c.ruledOut.ruling}`);
+    ruledOut += 1;
+  }
 }
 
 const end = basis();
@@ -294,7 +303,7 @@ if (!record("basis", "check", end.head === start.head && end.dirty === start.dir
 
 const executed = results.filter((r) => r.kind === "check" && r.ok).length;
 const verdict = failures > 0 ? "FAIL" : absences > 0 ? "PARTIAL" : "PASS";
-console.log(`${verdict} ACC-15 composed journey: ${executed} executed clause checks green · ${absences} typed absences · basis ${start.head}`);
+console.log(`${verdict} ACC-15 composed journey${verdict === "PASS" && ruledOut > 0 ? " at MVP depth" : ""}: ${executed} executed clause checks green · ${absences} typed absences · ${ruledOut} clause(s) ruled out on record · basis ${start.head}`);
 if (absences > 0) console.log("PARTIAL is not a pass: ACC-15 closes when every typed absence above has an executable proof.");
 if (evidencePath) {
   fs.mkdirSync(path.dirname(path.resolve(ROOT, evidencePath)), { recursive: true });
@@ -305,6 +314,7 @@ if (evidencePath) {
     verdict,
     executed_checks: executed,
     typed_absences: absences,
+    ruled_out_on_record: ruledOut,
     alpha_journey: withAlphaJourney ? "executed in this run (fixture authority mode)" : `cited from ${ALPHA_EVIDENCE}`,
     fixtures: "disabled for every clause except the alpha journey's own wallet fixture, which IS that lane's authority node and is labelled",
     recorded_at: new Date().toISOString(),

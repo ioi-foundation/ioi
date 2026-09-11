@@ -353,7 +353,6 @@
           },
           "graph_file": "seed-graphs/automations/machinery.v1.json",
           "class": "daemon_wired",
-          "owner_mapping_note": "OQ-2 open dual-owner record: surface-registry.mjs declares Studio; the 2026-08-09 audit's canonical reading is Automations; neither side is picked to unblock work. manifest.v1.json open_questions OQ-2 and docs/architecture/_meta/canon-to-code-delta.md carry the record.",
           "seed_role": "baseline"
         },
         {

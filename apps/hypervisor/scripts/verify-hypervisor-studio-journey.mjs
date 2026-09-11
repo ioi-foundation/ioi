@@ -3,7 +3,7 @@
 //
 // Proves, against an ISOLATED real daemon + serve lane, the Studio surface packet end to end:
 // the canonical /studio mount renders the rehomed agent-estate lens grammar (with authoring
-// controls disabled-with-reason and NO machinery content — OQ-2 held); blueprint create/update/
+// controls disabled-with-reason and NO machinery content — machinery is Automations-owned, OQ-2 ruled R-29); blueprint create/update/
 // promote and descriptor create/update cross the module action lane speaking the shared
 // owner-scoped admission contract (owner_ref + idempotency_key + expected_head CAS); a stale
 // head and an unauthenticated write refuse TYPED and render verbatim; promotion COMPOSES a real
@@ -172,7 +172,7 @@ async function run() {
     "");
   ok("vendor-authoring controls are disabled WITH a machine-readable reason",
     landing.text.includes('data-ioi-disabled-reason='), "");
-  ok("NO machinery content on /studio (OQ-2 held)", !/machinery/iu.test(landing.text), "");
+  ok("NO machinery content on /studio (machinery is Automations-owned — OQ-2 ruled R-29)", !/machinery/iu.test(landing.text), "");
   const legacyMount = await pageText("/__ioi/studio/workbench");
   ok("the fresh legacy lane serves the same module (its own truthful marker)",
     legacyMount.status === 200 && legacyMount.headers.get("x-ioi-surface-route") === "/__ioi/studio/workbench", "");

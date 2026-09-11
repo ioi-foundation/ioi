@@ -172,7 +172,7 @@ export const V2_ROUTE_TABLE = [
     build_state: "shell-only (W0.1) — Wave 1 read-first build, blueprints family is a Wave 3 backend build (surfaces/studio.md §5)",
     serving_today: [
       { href: "/__ioi/studio/designer", label: "Solution Designer", note: "protected ported seed (daemon-wired)" },
-      { href: "/__ioi/studio/machinery", label: "Machinery", note: "protected ported seed (daemon-wired); machinery moves to Automations in the paired Wave 1 PR" },
+      { href: "/__ioi/studio/machinery", label: "Machinery", note: "protected ported seed (daemon-wired); Automations-owned (OQ-2 ruled R-29, 2026-09-11) — served at its historical route until the Automations surface packet moves it" },
     ],
   },
   {

@@ -88,6 +88,7 @@
     "check:acceptance-semantic-plane": "node scripts/check-acceptance-semantic-plane.mjs",
     "mutate:acceptance-semantic-plane": "node scripts/check-acceptance-semantic-plane.mjs --mutation",
     "check:acceptance-consumer-afternoon": "node scripts/check-acceptance-consumer-afternoon.mjs",
+    "check:machinery-surface-owner": "node scripts/check-machinery-surface-owner.mjs",
     "mutate:acceptance-consumer-afternoon": "node scripts/check-acceptance-consumer-afternoon.mjs --mutation",
     "check:standing-envelope-template": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/standing-envelope-template.v1.json",
     "mutate:standing-envelope-template": "node scripts/mutate-standing-lease.mjs --unit standing-envelope-template",

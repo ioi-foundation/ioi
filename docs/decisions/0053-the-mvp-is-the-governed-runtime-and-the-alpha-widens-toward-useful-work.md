@@ -153,6 +153,31 @@ same units re-enter `ACC-R`; no evidence is lost either way. Decision 2
 declares units; reversal deletes three manifest rows and one profile section.
 Decision 3 orders work that was already next.
 
+## Amendment 1 (2026-09-11): the worker-construction track
+
+Ruled by the MVP owner under the estate owner's delegation of 2026-09-11
+("you own the MVP"), owner-reversible. `ACC-16` (observed work becomes a
+governed worker source) and `ACC-18` (consequential worker profiles) were kept
+in the MVP above as proofs of the runtime. As specified they are not: `ACC-16`'s
+learned profiles need isolated Foundry construction and independent evaluation,
+`ACC-18`'s interactive profile names the product-track `M14.14` game-platform
+fixture — a cross-scope dependency by construction — and both hang off `M01.9`,
+the bounded interactive computer-use stream with seven prerequisites, through
+`M13.8` (demonstration capture) and `M10.7` (interactive worlds). The governed
+runtime's own proof that consequential effects cannot hide is already carried by
+`M03.15` (exact-effect review for every acting subject), `ACC-15` and the
+flagship developer journey `M13.11`.
+
+Decision: `ACC-16`, `ACC-18`, `M01.9`, `M13.6`, `M13.8` and `M10.7` — exactly
+the closure under the cross-scope rule — move to `product_track` as the
+worker-construction track (a product track by the same logic as the
+marketplace: worker productization), and `ACC-R` drops the two gates. `ACC-15` clause 7
+(the browser head) is ruled out at MVP depth: the supported profile has no
+browser or computer-use tool family, so no MVP run operates a browser; the
+composed runner records the clause as ruled out on record, never as a pass.
+`ACC-20` stays. Reversal sets six scope values back and re-adds two gate
+dependencies; no evidence is lost either way.
+
 ## Canonical References
 
 - [`../architecture/components/hypervisor/bounded-alpha-profile.md`](../architecture/components/hypervisor/bounded-alpha-profile.md)

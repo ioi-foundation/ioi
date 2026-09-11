@@ -1449,7 +1449,10 @@ Studio
   writer, failover, or lifecycle truth
 
 Automations
-  trigger, workflow, service, API, schedule, catch-up, and run lifecycle
+  trigger, workflow, service, API, schedule, catch-up, and run lifecycle;
+  process and state-machine graphs (the Machinery surface — OQ-2 ruled
+  2026-09-11, R-29: Automations owns it; it keeps its historical route until
+  the Automations surface packet moves it)
 
 Evaluations
   eval-suite revision, frozen epoch, scorecard, holdout/exposure, evaluator
