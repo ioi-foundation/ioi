@@ -33,7 +33,7 @@
       ]
     },
     {
-      "label": "the M02.5 journey of the sequence-zero materialization lane: named-continuity (local enrollment, exit, the enrollment-tier declaration ladder, migration, succession, dissolution), run FOCUSED with the verifier's own explicit non-certifying opt-in. This proves M02.5's clauses live; it is NOT the lane's whole held bar, which the verifier itself refuses to certify from a subset and which currently hangs in a journey after named-continuity (recorded 2026-09-09 as an open finding with its own closure test)",
+      "label": "the M02.5 journey of the sequence-zero materialization lane: named-continuity (local enrollment, exit, the enrollment-tier declaration ladder, migration, succession, dissolution), run FOCUSED with the verifier's own explicit non-certifying opt-in. This proves M02.5's clauses live; it is NOT the lane's whole held bar, which the verifier itself refuses to certify from a subset. Since 2026-09-10 the verifier bounds every journey (180 min), the run and every synchronous command, and reaps on signal, so the whole bar can no longer WAIT: its unfocused run on 2026-09-11 completed named-continuity (135 min) and constitutional-amendment through its CONTINUITY clause, then failed within its bound at a named site — step 10 boots two daemons concurrently on one data dir and the daemon's identity bootstrap refuses readiness for the loser (recorded for the M02 owner with the exact site; see the leg-3 evidence file). The bounded supplementary is killed as a process group on its deadline, never as a lone child",
       "argv": [
         "node",
         "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs"

@@ -120,6 +120,45 @@ const CURRENT_RECEIPT_PROFILE =
 const JOURNEY_SELECTOR_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_VERIFIER_JOURNEYS";
 const FOCUSED_VERIFIER_OPT_IN_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_ALLOW_FOCUSED";
 const CERTIFICATION_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CERTIFY";
+// R-15 (2026-09-10) — TYPED DEADLINES. A wait with no bound cannot fail; it can only be waited
+// on, and this verifier's whole held bar was once waited on for nine hours at 0 % CPU with a live
+// daemon child and no fixture. Every journey now runs under a deadline, the run under a deadline,
+// and every synchronous child command under a deadline; each FAILS NAMING what stalled rather
+// than waiting. The defaults are hang detectors, not host timers: named-continuity measured
+// 59 min on an idle host and its dissolution ladder ran past 90 min on a loaded one (twice: the
+// wrapper's first bound in 2026-09-09's run, and this verifier's first bounded run on
+// 2026-09-10), so a journey gets 180 min — the bound the wrapper already carries; the run gets
+// the selected journeys × the journey bound plus 30 min for the self-tests and the
+// current-daemon build; a synchronous command (a cold pinned-commit daemon build is the
+// longest) gets 60 min. A malformed value is
+// refused, never defaulted. On a deadline the verifier reaps everything it owns by the PIDs and
+// process-group identities it registered — never by pattern — after saving a bounded tail of
+// every owned daemon log so the stall site can be read.
+const JOURNEY_DEADLINE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_JOURNEY_DEADLINE_MS";
+const RUN_DEADLINE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_RUN_DEADLINE_MS";
+const COMMAND_DEADLINE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_COMMAND_DEADLINE_MS";
+function deadlineMsFromEnv(name, defaultMs, maxMs) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return defaultMs;
+  if (!/^[0-9]+$/u.test(raw)) {
+    throw new Error(`${name} must be an integer number of milliseconds`);
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 60_000 || value > maxMs) {
+    throw new Error(`${name} must be between 60000 and ${maxMs}`);
+  }
+  return value;
+}
+const JOURNEY_DEADLINE_MS = deadlineMsFromEnv(
+  JOURNEY_DEADLINE_ENV,
+  180 * 60_000,
+  6 * 3_600_000,
+);
+const COMMAND_DEADLINE_MS = deadlineMsFromEnv(
+  COMMAND_DEADLINE_ENV,
+  60 * 60_000,
+  6 * 3_600_000,
+);
 // CHECKPOINT LANE (iteration-only, never certifying): capture archives a
 // journey's bootstrapped plane (daemon data dir + wallet fixture dir + a
 // manifest carrying the bootstrap outputs) after the expensive real-wallet
@@ -488,7 +527,10 @@ const VERIFIER_TEMP_OWNER_POLICIES = [
   },
 ];
 
-process.on("exit", () => {
+// Reap by the PIDs and process-group identities this verifier registered — never by pattern.
+// `keepResources` leaves the owned directories in place (a deadline path saves diagnostics from
+// them first and the exit hook removes them last).
+function reapOwnedChildren({ keepResources = false } = {}) {
   for (const child of ownedBinaryChildren) {
     try {
       child.kill("SIGKILL");
@@ -505,6 +547,7 @@ process.on("exit", () => {
       }
     }
   }
+  if (keepResources) return;
   for (const resource of ownedResources.keys()) {
     try {
       rmSync(resource, { recursive: true, force: true });
@@ -512,7 +555,86 @@ process.on("exit", () => {
       // Best effort only during abnormal process teardown.
     }
   }
-});
+}
+
+process.on("exit", () => reapOwnedChildren());
+
+// R-15 (2026-09-10) — A SIGNAL MUST REAP WHAT THIS VERIFIER OWNS. Node runs no 'exit' hook on an
+// unhandled SIGTERM/SIGINT/SIGHUP, so when a wrapper's deadline terminated this process the hook
+// above never ran and every daemon and fixture group it owned outlived it (three validator
+// processes for 23 h, 2026-09-09). Each signal reaps by owned identity, then exits with the
+// conventional 128+signal code so the wrapper still reads a failure.
+for (const [signal, code] of [
+  ["SIGTERM", 143],
+  ["SIGINT", 130],
+  ["SIGHUP", 129],
+]) {
+  process.on(signal, () => {
+    console.error(
+      `${signal}: reaping ${ownedBinaryChildren.size} owned child(ren) and ${ownedProcessGroups.size} owned process group(s) before exit`,
+    );
+    reapOwnedChildren();
+    process.exit(code);
+  });
+}
+
+// On a deadline, save a bounded tail of every owned daemon log before the reap removes the
+// directories: the stall site is in those logs, and a verdict that names a journey but keeps no
+// evidence of where it stalled would send the reader back to a nine-hour wait.
+function saveStallDiagnostics(name) {
+  // Under the repo's ignored artifacts dir, not the OS temp dir: a host reboot wipes /tmp, and
+  // the first bounded run's diagnostics were lost exactly that way (2026-09-10).
+  const dir = join(REPO, ".artifacts", "sequence-zero-stalls", `stall-${Date.now()}`);
+  try {
+    mkdirSync(dir, { recursive: true });
+    const notes = [`journey: ${name}`, `owned resources: ${[...ownedResources.keys()].join(", ") || "(none)"}`];
+    for (const resource of ownedResources.keys()) {
+      let entries = [];
+      try {
+        entries = readdirSync(resource, { recursive: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (!/\.log$/u.test(String(entry))) continue;
+        const source = join(resource, String(entry));
+        try {
+          const tail = readFileSync(source, "utf8").split("\n").slice(-400).join("\n");
+          writeFileSync(join(dir, `${basename(resource)}__${String(entry).replaceAll("/", "__")}`), tail);
+        } catch {
+          // A vanished or unreadable log is not worth failing the diagnosis over.
+        }
+      }
+    }
+    writeFileSync(join(dir, "STALL.txt"), `${notes.join("\n")}\n`);
+    console.error(`stall diagnostics saved under ${dir}`);
+  } catch (error) {
+    console.error(`stall diagnostics could not be saved: ${error?.message || error}`);
+  }
+  return dir;
+}
+
+async function runUnderJourneyDeadline(name, journey) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const diagnostics = saveStallDiagnostics(name);
+      // Reap first: every owned daemon and fixture group dies by the identities this verifier
+      // registered, so the stalled journey's pending awaits fail instead of outliving the verdict.
+      reapOwnedChildren({ keepResources: true });
+      reject(
+        new Error(
+          `journey '${name}' exceeded its deadline of ${JOURNEY_DEADLINE_MS} ms (${JOURNEY_DEADLINE_ENV}) — the stall is named here, not waited on; diagnostics ${diagnostics}`,
+        ),
+      );
+    }, JOURNEY_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([journey(), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function ok(name, pass, detail = "") {
   results.push({
@@ -1568,7 +1690,7 @@ async function executeJourneyWithCensus(name, journey) {
   }
   activeJourney = name;
   try {
-    await journey();
+    await runUnderJourneyDeadline(name, journey);
   } finally {
     activeJourney = null;
   }
@@ -2191,8 +2313,17 @@ function buildCurrentDaemon() {
         CARGO_TARGET_DIR: join(REPO, "target"),
       },
       stdio: "inherit",
+      // A synchronous child blocks the event loop, so no JavaScript deadline can reach it; it
+      // carries its own (R-15). A cargo blocked on a build-directory lock sits at 0 % CPU forever.
+      timeout: COMMAND_DEADLINE_MS,
+      killSignal: "SIGKILL",
     },
   );
+  if (result.error?.code === "ETIMEDOUT") {
+    throw new Error(
+      `current daemon build exceeded its deadline of ${COMMAND_DEADLINE_MS} ms (${COMMAND_DEADLINE_ENV})`,
+    );
+  }
   if (result.error) {
     throw new Error(
       `current daemon build could not start: ${result.error.message}`,
@@ -2219,7 +2350,18 @@ function buildCurrentDaemon() {
 }
 
 function checkedSpawnSync(command, args, options, label) {
-  const result = spawnSync(command, args, options);
+  // Every synchronous child carries its own deadline (R-15): the event loop is blocked while it
+  // runs, so nothing else could bound it. A caller may pass a tighter `timeout`.
+  const result = spawnSync(command, args, {
+    timeout: COMMAND_DEADLINE_MS,
+    killSignal: "SIGKILL",
+    ...options,
+  });
+  if (result.error?.code === "ETIMEDOUT") {
+    throw new Error(
+      `${label} exceeded its deadline of ${options?.timeout ?? COMMAND_DEADLINE_MS} ms (${COMMAND_DEADLINE_ENV})`,
+    );
+  }
   if (result.error) {
     throw new Error(`${label} could not start: ${result.error.message}`);
   }
@@ -8951,6 +9093,7 @@ function certificationSelectionMayRun(
 
 async function run() {
   let fatal;
+  let runWatchdog = null;
   let requiredJourneys = [];
   let selectedJourneys = [];
   try {
@@ -9172,6 +9315,24 @@ async function run() {
         );
       }
     }
+    // The whole run is bounded too (R-15): a deadline per journey cannot see a stall that lands
+    // between journeys or inside a synchronous build, so the run carries one of its own.
+    const runDeadlineMs = deadlineMsFromEnv(
+      RUN_DEADLINE_ENV,
+      selectedJourneys.length * JOURNEY_DEADLINE_MS + 30 * 60_000,
+      48 * 3_600_000,
+    );
+    runWatchdog = setTimeout(() => {
+      const diagnostics = saveStallDiagnostics(activeJourney || "(between journeys)");
+      console.error(
+        `RUN DEADLINE: ${runDeadlineMs} ms (${RUN_DEADLINE_ENV}) exceeded during '${activeJourney || "(between journeys)"}' — reaping owned children; diagnostics ${diagnostics}`,
+      );
+      reapOwnedChildren();
+      process.exit(1);
+    }, runDeadlineMs);
+    console.log(
+      `deadlines: journey ${JOURNEY_DEADLINE_MS} ms · run ${runDeadlineMs} ms · sync command ${COMMAND_DEADLINE_MS} ms`,
+    );
     for (const name of selectedJourneys) {
       const journey = journeys.get(name);
       await executeJourneyWithCensus(name, journey);
@@ -9179,7 +9340,13 @@ async function run() {
     }
   } catch (error) {
     fatal = error;
+    // Any fatal path keeps its evidence (R-15, 2026-09-11): the first bounded unfocused run crashed
+    // on a daemon that exited before health, and the retained daemon log vanished with the owned
+    // resources at teardown, so the cause could not be read. Save the bounded log tails BEFORE the
+    // teardown removes them; a named failure with no log sends the reader back to a re-run.
+    saveStallDiagnostics(activeJourney || "(fatal outside a journey)");
   }
+  if (runWatchdog) clearTimeout(runWatchdog);
   ok(
     "TEARDOWN: the nonempty exact verifier-owned resource ledger is fully removed",
     teardownComplete(ownedResources, selectedJourneys),

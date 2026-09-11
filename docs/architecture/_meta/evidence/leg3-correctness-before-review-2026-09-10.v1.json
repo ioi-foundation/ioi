@@ -1,0 +1,2606 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "correctness program before the 2026-09-12 review (2026-09-10)",
+  "leg": 3,
+  "title": "No verifier waits forever or leaves a child behind: typed deadlines and signal-driven reaping in the sequence-zero verifier, process-group-bounded supplementaries in the wrappers that used to SIGKILL a lone child, and the unfocused lane run under its bound",
+  "basis": {
+    "head": "cf8ceb52c",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-10/11",
+  "pattern_fixed_once": [
+    "sequence-zero verifier: JOURNEY / RUN / COMMAND deadlines (IOI_SYSTEM_SEQUENCE_ZERO_{JOURNEY,RUN,COMMAND}_DEADLINE_MS; defaults 180 min / journeys×180 min + 30 min / 60 min; malformed values refused, never defaulted). On a deadline the verifier saves a bounded tail of every owned daemon log under .artifacts/sequence-zero-stalls/, reaps every owned child and process group by registered identity, and fails naming the journey. SIGTERM/SIGINT/SIGHUP reap the same way and exit 128+signal (node runs no 'exit' hook on an unhandled signal, which is how the 2026-09-09 processes were stranded). Synchronous child commands carry their own timeout because a spawnSync blocks the event loop and no JavaScript deadline can reach it.",
+    "scripts/check-cargo-test-population.mjs and scripts/check-acceptance-consumer-afternoon.mjs: a bounded supplementary/check starts in its own process group and the deadline kills the GROUP (SIGTERM, 20 s grace, SIGKILL) by the id the wrapper created, then SIGKILLs the group once more after any exit; the wrappers pass SIGTERM/SIGINT/SIGHUP through to the active group. Before: spawnSync + killSignal SIGKILL on the lone child, whose exit hook could not run."
+  ],
+  "runs": {
+    "node --check (three edited scripts) + module import smoke + malformed-deadline refusal": {
+      "verdict": "pass"
+    },
+    "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/network-enrollment-continuity-plane.v1.json --mutation": {
+      "verdict": "pass",
+      "assertions": "3/3 planted mutations refused (absent name, unlistable path, empty population) on the patched wrapper"
+    },
+    "unfocused lane, run 1 (journey default 90 min)": {
+      "verdict": "FAILED WITHIN ITS BOUND, journey named",
+      "detail": "First bounded run (2026-09-10 19:35–21:36, journey default 90 min at the time): self-tests 3/3, current daemon built, dual-system-projection complete, then named-continuity hit the 90-minute JOURNEY deadline at ~21:36 while still progressing inside its dissolution ladder (assertion 38, 'M1.5d DISPOSITION SINGLETON', landed at 21:24) — the verifier failed NAMING the journey (exit 1, 39 PASS · 1 FAIL, the FAIL being the teardown assertion on the deadline path; process_groups=4 descendants_remaining=1 at the instant of the check, re-reaped at exit). The same finding the 2026-09-09 wrapper run recorded — a 90-minute bound expires inside the ladder on a loaded host — so the verifier's journey default was aligned to the wrapper's established 180 min (the wrapper's bound itself was not raised). The run log and the /tmp diagnostics were lost to the 22:23 host reboot; this account is from the run's monitor events. Diagnostics now save under .artifacts/sequence-zero-stalls/."
+    },
+    "unfocused lane, run 2 (journey default 180 min; host idle after the reboot)": {
+      "verdict": "FAILED WITHIN ITS BOUND at a NAMED site, not a wait (exit 1 after 3 h 14 min; 57 PASS; teardown reaped 7 process groups with 0 descendants remaining).",
+      "detail": "Self-tests 3/3, current daemon built, dual-system-projection complete (26), named-continuity complete in ~135 min under the 180-min bound (44, its residual-closed dissolution ladder included — the M02.5 journey proven live on this tree), constitutional-amendment through its CONTINUITY clause (57), then step 10 — 'two independent daemon processes race DIFFERENT successors from the same predecessor' — boots two isolated daemons CONCURRENTLY on ONE data dir (journey source: competingPlanes = Promise.all([startVerifierPlane({ dataDir }), startVerifierPlane({ dataDir })])) and the second daemon (pid 564077, :41847) exited 1 before readiness with the daemon's own error 'identity bootstrap blocks readiness: authentication bootstrap token was not exactly observable', while its sibling (:36133) came up. Mechanism, read at source: issue_bootstrap_token (lifecycle_routes.rs, called by startup_auth_notice at every unauthenticated boot) persists auth-bootstrap/bootstrap and then re-reads the family demanding ITS record — a single-writer assumption; two daemons rotating the token on one data dir at the same instant leave the first writer reading the second's record. Timing-dependent (the idle post-reboot host boots both in the same window); the same step passed in MIGRATION ACK earlier in the run. Owners: the M02 journey (the concurrent pair on one dir) and the identity bootstrap (M03.8). Closure test: the bootstrap tolerates a concurrent rotation (lock the family or verify only its own hash's presence) or the journey starts the pair sequentially gated on readiness; then the unfocused lane past step 10.",
+      "log": ".artifacts/correctness-program/seqzero-unfocused-run2.log (local; the deadlines line: journey 10800000 ms · run 153000000 ms · sync command 3600000 ms)",
+      "excerpt": [
+        "IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=272896 port=35959 inode=30086599 owned=true",
+        "PASS: M1.5c REPLAY: a crash after wallet consumption converges exactly one further amendment at sequence four on restart - cleared=true seq=4 committed=2 claims=2 reservations=2",
+        "IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=321748 port=43221 inode=30087013 owned=true",
+        "PASS: M1.5c CONTINUITY: pause and resume continue over the amended constitution carrying the successor profile set - pause=200/ok resume=200/ok seq=6 constitution_carried=true claims=4 reservations=4",
+        "IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=564078 port=36133 inode=30619036 owned=true",
+        "FAIL: TEARDOWN: the nonempty exact verifier-owned resource ledger is fully removed - owned=8 removed=8 process_groups=7 descendants_remaining=0",
+        "VERIFIER CRASH: Error: isolated daemon never became healthy as owned pid 564077 on http://127.0.0.1:41847 (exit=1/none; retained log /tmp/ioi-constitutional-amendment-PGQXoi/isolated-daemon-restart-1789105337013-92922-41847.log)",
+        "--- bounded sanitized daemon log tail ---",
+        "Error: identity bootstrap blocks readiness: authentication bootstrap token was not exactly observable",
+        "    at startIsolatedPlane (file:///home/heathledger/Documents/ioi/repos/ioi/apps/hypervisor/scripts/lib/isolated-daemon.mjs:398:11)"
+      ],
+      "named_site": {
+        "journey": "constitutional-amendment",
+        "step": "10) two independent daemon processes race DIFFERENT successors from the same predecessor",
+        "verifier_source": "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs, runConstitutionalAmendmentJourney: competingPlanes = await Promise.all([startVerifierPlane({ dataDir, env: resolver.env }), startVerifierPlane({ dataDir, env: resolver.env })])",
+        "daemon_source": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs issue_bootstrap_token (called by startup_auth_notice): persist auth-bootstrap/bootstrap, re-read, require own record",
+        "daemon_error": "identity bootstrap blocks readiness: authentication bootstrap token was not exactly observable"
+      }
+    }
+  },
+  "stranded_children_found": [
+    {
+      "pid": 3427464,
+      "what": "target/debug/hypervisor-daemon with IOI_HYPERVISOR_DATA_DIR=/tmp/ioi-recipe-run-split-8IGY0I/data (a verify-hypervisor-data-recipe-run-split.mjs child), ppid 1, alive 1 d 6 h, no owning verifier process",
+      "action": "SIGTERM by PID, exited; port 43947 released"
+    },
+    {
+      "pid": 2563068,
+      "what": "target/debug/hypervisor-daemon on 127.0.0.1:44671 with a wallet-network auth1 scratch fixture (session f789207a), ppid 1, alive 2 d 22 h",
+      "action": "left running: that session (PID 688300) was still alive; not this program's to reap (the 22:23 reboot ended it)"
+    },
+    {
+      "pid": 1868248,
+      "what": "the shared dev daemon on 127.0.0.1:8765",
+      "action": "never touched (the reboot ended it)"
+    },
+    {
+      "residue": [
+        "/tmp/ioi-standing-consumer-loop-gW0cK0",
+        "/tmp/ioi-wallet-network-pa-1472903-556462841-64c1f786-37f3-4686-ad79-1b368bd0c9a9"
+      ],
+      "what": "temp directories dated 2026-09-09 18:31 left by a verifier whose finally never ran (the same stranded run)",
+      "action": "recorded, not deleted (the reboot removed them)"
+    }
+  ],
+  "family_survey": {
+    "summary": {
+      "files_scanned": 267,
+      "files_with_children_or_waits": 208,
+      "leads": 173,
+      "by_flag": {
+        "spawn-without-exit-hook": 48,
+        "spawn-without-signal-hook": 53,
+        "spawn-never-killed": 0,
+        "while-true": 6,
+        "SIGKILL-on-timeout-strands-child-tree": 0,
+        "fetch-without-timeout": 152
+      },
+      "method": "static read-only sweep (regex) over verify-*/check-*/mutate-*/lib/*.mjs on the tree carrying leg 3's edits; every flag is a lead to read, not a verdict; fixed in this leg: the SIGKILL-on-timeout pattern in both wrappers and the signal/deadline pattern in the sequence-zero verifier"
+    },
+    "leads": [
+      {
+        "file": "apps/hypervisor/scripts/lib/environment-owner-source-census.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 1,
+        "flags": [
+          "while-true"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/isolated-daemon.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": true,
+        "signal_hook": false,
+        "kills": 4,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/isolated-daemon.test.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/m059-media-lane.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/retry-authority-unavailable.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 1,
+        "flags": [
+          "while-true"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/software-passkey-ceremony.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/wallet-network-fixture-guardian.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/wallet-network-local-authority.mjs",
+        "spawn": 1,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": true,
+        "signal_hook": false,
+        "kills": 4,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-agentgres-substrate-bench.mjs",
+        "spawn": 1,
+        "spawnSync": 7,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-c7-c8-capstone.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-decentralized-cloud-live-quotes.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-governed-lifecycle.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-action-runtime.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 7,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-akash-depin-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+        "spawn": 3,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 2,
+        "fetch_with_timeout": 1,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-approvals.mjs",
+        "spawn": 0,
+        "spawnSync": 3,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-changes.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-domain-landings.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 28,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-evalsuites.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-evaluations.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-foundry-models.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-incidents.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-lineage.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-listings.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-missions.mjs",
+        "spawn": 0,
+        "spawnSync": 3,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-models.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-monitors.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-object-explorer.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-ontology-manager.mjs",
+        "spawn": 0,
+        "spawnSync": 3,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-pipeline.mjs",
+        "spawn": 0,
+        "spawnSync": 4,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-sources.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-studio-designer.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-studio-machinery.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-vertex.mjs",
+        "spawn": 0,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-parity-workshop.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs",
+        "spawn": 3,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 1,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-approvals-queue.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-assurance-transition-receipt.mjs",
+        "spawn": 1,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-attempt-finding-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-auto-failover-trigger.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 8,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-aws-enterprise-vm-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-azure-enterprise-vm-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-backup-restore.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-byo-provider-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-capability-lease-plan.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-cloud-candidate-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-connector-execution.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 8,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-connector-mapping.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-connector-session.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-consumer-path-vocabulary.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-cross-provider-failover.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-data-recipe-run-split.mjs",
+        "spawn": 1,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-data-source-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-editor-harness-model-e2e.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-editor-target-posture.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-env-lease-authority.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-feedback.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-filecoin-cas-archive-custody.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-gcp-enterprise-vm-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-goalrun-multi-harness.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-governed-build.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harness-profile-registry.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-approvals.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 9,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-automations-owner.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-canvas-seeds.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 8,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-marketplace.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 9,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-missions.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 16,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-model-catalog.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-provenance-lineage.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-queue-seeds.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-studio-canvas.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-harvest-ux-parity-inventory.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-home-surface.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-improvement-simulation-replay.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-institutional-learning-boundary.mjs",
+        "spawn": 1,
+        "spawnSync": 2,
+        "exit_hook": true,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ioi-agent-intelligence-cockpit.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ioi-agent-launch-policies.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ioi-agent-launcher.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-jobs-queue.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-k8s-kubevirt-cluster-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-lambda-gpu-vm-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-materializing-run.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-memory-graph-explainability.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-memory-lifecycle-review.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-memory-provenance.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-model-route-authority.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-model-route-registry.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-model-router-decisions.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-named-gap-truth.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 2,
+        "flags": [
+          "while-true"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-new-session-launcher.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-odk-contract-and-domainapp.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": true,
+        "signal_hook": true,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-action-contract.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 6,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-backend-families.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 8,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-manager-operational.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 9,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-manager.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-projection.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-surface-invariant-11.mjs",
+        "spawn": 2,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 5,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-ux-parity.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ontology-version-lifecycle.mjs",
+        "spawn": 1,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-outcome-learning-proposals.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-p1-capability.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-p2-builder.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-p3-breadth.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-p3-round2.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-pipeline-interaction.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-placement-venue-picker.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-policy-bound-data-view-runtime.mjs",
+        "spawn": 1,
+        "spawnSync": 4,
+        "exit_hook": true,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-policy-bound-data-view.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-policy-canary-rollback.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-portable-memory-vault.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 2,
+        "fetch_with_timeout": 2,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-principal-derived-rollout-cohorts.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-projects-saga.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-provenance-assertion-graph.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": true,
+        "signal_hook": true,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-provenance-proof-stream-threading.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-provider-spend-reconciliation.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 4,
+        "fetch_with_timeout": 1,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-receipts-on-demand.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-reference-parity-reset.mjs",
+        "spawn": 0,
+        "spawnSync": 3,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-resource-capability-offer-eligibility-regressions.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-resource-capability-offer-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-room-participation-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-run-lineage.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-runpod-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-semantic-journey.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 6,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-semantic-mapping-lifecycle.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": true,
+        "signal_hook": true,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 7,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-session-authority.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 7,
+        "fetch_with_timeout": 1,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",
+        "spawn": 4,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 4,
+        "fetch": 5,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-skill-contracts.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-sources-action.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 8,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-standing-consumer-loop.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-studio-journey.mjs",
+        "spawn": 2,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-surface-parity.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-system-genesis-admission.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 5,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-system-genesis-product-journey.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs",
+        "spawn": 5,
+        "spawnSync": 2,
+        "exit_hook": true,
+        "signal_hook": false,
+        "kills": 12,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-transformation-run.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-vast-candidate-adapter.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-vast-lifecycle.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-verified-work-graph.mjs",
+        "spawn": 1,
+        "spawnSync": 2,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-work-frontier-claim-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 4,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-hypervisor-work-result-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs",
+        "spawn": 2,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 4,
+        "fetch": 1,
+        "fetch_with_timeout": 1,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m4-outcome-room-v1-retirement.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 1,
+        "while_true": 1,
+        "flags": [
+          "while-true"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m4-ported-composer-goal-activation.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 1,
+        "flags": [
+          "while-true"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m4-session-initial-input-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m4-work-lifecycle-plane.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-m5-event-substrate-genericity.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "apps/hypervisor/scripts/verify-pipeline-reference-data-clean.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 2,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "scripts/check-acceptance-consumer-afternoon.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "scripts/check-cargo-test-population.mjs",
+        "spawn": 1,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "scripts/check-passkey-only-authority.mjs",
+        "spawn": 0,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 4,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "scripts/check-secret-free-unattended-authority.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 3,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 1,
+        "fetch": 0,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "scripts/provision-hypervisor-vscode-browser-host.mjs",
+        "spawn": 0,
+        "spawnSync": 1,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 0,
+        "fetch": 1,
+        "fetch_with_timeout": 0,
+        "while_true": 1,
+        "flags": [
+          "while-true",
+          "fetch-without-timeout"
+        ]
+      },
+      {
+        "file": "scripts/smoke-implementation-daemon.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 3,
+        "fetch_with_timeout": 3,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "scripts/smoke-package-registry.mjs",
+        "spawn": 1,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 3,
+        "fetch": 2,
+        "fetch_with_timeout": 2,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook"
+        ]
+      },
+      {
+        "file": "scripts/smoke-product-surfaces.mjs",
+        "spawn": 3,
+        "spawnSync": 0,
+        "exit_hook": false,
+        "signal_hook": false,
+        "kills": 2,
+        "fetch": 9,
+        "fetch_with_timeout": 0,
+        "while_true": 0,
+        "flags": [
+          "spawn-without-exit-hook",
+          "spawn-without-signal-hook",
+          "fetch-without-timeout"
+        ]
+      }
+    ]
+  },
+  "residue_after_run_2": {
+    "/tmp/ioi-test-port-blocks": "port-block directory of the test-node build tooling, created 01:42; recorded, not deleted"
+  }
+}

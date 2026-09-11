@@ -21,7 +21,7 @@
 // `--mutation` plants an absent test name into the first family and a zero-test family, and
 // asserts the driver refuses both; it is how this verifier proves it can fail on its own finding.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,8 +63,9 @@ function run(argv, opts = {}) {
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
     env: { ...process.env, CARGO_TERM_COLOR: "never", ...(opts.env ?? {}) },
-    // A supplementary command that HANGS must fail this check, not hang it: an unbounded wait
-    // reads as "still running" forever and is indistinguishable from a pass that never arrives.
+    // A command that HANGS must fail this check, not hang it: an unbounded wait reads as "still
+    // running" forever and is indistinguishable from a pass that never arrives. A bounded
+    // SUPPLEMENTARY no longer comes through here — see runBounded, which kills the whole tree.
     ...(opts.timeoutMs ? { timeout: opts.timeoutMs, killSignal: "SIGKILL" } : {}),
   });
   return {
@@ -74,6 +75,65 @@ function run(argv, opts = {}) {
     timedOut: child.error?.code === "ETIMEDOUT" || (opts.timeoutMs !== undefined && child.signal === "SIGKILL"),
     seconds: Math.round((Date.now() - started) / 1000),
   };
+}
+
+// R-15 (2026-09-10) — A TIMED-OUT SUPPLEMENTARY DIES AS A TREE. `run()` above bounds a command with
+// spawnSync's timeout + SIGKILL, which kills only the direct child: a verifier killed that way runs
+// no exit hook, so every daemon and fixture it owned outlived the bound (three validator processes
+// for 23 h, 2026-09-09). A bounded supplementary is therefore started in its OWN process group and
+// the deadline kills the GROUP by the id this wrapper created — SIGTERM first, so the verifier's own
+// signal handler can reap what it owns, then SIGKILL after a grace — and the group is SIGKILLed once
+// more after any exit so a child that re-parented cannot survive the wrapper. Never by pattern.
+let activeBoundedGroup = null;
+function killGroup(pid, signal) {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    // Already gone.
+  }
+}
+function runBounded(argv, opts = {}) {
+  const started = Date.now();
+  const graceMs = opts.graceMs ?? 20_000;
+  return new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    let settled = false;
+    const child = spawn(argv[0], argv.slice(1), {
+      cwd: ROOT,
+      env: { ...process.env, CARGO_TERM_COLOR: "never", ...(opts.env ?? {}) },
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+    });
+    activeBoundedGroup = child.pid;
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    const deadline = setTimeout(() => {
+      timedOut = true;
+      killGroup(child.pid, "SIGTERM");
+      setTimeout(() => killGroup(child.pid, "SIGKILL"), graceMs).unref();
+    }, opts.timeoutMs);
+    const finish = (status, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      killGroup(child.pid, "SIGKILL");
+      activeBoundedGroup = null;
+      resolve({ status, signal, stdout, stderr, timedOut, seconds: Math.round((Date.now() - started) / 1000) });
+    };
+    child.on("error", () => finish(null, null));
+    child.on("exit", finish);
+  });
+}
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+  process.on(signal, () => {
+    if (activeBoundedGroup) {
+      killGroup(activeBoundedGroup, "SIGTERM");
+      setTimeout(() => killGroup(activeBoundedGroup, "SIGKILL"), 5_000).unref();
+    }
+    process.exit(1);
+  });
 }
 
 function cargoArgv(family, harnessArgs) {
@@ -223,7 +283,9 @@ for (const family of population.families) {
 }
 for (const pin of population.source_pins ?? []) allOk &= checkSourcePin(pin);
 for (const sup of population.supplementary ?? []) {
-  const out = run(sup.argv, { env: sup.env ?? {}, timeoutMs: sup.timeout_ms });
+  const out = sup.timeout_ms
+    ? await runBounded(sup.argv, { env: sup.env ?? {}, timeoutMs: sup.timeout_ms })
+    : run(sup.argv, { env: sup.env ?? {} });
   let ok = out.status === 0 && !out.timedOut;
   let detail = out.timedOut
     ? `TIMED OUT after ${out.seconds}s (bound ${Math.round((sup.timeout_ms ?? 0) / 1000)}s): ${(out.stdout || out.stderr).slice(-400)}`

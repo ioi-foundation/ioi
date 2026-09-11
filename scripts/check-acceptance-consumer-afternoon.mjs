@@ -18,7 +18,7 @@
 //   node scripts/check-acceptance-consumer-afternoon.mjs --mutation             # self-drill: a planted red clause fails the journey
 //   node scripts/check-acceptance-consumer-afternoon.mjs --evidence <out.json>
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -180,6 +180,55 @@ function sh(argv, opts = {}) {
   };
 }
 
+// R-15 (2026-09-10) — a bounded check dies as a TREE, not as a lone child: `sh()` with a timeout
+// SIGKILLs only the verifier process, whose exit hook then never runs and whose daemons and fixtures
+// outlive the bound. A bounded check is started in its own process group and the deadline kills the
+// group by that id — SIGTERM first (the verifier's signal handler reaps what it owns), SIGKILL after
+// a grace — and the group is SIGKILLed once more after any exit. Same shape as scripts/check-cargo-test-population.mjs.
+let activeBoundedGroup = null;
+function killGroup(pid, signal) {
+  try { process.kill(-pid, signal); } catch { /* already gone */ }
+}
+function shBounded(argv, opts = {}) {
+  const started = Date.now();
+  return new Promise((resolve) => {
+    let stdout = "", stderr = "", timedOut = false, settled = false;
+    const child = spawn(argv[0], argv.slice(1), {
+      cwd: ROOT,
+      env: { ...process.env, ...(opts.allowsFixture ? {} : FIXTURE_FREE_ENV), ...(opts.env ?? {}) },
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+    });
+    activeBoundedGroup = child.pid;
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    const deadline = setTimeout(() => {
+      timedOut = true;
+      killGroup(child.pid, "SIGTERM");
+      setTimeout(() => killGroup(child.pid, "SIGKILL"), 20_000).unref();
+    }, opts.timeoutMs);
+    const finish = (status, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      killGroup(child.pid, "SIGKILL");
+      activeBoundedGroup = null;
+      resolve({ status, signal, stdout, stderr, timedOut, seconds: Math.round((Date.now() - started) / 1000) });
+    };
+    child.on("error", () => finish(null, null));
+    child.on("exit", finish);
+  });
+}
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+  process.on(signal, () => {
+    if (activeBoundedGroup) {
+      killGroup(activeBoundedGroup, "SIGTERM");
+      setTimeout(() => killGroup(activeBoundedGroup, "SIGKILL"), 5_000).unref();
+    }
+    process.exit(1);
+  });
+}
+
 function basis() {
   return {
     head: sh(["git", "rev-parse", "--short", "HEAD"]).stdout.trim(),
@@ -200,8 +249,10 @@ function summaryLine(text) {
   return (([...lines].reverse().find((l) => /\b\d+\/\d+\b/u.test(l) || /^(PASS|FAIL|OK|PARTIAL)\b/u.test(l))) ?? lines.at(-1) ?? "").slice(0, 200);
 }
 
-function runCheck(id, check, start) {
-  const out = sh(check.argv, { env: check.env, allowsFixture: check.allowsFixture, timeoutMs: check.timeoutMs });
+async function runCheck(id, check, start) {
+  const out = check.timeoutMs
+    ? await shBounded(check.argv, { env: check.env, allowsFixture: check.allowsFixture, timeoutMs: check.timeoutMs })
+    : sh(check.argv, { env: check.env, allowsFixture: check.allowsFixture });
   const after = basis();
   const moved = after.head !== start.head || after.dirty !== start.dirty;
   const ok = out.status === 0 && !moved && !out.timedOut;
@@ -214,7 +265,7 @@ const start = basis();
 console.log(`# ACC-15 composed journey · basis ${start.head}${start.dirty ? " (dirty tree)" : ""} · alpha journey ${withAlphaJourney ? "EXECUTED" : "cited"}`);
 
 if (selfDrill) {
-  const planted = runCheck("drill", { argv: [process.execPath, "-e", "console.log('planted red clause 0/1'); process.exit(1)"], label: "planted red clause" }, start);
+  const planted = await runCheck("drill", { argv: [process.execPath, "-e", "console.log('planted red clause 0/1'); process.exit(1)"], label: "planted red clause" }, start);
   console.log(`${planted === false ? "PASS" : "FAIL"} self-drill: a planted red clause fails the composed journey`);
   process.exit(planted === false ? 0 : 1);
 }
@@ -222,7 +273,7 @@ if (selfDrill) {
 let failures = 0;
 let absences = 0;
 for (const c of CLAUSES) {
-  for (const check of c.checks ?? []) if (!runCheck(c.id, check, start)) failures += 1;
+  for (const check of c.checks ?? []) if (!(await runCheck(c.id, check, start))) failures += 1;
   if (c.structural) {
     const { ok, detail } = c.structural();
     if (!record(c.id, "check", ok, c.clause, detail)) failures += 1;
