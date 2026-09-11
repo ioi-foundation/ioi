@@ -17231,6 +17231,10 @@ pub(crate) async fn handle_connector_invoke(
                             "payload_hash": sha256_json_ref(&request_args),
                             "destination": format!("{}:{}{}", service, base_url, path),
                             "required_scopes": lease_req.scopes,
+                            // The exact authority scope the approval is RECORDED against on
+                            // wallet.network (M03.15): the review object must name it, or a
+                            // reviewer cannot mint a consumable grant from the object alone.
+                            "required_authority_scope": challenge.get("required_authority_scope").cloned().unwrap_or(Value::Null),
                             "policy_marked_by": "org_policy.exact_review_tools",
                             "standing_envelope_present": connector.get("standing_lease").is_some_and(|l| l["status"].as_str() == Some("active")),
                             "expires_at_ms": now_ms + 15 * 60_000,
@@ -17251,6 +17255,7 @@ pub(crate) async fn handle_connector_invoke(
                             "session_ref": session_ref,
                             "connection_ref": format!("connector:{id}"),
                             "approval": approval,
+                            "required_authority_scope": challenge.get("required_authority_scope").cloned().unwrap_or(Value::Null),
                             "authority_challenge": challenge.get("authority_challenge").cloned().unwrap_or(Value::Null),
                             "host_mutation": false,
                             "runtimeTruthSource": "daemon-runtime",

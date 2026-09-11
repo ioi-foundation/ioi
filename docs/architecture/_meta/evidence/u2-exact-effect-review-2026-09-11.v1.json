@@ -1,0 +1,39 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "useful-alpha program (2026-09-10/11, ADR 0053)",
+  "leg": "U2+U5",
+  "title": "M03.15 — generic exact-effect review for every acting subject, proven at the final invoker · M13.11 — the flagship developer journey over a fixture SCM target",
+  "basis": {
+    "head": "910da074e",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-11",
+  "runs": {
+    "npm run check:exact-effect-review --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "22/22 on 2026-09-11 (runs 1–4 were the verifier's own construction errors; run 5 green)",
+      "note": "runs 1-4 were the verifier's own construction errors, recorded as they happened: no standing envelope on the destinations (a session may name only a bounded connection), grants minted for the principal instead of the capability audience, grants not recorded on wallet.network, and the review body carrying no authority scope — the last fixed in the daemon (the 202 review body and the review receipt now carry required_authority_scope)"
+    },
+    "npm run mutate:exact-effect-review --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "PASS mutate:exact-effect-review — the planted 'not marked for review' policy let the act run (200, one call) and turned the review-issuance assertion red"
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon": {
+      "verdict": "pass",
+      "assertions": "1148 passed; 0 failed; 8 ignored (103 s)"
+    },
+    "npm run check:flagship-developer-journey --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "PASS check:flagship-developer-journey — 13/13 assertions · fixture SCM target · governed path only (2026-09-11)"
+    },
+    "npm run mutate:flagship-developer-journey --workspace=@ioi/hypervisor-app": {
+      "verdict": "pass",
+      "assertions": "PASS mutate:flagship-developer-journey — a planted daemon-bypassing crossing made six target calls against five receipts and turned the receipt ledger red"
+    }
+  },
+  "daemon_change": "handle_connector_invoke: the exact-effect review object (202 body and hypervisor.session.exact_effect_review receipt) now carries required_authority_scope — the scope the approval must be recorded against on wallet.network; without it a reviewer cannot mint a consumable grant from the object alone",
+  "typed_absences": [
+    "the headless capability-handle subject's APPROVED path (its review object is proven by check:standing-consumer-loop, R-19)",
+    "M13.11 claims the governed path over a fixture SCM target; a live GitHub run is optional and separately authorized, and the work's quality is never claimed"
+  ]
+}
