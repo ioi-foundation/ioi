@@ -123,6 +123,19 @@ basis says.
 | 12 | Update / rollback | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* (`HypervisorChangePlan`); `daemon-runtime/api.md` § *Release Change Plans* | `POST /v1/hypervisor/release-change-plans` (admit; no-op and double-admission refused) → `install.mjs activate` / `rollback` + restart → `…/observe` (the daemon hashes its own executable against the target) → receipts | `check:alpha-journey` — re-derived 2026-09-10 on `8281d915e` (debug-profile packages v1 `0.1.0-alpha.8` → v2 `0.1.0-alpha.9`, daemon digest observed `465fb0dc…`, rollback observed) package mode step 12 (update to v2 completed, rollback to v1 completed, both observed by the daemon's own digest; durable state intact across both) | built (2026-09-08: v2 is a real successor build — `5c5340ea6` adds the running crate version to the change-plan listing — on the release profile) |
 | 13 | App and headless agree on durable state | `core-clients-surfaces.md` § *First-Class Clients* | both clients read daemon records; the headless client is the HTTP API | `check:session-authority` (served vs daemon reads); `check:alpha-journey` step 13 and step 12 (plans listed by the headless client agree with the installer's activation history) | built for the two alpha clients (no dedicated CLI is claimed) |
 
+## Declared widenings (2026-09-10, ADR 0053)
+
+Three widenings of the supported profile are declared as units with a
+qualification bar each. **None is built**; a row here moves a facet of the
+supported table above only when its bar is met by a named check on a named
+checkout, never by this declaration.
+
+| Widening | Unit | Qualification bar | Status |
+| --- | --- | --- | --- |
+| A remote frontier model route, selectable in the session composer beside the local one; the daemon's model-mount proxy performs the provider call with a credential sealed to the route record, so the harness environment stays secret-free | `M13.9` | the essential journey passes with the remote route selected; receipts name the route; the credential is never observable in the session environment; the process-environment key path stays refused by default; a live run is recorded with its cost, and without an operator credential the lane records a typed absence | not built |
+| The microVM venue (the existing cloud-hypervisor provider: KVM boundary, no guest NIC, workspace over vsock, pinned toolchain) as a selectable execution venue, with the model endpoint reaching the guest only through a brokered, admitted channel | `M13.10` | the essential journey passes with the venue selected; the harness runs inside the guest; the host checkout is untouched; receipts name the venue; host readiness measured by `scripts/phase1/verify-vm-toolchain.mjs` (PASS on the qualification host 2026-09-10: cloud-hypervisor and firecracker READY, qemu host-gated on vsock permission) | not built |
+| The flagship developer journey: issue → reviewed pull request through a governed SCM connector in the session's authority profile — silent draws within a standing envelope, an exact-effect review on the push, receipts on every crossing, revocation ending the authority | `M13.11` | a composed verifier over the estate's own fixture SCM target proves the governed path end to end; a live GitHub run is optional and separately authorized; the unit claims the governed path, never the work's quality | not built |
+
 ## Supported deployment bring-up (authority node, keys, daemon, App)
 
 The alpha's authority node is a deployment-local wallet.network node the

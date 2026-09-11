@@ -301,6 +301,17 @@ Three consequences for sequencing:
 - installing the orchestration application on an alpha deployment uses the
   same authority and execution boundaries as any other application.
 
+**Release accounting covers the governed runtime** (ruled 2026-09-10 by
+[ADR 0053](../../decisions/0053-the-mvp-is-the-governed-runtime-and-the-alpha-widens-toward-useful-work.md)).
+Marketplace and managed-worker productization, commerce and settlement,
+decentralized cloud, the north-star network proof and their journeys are
+*product tracks*: each keeps its gates, its owner and its evidence, proceeds
+in parallel, and is never a prerequisite of the release graph. The alpha
+profile widens toward useful work in three declared, unbuilt steps — a remote
+frontier model route, the microVM venue, and the flagship developer journey —
+owned by the profile's § *Declared widenings*; the next kernel program is the
+exact-effect review chain (`M03.15` → `M01.9` → `M13.6`).
+
 ## The first proof — a ruling (flagship class)
 
 The flagship proofs — sovereign-local completeness, one logical DAS across two
