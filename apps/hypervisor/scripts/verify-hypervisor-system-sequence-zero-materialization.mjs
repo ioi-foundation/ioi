@@ -509,6 +509,8 @@ const ownedBinaryChildren = new Set();
 const ownedProcessGroups = new Map();
 const executedJourneys = [];
 let activeJourney = null;
+// The journey most recently entered: the fatal path names it after activeJourney is cleared.
+let lastJourney = null;
 let publicApiConstructor;
 const VERIFIER_OWNER_MARKER = ".ioi-verifier-owner.json";
 const VERIFIER_TEMP_OWNER_POLICIES = [
@@ -1689,6 +1691,7 @@ async function executeJourneyWithCensus(name, journey) {
     throw new Error(`journey '${name}' cannot nest inside '${activeJourney}'`);
   }
   activeJourney = name;
+  lastJourney = name;
   try {
     await runUnderJourneyDeadline(name, journey);
   } finally {
@@ -8616,10 +8619,25 @@ async function runConstitutionalAmendmentJourney() {
     ).length;
     await plane.stop();
     plane = null;
-    competingPlanes = await Promise.all([
-      startVerifierPlane({ dataDir, env: resolver.env }),
-      startVerifierPlane({ dataDir, env: resolver.env }),
-    ]);
+    // R-15 (2026-09-11) — the two competing planes boot ONE AFTER THE OTHER. Booting them
+    // concurrently on one data dir raced the identity bootstrap (M03.8's one-boot token, landed
+    // 2026-09-07, after this clause was written): the loser exited 1 with "identity bootstrap
+    // blocks readiness: authentication bootstrap token was not exactly observable", the
+    // Promise.all rejected, and the healthy sibling was never stopped — a daemon left behind.
+    // The clause races the CHAIN WRITER, not the boot, so sequential boots keep its meaning; a
+    // second boot on an already-bootstrapped data dir comes up healthy (measured 2026-09-11).
+    competingPlanes = [];
+    try {
+      for (let index = 0; index < 2; index += 1) {
+        competingPlanes.push(await startVerifierPlane({ dataDir, env: resolver.env }));
+      }
+    } catch (error) {
+      for (const started of competingPlanes) {
+        if (started) await started.stop();
+      }
+      competingPlanes = [];
+      throw error;
+    }
     requireValue(
       competingPlanes.every(Boolean),
       "BLOCKED: M1.5c independent-process race planes are not built",
@@ -9344,7 +9362,7 @@ async function run() {
     // on a daemon that exited before health, and the retained daemon log vanished with the owned
     // resources at teardown, so the cause could not be read. Save the bounded log tails BEFORE the
     // teardown removes them; a named failure with no log sends the reader back to a re-run.
-    saveStallDiagnostics(activeJourney || "(fatal outside a journey)");
+    saveStallDiagnostics(activeJourney || (lastJourney ? `${lastJourney} (after its census)` : "(fatal outside a journey)"));
   }
   if (runWatchdog) clearTimeout(runWatchdog);
   ok(
