@@ -151,6 +151,131 @@ export async function hydrateRunsFromDaemon() {
   } catch { return 0; }
 }
 
+// ---- In-flight execute reconciliation (a serve restart mid-execute) ---------------------------
+// The daemon's execute lane keeps running after the serve that started it dies; its verdict lands
+// on the session's execute receipt (`hypervisor.session.execute`, exit_status success|failure). A
+// rehydrated run that still reads "running" is reconciled against that receipt — never left to
+// read "running" forever for the App, the headless client and the next restart alike.
+async function sessionExecuteReceipt(sessionRef) {
+  try {
+    const res = await fetch(`${DAEMON}/v1/model-mount/receipts`);
+    if (!res.ok) return null;
+    const body = await res.json();
+    const list = Array.isArray(body) ? body : (Array.isArray(body?.receipts) ? body.receipts : []);
+    const mine = list.filter((r) => r?.kind === "hypervisor.session.execute" && r?.session_ref === sessionRef);
+    mine.sort((a, b) => String(a.finished_at || "").localeCompare(String(b.finished_at || "")));
+    return mine.at(-1) || null;
+  } catch { return null; }
+}
+function applyExecuteReceipt(run, receipt) {
+  const failed = receipt.exit_status === "failure";
+  run.status = failed ? "failed" : "done";
+  run.error = failed ? String(receipt.error || receipt.summary || "the harness reported failure") : null;
+  if (!run.summary) run.summary = failed ? run.error : (receipt.summary || "Run complete (reconciled from the daemon's execute receipt).");
+  run.capabilityLeaseRef = run.capabilityLeaseRef || receipt.capability_lease_ref || null;
+  if (!Array.isArray(run.changedFiles) || run.changedFiles.length === 0) {
+    const files = Array.isArray(receipt.files_written) ? receipt.files_written : [];
+    run.changedFiles = files.length ? [{ files: files.map((name) => ({ name, status: "written" })) }] : [];
+  }
+  run.reconciledFrom = receipt.id || null;
+  bump(run, `${failed ? "Failed" : "Done"} — reconciled from the daemon's execute receipt after a restart${failed && run.error ? `: ${run.error}` : ""}`);
+}
+export async function reconcileInFlightRuns({ deadlineMs = 15 * 60_000, intervalMs = 15_000 } = {}) {
+  const inFlight = [...runs.values()].filter((run) => run.status === "running");
+  let reconciled = 0;
+  for (const run of inFlight) {
+    const receipt = await sessionExecuteReceipt(run.sessionRef);
+    if (receipt) { applyExecuteReceipt(run, receipt); reconciled += 1; }
+  }
+  const pending = inFlight.filter((run) => run.status === "running");
+  if (pending.length) {
+    // The lane may still be executing in the daemon (its own bound is 780 s): keep asking, bounded.
+    const until = Date.now() + deadlineMs;
+    const tick = async () => {
+      for (const run of pending) {
+        if (run.status !== "running") continue;
+        const receipt = await sessionExecuteReceipt(run.sessionRef);
+        if (receipt) applyExecuteReceipt(run, receipt);
+      }
+      if (pending.some((run) => run.status === "running") && Date.now() < until) setTimeout(tick, intervalMs).unref();
+    };
+    setTimeout(tick, intervalMs).unref();
+  }
+  return { in_flight: inFlight.length, reconciled, still_running: pending.length };
+}
+
+// ---- Model-route credential custody (M13.9): the App's approval card for the bind crossing ------
+// Sealing a provider key to a route is its own authority crossing (tool model.credential.bind):
+// the daemon parks the bind on exact commitments until the operator's approval is recorded. The
+// App holds the plaintext ONLY between the operator's submit and their decision (bounded, in
+// memory, never logged, never persisted), and hands it to the daemon exactly once more, with the
+// recorded grant, on approval. The retry keeps the submit's idempotency key: the same crossing.
+const pendingCredentialBinds = new Map();
+const CREDENTIAL_BIND_TTL_MS = 10 * 60_000;
+function pruneCredentialBinds() {
+  const now = Date.now();
+  for (const [key, pending] of pendingCredentialBinds) if (pending.expiresAtMs <= now) { pending.secret = ""; pendingCredentialBinds.delete(key); }
+}
+function publicPendingBind(p) {
+  return { route_id: p.routeId, route_ref: p.routeRef, display_name: p.displayName, policy_hash: p.policy_hash, request_hash: p.request_hash, target_scope: p.target_scope, audience: p.audience, allowed_tools: p.allowed_tools, resource_refs: p.resource_refs, requested_at: p.requestedAt, expires_at: new Date(p.expiresAtMs).toISOString(), state: "awaiting_operator_approval" };
+}
+export function listPendingCredentialBinds() { pruneCredentialBinds(); return [...pendingCredentialBinds.values()].map(publicPendingBind); }
+async function daemonJson(method, path, payload, daemonHeaders) {
+  const res = await fetch(`${DAEMON}${path}`, { method, headers: boundedDaemonHeaders(daemonHeaders, Boolean(payload)), body: payload ? JSON.stringify(payload) : undefined });
+  const text = await res.text();
+  let body = {};
+  try { body = text ? JSON.parse(text) : {}; } catch { body = { _raw: text }; }
+  return { status: res.status, body };
+}
+const credentialBindAttempt = (pending, extra, daemonHeaders) => daemonJson("POST", `/v1/hypervisor/model-routes/${encodeURIComponent(pending.routeId)}/credential`, { owner_ref: pending.ownerRef, idempotency_key: pending.idempotencyKey, token: pending.secret, ...extra }, daemonHeaders);
+export async function startModelRouteCredentialBind({ routeId, token, daemonHeaders = {} }) {
+  pruneCredentialBinds();
+  const id = String(routeId || "").trim();
+  const secret = String(token || "");
+  if (!id) return { ok: false, status: 400, error: { code: "route_id_required", message: "route id is required" } };
+  if (!secret) return { ok: false, status: 400, error: { code: "credential_token_required", message: "the provider key is required; the daemon seals it once the operator approves custody" } };
+  if (pendingCredentialBinds.has(id)) return { ok: false, status: 409, error: { code: "credential_bind_already_pending", message: "a custody approval is already pending for this route" } };
+  const route = await daemonJson("GET", `/v1/hypervisor/model-routes/${encodeURIComponent(id)}`, null, daemonHeaders);
+  const record = route.body?.route || null;
+  if (route.status !== 200 || !record) return { ok: false, status: 404, error: { code: "route_not_found", message: `no model route ${id}` } };
+  const pending = { routeId: id, routeRef: record.route_ref || `model-route:${id}`, displayName: record.display_name || id, ownerRef: record.owner_ref || "", idempotencyKey: `credential-bind:${id}:${genId("cb")}`, secret, requestedAt: nowIso(), expiresAtMs: Date.now() + CREDENTIAL_BIND_TTL_MS };
+  const first = await credentialBindAttempt(pending, {}, daemonHeaders);
+  if (first.status < 300) { pending.secret = ""; return { ok: true, status: first.status, route_id: id, decision: "bound_without_crossing", credential_binding: first.body?.credential_binding || null }; }
+  const approval = first.body?.approval || {};
+  const targetScope = first.body?.required_authority_scope || first.body?.authority_challenge?.required_authority_scope || approval.target_scope || "";
+  if (first.status !== 403 || !approval.policy_hash || !approval.request_hash || !targetScope) {
+    pending.secret = "";
+    return { ok: false, status: first.status, error: first.body?.error || { code: first.body?.reason || `daemon_${first.status}`, message: first.body?.message || "the daemon refused the bind before the custody crossing" } };
+  }
+  Object.assign(pending, { policy_hash: approval.policy_hash, request_hash: approval.request_hash, audience: approval.audience || null, target_scope: targetScope, allowed_tools: first.body?.allowed_tools || [], resource_refs: first.body?.resource_refs || [] });
+  pendingCredentialBinds.set(id, pending);
+  return { ok: true, status: 202, route_id: id, decision: "awaiting_operator_approval", pending: publicPendingBind(pending) };
+}
+export async function decideModelRouteCredentialBind({ routeId, decision, daemonHeaders = {} }) {
+  pruneCredentialBinds();
+  const pending = pendingCredentialBinds.get(String(routeId || "").trim());
+  if (!pending) return { ok: false, status: 404, error: { code: "credential_bind_not_pending", message: "no custody approval is pending for this route" } };
+  if (decision === "deny") { pendingCredentialBinds.delete(pending.routeId); pending.secret = ""; return { ok: true, status: 200, route_id: pending.routeId, decision: "denied" }; }
+  if (decision !== "approve") return { ok: false, status: 400, error: { code: "decision_invalid", message: "decision must be approve or deny" } };
+  let grant;
+  try {
+    grant = await mintLocalApproverGrant({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience });
+  } catch (error) {
+    return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
+  }
+  if (!grant) return { ok: false, status: 501, error: { code: "local_approver_not_configured", message: "no deployment-local approver key is configured" } };
+  try {
+    await recordLocalApproverGrant({ grant, targetScope: pending.target_scope });
+  } catch (error) {
+    return { ok: false, status: 502, error: { code: "local_approver_record_failed", message: String(error?.message || error) } };
+  }
+  const result = await credentialBindAttempt(pending, { wallet_approval_grant: grant }, daemonHeaders);
+  pendingCredentialBinds.delete(pending.routeId);
+  pending.secret = "";
+  if (result.status >= 300) return { ok: false, status: result.status, route_id: pending.routeId, decision: "approved_but_refused", error: result.body?.error || { code: result.body?.reason || `daemon_${result.status}`, message: result.body?.message || "" } };
+  return { ok: true, status: 201, route_id: pending.routeId, decision: "approved", credential_binding: result.body?.credential_binding || null, grant_id: grant?.grant_id || grant?.id || null, approver: "deployment_local_operator" };
+}
+
 function authorityProfileNames(run) {
   return Array.isArray(run?.authorityProfile?.connection_refs) && run.authorityProfile.connection_refs.length > 0;
 }

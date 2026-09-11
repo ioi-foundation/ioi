@@ -15370,7 +15370,17 @@ pub(crate) async fn authorize_capability_lease(
                     "required_authority_scope": required_scope,
                     "allowed_tools": req.allowed_tools,
                     "resource_refs": req.resource_refs,
-                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    // The same coordinates the execute gate publishes: the daemon's capability
+                    // account is the grant's audience (the chain consumes a grant only when its
+                    // audience is the consuming signer) and the exact scope the approval act
+                    // records the decision under. Public coordinate material, never a secret;
+                    // without them an App-side approver cannot mint a consumable grant.
+                    "approval": {
+                        "policy_hash": policy_hash,
+                        "request_hash": request_hash,
+                        "audience": super::wallet_network_capability_client::capability_account_id_hex(),
+                        "target_scope": required_scope,
+                    },
                     "authority_challenge": challenge,
                     "host_mutation": false,
                 }),

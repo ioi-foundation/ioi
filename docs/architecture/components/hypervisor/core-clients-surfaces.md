@@ -3026,7 +3026,12 @@ inspection lane over the same daemon records; it is demoted from product
 navigation, not deleted. Verifier: `check:session-truth-rebind`
 (`apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs`); the
 live approval card and the receipt binding after execution are asserted by
-`check:alpha-journey` (deployment mode).
+`check:alpha-journey` (deployment mode). A run the App was driving when the
+serve restarted is reconciled at rehydration against the daemon session's
+execute receipt — the lane's verdict lives there, not in the App's memory — so
+a finished run reads done or failed with the harness's own error, never
+"running" forever; a run whose receipt has not landed yet is re-asked, bounded
+by the lane's own timeout (`check:alpha-journey`, step 9).
 
 ### Session authority profile
 

@@ -523,15 +523,14 @@ async function run() {
     // Establishing custody of the key is its own authority crossing (distinct from using it): the
     // bind parks on the daemon's exact commitments until the operator's approval is recorded on the
     // authority node; the same idempotency key keeps the retry on the same crossing coordinates.
-    const bindOnce = (extra = {}) => mr(routeId, "/credential", { method: "POST", body: JSON.stringify(mut("remote-credential", { token: PROVIDER_KEY, ...extra })) });
-    const challenge = await bindOnce();
+    const challenge = await mr(routeId, "/credential", { method: "POST", body: JSON.stringify(mut("remote-credential-direct", { token: PROVIDER_KEY })) });
     const challengeScope = challenge.body?.required_authority_scope ?? challenge.body?.authority_challenge?.required_authority_scope ?? "";
-    ok("3r-route", "establishing custody of the provider key is an AUTHORITY CROSSING: the bind parks on the daemon's exact commitments (policy and request hashes, tool model.credential.bind, the exact authority scope) and stores nothing until the operator approves", challenge.status === 403 && Boolean(challenge.body?.approval?.policy_hash) && Boolean(challenge.body?.approval?.request_hash) && Boolean(challengeScope) && (challenge.body?.allowed_tools || []).includes("model.credential.bind"), `${challenge.status} ${challenge.body?.reason || challenge.text.slice(0, 120)} · ${String(challenge.body?.approval?.request_hash || "").slice(0, 24)} · scope ${challengeScope}`);
-    let bound = challenge;
-    if (challenge.status === 403 && challenge.body?.approval?.policy_hash && challengeScope) {
-      const grant = await fixture.mintRecorded(DEPLOYMENT_AUTHORITY_REF, challenge.body.approval.policy_hash, challenge.body.approval.request_hash, challengeScope);
-      bound = await bindOnce({ wallet_approval_grant: grant });
-    }
+    ok("3r-route", "establishing custody of the provider key is an AUTHORITY CROSSING: a direct daemon bind parks on the exact commitments (policy and request hashes, tool model.credential.bind, the exact scope, the grant audience) and stores nothing", challenge.status === 403 && Boolean(challenge.body?.approval?.policy_hash) && Boolean(challenge.body?.approval?.request_hash) && /^[0-9a-f]{64}$/u.test(String(challenge.body?.approval?.audience || "")) && Boolean(challengeScope) && (challenge.body?.allowed_tools || []).includes("model.credential.bind"), `${challenge.status} ${challenge.body?.reason || challenge.text.slice(0, 120)} · ${String(challenge.body?.approval?.request_hash || "").slice(0, 24)} · scope ${challengeScope}`);
+    // The PRODUCT path: the operator submits the key in Agent Studio, the App parks it on the custody
+    // card, and their approval mints + records one grant before the daemon seals.
+    const submit = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(routeId)}/credential`, { method: "POST", body: JSON.stringify({ token: PROVIDER_KEY }) });
+    const bound = submit.status === 202 ? await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(routeId)}/credential/approve`, { method: "POST", body: "{}" }) : submit;
+    ok("3r-route", "in the App the submit parks on the custody card (202, the same commitments) and the operator's approval seals the key through the deployment-local approver (mint + record one grant, then the daemon seals)", submit.status === 202 && Boolean(submit.body?.pending?.policy_hash) && bound.status === 201 && bound.body?.decision === "approved", `${submit.status}/${submit.body?.decision} → ${bound.status}/${bound.body?.decision || bound.body?.error?.code || ""}`);
     const routeAfter = await mr(routeId);
     const credBinding = routeAfter.body?.route?.credential_binding || routeAfter.body?.credential_binding || {};
     ok("3r-route", "with the operator's approval recorded, the provider key is SEALED to the route record (credential_binding kind sealed_capability_lease, custody lease on record) and the route's read projection carries no secret", bound.status < 300 && credBinding.kind === "sealed_capability_lease" && credBinding.sealed === true && String(credBinding.provider_credential_lease_ref || "").startsWith("lease:") && !routeAfter.text.includes(PROVIDER_KEY), `${bound.status} ${bound.status < 300 ? "" : bound.text.slice(0, 160)} · binding ${JSON.stringify({ kind: credBinding.kind, sealed: credBinding.sealed, lease: credBinding.provider_credential_lease_ref })}`);
@@ -600,6 +599,37 @@ async function run() {
   ok("5b-connections", STANDING ? "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile" : "the composer's launch creates the session with the CLOSED (empty) authority profile — connection A is unbounded here and therefore not nameable", launch.status === 202 && JSON.stringify(launch.body?.authority_profile?.connection_refs) === JSON.stringify(launchRefs), `${launch.status} ${scopedRef} ${JSON.stringify(launch.body?.authority_profile?.connection_refs)}`);
   const bypass = await jd(DAEMON, `/v1/hypervisor/connectors/${encodeURIComponent(B)}/invoke`, { method: "POST", body: JSON.stringify({ tool: "ping", request: {}, session_ref: scopedRef }) });
   ok("5b-connections", "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission", bypass.status === 403 && bypass.body?.reason === "session_authority_out_of_profile", `${bypass.status}/${bypass.body?.reason}`);
+
+  // ---- 5d. M13.9: binding a provider key is a CUSTODY crossing the App parks on an approval card ---
+  // Runs whenever the deployment-local approver exists (no provider key needed: the crossing is
+  // posture-only; the drill route is never selected and its secret is revoked at the end).
+  if (AUTHORITY_PRESENT) {
+    const drillOwner = (who.body?.principal?.tenant_refs || []).find((t) => t === "org://local") || "org://local";
+    const drillMut = (idem, extra = {}) => ({ owner_ref: drillOwner, idempotency_key: `alpha-journey-${idem}`, ...extra });
+    const drillSecret = `drill-not-a-real-key-${crypto.randomBytes(12).toString("hex")}`;
+    const drill = await jd(DAEMON, "/v1/hypervisor/model-routes", { method: "POST", body: JSON.stringify(drillMut("custody-drill-route", { model_id: "custody-drill-model", transport: "openai_compatible", base_url: "https://custody-drill.invalid/v1", display_name: "custody drill (never selected)", credential_posture: "provider_vault_token" })) });
+    const drillId = drill.body?.route?.route_id || "";
+    const submit = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential`, { method: "POST", body: JSON.stringify({ token: drillSecret }) });
+    const pendingCard = submit.body?.pending || {};
+    const beforeApprove = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}`);
+    ok("5d-custody", "submitting a provider key in the App PARKS on the custody approval card: 202 awaiting_operator_approval with the daemon's exact commitments (policy and request hashes, tool model.credential.bind, the exact scope, the grant audience) and NOTHING sealed yet", drill.status < 300 && submit.status === 202 && submit.body?.decision === "awaiting_operator_approval" && /^sha256:/u.test(String(pendingCard.policy_hash || "")) && /^sha256:/u.test(String(pendingCard.request_hash || "")) && (pendingCard.allowed_tools || []).includes("model.credential.bind") && String(pendingCard.target_scope || "").startsWith("scope:") && /^[0-9a-f]{64}$/u.test(String(pendingCard.audience || "")) && !beforeApprove.body?.route?.credential_binding, `${drill.status} → ${submit.status}/${submit.body?.decision || submit.body?.error?.code} · ${String(pendingCard.request_hash || "").slice(0, 24)} · binding before approval ${JSON.stringify(beforeApprove.body?.route?.credential_binding ?? null)}`);
+    const studio = await jd(SERVE, "/__ioi/agent-studio");
+    const studioMarks = { card: studio.text.includes(`data-ioi-custody-approval="${drillId}"`), request_hash: studio.text.includes(String(pendingCard.request_hash || "∅")), approve_act: studio.text.includes(`/model-routes/${encodeURIComponent(drillId)}/credential/approve`), registry: studio.text.includes("model-routes"), plaintext: studio.text.includes(drillSecret), bytes: studio.text.length };
+    ok("5d-custody", "Agent Studio renders the custody card with both commitments and the approve/deny acts (the plaintext appears nowhere on the page)", studio.status === 200 && studioMarks.card && studioMarks.request_hash && studioMarks.approve_act && !studioMarks.plaintext, `${studio.status} ${JSON.stringify(studioMarks)}`);
+    const approve = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential/approve`, { method: "POST", body: "{}" });
+    const afterApprove = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}`);
+    const cbAfter = afterApprove.body?.route?.credential_binding || null;
+    ok("5d-custody", "the operator's approval mints ONE grant with the deployment-local approver, records it on the authority node, and the daemon seals the key (sealed_capability_lease with a custody lease); the read projection carries no secret", approve.status === 201 && approve.body?.decision === "approved" && approve.body?.approver === "deployment_local_operator" && cbAfter?.kind === "sealed_capability_lease" && String(cbAfter?.provider_credential_lease_ref || "").startsWith("lease:") && !afterApprove.text.includes(drillSecret), `${approve.status}/${approve.body?.decision || approve.body?.error?.code} ${approve.body?.error?.message || ""} · ${JSON.stringify(cbAfter ? { kind: cbAfter.kind, lease: cbAfter.provider_credential_lease_ref } : null)}`);
+    const replay = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential/approve`, { method: "POST", body: "{}" });
+    const studioAfter = await jd(SERVE, "/__ioi/agent-studio");
+    ok("5d-custody", "one crossing, one decision: a second approval finds nothing pending (404) and the card is gone from Agent Studio", replay.status === 404 && replay.body?.error?.code === "credential_bind_not_pending" && studioAfter.status === 200 && !studioAfter.text.includes(`data-ioi-custody-approval="${drillId}"`), `${replay.status}/${replay.body?.error?.code}`);
+    const revoke = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}/credential`, { method: "DELETE", body: JSON.stringify(drillMut("custody-drill-revoke")) });
+    const afterRevoke = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}`);
+    ok("5d-custody", "the drill key does not outlive the drill: revoking the credential leaves the route with no binding", revoke.status < 300 && !afterRevoke.body?.route?.credential_binding, `${revoke.status} → binding ${JSON.stringify(afterRevoke.body?.route?.credential_binding ?? null)}`);
+    evidence.custody_card = { route_id: drillId, submit: submit.status, approve: approve.status, replay: replay.status, revoke: revoke.status };
+  } else {
+    record("5d-custody", "custody approval card", "NOT DRIVEN (authority mode none): the deployment-local approver does not exist here, so the custody crossing cannot be approved");
+  }
 
   // ---- 6. start useful work: composer → parked on approval → approve → execute ----------------
   const intent = "Create a file named ALPHA_JOURNEY.md whose first line is exactly: hello from the alpha journey";
@@ -769,14 +799,32 @@ async function run() {
   // done for a completed run, failed for one whose harness reported failure — never a status the
   // verifier assumed.
   const runBefore = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
-  const terminalBefore = (runBefore.body?.run || runBefore.body?.record || runBefore.body)?.status || null;
+  const durableBefore = runBefore.body?.run || runBefore.body?.record || runBefore.body || null;
+  const terminalBefore = durableBefore?.status || null;
+  // IN-FLIGHT DRILL: as if the serve had died mid-execute — the durable run record is put back to
+  // "running" while the daemon's execute receipt already holds the verdict. The restarted serve
+  // must reconcile it from the receipt, never serve "running" forever.
+  const inFlight = durableBefore && ["done", "failed"].includes(terminalBefore)
+    ? await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`, { method: "POST", body: JSON.stringify({ ...durableBefore, status: "running", error: null }) })
+    : { status: 0 };
+  const inFlightBefore = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+  const inFlightPlanted = (inFlightBefore.body?.run || inFlightBefore.body?.record || inFlightBefore.body)?.status === "running";
   await stopServe();
   await stopDaemon("SIGKILL");
   await startDaemon();
   await startServe();
   const listAfter = await jd(DAEMON, "/v1/hypervisor/sessions");
-  const runAfter = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
-  const runAfterRecord = runAfter.body?.run || runAfter.body?.record || runAfter.body;
+  // The restarted serve reconciles at boot; the durable record follows its write-through (bounded wait).
+  let runAfter = null;
+  let runAfterRecord = null;
+  const reconcileDeadline = Date.now() + 30_000;
+  do {
+    runAfter = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+    runAfterRecord = runAfter.body?.run || runAfter.body?.record || runAfter.body;
+    if (!inFlightPlanted || runAfterRecord?.status !== "running") break;
+    await sleep(1000);
+  } while (Date.now() < reconcileDeadline);
+  ok("9-recover", "IN-FLIGHT DRILL: a run left \"running\" by a serve that died mid-execute is RECONCILED at the next serve boot from the daemon session's execute receipt (its verdict, not the App's memory) — the durable record reads the receipt's outcome again", inFlight.status < 300 && inFlightPlanted && runAfterRecord?.status === terminalBefore && String((runAfterRecord?.activity_log || []).slice(-1)[0]?.text || "").includes("reconciled from the daemon's execute receipt"), `planted ${inFlight.status}/${inFlightPlanted} → ${runAfterRecord?.status} · ${String((runAfterRecord?.activity_log || []).slice(-1)[0]?.text || "").slice(0, 90)}`);
   const receiptsAfter = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
   const pageAfter = await jd(SERVE, "/work/sessions");
   const expectedTerminal = terminalBefore || (AUTHORITY_PRESENT ? "done" : "failed");

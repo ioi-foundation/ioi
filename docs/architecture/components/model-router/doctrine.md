@@ -625,7 +625,13 @@ revoked when the lane returns — and never the provider credential or the
 provider URL and key pair; the execute receipt lists every environment name the
 harness child was given. A route that merely reports a process-environment key
 name is not executable and cannot bind a session: the process-environment key
-path stays refused by default (ADR 0053 § 2, `M13.9`).
+path stays refused by default (ADR 0053 § 2, `M13.9`). Sealing the key is
+itself a custody crossing: the App's model-route registry parks the operator's
+submit on an approval card carrying the daemon's exact commitments (policy and
+request hashes, the tool `model.credential.bind`, the exact authority scope and
+the grant audience); the operator's approval mints one grant and records it on
+the authority node before the daemon is asked to seal, and the App holds the
+plaintext only inside that bounded window, in memory, and never after.
 
 Adopting an external project's provider-protocol knowledge is permitted at this
 transport layer and forbidden above it. Importing a third-party gateway or proxy

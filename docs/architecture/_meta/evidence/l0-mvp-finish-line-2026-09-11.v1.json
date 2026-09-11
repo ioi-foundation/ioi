@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "MVP finish-line program (2026-09-11, owner's goal prompt; ADR 0053)",
+  "leg": "0 — close what is one run away",
+  "title": "The two recorded App gaps closed (custody approval card; in-flight execute reconciliation), the custody challenge carries the grant audience, and the alpha journey re-run on the current tree in fixture, deployment, package and no-checkout mode",
+  "basis": {
+    "head": "fe9f8a770",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-11",
+  "runs": {
+    "check:alpha-journey (fixture mode, run 2)": {
+      "verdict": "39/39 (2026-09-11, run 3)",
+      "note": "the local route on Ollama qwen2.5:7b; new clauses: 5d-custody (five) and the 9-recover in-flight drill"
+    },
+    "check:alpha-journey (IOI_ALPHA_JOURNEY_AUTHORITY=deployment, source)": {
+      "verdict": "44/44 (2026-09-11, run 2)"
+    },
+    "check:alpha-journey (deployment + IOI_ALPHA_JOURNEY_PACKAGE=1)": {
+      "verdict": "51/51 (2026-09-11, run 2)",
+      "note": "debug-profile packages v1 0.1.0-alpha.6 / v2 0.1.0-alpha.7 built from this tree by the recorded recipe (signer generated for the run; v2 = daemon crate version bumped and rebuilt, then Cargo.toml/Cargo.lock restored and a --locked rebuild); no release cargo profile"
+    },
+    "check:alpha-journey (deployment + package + IOI_ALPHA_JOURNEY_NO_CHECKOUT=1)": {
+      "verdict": "52/52 (2026-09-11, run 3; run 2's one red was the run's own construction — packages built under the repository's .artifacts/, so the package's own installer failed the outside-the-repository clause; the identical packages were moved outside the repository)"
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon": {
+      "verdict": "pass",
+      "assertions": "cargo test --locked -p ioi-node --bin hypervisor-daemon: 1148 passed; 0 failed; 8 ignored (104.2 s)"
+    },
+    "M13.9 remote lane": {
+      "verdict": "TYPED STOP — IOI_ALPHA_PROVIDER_KEY was not in the session's environment; the bar (a provider 200 with usage and the intent's file) stays open for the owner's key"
+    }
+  },
+  "mechanism": {
+    "custody_card": "POST /__ioi/agent-studio/model-routes/:id/credential submits a provider key; the App forwards it to the daemon's bind, which parks on the custody crossing (403: policy and request hashes, tool model.credential.bind, exact scope, grant audience); the App holds the plaintext in memory for at most 10 minutes and renders the card at the top of Agent Studio; …/credential/approve mints ONE grant with the deployment-local approver, records it on the authority node, and retries the bind with the grant on the SAME idempotency key so the daemon seals; …/credential/deny drops the key; a second approval finds nothing pending",
+    "custody_challenge": "the capability-lease challenge (credential bind and every other lease crossing) now publishes approval.audience (the daemon's capability account) and approval.target_scope, exactly as the execute gate does — without them no App-side approver can mint a consumable grant",
+    "in_flight_reconcile": "at serve boot, after rehydration, every run still 'running' is reconciled against the daemon session's execute receipt (hypervisor.session.execute: exit_status, error, files_written, capability_lease_ref); a run whose receipt has not landed is re-asked every 15 s for up to 15 min (the lane's own bound is 780 s); the reconciled verdict is written through in order",
+    "journey_drills": "5d-custody: a drill route and a dummy key through the App path (never selected; revoked at the end); 9-recover: the durable run record is planted back to 'running' before the serve restart and must read the receipt's verdict again"
+  },
+  "typed_absences": [
+    "M13.9's bar: the operator's provider key was not available to this session (typed stop, not a pass)",
+    "the release cargo profile stays a typed absence in the review window; packages are debug-profile as recorded",
+    "authority mode none is not re-run here (its claims are unchanged: typed refusals only)"
+  ]
+}

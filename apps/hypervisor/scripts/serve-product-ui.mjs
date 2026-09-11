@@ -26,7 +26,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
-import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval } from "./ioi-agent-runs.mjs";
+import { getRun, listRuns, hydrateRunsFromDaemon, reconcileInFlightRuns, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval, listPendingCredentialBinds, startModelRouteCredentialBind, decideModelRouteCredentialBind } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
@@ -2576,6 +2576,19 @@ const pickv = (o, ...keys) => { for (const k of keys) { if (o && o[k] != null &&
 // `credentials_missing`/`unreachable` — the lifecycle and availability chips render independently.
 // Every effectful control opens a confirm panel naming the admission, the receipt it will mint,
 // and the rollback posture BEFORE firing.
+// Custody approval cards (M13.9): a provider key the operator submitted, parked on the daemon's exact
+// commitments until they decide. Rendered at the TOP of Agent Studio — an approval awaiting the
+// operator is never hidden inside a collapsed panel — beside the registry that owns the route.
+function renderCustodyCards() {
+  const enc = encodeURIComponent;
+  return listPendingCredentialBinds().map((p) => `<div class="card" data-ioi-custody-approval="${CX_ESC(p.route_id)}" data-ioi-custody-request-hash="${CX_ESC(p.request_hash)}" style="border:1px solid #c9a227;border-radius:8px;padding:10px;margin:8px 0">
+      <div><b>Custody approval awaiting you</b> — seal a provider key to <code>${CX_ESC(p.route_ref)}</code> (${CX_ESC(p.display_name)})</div>
+      <div class="sub" style="margin:6px 0">Exact effect: tool <code>model.credential.bind</code> · scope <code>${CX_ESC(p.target_scope)}</code><br>policy_hash <code>${CX_ESC(p.policy_hash)}</code><br>request_hash <code>${CX_ESC(p.request_hash)}</code><br>grant audience <code>${CX_ESC(p.audience || "—")}</code> · expires ${CX_ESC(p.expires_at)}</div>
+      <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(p.route_id)}/credential/approve"><button class="act" type="submit">Approve custody (mint + record one grant, then seal)</button></form>
+      <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(p.route_id)}/credential/deny"><button class="act danger" type="submit">Deny (drop the key)</button></form>
+    </div>`).join("");
+}
+
 function renderModelRouteRegistry(modelRoutes) {
   const enc = encodeURIComponent;
   modelRoutes = Array.isArray(modelRoutes) ? modelRoutes : [];
@@ -2599,8 +2612,16 @@ function renderModelRouteRegistry(modelRoutes) {
     const probeDesc = pb.transport === "openai_compatible"
       ? "No admission (evidence-gathering only); POSTURE-ONLY — reports whether the declared credential env key resolves. The daemon never sends a secret to the route's base_url, so this transport never reports <code>available</code>."
       : "No admission (evidence-gathering only); the live upstream is asked for its real catalog.";
+    const cb = r.credential_binding || null;
+    const sealed = cb && cb.kind === "sealed_capability_lease";
+    const needsKey = (r.credential_posture || "no_credentials_required") !== "no_credentials_required";
+    const bindCredential = needsKey && !sealed ? `<details class="mrc"><summary class="act ghost">Bind credential</summary><div class="mrcbody">
+      <div class="sub" style="margin:0 0 6px">Sealing a provider key to this route is a CUSTODY crossing (tool <code>model.credential.bind</code>): the daemon parks it on exact commitments and stores nothing until you approve the card that appears here. The key is sealed by the daemon; the App holds it only until your decision (10 minutes at most) and never logs it.</div>
+      <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(r.route_id || "")}/credential"><input type="password" name="token" placeholder="provider key" autocomplete="off" required style="min-width:220px"> <button class="act" type="submit">Submit for custody approval</button></form>
+    </details>` : "";
     const controls = [
       mrConfirm(r, "probe", "Probe", probeDesc, "none needed — probing only updates availability evidence"),
+      bindCredential,
       lc === "active"
         ? mrConfirm(r, "disable", "Disable", `Admission: <code>disable_route</code> under <code>scope:model.route.mutate</code> (relaxed lane).`, "re-enable via the admitted <code>enable_route</code> lane", true)
         : mrConfirm(r, "enable", "Enable", `Admission: <code>enable_route</code> under <code>scope:model.route.mutate</code> + custody + privacy posture refs (planner-validated, fail-closed).`, "disable via the admitted <code>disable_route</code> lane"),
@@ -2612,7 +2633,7 @@ function renderModelRouteRegistry(modelRoutes) {
       <td><span class="pill muted">${CX_ESC(pb.transport || "—")}</span> <span class="pill muted">${CX_ESC(pb.provider_kind || "—")}</span><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(pb.base_url || "")}</div></td>
       <td><span class="pill ${lc === "active" ? "ok" : "muted"}">${CX_ESC(lc)}</span></td>
       <td>${availPill(r)}</td>
-      <td><span class="pill muted">${CX_ESC(r.credential_posture || "—")}</span></td>
+      <td data-ioi-credential="${sealed ? "sealed" : needsKey ? "absent" : "none"}"><span class="pill muted">${CX_ESC(r.credential_posture || "—")}</span>${sealed ? ` <span class="pill ok">sealed</span>` : ""}</td>
       <td>${controls}</td>
     </tr>`;
   }).join("");
@@ -2952,7 +2973,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
-    return automationsShell("Studio", styles + head + renderStudioSystemDesigns((intel || {}).systemDesigns) + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
+    return automationsShell("Studio", styles + head + renderCustodyCards() + renderStudioSystemDesigns((intel || {}).systemDesigns) + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
@@ -3116,7 +3137,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   </script>`;
   const right = `<div><div class="row" style="margin-bottom:2px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${tabBar}${panels}${tabScript}</div>`;
   const body = `<div class="row" style="justify-content:space-between"><span class="sub" style="margin:0">${agents.length} agent${agents.length === 1 ? "" : "s"} · ${activeCount} active${qn ? ` · ${filtered.length} matching “${CX_ESC(q)}”` : ""}</span></div><div class="asgrid">${left}${right}</div>`;
-  return automationsShell("Studio", styles + head + renderStudioSystemDesigns((intel || {}).systemDesigns) + body);
+  return automationsShell("Studio", styles + head + renderCustodyCards() + renderStudioSystemDesigns((intel || {}).systemDesigns) + body);
 }
 
 // ---- Foundry — a CONTROLLED BUILDER over the daemon Foundry object plane (estate surface #4).
@@ -13677,6 +13698,38 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
     }
+    // ---- Agent Studio model-route CREDENTIAL custody (M13.9): submit parks on the custody approval
+    // card (the daemon's exact commitments); approve mints + records one grant and the daemon seals;
+    // deny drops the plaintext. Form posts return to the registry; JSON callers get the decision.
+    {
+      const credMatch = pathname.match(/^\/__ioi\/agent-studio\/model-routes\/([^/]+)\/credential(?:\/(approve|deny))?$/u);
+      if (credMatch && req.method === "POST") {
+        const cacheAdmission = await localRunCacheAdmission(req);
+        if (!cacheAdmission.ok) {
+          refuseLocalRunCacheJson(res, cacheAdmission);
+          return;
+        }
+        const routeId = decodeURIComponent(credMatch[1]);
+        const decision = credMatch[2] || null;
+        const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
+        let token = "";
+        if (!decision) {
+          if (isForm) token = new URLSearchParams(body.toString("utf8")).get("token") || "";
+          else { try { token = JSON.parse(body.toString() || "{}").token || ""; } catch { /* no token */ } }
+        }
+        const result = decision
+          ? await decideModelRouteCredentialBind({ routeId, decision, daemonHeaders: cacheAdmission.headers })
+          : await startModelRouteCredentialBind({ routeId, token, daemonHeaders: cacheAdmission.headers });
+        if (isForm) {
+          res.writeHead(303, { Location: "/__ioi/agent-studio#model-routes", "Cache-Control": "no-cache" });
+          res.end();
+          return;
+        }
+        res.writeHead(result.status || (result.ok ? 200 : 409), { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        res.end(JSON.stringify(result));
+        return;
+      }
+    }
     // ---- Agent Studio harness-profile registry controls: proxy the effectful daemon routes
     // (probe / enable / disable / select-default); a provider-trust acceptance ref from the
     // confirm panel is forwarded so the planner can admit non-local-trust enables.
@@ -15020,6 +15073,10 @@ function waitForMirror(attempt = 0) {
       // Run Timeline + env→run resolvers survive a serve restart (durable truth lives in the daemon).
       const n = await hydrateRunsFromDaemon();
       if (n) console.log(`[hypervisor] rehydrated ${n} durable run transcript(s) from the daemon`);
+      // A run this serve's predecessor was driving when it died: its verdict is on the daemon
+      // session's execute receipt, not in anyone's memory. Reconcile before serving a stale "running".
+      const rec = await reconcileInFlightRuns();
+      if (rec.in_flight) console.log(`[hypervisor] reconciled ${rec.reconciled} of ${rec.in_flight} in-flight run(s) against execute receipts (${rec.still_running} still running)`);
     });
   });
   probe.on("error", () => {
