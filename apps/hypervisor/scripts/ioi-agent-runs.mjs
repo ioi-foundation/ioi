@@ -122,14 +122,18 @@ function recordToRun(r) {
 // Write-through (fire-and-forget) — records the run durably and captures the daemon's state_root.
 function persistRun(run) {
   if (!run?.id) return;
-  fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(run.id)}`, {
-    method: "POST",
-    headers: runDaemonHeaders(run, true),
-    body: JSON.stringify(runRecord(run)),
-  })
+  // The write-through is ORDERED per run. Two state changes a millisecond apart (a silent
+  // authorization followed at once by the harness's failure) used to race as two concurrent
+  // fetches: whichever the daemon applied last became the durable record, so a run that had
+  // already failed could stay "running" forever — for every reader of the daemon record and
+  // across a serve restart. The record is snapshotted now and written in sequence.
+  const body = JSON.stringify(runRecord(run));
+  const headers = runDaemonHeaders(run, true);
+  const write = () => fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(run.id)}`, { method: "POST", headers, body })
     .then((r) => r.json())
     .then((d) => { if (d && d.state_root) run.stateRoot = d.state_root; })
     .catch(() => { /* durability is eventual; terminal state is re-written on finalize */ });
+  run.persistChain = (run.persistChain || Promise.resolve()).then(write, write);
 }
 
 // Boot rehydrate — load durable run-transcripts into the cache so the timeline + env→run resolvers
@@ -259,6 +263,16 @@ export function runToAgentExecution(run) {
 // M13.3/M13.5 — the composer's submit may name the Connections the run's session may use (the
 // closed authority profile). A bounded connection in that profile lets the daemon draw the run's
 // execution against the attach-time standing envelope instead of parking on an approval card.
+// M13.9 (ADR 0053 § 2) — the composer's submit may also name the MODEL ROUTE the run's session
+// binds (a `model-route:` ref from the New Session context). The daemon admits it at session
+// create: a remote route binds only with a live sealed credential, and its execution endpoint is
+// the daemon's own model-mount proxy, never the provider's URL. Absent, the env-default lane holds.
+export function extractModelRouteRef(body) {
+  const raw = body?.modelRouteRef ?? body?.model_route_ref ?? null;
+  const ref = String(raw || "").trim();
+  return ref || null;
+}
+
 export function extractAuthorityProfile(body) {
   const raw = body?.authorityProfile?.connectionRefs ?? body?.authority_profile?.connection_refs ?? null;
   if (!Array.isArray(raw)) return null;
@@ -272,6 +286,7 @@ export async function startAgentRun({
   environmentClassId,
   daemonHeaders = {},
   authorityProfile = null,
+  modelRouteRef = null,
 }) {
   const base = daemonBase.replace(/\/$/, "");
   const dj = async (method, path, payload) => {
@@ -296,7 +311,7 @@ export async function startAgentRun({
 
   const id = genId("agent");
   const sessionRef = `session:ai-${id}`;
-  const sessionCreate = await dj("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: "project:ai", environment_id: envId, ...(authorityProfile ? { authority_profile: authorityProfile } : {}) });
+  const sessionCreate = await dj("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: "project:ai", environment_id: envId, ...(authorityProfile ? { authority_profile: authorityProfile } : {}), ...(modelRouteRef ? { model_route_ref: modelRouteRef } : {}) });
   if (authorityProfile && sessionCreate.status >= 400) {
     // The daemon refused the profile (unknown or UNBOUNDED connection): the run cannot be created
     // under a profile the daemon did not admit, and it must not silently fall back to no profile.
@@ -792,10 +807,21 @@ export function listRunsAwaitingApproval() {
 function finalize(run, result) {
   const body = result.body || {};
   if (result.status === 200) {
-    run.status = "done";
     run.transcript = Array.isArray(body.terminal_events) ? body.terminal_events : [];
     run.changedFiles = Array.isArray(body.changed_file_groups) ? body.changed_file_groups : [];
     run.capabilityLeaseRef = body.capability_lease_ref || null;
+    // A 200 means the lane RAN, not that the work succeeded: the daemon's execute receipt carries the
+    // harness's own verdict (exit_status "failure" with its typed error — a model route that
+    // answered nothing usable, a timeout, a spawn failure). A run whose harness reported failure
+    // must read as failed here, never as done with the environment's scaffold as its "work".
+    if (body.exit_status === "failure" || body.timed_out === true || body.spawn_error) {
+      run.status = "failed";
+      run.error = String(body.error || body.summary || "the harness reported failure");
+      run.summary = harnessSummary(run.transcript) || run.error;
+      bump(run, `Failed: ${run.error}`);
+      return;
+    }
+    run.status = "done";
     run.summary = harnessSummary(run.transcript) || "Run complete.";
     bump(run, "Done");
   } else {

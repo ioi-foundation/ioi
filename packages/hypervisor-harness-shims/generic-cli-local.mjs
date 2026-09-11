@@ -130,9 +130,16 @@ async function requestFileManifest(intent, strict = false) {
     "(e.g. main.py, index.html, styles.css, README.md). Emit complete file contents. " +
     "Do not include any prose outside the JSON object." +
     (strict ? " You MUST return at least one file with non-empty content." : "");
+  // A run-scoped model-mount capability token (remote routes, ADR 0053 § 2): the daemon minted it
+  // for this run and revokes it when the run ends; it authenticates this harness to the daemon's
+  // own proxy and is never a provider credential. Absent for a local route.
+  const modelToken = process.env.IOI_HYPERVISOR_MODEL_TOKEN;
   const response = await fetch(`${modelEndpoint}/chat/completions`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(modelToken ? { authorization: `Bearer ${modelToken}` } : {}),
+    },
     body: JSON.stringify({
       model,
       stream: false,

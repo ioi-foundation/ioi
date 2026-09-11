@@ -13766,6 +13766,9 @@ async fn run_invocation(
         &workspace,
         &delivered_objective,
         Some(&bound_route.execution_endpoint),
+        // GoalRun implementer lanes bind local routes only (their resolver is the strict one);
+        // a remote route's run-scoped model-mount token is the session-execute path's (M13.9).
+        None,
     )
     .await;
 

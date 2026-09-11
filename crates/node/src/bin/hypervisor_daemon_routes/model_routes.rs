@@ -496,11 +496,13 @@ pub(crate) fn resolve_session_route_binding_strict(
             "Session '{normalized_session}' model-route binding does not match its retained coordinates"
         ));
     }
-    if binding
-        .pointer("/availability_at_bind/state")
-        .and_then(Value::as_str)
-        != Some("available")
-    {
+    if !availability_qualifies_for_binding(
+        binding
+            .get("transport")
+            .and_then(Value::as_str)
+            .unwrap_or("ollama"),
+        binding.get("availability_at_bind").unwrap_or(&Value::Null),
+    ) {
         return Err(format!(
             "Session '{normalized_session}' model-route binding lacks available at-bind proof"
         ));
@@ -531,10 +533,17 @@ pub(crate) fn resolve_session_route_binding_strict(
         .pointer("/provider_binding/transport")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    let execution_endpoint = format!("{base_url}/v1");
+    let (_, execution_endpoint) =
+        executable_route_endpoint(data_dir, &route, &base_url).map_err(|reason| {
+            format!(
+                "Session '{normalized_session}' model-route binding is not executable: {reason}"
+            )
+        })?;
     if route.pointer("/lifecycle/status").and_then(Value::as_str) != Some("active")
-        || route.pointer("/availability/state").and_then(Value::as_str) != Some("available")
-        || transport != "ollama"
+        || !availability_qualifies_for_binding(
+            transport,
+            route.get("availability").unwrap_or(&Value::Null),
+        )
         || binding.get("route_id").and_then(Value::as_str) != Some(route_id)
         || binding.get("model_id").and_then(Value::as_str) != Some(model_id.as_str())
         || binding.get("base_url").and_then(Value::as_str) != Some(base_url.as_str())
@@ -600,11 +609,13 @@ pub(crate) fn bind_route_for_session_recoverable(
         .and_then(Value::as_str)
         .unwrap_or_default();
     if route.pointer("/lifecycle/status").and_then(Value::as_str) != Some("active")
-        || route.pointer("/availability/state").and_then(Value::as_str) != Some("available")
-        || transport != "ollama"
+        || !availability_qualifies_for_binding(
+            transport,
+            route.get("availability").unwrap_or(&Value::Null),
+        )
     {
         return Err(
-            "model-route Session binding requires one active, probe-available ollama route".into(),
+            "model-route Session binding requires one active, probe-available route".into(),
         );
     }
     let admission =
@@ -652,7 +663,7 @@ pub(crate) fn bind_route_for_session_recoverable(
     let binding_id = format!("mrb_{digest}");
     let receipt_id = binding_receipt_id(&binding_id);
     let receipt_ref = format!("agentgres://model-route-receipt/{receipt_id}");
-    let execution_endpoint = format!("{base_url}/v1");
+    let (_, execution_endpoint) = executable_route_endpoint(data_dir, &route, &base_url)?;
     let mut binding = json!({
         "schema_version": BINDING_SCHEMA,
         "binding_id": binding_id,
@@ -2428,6 +2439,109 @@ fn credential_record(data_dir: &str, route_id: &str) -> Option<Value> {
         .find(|c| c.get("connector_id").and_then(Value::as_str) == Some(route_id))
 }
 
+/// A route holds a LIVE sealed key: an active credential record with a sealed token (never a
+/// revocation tombstone).
+pub(crate) fn route_has_live_sealed_credential(data_dir: &str, route_id: &str) -> bool {
+    credential_record(data_dir, route_id).is_some_and(|c| {
+        c.get("state").and_then(Value::as_str) == Some("active")
+            && c.get("sealed_token")
+                .and_then(Value::as_str)
+                .is_some_and(|t| !t.is_empty())
+    })
+}
+
+/// Whether a route's availability qualifies it to bind a session (ADR 0053 § 2 / M13.9).
+///
+/// A LOCAL (ollama) route qualifies only when its live probe says `available` — the catalog was
+/// read and the model is there. A REMOTE (openai_compatible) route can never honestly reach
+/// `available`: its probe is posture-only because the daemon never sends a secret to a
+/// caller-supplied URL. Its strongest honest state is `credentials_present` on the SEALED basis,
+/// and that is the state that qualifies it here — the provider's own answer is then observed at
+/// invocation, by the daemon's proxy, and receipted or refused typed. An env-key report never
+/// qualifies (the process-environment key path stays refused by default).
+fn availability_qualifies_for_binding(transport: &str, availability: &Value) -> bool {
+    let state = availability
+        .get("state")
+        .and_then(Value::as_str)
+        .unwrap_or("declared");
+    match transport {
+        "openai_compatible" => {
+            state == "credentials_present"
+                && availability
+                    .pointer("/probe/evidence/credential_basis")
+                    .and_then(Value::as_str)
+                    == Some("sealed_capability_lease")
+        }
+        _ => state == "available",
+    }
+}
+
+/// ADR 0053 § 2 / M13.9 — which transports a Session may EXECUTE against, and where the harness
+/// reaches them. `ollama`: the route's own base URL (local, credential-free). `openai_compatible`:
+/// ONLY when a live sealed credential is bound to the route, and then through the daemon's own
+/// model-mount proxy — the harness never holds the provider URL and key pair; the proxy performs
+/// the provider call with the sealed credential (`/v1/chat/completions`). Every bind and resolve
+/// path reads this one decision so the executable set cannot drift between them.
+pub(crate) fn executable_route_endpoint(
+    data_dir: &str,
+    route: &Value,
+    base_url: &str,
+) -> Result<(String, String), String> {
+    let transport = route
+        .pointer("/provider_binding/transport")
+        .and_then(Value::as_str)
+        .unwrap_or("ollama");
+    match transport {
+        "ollama" => Ok((transport.to_string(), format!("{base_url}/v1"))),
+        "openai_compatible" => {
+            let route_id = route
+                .get("route_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if !route_has_live_sealed_credential(data_dir, route_id) {
+                return Err("an openai_compatible route is executable only with a live sealed credential bound to it (POST /v1/hypervisor/model-routes/:id/credential); the harness never holds a provider key".to_string());
+            }
+            let addr = std::env::var("IOI_HYPERVISOR_DAEMON_ADDR")
+                .ok()
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+                .ok_or_else(|| "the daemon's own address (IOI_HYPERVISOR_DAEMON_ADDR) is required to proxy a remote route".to_string())?;
+            Ok((transport.to_string(), format!("http://{addr}/v1")))
+        }
+        other => Err(format!(
+            "transport '{other}' is not executable by the session harness"
+        )),
+    }
+}
+
+/// The remote route a proxied chat call resolves for `model_id`, with its OPENED bearer — only
+/// when the route is active, openai_compatible, and holds a live sealed credential. The bearer
+/// never leaves the daemon process.
+pub(crate) fn remote_route_with_live_credential(
+    data_dir: &str,
+    model_id: &str,
+) -> Option<(Value, String)> {
+    let route = read_record_dir(data_dir, RECORD_DIR)
+        .into_iter()
+        .find(|r| {
+            r.pointer("/model/model_id").and_then(Value::as_str) == Some(model_id)
+                && r.pointer("/provider_binding/transport")
+                    .and_then(Value::as_str)
+                    == Some("openai_compatible")
+                && r.pointer("/lifecycle/status").and_then(Value::as_str) == Some("active")
+        })?;
+    let route_id = route.get("route_id").and_then(Value::as_str)?;
+    let credential = credential_record(data_dir, route_id)?;
+    if credential.get("state").and_then(Value::as_str) != Some("active") {
+        return None;
+    }
+    let bearer = credential
+        .get("sealed_token")
+        .and_then(Value::as_str)
+        .and_then(super::lifecycle_routes::open_scm_token)?;
+    Some((route, bearer))
+}
+
 /// A record only when a route holds a LIVE sealed key — never a tombstone.
 ///
 /// Revocation does not delete; it leaves a tombstone (no `sealed_token`, `state: "revoked"`) so the
@@ -3110,16 +3224,26 @@ pub(crate) async fn handle_model_route_bind_session(
         .and_then(|v| v.as_str())
         .unwrap_or("ollama")
         .to_string();
-    if transport != "ollama" {
-        return (
-            StatusCode::CONFLICT,
-            Json(json!({ "error": {
-                "code": "transport_unsupported_for_execution",
-                "message": "Only ollama-transport routes are executable by the session harness today; this route stays declared/available but is not bindable for execution.",
-                "details": { "transport": transport }
-            } })),
-        );
-    }
+    let base_url_for_execution = normalize_base_url(
+        route
+            .pointer("/provider_binding/base_url")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    );
+    let execution_endpoint =
+        match executable_route_endpoint(&st.data_dir, &route, &base_url_for_execution) {
+            Ok((_, endpoint)) => endpoint,
+            Err(reason) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(json!({ "error": {
+                    "code": "transport_unsupported_for_execution",
+                    "message": reason,
+                    "details": { "transport": transport }
+                } })),
+                );
+            }
+        };
     let lifecycle = route
         .pointer("/lifecycle/status")
         .and_then(|v| v.as_str())
@@ -3160,12 +3284,12 @@ pub(crate) async fn handle_model_route_bind_session(
         .get("state")
         .and_then(|v| v.as_str())
         .unwrap_or("declared");
-    if state != "available" {
+    if !availability_qualifies_for_binding(&transport, &availability) {
         return (
             StatusCode::PRECONDITION_FAILED,
             Json(json!({ "error": {
                 "code": "model_route_not_available",
-                "message": format!("Live probe returned '{state}'; only an available route may bind a session."),
+                "message": format!("Live probe returned '{state}'; only an available route (or a remote route with a sealed credential present) may bind a session."),
                 "details": availability
             } })),
         );
@@ -3205,6 +3329,7 @@ pub(crate) async fn handle_model_route_bind_session(
                 "availability_at_bind": availability,
                 "model_id": route.pointer("/model/model_id"),
                 "base_url": route.pointer("/provider_binding/base_url"),
+                "execution_endpoint": execution_endpoint,
                 "transport": transport,
                 "created_at": iso_now()
             });
@@ -3261,21 +3386,51 @@ pub(crate) async fn handle_model_route_bindings_list(
     }))
 }
 
+/// The execute preflight's question for a session that is BOUND to a registry route (ADR 0053 § 2 /
+/// M13.9): is the route it will actually execute on ready? `None` when the session has no binding
+/// (the env-default lane's own probe answers then). A local (ollama) binding is ready when its
+/// execution endpoint accepts a connection; a remote (openai_compatible) binding is ready when the
+/// route still holds a LIVE sealed credential — its execution endpoint is the daemon itself, so
+/// reachability would answer a different question.
+pub(crate) fn session_bound_route_ready(
+    data_dir: &str,
+    session_id: &str,
+    endpoint_reachable: impl Fn(&str) -> bool,
+) -> Option<bool> {
+    let (_, endpoint, route_ref, _, transport) =
+        resolve_session_route_binding(data_dir, session_id)?;
+    let route_id = route_ref
+        .strip_prefix("model-route:")
+        .unwrap_or(route_ref.as_str());
+    Some(match transport.as_str() {
+        "openai_compatible" => route_has_live_sealed_credential(data_dir, route_id),
+        _ => endpoint_reachable(&endpoint),
+    })
+}
+
 /// Resolve the newest execution-consumable binding for a session: route must still be `active`.
 /// Returns `(model_id, shim_endpoint, route_ref, binding_id)`; the shim endpoint re-appends the
 /// OpenAI-compat `/v1` the stored provider root omits. Used by handle_session_execute — when this
 /// returns None the execute path is byte-identical to the env-var default.
+/// (model_id, execution_endpoint, route_ref, binding_id, transport). The execution endpoint is the
+/// binding's own (a remote route executes through the daemon's proxy, ADR 0053 § 2); an older
+/// binding without one executes at the route's base URL exactly as before.
 pub(crate) fn resolve_session_route_binding(
     data_dir: &str,
     session_id: &str,
-) -> Option<(String, String, String, String)> {
+) -> Option<(String, String, String, String, String)> {
     let mut bindings: Vec<Value> = read_record_dir(data_dir, BINDING_DIR)
         .into_iter()
         .filter(|b| {
             let sref = b.get("session_ref").and_then(|v| v.as_str()).unwrap_or("");
             sref == session_id || sref == format!("session:{session_id}")
         })
-        .filter(|b| b.get("transport").and_then(|v| v.as_str()) == Some("ollama"))
+        .filter(|b| {
+            matches!(
+                b.get("transport").and_then(|v| v.as_str()),
+                Some("ollama") | Some("openai_compatible")
+            )
+        })
         .collect();
     bindings.sort_by(|a, b| s(b, "binding_id", "").cmp(&s(a, "binding_id", "")));
     let binding = bindings.into_iter().next()?;
@@ -3293,11 +3448,18 @@ pub(crate) fn resolve_session_route_binding(
         .and_then(|v| v.as_str())?
         .trim_end_matches('/')
         .to_string();
+    let execution_endpoint = binding
+        .get("execution_endpoint")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{base_url}/v1"));
     Some((
         model_id,
-        format!("{base_url}/v1"),
+        execution_endpoint,
         s(&binding, "route_ref", ""),
         s(&binding, "binding_id", ""),
+        s(&binding, "transport", "ollama"),
     ))
 }
 

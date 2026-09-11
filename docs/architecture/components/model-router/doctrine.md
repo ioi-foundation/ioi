@@ -614,6 +614,19 @@ policy, and authorization. A transport may classify an error as retryable; only
 the router decides whether to retry, and only the economics plane decides what
 an attempt cost.
 
+A remote route's credential crosses that boundary exactly once, inside the
+daemon. The key is sealed to the route record at bind time and opened only by
+the daemon's model-mount proxy, which performs the provider call and receipts
+the invocation against the route (transport, credential basis, the provider's
+status and its reported usage). A harness executing a session over a remote
+route holds a run-scoped, revocable model-mount capability token — the estate's
+own primitive, scoped to `model.chat:*`, minted for the run's session and
+revoked when the lane returns — and never the provider credential or the
+provider URL and key pair; the execute receipt lists every environment name the
+harness child was given. A route that merely reports a process-environment key
+name is not executable and cannot bind a session: the process-environment key
+path stays refused by default (ADR 0053 § 2, `M13.9`).
+
 Adopting an external project's provider-protocol knowledge is permitted at this
 transport layer and forbidden above it. Importing a third-party gateway or proxy
 control plane would mint a second spine beside owners this canon already names.

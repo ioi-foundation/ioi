@@ -74,10 +74,33 @@ const DEPLOYMENT_AUTHORITY_REF = "domain://acme-host";
 const FIXTURE_APPROVER_SEED_HEX = "07".repeat(32);
 const MODEL = process.env.IOI_ALPHA_MODEL || "qwen2.5:7b";
 const MODEL_UPSTREAM = process.env.IOI_ALPHA_MODEL_UPSTREAM || "http://127.0.0.1:11434/v1";
-const EXECUTE_BUDGET_MS = 900_000;
+// M13.9 (ADR 0053 § 2) — the REMOTE route lane. `IOI_ALPHA_MODEL_ROUTE=remote` selects a remote
+// OpenAI-compatible frontier route in the composer instead of the local one: the journey registers
+// the route on its own temporary daemon, seals the operator's provider key to the route record, and
+// the run's session binds it. The key is read ONCE from this process's environment and deleted
+// before any child is spawned; it is never logged, never written to evidence, and it reaches the
+// provider only from inside the daemon's model-mount proxy. Without a key the lane records a TYPED
+// ABSENCE and the journey runs on the local route.
+const MODEL_ROUTE_LANE = process.env.IOI_ALPHA_MODEL_ROUTE === "remote" ? "remote" : "local";
+const PROVIDER_BASE_URL = (process.env.IOI_ALPHA_PROVIDER_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/u, "");
+const PROVIDER_MODEL = process.env.IOI_ALPHA_PROVIDER_MODEL || "gpt-4o-mini";
+const PROVIDER_KEY = String(process.env.IOI_ALPHA_PROVIDER_KEY || "");
+delete process.env.IOI_ALPHA_PROVIDER_KEY;
+// Published list prices (USD per 1M tokens) at authoring time, for an ESTIMATE beside the
+// provider's reported usage — never billing truth; the receipt carries the usage verbatim.
+const PROVIDER_LIST_PRICES_USD_PER_M = { "gpt-4o-mini": { input: 0.15, output: 0.6 }, "gpt-4o": { input: 2.5, output: 10 }, "gpt-4.1-mini": { input: 0.4, output: 1.6 }, "gpt-4.1": { input: 2, output: 8 } };
+const EXECUTE_BUDGET_MS = Number(process.env.IOI_ALPHA_JOURNEY_EXECUTE_BUDGET_MS || 900_000);
+// Diagnosis: keep the work directory (daemon state, receipts, workspaces) and write the daemon and
+// serve log tails into it instead of removing it at cleanup. Never the default.
+const KEEP_WORKDIR = process.env.IOI_ALPHA_JOURNEY_KEEP_WORKDIR === "1";
 const AUTHORITY_MODE = ["none", "deployment", "fixture"].includes(process.env.IOI_ALPHA_JOURNEY_AUTHORITY || "")
   ? process.env.IOI_ALPHA_JOURNEY_AUTHORITY
   : "fixture";
+// The remote lane runs only with an operator credential AND the fixture approver: sealing the key
+// to the route is itself an authority crossing (tool model.credential.bind) that the lane approves
+// headlessly through the fixture's approver, exactly as the exact-effect-review verifier does.
+// Deployment-mode approval of a credential bind is not driven here (typed absence).
+const REMOTE = MODEL_ROUTE_LANE === "remote" && PROVIDER_KEY.length > 0 && AUTHORITY_MODE === "fixture";
 // The deployment bring-up binds ITS generated approver to this principal; the fixture binds its
 // public seed to domain://acme-host. Neither knows the other's principal.
 const DEPLOYMENT_NODE_PRINCIPAL_REF = "domain://alpha-host";
@@ -272,6 +295,34 @@ const jd = async (base, p, init = {}, withCookie = true) => {
   return retried.status === 0 ? { ...retried, error: `${first.error} (retried on a fresh connection: ${retried.error})` } : retried;
 };
 
+// Changed-file groups that are the RUN's work: the environment's own `.devcontainer` scaffold is
+// provisioning, not a file the harness wrote, and must never satisfy "writes at least one file".
+const workFiles = (groups) => (Array.isArray(groups) ? groups : []).filter((g) => !String(g?.folder || g?.path || g?.file || "").startsWith(".devcontainer"));
+const readRecords = (family) => {
+  const found = [];
+  try {
+    for (const f of fs.readdirSync(path.join(dataDir, family))) {
+      try { found.push(JSON.parse(fs.readFileSync(path.join(dataDir, family, f), "utf8"))); } catch { /* not JSON */ }
+    }
+  } catch { /* none */ }
+  return found;
+};
+// Every regular file under `root` whose bytes contain `needle` (bounded: files up to 8 MiB).
+const grepTreeFor = (root, needle) => {
+  const hits = [];
+  if (!needle) return hits;
+  const walk = (dir) => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile()) { try { if (fs.statSync(p).size <= 8 * 1024 * 1024 && fs.readFileSync(p).includes(needle)) hits.push(p); } catch { /* unreadable */ } }
+    }
+  };
+  walk(root);
+  return hits;
+};
 const readReceipts = (predicate) => {
   const found = [];
   try {
@@ -299,9 +350,11 @@ async function run() {
   }
 
   // ---- model reachability (readiness prerequisite) -------------------------------------------
-  const models = await jd(MODEL_UPSTREAM.replace(/\/v1$/, ""), "/api/tags", {}, false);
-  const modelPresent = (models.body?.models || []).some((m) => m.name === MODEL || m.model === MODEL);
-  if (!modelPresent) { console.error(`BLOCKED: model ${MODEL} is not served at ${MODEL_UPSTREAM}`); cleanup(); process.exit(2); }
+  if (!REMOTE) {
+    const models = await jd(MODEL_UPSTREAM.replace(/\/v1$/, ""), "/api/tags", {}, false);
+    const modelPresent = (models.body?.models || []).some((m) => m.name === MODEL || m.model === MODEL);
+    if (!modelPresent) { console.error(`BLOCKED: model ${MODEL} is not served at ${MODEL_UPSTREAM}`); cleanup(); process.exit(2); }
+  }
 
   // ---- 2b. bootstrap authority: the deployment-local wallet.network node + operator-held key --
   approverKeyPath = path.join(workDir, "approver.key");
@@ -450,7 +503,58 @@ async function run() {
   const doctor = await jd(DAEMON, "/v1/doctor");
   const substrate = await jd(DAEMON, "/v1/hypervisor/substrate/status");
   ok("3-readiness", "daemon health, doctor and substrate status answer for the operator", healthz.status === 200 && doctor.status === 200 && substrate.status === 200, `${healthz.status}/${doctor.status}/${substrate.status}`);
-  record("3-readiness", "model route", `${MODEL} served at ${MODEL_UPSTREAM} (verified via /api/tags before start)`);
+  if (REMOTE) record("3-readiness", "model route", `REMOTE lane: ${PROVIDER_MODEL} at ${PROVIDER_BASE_URL} through the daemon's model-mount proxy; the local route is not required for this run`);
+  else record("3-readiness", "model route", `${MODEL} served at ${MODEL_UPSTREAM} (verified via /api/tags before start)`);
+
+  // ---- 3r. M13.9 (ADR 0053 § 2): the remote frontier route, sealed to the daemon ---------------
+  let remoteRoute = null;
+  if (MODEL_ROUTE_LANE === "remote" && !REMOTE) {
+    const reason = PROVIDER_KEY.length === 0 ? "no_operator_credential" : "authority_mode_not_fixture";
+    record("3r-route", "remote frontier route", `TYPED ABSENCE (${reason}): IOI_ALPHA_MODEL_ROUTE=remote but ${reason === "no_operator_credential" ? "no operator credential (IOI_ALPHA_PROVIDER_KEY is unset)" : `the custody crossing's approval is driven only through the fixture approver (authority mode ${AUTHORITY_MODE})`} — the lane did not run and nothing below claims it; the journey continues on the local route`);
+    evidence.model_route_lane = { lane: "remote", status: "absent", reason };
+  } else if (REMOTE) {
+    const ownerRef = (who.body?.principal?.tenant_refs || []).find((t) => t === "org://local") || "org://local";
+    const mut = (idem, extra = {}) => ({ owner_ref: ownerRef, idempotency_key: `alpha-journey-${idem}`, ...extra });
+    const mr = (routeId, suffix = "", init = {}) => jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(routeId)}${suffix}`, init);
+    const created = await jd(DAEMON, "/v1/hypervisor/model-routes", { method: "POST", body: JSON.stringify(mut("remote-route", { model_id: PROVIDER_MODEL, transport: "openai_compatible", base_url: PROVIDER_BASE_URL, display_name: "frontier (remote)", credential_posture: "provider_vault_token" })) });
+    const routeId = created.body?.route?.route_id || "";
+    const routeRef = created.body?.route?.route_ref || (routeId ? `model-route:${routeId}` : "");
+    ok("3r-route", "the operator registers a remote OpenAI-compatible route in the model-route registry (the registration carries no secret; a plaintext key would be refused)", created.status < 300 && Boolean(routeId), `${created.status} ${routeRef} · ${PROVIDER_MODEL} @ ${PROVIDER_BASE_URL}`);
+    // Establishing custody of the key is its own authority crossing (distinct from using it): the
+    // bind parks on the daemon's exact commitments until the operator's approval is recorded on the
+    // authority node; the same idempotency key keeps the retry on the same crossing coordinates.
+    const bindOnce = (extra = {}) => mr(routeId, "/credential", { method: "POST", body: JSON.stringify(mut("remote-credential", { token: PROVIDER_KEY, ...extra })) });
+    const challenge = await bindOnce();
+    const challengeScope = challenge.body?.required_authority_scope ?? challenge.body?.authority_challenge?.required_authority_scope ?? "";
+    ok("3r-route", "establishing custody of the provider key is an AUTHORITY CROSSING: the bind parks on the daemon's exact commitments (policy and request hashes, tool model.credential.bind, the exact authority scope) and stores nothing until the operator approves", challenge.status === 403 && Boolean(challenge.body?.approval?.policy_hash) && Boolean(challenge.body?.approval?.request_hash) && Boolean(challengeScope) && (challenge.body?.allowed_tools || []).includes("model.credential.bind"), `${challenge.status} ${challenge.body?.reason || challenge.text.slice(0, 120)} · ${String(challenge.body?.approval?.request_hash || "").slice(0, 24)} · scope ${challengeScope}`);
+    let bound = challenge;
+    if (challenge.status === 403 && challenge.body?.approval?.policy_hash && challengeScope) {
+      const grant = await fixture.mintRecorded(DEPLOYMENT_AUTHORITY_REF, challenge.body.approval.policy_hash, challenge.body.approval.request_hash, challengeScope);
+      bound = await bindOnce({ wallet_approval_grant: grant });
+    }
+    const routeAfter = await mr(routeId);
+    const credBinding = routeAfter.body?.route?.credential_binding || routeAfter.body?.credential_binding || {};
+    ok("3r-route", "with the operator's approval recorded, the provider key is SEALED to the route record (credential_binding kind sealed_capability_lease, custody lease on record) and the route's read projection carries no secret", bound.status < 300 && credBinding.kind === "sealed_capability_lease" && credBinding.sealed === true && String(credBinding.provider_credential_lease_ref || "").startsWith("lease:") && !routeAfter.text.includes(PROVIDER_KEY), `${bound.status} ${bound.status < 300 ? "" : bound.text.slice(0, 160)} · binding ${JSON.stringify({ kind: credBinding.kind, sealed: credBinding.sealed, lease: credBinding.provider_credential_lease_ref })}`);
+    const probed = await mr(routeId, "/probe", { method: "POST" });
+    const enabled = await mr(routeId, "/enable", { method: "POST" });
+    const avail = probed.body?.availability || probed.body?.route?.availability || {};
+    ok("3r-route", "the probe is POSTURE-ONLY: credentials_present on the SEALED basis (the daemon sends no secret to a caller-supplied URL) — and the route enables", probed.status < 300 && avail.state === "credentials_present" && avail.probe?.evidence?.credential_basis === "sealed_capability_lease" && enabled.status < 300, `${probed.status}/${avail.state}/${avail.probe?.evidence?.credential_basis} · enable ${enabled.status} ${enabled.status < 300 ? "" : enabled.text.slice(0, 160)}`);
+    // The PROCESS-ENVIRONMENT key path stays refused by default: a remote route whose only
+    // credential is an env-key REPORT is not executable (no sealed credential), so it cannot bind a
+    // session — and the daemon's own environment carries no provider key to report.
+    const envRoute = await jd(DAEMON, "/v1/hypervisor/model-routes", { method: "POST", body: JSON.stringify(mut("env-key-route", { model_id: `${PROVIDER_MODEL}-env-key-report`, transport: "openai_compatible", base_url: PROVIDER_BASE_URL, display_name: "env-key report (must stay unexecutable)", credential_posture: "provider_vault_token", env_key_name: "OPENAI_API_KEY" })) });
+    const envRouteId = envRoute.body?.route?.route_id || "";
+    const envProbe = await mr(envRouteId, "/probe", { method: "POST" });
+    await mr(envRouteId, "/enable", { method: "POST" });
+    const envBind = await mr(envRouteId, "/session-bindings", { method: "POST", body: JSON.stringify({ session_ref: "session:alpha-journey-env-key-probe" }) });
+    const envAvail = envProbe.body?.availability || envProbe.body?.route?.availability || {};
+    // Provider-key shapes only (an *_API_KEY name, or the daemon's own env-key opt-in): the sanitized
+    // base environment may carry the operator's unrelated tooling tokens, which are not provider keys.
+    const daemonEnvKeys = Object.keys(daemonEnv).filter((k) => /API_KEY$/u.test(k) || k === "IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY");
+    ok("3r-route", "the PROCESS-ENVIRONMENT key path stays refused by default: the env-key-report route probes credentials_missing (the daemon's environment holds no provider API key and no IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY opt-in) and cannot bind a session (typed refusal, transport_unsupported_for_execution)", envAvail.state === "credentials_missing" && envBind.status >= 400 && (envBind.body?.error?.code || envBind.body?.code) === "transport_unsupported_for_execution" && daemonEnvKeys.length === 0, `${envAvail.state} · bind ${envBind.status}/${envBind.body?.error?.code || envBind.body?.code} · daemon env provider keys: ${JSON.stringify(daemonEnvKeys)}`);
+    remoteRoute = { routeId, routeRef, envRouteId };
+    evidence.model_route_lane = { lane: "remote", status: "run", route_ref: routeRef, provider_base_url: PROVIDER_BASE_URL, provider_model: PROVIDER_MODEL, credential: "sealed to the route record on the temporary daemon; never logged or written here" };
+  }
 
   // ---- 4. project ------------------------------------------------------------------------------
   const project = await jd(DAEMON, "/v1/hypervisor/projects", { method: "POST", body: JSON.stringify({ project_name: "Alpha journey", repository_url: "https://example.invalid/alpha-journey.git" }) });
@@ -499,7 +603,7 @@ async function run() {
 
   // ---- 6. start useful work: composer → parked on approval → approve → execute ----------------
   const intent = "Create a file named ALPHA_JOURNEY.md whose first line is exactly: hello from the alpha journey";
-  const composerBody = { initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: "local-workspace-v0", ...(STANDING ? { authorityProfile: { connectionRefs: [`connector:${A}`] } } : {}) };
+  const composerBody = { initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: "local-workspace-v0", ...(STANDING ? { authorityProfile: { connectionRefs: [`connector:${A}`] } } : {}), ...(remoteRoute ? { modelRouteRef: remoteRoute.routeRef } : {}) };
   const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody) });
   const runId = create.body?.agentExecutionId || "";
   const envId = create.body?.environment?.id || create.body?.environment?.environmentId || "";
@@ -537,7 +641,7 @@ async function run() {
     const sessionsPageSilent = await jd(SERVE, "/work/sessions");
     ok("6-work", "Work / Sessions shows NO approval card for the silent run", sessionsPageSilent.status === 200 && !sessionsPageSilent.text.includes(`data-ioi-awaiting-approval="${runId}"`), `${sessionsPageSilent.status}`);
     const changedSilent = transcript?.changed_files || [];
-    ok("6-work", `the silently authorized run completes on the qualified harness/model and writes at least one file (${Math.round((Date.now() - silentStart) / 1000)}s)`, transcript?.status === "done" && changedSilent.length > 0, `${transcript?.status} · ${JSON.stringify(changedSilent).slice(0, 160)} · ${transcript?.error || ""}`);
+    ok("6-work", `the silently authorized run completes on the qualified harness/model and writes at least one file (${Math.round((Date.now() - silentStart) / 1000)}s)`, transcript?.status === "done" && workFiles(changedSilent).length > 0, `${transcript?.status} · ${JSON.stringify(changedSilent).slice(0, 160)} · ${transcript?.error || ""}`);
     const drawReceipts = readReceipts((r) => r.kind === "hypervisor.session.standing_draw" && r.session_ref === runSessionRef && r.operation === "session_execute");
     ok("6-work", "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed", drawReceipts.length === 1 && String(drawReceipts[0].admission_intent_ref || "").startsWith("authority-admission-intents/") && drawReceipts[0].posture === "silent_within_policy", `${drawReceipts.length} draw receipt(s)`);
     evidence.standing_lease.silent_run = { run_id: runId, status: transcript?.status, draw_receipts: drawReceipts.length };
@@ -584,7 +688,7 @@ async function run() {
   }
   const execSeconds = Math.round((Date.now() - execStart) / 1000);
   const changed = transcript?.changed_files || [];
-  ok("6-work", `the approved run completes on the qualified harness/model and writes at least one file (${execSeconds}s)`, transcript?.status === "done" && changed.length > 0, `${transcript?.status} · ${JSON.stringify(changed).slice(0, 200)} · ${transcript?.error || ""}`);
+  ok("6-work", `the approved run completes on the qualified harness/model and writes at least one file (${execSeconds}s)`, transcript?.status === "done" && workFiles(changed).length > 0, `${transcript?.status} · ${JSON.stringify(changed).slice(0, 200)} · ${transcript?.error || ""}`);
 
   // ---- 7. inspect: artifacts, receipts, cost, the approval ------------------------------------
   const env = await jd(DAEMON, `/v1/hypervisor/environments/${encodeURIComponent(envId)}`);
@@ -610,6 +714,42 @@ async function run() {
     const execS = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
     ok("7-inspect", "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission", execS.length >= 1 && String(execS[0].capability_lease_ref || "").length > 0, `${execS.length} receipt(s)`);
   }
+  if (remoteRoute) {
+    // ---- 7r. M13.9: the run executed over the REMOTE route through the daemon's own proxy -------
+    const envS = await jd(DAEMON, `/v1/hypervisor/environments/${encodeURIComponent(envId)}`);
+    const execR = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
+    const er = execR[0] || {};
+    ok("7r-route", "the execute receipt names the remote route as the run's SESSION BINDING: model_source session_binding, the route ref, the openai_compatible transport and the provider model", er.model_source === "session_binding" && er.model_route_ref === remoteRoute.routeRef && er.model_transport === "openai_compatible" && er.model === PROVIDER_MODEL, `${er.model_source} · ${er.model_route_ref} · ${er.model_transport} · ${er.model}`);
+    const binding = readRecords("model-route-session-bindings").find((b) => b.session_ref === runSessionRef && b.route_ref === remoteRoute.routeRef) || {};
+    ok("7r-route", "the session's route binding executes at the DAEMON's model-mount proxy (execution_endpoint is the daemon, never the provider's URL)", typeof binding.execution_endpoint === "string" && binding.execution_endpoint === `${DAEMON}/v1` && binding.transport === "openai_compatible", `${binding.execution_endpoint} · ${binding.transport}`);
+    const envKeys = Array.isArray(er.harness_environment_keys) ? er.harness_environment_keys : null;
+    const expectedKeys = ["PATH", "HOME", "IOI_HYPERVISOR_MODEL_UPSTREAM", "IOI_HYPERVISOR_MODEL_TOKEN"];
+    ok("7r-route", "NON-POSSESSION: the harness child's environment held exactly PATH, HOME, the daemon-proxy upstream and the run-scoped model-mount token's name — no provider key, no provider URL+key pair (the lane clears its environment and the receipt lists every name it set)", Array.isArray(envKeys) && envKeys.length === expectedKeys.length && expectedKeys.every((k) => envKeys.includes(k)) && !envKeys.some((k) => /API_KEY|SECRET|OPENAI/u.test(k)), JSON.stringify(envKeys));
+    const invocations = readReceipts((r) => r.kind === "model_invocation" && r.details?.transport === "openai_compatible" && r.details?.routeId === remoteRoute.routeRef);
+    const usage = invocations.map((r) => r.details?.usage || {}).reduce((acc, u) => ({ prompt: acc.prompt + Number(u.prompt_tokens || 0), completion: acc.completion + Number(u.completion_tokens || 0), total: acc.total + Number(u.total_tokens || 0) }), { prompt: 0, completion: 0, total: 0 });
+    const providerStatuses = invocations.map((r) => r.details?.providerStatus ?? null);
+    const providerAccepted = invocations.some((r) => r.details?.providerStatus === 200 && Number(r.details?.usage?.total_tokens || 0) > 0);
+    ok("7r-route", "the DAEMON performed the provider call with the sealed credential: every model_invocation receipt on the route names the openai_compatible transport and the sealed basis (the receipt carries the provider's own status)", invocations.length >= 1 && invocations.every((r) => r.details?.credential === "sealed_capability_lease" && Number.isInteger(r.details?.providerStatus)), `${invocations.length} invocation(s) · provider status ${JSON.stringify(providerStatuses)}`);
+    ok("7r-route", "the PROVIDER ACCEPTED the operator's credential: at least one proxied call answered 200 with reported usage (a 401/403 here is the operator's credential refused by the provider — recorded typed, never a pass)", providerAccepted, providerAccepted ? `usage ${JSON.stringify(usage)}` : `provider answered ${JSON.stringify(providerStatuses)} — no accepted call; the estate's path up to the provider is receipted above`);
+    let intentFiles = [];
+    try { intentFiles = fs.readdirSync(envS?.body?.environment?.status?.workspace_root || "").filter((f) => f === "ALPHA_JOURNEY.md"); } catch { /* none */ }
+    ok("7r-route", "the run's WORK is the frontier model's: the intent's file (ALPHA_JOURNEY.md) exists in the session workspace, written from the proxied answer", intentFiles.length === 1, intentFiles.length ? "ALPHA_JOURNEY.md present" : "ALPHA_JOURNEY.md absent (no accepted provider answer to write from)");
+    const tokenRecords = readRecords("capability-tokens");
+    const findAll = (value, pred, out = []) => { if (value && typeof value === "object") { if (pred(value)) out.push(value); for (const v of Object.values(value)) findAll(v, pred, out); } return out; };
+    const issued = tokenRecords.flatMap((rec) => findAll(rec, (o) => o.status === "issued" && o.audience === runSessionRef && typeof o.token_id === "string"));
+    const issuedIds = new Set(issued.map((o) => o.token_id));
+    const revoked = tokenRecords.flatMap((rec) => findAll(rec, (o) => o.status === "revoked" && issuedIds.has(o.token_id)));
+    const scopes = issued.map((o) => JSON.stringify(o.allowed_scopes));
+    ok("7r-route", "the harness's credential was the estate's OWN: a run-scoped model-mount capability token minted for this run's session (audience = the session, scope model.chat:* only) and REVOKED when the lane returned — never a provider secret", issued.length >= 1 && issued.every((o) => JSON.stringify(o.allowed_scopes) === JSON.stringify(["model.chat:*"])) && revoked.length >= issued.length && !tokenRecords.some((rec) => JSON.stringify(rec).includes(PROVIDER_KEY)), `${issued.length} issued · ${revoked.length} revoked · scopes ${scopes.join(",")}`);
+    // The plaintext key must not exist anywhere in the daemon's state tree: the credential record
+    // holds a sealed token, the receipts hold labels, the workspace holds the model's files.
+    const leaked = grepTreeFor(dataDir, PROVIDER_KEY);
+    ok("7r-route", "NO PLAINTEXT ANYWHERE: the provider key appears in no file under the daemon's state tree (sealed credential record, receipts, bindings, sessions, workspaces)", leaked.length === 0, leaked.length ? `found in ${leaked.length} file(s)` : "0 files");
+    const price = PROVIDER_LIST_PRICES_USD_PER_M[PROVIDER_MODEL] || null;
+    const estimate = price ? (usage.prompt * price.input + usage.completion * price.output) / 1_000_000 : null;
+    evidence.model_route_lane = { ...(evidence.model_route_lane || {}), run_id: runId, session_ref: runSessionRef, invocations: invocations.length, provider_statuses: providerStatuses, provider_accepted: providerAccepted, usage, cost_usd_estimate: providerAccepted ? estimate : null, cost_basis: price ? `list price at authoring time (${price.input}/${price.output} USD per 1M input/output tokens) × the provider's reported usage — an estimate, not billing truth` : "no list price on file for this model; usage recorded, cost not estimated", harness_environment_keys: envKeys, run_scoped_tokens: { issued: issued.length, revoked: revoked.length } };
+    record("7r-route", "cost of the live remote run", providerAccepted ? `${usage.total} tokens (${usage.prompt} in / ${usage.completion} out)${estimate === null ? "" : ` ≈ $${estimate.toFixed(6)} at list price (estimate)`}` : `no accepted provider call (provider status ${JSON.stringify(providerStatuses)}); nothing was consumed and no cost is claimed`);
+  }
   if (AUTHORITY_MODE === "deployment") await qualifyRotationAndRevocation(envId);
   const consumption = await jd(DAEMON, "/v1/hypervisor/usage/consumption");
   const timeline = await jd(SERVE, `/__ioi/run-timeline/env/${encodeURIComponent(envId)}`);
@@ -625,6 +765,11 @@ async function run() {
   ok("8-stop", "revoking a connection refuses every later use under the sessions that named it", revoke.status < 300 && afterRevoke.status >= 400 && afterRevoke.body?.ok !== true, `${revoke.status} → ${afterRevoke.status}`);
 
   // ---- 9. restart and recover ------------------------------------------------------------------
+  // "Exactly as they were": the run's terminal truth is whatever the daemon held BEFORE the kill —
+  // done for a completed run, failed for one whose harness reported failure — never a status the
+  // verifier assumed.
+  const runBefore = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+  const terminalBefore = (runBefore.body?.run || runBefore.body?.record || runBefore.body)?.status || null;
   await stopServe();
   await stopDaemon("SIGKILL");
   await startDaemon();
@@ -634,7 +779,7 @@ async function run() {
   const runAfterRecord = runAfter.body?.run || runAfter.body?.record || runAfter.body;
   const receiptsAfter = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
   const pageAfter = await jd(SERVE, "/work/sessions");
-  const expectedTerminal = AUTHORITY_PRESENT ? "done" : "failed";
+  const expectedTerminal = terminalBefore || (AUTHORITY_PRESENT ? "done" : "failed");
   const expectedReceipts = AUTHORITY_PRESENT ? 1 : 0;
   ok("9-recover", `after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (${expectedTerminal}), its execute receipts (${expectedReceipts}) and the Sessions surface are all recovered exactly as they were`, listAfter.status === 200 && (listAfter.body?.sessions || []).some((s) => s.session_ref === runSessionRef) && runAfterRecord?.status === expectedTerminal && receiptsAfter.length === expectedReceipts && pageAfter.status === 200 && pageAfter.text.includes(runSessionRef), `${listAfter.status} · run ${runAfterRecord?.status} · ${receiptsAfter.length} receipt(s) · page ${pageAfter.status}`);
   const whoAfter = await jd(DAEMON, "/v1/hypervisor/auth/whoami");
@@ -671,6 +816,7 @@ async function run() {
   evidence.nonclaims = [
     ...(PACKAGE_MODE ? ["v2 differs from v1 only by the daemon crate version (same sources); the packaged build is the debug cargo profile", "the authority node is launched from the source checkout (its validator launcher is not relocatable)"] : ["packaged release / signer / supply-chain evidence", "update and rollback of the release"]),
     "workload-bound isolation (host_spawn only)",
+    ...(remoteRoute ? ["the remote route's answer quality (the lane claims the governed path: sealed credential, daemon proxy, run-scoped token, receipts)", "provider billing truth (the recorded cost is a list-price estimate over the provider's reported usage)"] : []),
     ...(AUTHORITY_MODE === "fixture" ? ["the wallet.network fixture is test material with a public approver seed"] : []),
     ...(AUTHORITY_MODE === "deployment" ? ["the authority node is a source build launched in this checkout, not a packaged component"] : [])];
 
@@ -822,5 +968,10 @@ async function cleanup() {
   try { await stopDaemon("SIGTERM"); } catch { /* gone */ }
   try { await fixture?.stop(); } catch { /* best effort */ }
   try { await authorityNode?.stop(); } catch { /* best effort */ }
+  if (KEEP_WORKDIR) {
+    try { fs.writeFileSync(path.join(workDir, "daemon.log"), daemonLog); fs.writeFileSync(path.join(workDir, "serve.log"), serveLog); } catch { /* best effort */ }
+    console.error(`work directory kept (IOI_ALPHA_JOURNEY_KEEP_WORKDIR=1): ${workDir}`);
+    return;
+  }
   try { fs.rmSync(workDir, { recursive: true, force: true }); } catch { /* keep */ }
 }

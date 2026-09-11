@@ -9705,6 +9705,20 @@ impl ExecutionSubstrate {
         }
     }
 
+    /// The probe for a SESSION: identical to `probe()` unless the session is bound to a registry
+    /// route, in which case the model-route check asks about THAT route (a local route's endpoint
+    /// reachable; a remote route's sealed credential live) instead of the daemon-wide env default —
+    /// a remote-bound run must not fail closed because no local model is listening (M13.9).
+    fn probe_for_session(data_dir: &str, session_id: &str) -> Self {
+        let mut probed = Self::probe();
+        if let Some(ready) =
+            super::model_routes::session_bound_route_ready(data_dir, session_id, endpoint_reachable)
+        {
+            probed.model_route = ready;
+        }
+        probed
+    }
+
     /// Real readiness checks for the environment-status projection.
     fn readiness_checks(&self) -> Value {
         json!([
@@ -9717,12 +9731,17 @@ impl ExecutionSubstrate {
 /// Honest reachability probe: can we TCP-connect to the configured model upstream
 /// (Ollama / OpenAI-compatible) within a short timeout? Offline → false (no fake).
 pub(crate) fn model_route_reachable() -> bool {
-    use std::net::{TcpStream, ToSocketAddrs};
     let upstream = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
         .ok()
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "http://127.0.0.1:11434".to_string());
-    let (host, port) = parse_host_port(&upstream);
+    endpoint_reachable(&upstream)
+}
+
+/// Whether `upstream` (a URL-ish endpoint) accepts a TCP connection within 300 ms.
+pub(crate) fn endpoint_reachable(upstream: &str) -> bool {
+    use std::net::{TcpStream, ToSocketAddrs};
+    let (host, port) = parse_host_port(upstream);
     let Ok(mut addrs) = format!("{host}:{port}").to_socket_addrs() else {
         return false;
     };
@@ -9850,6 +9869,10 @@ pub(crate) struct HostLaneOutcome {
     pub(crate) adapter_events: Vec<Value>,
     /// The driver's ImplementationResultPayload (ioi.hypervisor.implementation-result.v1).
     pub(crate) implementation_result: Option<Value>,
+    /// The NAMES of every environment variable the harness child was given (never a value): the
+    /// lane clears the environment and sets exactly these, so the execute receipt can state what
+    /// the harness could possess (M13.9: no provider credential is ever among them).
+    pub(crate) env_keys: Vec<String>,
 }
 
 /// Resolve the wired execution driver for the session's ADMITTED harness binding.
@@ -9975,6 +9998,7 @@ pub(crate) async fn run_host_spawn_lane(
     workspace_root: &str,
     intent: &str,
     model_endpoint: Option<&str>,
+    model_token: Option<&str>,
 ) -> HostLaneOutcome {
     use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _};
 
@@ -9993,14 +10017,24 @@ pub(crate) async fn run_host_spawn_lane(
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    let mut env_keys: Vec<String> = Vec::new();
     if let Some(path) = std::env::var_os("PATH") {
         command.env("PATH", path);
+        env_keys.push("PATH".to_string());
     }
     if let Some(home) = std::env::var_os("HOME") {
         command.env("HOME", home);
+        env_keys.push("HOME".to_string());
     }
     if let Some(endpoint) = model_endpoint {
         command.env("IOI_HYPERVISOR_MODEL_UPSTREAM", endpoint);
+        env_keys.push("IOI_HYPERVISOR_MODEL_UPSTREAM".to_string());
+    }
+    // The run-scoped model-mount capability token (remote routes only): the harness presents it
+    // as a bearer to the daemon's proxy. Scoped to this run, revoked when the lane returns.
+    if let Some(token) = model_token {
+        command.env("IOI_HYPERVISOR_MODEL_TOKEN", token);
+        env_keys.push("IOI_HYPERVISOR_MODEL_TOKEN".to_string());
     }
 
     let mut child = match command.spawn() {
@@ -10017,6 +10051,7 @@ pub(crate) async fn run_host_spawn_lane(
                 transcript: Vec::new(),
                 adapter_events: Vec::new(),
                 implementation_result: None,
+                env_keys,
             };
         }
     };
@@ -10157,6 +10192,7 @@ pub(crate) async fn run_host_spawn_lane(
         summary,
         files_written,
         transcript,
+        env_keys,
     }
 }
 
@@ -14176,7 +14212,7 @@ pub(crate) async fn handle_session_events(
         .cloned()
         .unwrap_or_else(|| json!([]));
 
-    let substrate = ExecutionSubstrate::probe();
+    let substrate = ExecutionSubstrate::probe_for_session(&st.data_dir, &session_id);
     let environment_status = project_session_environment_status(
         environment_ref,
         workspace_root,
@@ -24765,7 +24801,8 @@ pub(crate) async fn handle_session_execute(
     // Lane A (host_spawn / container): after the canonical launch mount, honest fail-closed
     // substrate checks still surface no_model_route / harness_unavailable BEFORE the wallet gate
     // (the offline contract), then authority, the durable execution anchor, and only then spawn.
-    let substrate = ExecutionSubstrate::probe();
+    // The model-route check is the SESSION's: a bound registry route answers for itself.
+    let substrate = ExecutionSubstrate::probe_for_session(&st.data_dir, &session_id);
     let blocked = if !substrate.model_route {
         Some((
             "no_model_route",
@@ -24824,25 +24861,33 @@ pub(crate) async fn handle_session_execute(
     // binding, model/endpoint resolution is byte-identical to the env-var default path.
     let route_binding =
         super::model_routes::resolve_session_route_binding(&st.data_dir, &session_id);
-    let (model, model_endpoint, model_source, model_route_ref, model_route_binding_id) =
-        match &route_binding {
-            Some((model_id, endpoint, route_ref, binding_id)) => (
-                model_id.clone(),
-                Some(endpoint.clone()),
-                "session_binding",
-                Some(route_ref.clone()),
-                Some(binding_id.clone()),
-            ),
-            None => (
-                resolve_harness_model(),
-                std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
-                    .ok()
-                    .filter(|value| !value.is_empty()),
-                "env_default",
-                None,
-                None,
-            ),
-        };
+    let (
+        model,
+        model_endpoint,
+        model_source,
+        model_route_ref,
+        model_route_binding_id,
+        model_transport,
+    ) = match &route_binding {
+        Some((model_id, endpoint, route_ref, binding_id, transport)) => (
+            model_id.clone(),
+            Some(endpoint.clone()),
+            "session_binding",
+            Some(route_ref.clone()),
+            Some(binding_id.clone()),
+            Some(transport.clone()),
+        ),
+        None => (
+            resolve_harness_model(),
+            std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            "env_default",
+            None,
+            None,
+            None,
+        ),
+    };
     // Adapter driver lane: a session whose ADMITTED harness binding names a wired adapter
     // (opencode / deepseek_tui) executes through that driver — bwrap-confined, event-streaming.
     // Substrate gaps fail closed BEFORE any spawn; no binding keeps the legacy path byte-identical.
@@ -24916,8 +24961,36 @@ pub(crate) async fn handle_session_execute(
         Ok(record) => record,
         Err(detail) => return session_execution_failure_response(detail),
     };
-    let outcome =
-        run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
+    // ADR 0053 § 2 / M13.9 — a REMOTE route executes through the daemon's own model-mount proxy,
+    // and the harness authenticates to that proxy with a RUN-SCOPED capability token: minted here
+    // for this run's session, scoped to `model.chat:*`, revoked when the lane returns. It is the
+    // estate's own revocable capability primitive, never a provider credential; the provider's
+    // sealed key never leaves the daemon. A local (ollama) route keeps the credential-free env.
+    let run_model_token = if model_transport.as_deref() == Some("openai_compatible") {
+        match crate::mint_run_scoped_model_token(&st, &session_id, &lane_receipt_ref) {
+            Ok(minted) => Some(minted),
+            Err(detail) => {
+                return session_execution_failure_response(format!(
+                    "run-scoped model-mount token could not be minted for the remote route: {detail}"
+                ));
+            }
+        }
+    } else {
+        None
+    };
+    let outcome = run_host_spawn_lane(
+        &argv,
+        &workspace_root,
+        &intent,
+        model_endpoint.as_deref(),
+        run_model_token.as_ref().map(|(token, _)| token.as_str()),
+    )
+    .await;
+    if let Some((_, token_id)) = run_model_token.as_ref() {
+        // Best effort: the token also carries its own expiry, so a failed revoke narrows nothing
+        // permanently; the revoke is recorded by the kernel when it lands.
+        let _ = crate::revoke_run_scoped_model_token(&st, token_id);
+    }
     let finished_at = iso_now();
 
     // Real workspace diff — whatever the harness actually wrote (git or walk).
@@ -24995,6 +25068,11 @@ pub(crate) async fn handle_session_execute(
         "model_source": model_source,
         "model_route_ref": model_route_ref,
         "model_route_binding_id": model_route_binding_id,
+        // M13.9 — the transport the run executed over and the NAMES of every variable the
+        // harness child was given (the lane clears its environment first). A remote route shows
+        // the run-scoped model-mount token's name here and never a provider credential's.
+        "model_transport": model_transport,
+        "harness_environment_keys": outcome.env_keys,
         "launch_binding": launch_binding,
         "exit_status": exit_status,
         "exit_code": outcome.exit_code,

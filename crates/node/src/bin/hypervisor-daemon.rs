@@ -5201,6 +5201,98 @@ fn authorize(st: &DaemonState, headers: &HeaderMap, required_scope: &str) -> Res
         .map_err(|error| AppError(StatusCode::FORBIDDEN, debug_string(error)))
 }
 
+/// ADR 0053 § 2 / M13.9 — a RUN-SCOPED model-mount capability token for a session execution
+/// against a remote route: minted through the same kernel call the token route uses, scoped to
+/// `model.chat:*`, audience = the run's session, grant = the run's lane receipt, two-hour expiry.
+/// Returns (raw token, token id). The raw token goes only to the harness child's environment.
+pub(crate) fn mint_run_scoped_model_token(
+    st: &DaemonState,
+    session_ref: &str,
+    grant_ref: &str,
+) -> Result<(String, String), String> {
+    let expires_at = now_unix_secs() + 2 * 3600;
+    let expires_iso = time::OffsetDateTime::from_unix_timestamp(expires_at)
+        .ok()
+        .and_then(|dt| {
+            dt.format(&time::format_description::well_known::Rfc3339)
+                .ok()
+        })
+        .unwrap_or_default();
+    let body = json!({
+        "audience": session_ref,
+        "grant_id": grant_ref,
+        "allowed_scopes": ["model.chat:*"],
+        "denied_scopes": [],
+        "expiresAt": expires_iso,
+        "purpose": "run-scoped harness access to the daemon's model-mount proxy (ADR 0053 § 2)",
+    });
+    let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.capability_token.create",
+        "state_dir": st.data_dir,
+        "body": body,
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .map_err(|error| error.to_string())?;
+    let plan = ModelMountCore
+        .plan_capability_token_control(&req)
+        .map_err(|error| debug_string(error))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| error.to_string())?;
+    let token = plan
+        .public_response
+        .get("token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "the kernel minted no token".to_string())?
+        .to_string();
+    let token_id = plan
+        .public_response
+        .get("token_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if let Some(token_hash) = plan
+        .public_response
+        .get("token_hash")
+        .and_then(|v| v.as_str())
+    {
+        if let Ok(mut map) = st.token_expiry.lock() {
+            map.insert(token_hash.to_string(), expires_at);
+        }
+    }
+    Ok((token, token_id))
+}
+
+/// Revoke a run-scoped token when its lane returns (the kernel's own revoke operation).
+pub(crate) fn revoke_run_scoped_model_token(
+    st: &DaemonState,
+    token_id: &str,
+) -> Result<(), String> {
+    let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.capability_token.revoke",
+        "state_dir": st.data_dir,
+        "token_id": token_id,
+    }))
+    .map_err(|error| error.to_string())?;
+    let plan = ModelMountCore
+        .plan_capability_token_control(&req)
+        .map_err(|error| debug_string(error))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 /// POST /v1/model-mount/tokens — mint a wallet-rooted capability token via the
 /// kernel; persist the redacted Agentgres record (token_hash only); return the
 /// raw token once. Unauthenticated (the grant body carries the authority).
@@ -7343,6 +7435,17 @@ async fn handle_chat_completions(
     authorize(&st, &headers, "model.chat:*")?;
     let route = resolve_route(&st, &body);
     let prompt = flatten_messages(&body);
+    // ADR 0053 § 2 / M13.9 — a model id that names a REMOTE route with a LIVE sealed credential
+    // is served here, by the daemon, with that credential: the caller (a harness holding a
+    // run-scoped capability token) never sees the provider URL and key pair, the provider answer
+    // is forwarded as-is, and the invocation is receipted against the route. Checked before the
+    // native-local branches because a body without `route_id` resolves to the native-local route
+    // id by default; a registered remote model id is the more specific claim.
+    if let Some((remote_route, bearer)) =
+        model_routes::remote_route_with_live_credential(&st.data_dir, &route.model)
+    {
+        return proxy_remote_chat(&st, &route, &remote_route, bearer, &body, &prompt).await;
+    }
     if route.is_native_local && body_wants_stream(&body) {
         return run_native_stream(st.clone(), route, prompt, StreamProtocol::OpenAiChat).await;
     }
@@ -7403,6 +7506,97 @@ async fn handle_chat_completions(
         }],
     }))
     .into_response())
+}
+
+/// The provider call for a remote route (ADR 0053 § 2): POST the caller's chat body to the
+/// route's `{base_url}/chat/completions` with the route's sealed credential as the bearer,
+/// forward the provider's JSON (with the route ref and a receipt id added), and receipt the
+/// invocation. The bearer is used once, here, and never logged, echoed or persisted.
+async fn proxy_remote_chat(
+    st: &DaemonState,
+    route: &RouteResolution,
+    remote_route: &Value,
+    bearer: String,
+    body: &Value,
+    prompt: &str,
+) -> Result<Response, AppError> {
+    let base_url = remote_route
+        .pointer("/provider_binding/base_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .trim_end_matches('/')
+        .to_string();
+    let route_ref = remote_route
+        .get("route_ref")
+        .and_then(|v| v.as_str())
+        .or_else(|| remote_route.get("route_id").and_then(|v| v.as_str()))
+        .unwrap_or_default()
+        .to_string();
+    let mut forward = body.clone();
+    if let Some(object) = forward.as_object_mut() {
+        object.insert("stream".to_string(), json!(false));
+        object.remove("route_id");
+    }
+    // The registry normalizes a route's base_url to the provider ROOT (a trailing `/v1` is
+    // stripped at registration); the OpenAI-compatible surface lives under `/v1`, exactly as the
+    // route-invoke transport addresses it.
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!("{base_url}/v1/chat/completions"))
+        .bearer_auth(&bearer)
+        .json(&forward)
+        .timeout(std::time::Duration::from_secs(120))
+        .send()
+        .await
+        .map_err(|error| {
+            AppError(
+                StatusCode::BAD_GATEWAY,
+                format!("remote_route_unreachable: {}", error.without_url()),
+            )
+        })?;
+    let status = response.status();
+    let payload: Value = response.json().await.unwrap_or_else(|_| json!({}));
+    let remote_receipt = RouteResolution {
+        route_id: route_ref.clone(),
+        model: route.model.clone(),
+        endpoint_id: base_url.clone(),
+        provider_id: "openai_compatible".to_string(),
+        backend_id: "remote".to_string(),
+        is_native_local: false,
+    };
+    let receipt_id = persist_invocation_receipt(
+        st,
+        &remote_receipt,
+        &json!({}),
+        &format!("chat:remote:{}:{}", route_ref, short_hash(prompt)),
+        json!({
+            "capability": "chat",
+            "invocationKind": "chat.completions",
+            "transport": "openai_compatible",
+            "credential": "sealed_capability_lease",
+            "providerStatus": status.as_u16(),
+            // The provider's own usage report, verbatim (tokens); a price is never inferred here.
+            "usage": payload.get("usage").cloned().unwrap_or(Value::Null),
+            "providerModel": payload.get("model").cloned().unwrap_or(Value::Null),
+        }),
+    );
+    if !status.is_success() {
+        // Never echo the provider body verbatim on an error: it may quote request headers.
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            format!(
+                "remote_route_provider_error: the provider answered HTTP {} (receipt {receipt_id})",
+                status.as_u16()
+            ),
+        ));
+    }
+    let mut out = payload;
+    if let Some(object) = out.as_object_mut() {
+        object.insert("route_id".to_string(), json!(route_ref));
+        object.insert("receipt_id".to_string(), json!(receipt_id));
+        object.insert("transport".to_string(), json!("openai_compatible"));
+    }
+    Ok(Json(out).into_response())
 }
 
 /// OpenAI Responses API over the native-local kernel, with conversation-state

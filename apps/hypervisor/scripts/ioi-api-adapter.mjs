@@ -28,6 +28,7 @@ import {
   extractPrompt,
   extractEnvClass,
   extractAuthorityProfile,
+  extractModelRouteRef,
 } from "./ioi-agent-runs.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -597,6 +598,7 @@ async function handleImpl(pathname, bodyText) {
           environmentClassId,
           daemonHeaders: currentDaemonHeaders(),
           authorityProfile: extractAuthorityProfile(body),
+          modelRouteRef: extractModelRouteRef(body),
         });
       } catch (error) {
         // Every failure to create a run ANSWERS. A thrown error here used to escape the handler and

@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "useful-alpha program (2026-09-10/11, ADR 0053)",
+  "leg": "U3",
+  "title": "M13.9 — a remote frontier model route: sealed credential, daemon-proxied provider call, run-scoped model-mount token in the harness, non-possession on the execute receipt — BUILT; live acceptance blocked on the operator's provider credential",
+  "basis": {
+    "head": "42007f60e",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-11",
+  "verdict": "BUILT, bar OPEN: every clause of M13.9 the estate controls is green on the composed journey (route registered, custody crossing approved, key sealed, posture-only probe, env-key path refused, session bound at the daemon's /v1, run-scoped token issued and revoked, harness environment secret-free, plaintext absent from the state tree, provider call performed and receipted by the daemon); the PROVIDER refused the operator's credential, so no live run is recorded with its cost. Closure: a valid operator key and one run of the lane.",
+  "runs": {
+    "IOI_ALPHA_MODEL_ROUTE=remote IOI_ALPHA_PROVIDER_MODEL=gpt-4o-mini IOI_ALPHA_PROVIDER_KEY=<operator's key from .env, read once, never logged> npm run check:alpha-journey --workspace=@ioi/hypervisor-app (run 7)": {
+      "verdict": "FAIL — exactly the provider-acceptance clause and the clauses that depend on an accepted answer",
+      "assertions": "42/46 on 2026-09-11 (run 7; the four open clauses are the provider's acceptance and what depends on it: the run completing on the model, its artifacts, the intent's file)",
+      "provider": "the provider answered 401 (invalid API key) to the operator's sealed key through the daemon's proxy on every run — 1 proxied call, 0 tokens, no cost; the same key probed directly answers 401 'Incorrect API key provided'",
+      "note": "fixture authority (Solo); the local Ollama route was not required; the provider key was sealed to the route record on the journey's temporary daemon and the state tree was grepped for the plaintext afterwards (0 files); the operator's key (the only provider key on the host, .env OPENAI_API_KEY, 164 chars, well-formed) was probed directly after run 3 and the provider answered 401 'Incorrect API key provided' — the credential, not the estate"
+    },
+    "runs 1-6 (recorded as they happened)": {
+      "run_1": "26/43: the credential bind is an authority crossing (403, tool model.credential.bind) the lane had not approved. Fixed in the lane: the challenge is approved through the fixture approver (mintRecorded against the challenge's exact scope) and retried on the same idempotency key; the daemon-environment check narrowed to provider-key shapes.",
+      "run_2": "33/44: everything through the session binding green (execution_endpoint = the daemon's /v1), then the run failed CLOSED at 0 s with no_model_route — ExecutionSubstrate::probe() TCP-probed the daemon-wide env-default upstream (the local Ollama, not running) instead of the session's bound route. Fixed in the daemon: probe_for_session asks about the bound route (local: endpoint reachable; remote: sealed credential live) at the execute path and the session gate.",
+      "run_3": "42/44: the daemon proxied the call and receipted the provider's answer, but no usage came back. Two honesty findings surfaced by that and fixed before run 4: the App's run adapter marked a run 'done' on any HTTP 200 from execute even when the harness reported exit_status failure (now failed with the harness's typed error); the journey's 'writes at least one file' clause was satisfied by the environment's own .devcontainer scaffold (now excluded). The lane's detail was widened to show the provider's status.",
+      "run_4": "41/47: the receipt showed the provider's answer was 404 — the proxy posted to {base_url}/chat/completions while the registry normalizes base_url to the provider ROOT (a trailing /v1 is stripped at registration); the route-invoke transport addresses {base_url}/v1/chat/completions. Fixed in the proxy. The recovery clause also compared the run against an assumed 'done' instead of the pre-restart truth (fixed: it now reads the run's status before the kill).",
+      "run_5": "42/46: the provider answered 401 through the proxy — the operator's credential refused, the honest final state for the bar. A second finding: the run stayed 'running' for the whole 900 s poll and after the restart, although the daemon's execute lane had finished in seconds.",
+      "run_6": "42/46 with the work directory kept: the execute receipt shows the lane finished at 16:00:22.879 (exit_status failure, no_model_route, provider 401 receipted); the adapter's silent-authorization bump landed at 16:00:22.947 and the failure bump a millisecond later — two concurrent write-through fetches, and the daemon applied the OLDER record last, so the durable run record read 'running' with no failure entry, for every reader and across the serve restart. Fixed in the adapter: persistRun snapshots the record and chains writes per run, so the durable record can never regress behind an in-flight write."
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon": {
+      "verdict": "pass",
+      "assertions": "cargo test --locked -p ioi-node --bin hypervisor-daemon: 1148 passed; 0 failed; 8 ignored (106.0 s)"
+    },
+    "cargo fmt -p ioi-node -- --check": {
+      "verdict": "this leg's hunks formatted; the pre-existing drift on master (cloud_job_routes.rs and six other files) is recorded in leg 1 and not swept here"
+    }
+  },
+  "mechanism": {
+    "session_binding": "an openai_compatible route binds a session only with a LIVE sealed credential (availability credentials_present on the sealed basis; `available` stays the local route's word); the binding's execution_endpoint is the daemon's own /v1 (IOI_HYPERVISOR_DAEMON_ADDR), never the provider URL",
+    "proxy": "POST /v1/chat/completions: a model id naming an active remote route with a live sealed credential is served by the daemon with that credential (bearer to {base_url}/chat/completions, stream forced off); the provider JSON is forwarded with route_id, receipt_id and transport; a model_invocation receipt carries transport, credential basis, providerStatus, providerModel and the provider's usage verbatim; non-2xx answers are refused 502 without echoing the provider body",
+    "run_scoped_token": "the session-execute lane mints a model-mount capability token for the run (audience = the session, grant = the lane receipt, allowed_scopes [model.chat:*], 2 h) through the kernel's own create operation, hands its NAME to the harness child as IOI_HYPERVISOR_MODEL_TOKEN, and revokes it when the lane returns; the harness shim presents it as the bearer",
+    "non_possession": "run_host_spawn_lane clears the child environment and sets exactly PATH, HOME, IOI_HYPERVISOR_MODEL_UPSTREAM and (remote only) IOI_HYPERVISOR_MODEL_TOKEN; the execute receipt lists those names (harness_environment_keys) and the transport (model_transport)",
+    "preflight": "the execute preflight asks about the SESSION's bound route (probe_for_session / session_bound_route_ready); an unbound session keeps the env-default probe",
+    "process_environment_key_path": "a route whose only credential is an env-key report is not executable (no sealed credential) and cannot bind a session (409 transport_unsupported_for_execution); the journey's daemon environment carries no provider key and no IOI_HYPERVISOR_ALLOW_ENV_PROVIDER_KEY opt-in",
+    "composer": "the /ai composer's CreateAgentSession accepts modelRouteRef and the adapter passes it to the daemon session create as model_route_ref (the New Session launcher already did)",
+    "run_status": "the App's run adapter reads the execute receipt's exit_status: a harness that reported failure is a failed run with its typed error, never 'done'; its write-through to the durable run record is ordered per run"
+  },
+  "typed_absences": [
+    "LIVE PROVIDER ACCEPTANCE: not achieved — the operator's key was refused (401); the bar's 'live run recorded with its cost' clause is OPEN. Closure test: a valid operator key and one run of the remote lane",
+    "without IOI_ALPHA_PROVIDER_KEY, or outside fixture authority mode, the lane records a TYPED ABSENCE and the journey runs on the local route — never a pass of the lane",
+    "the credential-bind custody crossing is approved headlessly through the fixture approver: the App renders no approval card for it yet",
+    "GoalRun implementer lanes still bind local routes only (no run-scoped token is minted there)",
+    "an execute in flight when the serve restarts stays 'running' in the durable run record (no reconciliation against the session's execute receipt) — recorded for the owner, not fixed here",
+    "the remote route's answer quality is not claimed; a recorded cost would be a list-price estimate over the provider's reported usage, not billing truth"
+  ]
+}
