@@ -234,6 +234,16 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run mutate:canon-document-residuals
 
+      # M08.7, re-scoped to the tracked population by R-40: the gitignored corpus cannot be gated.
+      # No daemon needed — it reads canon and the reference terminal artifacts.
+      - name: Verify the retired doctrine asserts itself nowhere in tracked canon (M08.7)
+        if: ${{ !cancelled() }}
+        run: npm run check:prompt-corpus-currentness
+
+      - name: Verify that currentness check goes red on its own planted defects
+        if: ${{ !cancelled() }}
+        run: npm run mutate:prompt-corpus-currentness
+
 
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the

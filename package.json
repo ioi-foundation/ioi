@@ -64,6 +64,8 @@
     "check:device-held-wallet-principal": "node scripts/check-device-held-wallet-principal.mjs",
     "check:admission-census-entailment": "node scripts/check-admission-census-entailment.mjs",
     "check:canon-document-residuals": "node scripts/check-canon-document-residuals.mjs",
+    "check:prompt-corpus-currentness": "node scripts/check-prompt-corpus-currentness.mjs",
+    "mutate:prompt-corpus-currentness": "node scripts/check-prompt-corpus-currentness.mjs --mutation",
     "mutate:canon-document-residuals": "node scripts/check-canon-document-residuals.mjs --mutation",
     "mutate:admission-census-entailment": "node scripts/check-admission-census-entailment.mjs --mutation",
     "mutate:device-held-wallet-principal": "node scripts/check-device-held-wallet-principal.mjs --mutation",

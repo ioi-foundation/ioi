@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-7-retired-doctrine-currentness",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.7"
+  ],
+  "status": "verified",
+  "objective": "The retired seed/IA doctrine asserts itself nowhere in tracked canon, and the claim set that judges it is derived from the terminal artifacts rather than hand-written. Re-scoped from the gitignored prompt corpus to the tracked population, because a check over a path CI cannot see would pass vacuously.",
+  "falsifiable_claim": "The five terminal artifacts exist, parse, and reconcile their declared totals against the collections they declare them over. No tracked canon document asserts any of the three retired clauses — capture-root is the app, landing state is the done-bar, a shell-clean capture is a blocker — as current truth, while a document narrating one as retired is not counted. The retirement itself is still on record at the site the predicate is read from. The subroute census falsifies clause 1 by construction. Every intra-repo path a tracked canon document references resolves. The three surviving seed gates key on the successor artifacts and on none of the retired clauses.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-prompt-corpus-currentness.mjs",
+      "literal": "RETIRED_CLAUSES",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-prompt-corpus-currentness.mjs",
+      "literal": "captured reference ROOT is not the application",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-prompt-corpus-currentness.mjs",
+      "literal": "a check whose evidence cannot contradict the claim it polices is not evidence",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:prompt-corpus-currentness",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:prompt-corpus-currentness",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Five drills, one of which is the important one: the retired-clause finding must NOT fire on a document narrating the clause as retired, or the only way to pass would be to delete the history. The others plant an assertion of two clauses at once, a reference to a file that does not exist, a gate keying on a retired clause, and a missing terminal artifact. The check also carries its own falsifiability requirement as an assertion rather than a comment: the subroute census must record in-app routes beyond the workspace root, because that is precisely what clause 1 denies, and evidence that cannot contradict the claim it polices is not evidence.",
+  "remaining_nonclaims": [
+    "The gitignored corpus is NOT policed. internal-docs/prompts/, internal-docs/implementation/ and internal-docs/reverse-engineering/ carry the 287 surface briefs, the retired-doctrine banners and all eleven surviving dangling master-guide pointers, and none of it is tracked. Its sweep is recorded in reference-remediation-ledger.v1.json DOC-1 (2026-08-20) and 286 of the 287 briefs already carry the archival banner; repairing the remaining pointers is hygiene a gate cannot witness.",
+    "The retired doctrine is a finite predicate of THREE clauses, not a vocabulary. The words seed and parity remain live and correct: the same ruling keeps parity matrices and pixel certifications in force as evidence. A check that swept the vocabulary would call the successor a residual.",
+    "The clause patterns match claim SHAPE. A document asserting the retired doctrine in wording no pattern anticipates would not be caught; the patterns are stated in the check rather than hidden, so widening them is a visible edit."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program, leg 2 (third unit of the READY set), under ruling R-40. Measured before the re-scope: git ls-files over the three corpus directories returns zero; the corpus holds 1473 files including 287 surface briefs, 286 of which already carry the 2026-07-06 archival banner, the sole exception being the plan that retired the doctrine. One construction defect recorded: the check first matched the retirement sentence whole, which made the clause red on a line wrap rather than on a deletion. check:prompt-corpus-currentness 7/7, mutate: 12/12.",
+  "last_status_transaction": "2026-09-12"
+}
