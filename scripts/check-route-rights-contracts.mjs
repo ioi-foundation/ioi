@@ -57,6 +57,16 @@ const CONSUMER_PLANES = [
   "institutional_learning_boundary_routes.rs",
   "policy_bound_data_view_revision_routes.rs",
   "vertical_pack_worker_binding_routes.rs",
+  // The fourth plane, registered 2026-09-12 (M07.4's model-route candidate lane). This gate's
+  // own comment predicted it — "a fourth plane written tomorrow is a finding rather than an
+  // omission" — and that is exactly how it arrived: the lane began resolving rights contracts to
+  // decide which routes are ELIGIBLE for an advisory cost ranking, and the closed-world assertion
+  // reported it as unexpected before CI had finished the run that introduced it. It is listed
+  // here rather than exempted because it genuinely applies the ceiling: it resolves the contract
+  // once, then tests `is_live()` AND the declared route use through `permitted_route_uses()` and
+  // `unresolved_route_uses()`, and excludes EVERY candidate when either fails. Registering a
+  // plane is a claim this gate then checks, not a way past it.
+  "model_route_candidate_routes.rs",
 ];
 
 const read = (file) => readFileSync(join(ROUTES_DIR, file), "utf8");
