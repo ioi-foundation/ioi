@@ -128,25 +128,56 @@ ok("every attested coordinate the applicability claim rests on is present and WE
 // ---------------------------------------------------------------- ANCESTRY, the applicability claim
 const integrated = String(evidence?.integrated_source_commit ?? "");
 const benchmark = String(evidence?.benchmark_source_commit ?? "");
-const integratedResolves = COMMIT.test(integrated) && git(["cat-file", "-t", integrated]) === "commit";
-const integratedIsAncestor = integratedResolves
-  && spawnSync("git", ["merge-base", "--is-ancestor", integrated, "HEAD"], { cwd: repo }).status === 0;
+// A SHALLOW CLONE IS NOT A FAILED ANCESTRY, AND CONFLATING THEM IS HOW THIS GATE WENT RED IN CI
+// WHILE PASSING EVERYWHERE ELSE (2026-09-12). The runner checks out with depth 1, so the commit the
+// live run was performed on is simply absent from its history — and "absent" was being reported as
+// "not an ancestor", which is a different fact with a different owner and a different fix. The gate
+// needs exactly one commit, so it fetches exactly that one before concluding anything, and if the
+// fetch cannot get it the finding says HISTORY UNAVAILABLE rather than accusing the tree.
+const haveCommit = (sha) => git(["cat-file", "-t", sha]) === "commit";
+const fetchIfShallow = (sha) => {
+  if (!COMMIT.test(sha) || haveCommit(sha)) return;
+  // `--depth=1` on a single object: enough to answer ancestry, and it costs one object rather than
+  // the whole history a `fetch-depth: 0` checkout would pull on every run of every job.
+  spawnSync("git", ["fetch", "--depth=1", "origin", sha], { cwd: repo, encoding: "utf8", timeout: 120000 });
+  if (!haveCommit(sha)) {
+    spawnSync("git", ["fetch", "--unshallow"], { cwd: repo, encoding: "utf8", timeout: 300000 });
+  }
+};
+fetchIfShallow(integrated);
+observations.shallow_clone = git(["rev-parse", "--is-shallow-repository"]) === "true";
+const integratedResolves = COMMIT.test(integrated) && haveCommit(integrated);
+// ANCESTRY IS NOT ANSWERABLE ON A SHALLOW REPOSITORY, and a targeted fetch does not make it so: a
+// `--depth=1` fetch of one sha hands you the OBJECT with no parent chain, so `merge-base` cannot
+// walk the path between it and HEAD and answers "no" for a commit that is in fact an ancestor.
+// Measured against a real `git clone --depth 1` of this repository, which is what the runner does.
+// So a negative answer on a shallow clone is not an answer: deepen, then ask again, and only then
+// is a "no" a finding about the tree rather than about the checkout.
+const isAncestor = (sha) =>
+  spawnSync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], { cwd: repo }).status === 0;
+let integratedIsAncestor = integratedResolves && isAncestor(integrated);
+if (integratedResolves && !integratedIsAncestor && git(["rev-parse", "--is-shallow-repository"]) === "true") {
+  spawnSync("git", ["fetch", "--unshallow"], { cwd: repo, encoding: "utf8", timeout: 600000 });
+  integratedIsAncestor = isAncestor(integrated);
+}
 observations.integrated_source_commit = integrated;
 observations.head = git(["rev-parse", "HEAD"]) || "";
 ok("THE RETAINED RUN'S SOURCE IS AN ANCESTOR OF THIS TREE — the whole applicability question, and the only one that decays silently. The three gates beside this one judge the evidence's internal consistency, so all of them stay green on a tree the run never touched; a rebase, a squash, or a clone from a different lineage breaks exactly this and nothing else",
   integratedIsAncestor,
   integratedIsAncestor
     ? `${integrated.slice(0, 12)} is an ancestor of ${observations.head.slice(0, 12)}`
-    : `${integrated.slice(0, 12) || "absent"} does not resolve to an ancestor of HEAD`);
+    : integratedResolves
+      ? `${integrated.slice(0, 12)} resolves here but is NOT an ancestor of HEAD — the retained evidence describes a lineage this tree does not descend from`
+      : `HISTORY UNAVAILABLE: ${integrated.slice(0, 12) || "absent"} is not in this checkout even after a targeted fetch${observations.shallow_clone ? " (the clone is shallow)" : ""} — this is a fact about the checkout, not about the evidence`);
 
 // The benchmark lineage is RECORDED, not required. Measured 2026-09-12: it resolves as a commit
 // object here and is NOT an ancestor of HEAD — the benchmark ran on its own branch and was never
 // merged. Requiring ancestry of it would fail honestly-retained evidence; ignoring it entirely
 // would hide the day it silently stops resolving at all, so it is asserted to RESOLVE and its
 // ancestry is reported as a measurement rather than a bar.
-const benchmarkResolves = COMMIT.test(benchmark) && git(["cat-file", "-t", benchmark]) === "commit";
-const benchmarkIsAncestor = benchmarkResolves
-  && spawnSync("git", ["merge-base", "--is-ancestor", benchmark, "HEAD"], { cwd: repo }).status === 0;
+fetchIfShallow(benchmark);
+const benchmarkResolves = COMMIT.test(benchmark) && haveCommit(benchmark);
+const benchmarkIsAncestor = benchmarkResolves && isAncestor(benchmark);
 observations.benchmark_source_commit = benchmark;
 observations.benchmark_is_ancestor_of_head = benchmarkIsAncestor;
 ok("and the benchmark lineage still RESOLVES in this repository, with its ancestry reported rather than demanded — the benchmark ran on its own branch and was never merged, so requiring ancestry would fail honestly-retained evidence while ignoring it would hide the day the object disappears",

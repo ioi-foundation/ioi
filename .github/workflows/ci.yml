@@ -756,7 +756,21 @@ jobs:
       matrix:
         include:
           - verifier_id: goalrun-activation-plane
-          - verifier_id: outcome-room-system-spine
+          # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
+          # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
+          # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
+          # and `deepseek` CLIs (goalrun_routes.rs builds its candidates from exactly those two
+          # harnesses). This runner installs opencode; `deepseek` is a second live third-party agent
+          # fleet. The estate already ruled on that cost, in its own words, before the apparatus was
+          # stripped on 2026-08-05: "live third-party agent fleets, not a per-push cost … run on
+          # demand to re-prove against a provisioned runner."
+          #
+          # What made it fail rather than skip is that the ruling's apparatus went and the verifier
+          # stayed, so a per-push matrix kept running a proof that cannot pass here — and the
+          # prebuild repair earlier today is what made that visible, because before it the lane died
+          # on readiness and contributed ZERO assertions instead of eleven. It now runs on its own
+          # provisioned lane (m4-outcome-room-spine.yml) where both CLIs exist, and the manifest
+          # records it as a scheduled qualification rather than a per-push gate.
     # Each matrix entry gets a separate runner and 120-minute interim hang
     # ceiling. This is not a performance threshold or accepted runtime doctrine.
     timeout-minutes: 120

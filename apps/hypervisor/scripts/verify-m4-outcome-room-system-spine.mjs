@@ -1452,7 +1452,19 @@ try {
   let collectiveGoal = collectiveCreate.body.goal_run;
   const collectiveGoalRunId = requireValue(
     collectiveGoal?.goal_run_id,
-    `collective GoalRun failed ${collectiveCreate.status}/${collectiveCreate.body.error?.code}/${collectiveCreate.body.error?.details?.detail || collectiveCreate.body.error?.message || "no-detail"}`,
+    // THE WHOLE `details` OBJECT, not just a `detail` string inside it (2026-09-12). The daemon's
+    // collective-topology refusal carries the topology selection's own `excluded_implementers` —
+    // a profile ref, a harness and a reason code for every candidate it declined — and this line
+    // read only `details.detail`, so the one field that says WHY was discarded on the way out. Two
+    // CI runs reported "requires at least two daemon-admitted implementer contexts" and nothing
+    // else, which cannot distinguish a lane that provisioned one harness from a lane that
+    // provisioned both and had one dropped as ineligible. Those have different owners.
+    `collective GoalRun failed ${collectiveCreate.status}/${collectiveCreate.body.error?.code}/${
+      collectiveCreate.body.error?.details?.detail
+      || (collectiveCreate.body.error?.details ? JSON.stringify(collectiveCreate.body.error.details).slice(0, 600) : null)
+      || collectiveCreate.body.error?.message
+      || "no-detail"
+    }`,
   );
   check(
     "COLLECTIVE GOAL: daemon admits the local owner on the System-bound path",

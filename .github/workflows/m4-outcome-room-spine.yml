@@ -1,0 +1,133 @@
+name: M04 OutcomeRoom/System spine (provisioned lane)
+
+# WHY THIS IS NOT IN ci.yml, stated where the next person will look for it.
+#
+# `check:m4-outcome-room-system-spine` proves M04.5/M04.9's live execution closure, and its
+# collective path requires TWO daemon-admitted implementer contexts. The daemon does not take that
+# as a parameter: `goalrun_routes.rs` builds its implementer candidates from exactly two harnesses,
+# `opencode` and `deepseek_tui`, and the kernel's own eligibility rule drops any candidate whose
+# binary is not on PATH. So the proof needs two live third-party agent CLIs on the runner.
+#
+# The estate ruled on that cost on 2026-08-05 and said it plainly: "live third-party agent fleets,
+# not a per-push cost … run on demand to re-prove against a provisioned runner." The commit that
+# stripped the proof apparatus took the ruling's machinery and left the verifier on the per-push
+# matrix, where it could not pass — and until the wallet-fixture prebuild was repaired on
+# 2026-09-12 that failure looked like a readiness timeout rather than a provisioning gap, because
+# the lane died before reaching a single assertion. With the prebuild fixed it reached eleven and
+# named its own cause, which is how the ruling got restored rather than rediscovered.
+#
+# THIS LANE ASSERTS ITS PRECONDITIONS FIRST. Both implementer CLIs are checked before anything is
+# built, so a runner missing one fails in ten seconds with the name of what is missing rather than
+# twenty minutes in with a topology refusal.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, so the retained closure does not silently age out between manual runs.
+    - cron: "0 5 * * 1"
+
+jobs:
+  outcome_room_spine:
+    name: M04 OutcomeRoom/System spine
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      # PRECONDITIONS FIRST, and both of them, because one present and one absent is exactly the
+      # state that produced a topology refusal nobody could read.
+      - name: Require both implementer harness CLIs before anything is built
+        run: |
+          npm install --global opencode-ai@1.18.25
+          test "$(opencode --version)" = "1.18.25"
+          command -v bwrap
+          bwrap --version
+          if ! command -v deepseek >/dev/null 2>&1; then
+            echo "MISSING IMPLEMENTER CLI: 'deepseek' is not on PATH."
+            echo "The collective path needs TWO admitted implementer contexts and the daemon"
+            echo "hard-wires them to the opencode and deepseek harnesses (goalrun_routes.rs)."
+            echo "A candidate whose binary is absent is dropped as binary_missing by the kernel's"
+            echo "own eligibility rule, so this run would refuse with"
+            echo "goal_run_collective_topology_unresolved twenty minutes from now."
+            echo "Provision this runner with the deepseek CLI and re-dispatch."
+            exit 1
+          fi
+          deepseek --version || true
+
+      - name: Install native deps for daemon-backed verification
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config cmake libdbus-1-dev protobuf-compiler libxcb1-dev libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Cache verifier dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-m4-outcome-room-spine-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Prebuild the wallet-fixture node profile
+        uses: ./.github/actions/prebuild-node-profile
+
+      - name: Cache the exact Outcome model
+        uses: actions/cache@v3
+        with:
+          path: ~/.ollama/models
+          key: ollama-qwen2.5-7b-845dbda0ea48
+
+      - name: Provision the exact Outcome model route
+        run: |
+          curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.18.3 sh
+          # The client prints its version as `ollama version is X` when it can reach a server and
+          # `Warning: client version is X` when it cannot, and right after the installer starts the
+          # unit it usually cannot yet. Both carry `version is X`; parse that, and print the raw
+          # output so the next drift is visible.
+          RAW="$(ollama --version 2>&1 || true)"
+          echo "installed Ollama client output: $RAW"
+          VERSION="$(printf '%s' "$RAW" | sed -n 's/^.*version is //p' | head -1)"
+          test "$VERSION" = "0.18.3"
+          nohup ollama serve > /tmp/ollama-serve.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break
+            if [ "$attempt" -eq 60 ]; then cat /tmp/ollama-serve.log; exit 1; fi
+            sleep 2
+          done
+          ollama pull qwen2.5:7b
+
+      - name: Verify the OutcomeRoom/System spine
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_WORKLOAD_GRPC_TIMEOUT_MS: 120000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
+
+      - name: Publish the spine's verifier census
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4-plane-verifier-census-outcome-room-system-spine
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/verifier-census
