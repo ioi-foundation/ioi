@@ -54,3 +54,43 @@ test('HttpOnly product session is required and browser authority headers are rej
   assert.equal(tampered.status, 401);
   assert.equal(tampered.body.error.code, 'invalid_session');
 });
+
+// THE STATIC RESPONSE'S SECURITY POSTURE WAS UNGUARDED (2026-09-12). Nothing in this repository
+// asserted the content-security-policy this server sends — it could be widened, or deleted
+// outright, and every gate would stay green. That was found while ADDING a directive to it
+// (`worker-src 'self' blob:`, which the landing hero's Draco decoder needs), and a posture that
+// can be edited without anything noticing is exactly what should not be edited quietly.
+//
+// The directives are compared as a SET rather than as one string, so reordering them is not a
+// failure and adding, removing or altering one is. Each is named here with what it is for, so a
+// future change is a visible edit to a list with reasons on it rather than a diff in a header.
+test('the static response declares exactly the security directives it means to', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const source = await readFile(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'server.mjs'),
+    'utf8',
+  );
+  const declared = /'content-security-policy':\s*"([^"]+)"/u.exec(source);
+  assert.ok(declared, 'server.mjs declares a content-security-policy header');
+  const directives = Object.fromEntries(
+    declared[1].split(';').map((part) => part.trim()).filter(Boolean)
+      .map((part) => { const [name, ...values] = part.split(/\s+/u); return [name, values.join(' ')]; }),
+  );
+  assert.deepEqual(directives, {
+    // Nothing loads from anywhere but this origin unless a directive below says otherwise.
+    'default-src': "'self'",
+    // No remote script and no inline script. This is the directive that must not widen.
+    'script-src': "'self'",
+    // Workers from this origin and from blob URLs: three.js's DRACOLoader inlines its decoder and
+    // starts it from a Blob. Without this it falls back to script-src and the decoder is blocked.
+    'worker-src': "'self' blob:",
+    'style-src': "'self'",
+    // data: is for the inlined icons the build emits; it is not a script source.
+    'img-src': "'self' data:",
+    'connect-src': "'self'",
+    'object-src': "'none'",
+    'base-uri': "'none'",
+    'frame-ancestors': "'none'",
+  });
+});

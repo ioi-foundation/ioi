@@ -27,7 +27,7 @@ const recordedFailure = () => ({
 
 const recordedContext = () => ({
   product_lane: FENCED_PRODUCT_LANE,
-  final_route_disposition: "vendor_spa",
+  spa_shell_document: true,
   served_origin: SERVED_ORIGIN,
 });
 
@@ -83,15 +83,21 @@ test("an unparseable request URL FAILS closed", () => {
 
 // ------------------------------ near misses: the route context ------------------------------
 
-test("an owned-surface (non-vendor) final route FAILS — shell disposition", () => {
+test("a page that is NOT the vendored SPA shell FAILS — an owned surface's own document", () => {
   const context = recordedContext();
-  context.final_route_disposition = "shell";
+  context.spa_shell_document = false;
   assert.equal(isFencedWatchEventsAbort(recordedFailure(), context), false);
 });
 
-test("an unclassified final route FAILS closed (null disposition)", () => {
+test("an unmeasured shell flag FAILS closed (absent, not assumed)", () => {
   const context = recordedContext();
-  context.final_route_disposition = null;
+  delete context.spa_shell_document;
+  assert.equal(isFencedWatchEventsAbort(recordedFailure(), context), false);
+});
+
+test("a TRUTHY-but-not-true shell flag FAILS closed — the element is a measurement, not a hint", () => {
+  const context = recordedContext();
+  context.spa_shell_document = "vendor_spa";
   assert.equal(isFencedWatchEventsAbort(recordedFailure(), context), false);
 });
 
@@ -109,7 +115,15 @@ test("a missing served origin FAILS closed", () => {
 
 // ------------------------------ the classification source ------------------------------
 
-test("the fence's route classification is the smoke's own: V2_ROUTE_TABLE dispositions", () => {
+// WHY THE ROUTE TABLE IS NO LONGER THE CLASSIFIER (2026-09-12). The fence used to read this
+// table's disposition for the final route and admit only `vendor_spa`. The table is still the
+// right authority for who OWNS a route — and this test keeps proving it says so — but it is the
+// wrong authority for which BUNDLE is on the page, which is what makes this abort benign. `/ai`
+// is a `shell` row and `/projects` is a `vendor_spa` row, and both serve the same vendored SPA
+// shell; the abort was therefore fatal on one and fenced on the other for identical behaviour.
+// The fence now takes a measurement of the delivered document instead, and this row records the
+// table fact that made the old proxy unsound rather than deleting the evidence for it.
+test("the route table still classifies OWNERSHIP, which is why it could not classify the bundle", () => {
   const dispositionByRoute = Object.fromEntries(
     V2_ROUTE_TABLE.map((surface) => [
       surface.route,
@@ -119,11 +133,16 @@ test("the fence's route classification is the smoke's own: V2_ROUTE_TABLE dispos
   assert.equal(
     dispositionByRoute["/projects"],
     "vendor_spa",
-    "the '/' route's declared final path /projects must be a vendor_spa row — the recorded defect's route class",
+    "the '/' route's declared final path /projects is the one vendor_spa row",
   );
   assert.equal(
     dispositionByRoute["/governance"],
     "shell",
-    "an owned surface row stays outside the fence",
+    "an owned surface row is a shell row",
+  );
+  assert.equal(
+    dispositionByRoute["/ai"] ?? "shell",
+    "shell",
+    "and /ai is a shell row while serving the same vendored bundle as /projects — the exact case that made the disposition an unsound proxy for the fence",
   );
 });

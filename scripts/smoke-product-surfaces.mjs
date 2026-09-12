@@ -291,8 +291,24 @@ const applicationTargets = [
     entry: "apps/aiagent-xyz/server.mjs",
     storeEnvironment: "IOI_AIAGENT_STORE_PATH",
     semantics: {
-      "/": ["Admitted workers.", "A listing is discoverable metadata."],
-      "/agents": ["Admitted workers.", "A listing is discoverable metadata."],
+      // "/" AND "/agents" ARE NO LONGER THE SAME PAGE (2026-09-12). Both rows demanded the
+      // catalogue's strings because they used to serve one module. The visual port made "/" a
+      // landing page that ROUTES to the catalogue and left the catalogue at "/agents", so the "/"
+      // row has been asserting the wrong subject ever since — measured in a browser: "/" renders
+      // the hero and an admission ladder and never mentions a listing, while "/agents" renders the
+      // catalogue. The rows now assert what each route IS, which is what a route-semantics gate is
+      // for, and "/" asserts its onward path so that a landing which stopped reaching the
+      // catalogue would still fail here.
+      "/": [
+        "Benchmark-admitted · Explicitly published · Receipted admission",
+        "Browse agents",
+      ],
+      // The catalogue keeps both of its own. The heading expectation loses only a terminal period
+      // the port dropped — ordinary heading style, and a gate that fails on a full stop in an h1
+      // is asserting a copy-editing convention nobody gave it. The SENTENCE is asserted in full:
+      // it is the catalogue's nonclaim, that being listed here confers nothing, and the same port
+      // dropped it outright. That half was a real regression and is repaired in the app.
+      "/agents": ["Admitted workers", "A listing is discoverable metadata."],
       "/builder": ["Build an immutable worker package.", "New draft"],
       "/my-workers": ["My workers", "Private and organization registrations"],
       "/instances": [
@@ -564,7 +580,11 @@ async function seedAiagentBrowserRoutes(target) {
   };
   target.semantics[target.routes[2]] = [
     "Census Telesupport operator",
-    "Quote and Hire",
+    // "Quote and Hire" was this section's name before the visual port renamed it; the section is
+    // the same one, still the detail route's path to starting the worker, and it carries a stable
+    // heading of its own beside the link that jumps to it. The gate follows the product's word for
+    // its own section rather than holding it to a name it no longer uses.
+    "How you can run it",
   ];
   target.semantics[target.routes[5]] = [
     "Managed instance",
@@ -1156,6 +1176,14 @@ try {
     }
     const evidence = await page.locator("body").evaluate((body) => ({
       text: body.innerText.trim(),
+      // THE VENDORED SPA SHELL, MEASURED FROM THE DELIVERED DOCUMENT. Read from the DOM rather
+      // than from the body's innerText, which carries no markup at all: the shell is the mount
+      // point plus the bundle entry, and an owned surface has neither. Consumed by the typed
+      // WatchEvents fence below, which needs to know which BUNDLE opened a stream — a different
+      // question from which route the estate owns.
+      spa_shell_document:
+        !!document.querySelector("#root") &&
+        !!document.querySelector('script[src^="/static/assets/"]'),
       body_background: getComputedStyle(body).backgroundColor,
       body_color: getComputedStyle(body).color,
       document_width: document.documentElement.scrollWidth,
@@ -1234,11 +1262,24 @@ try {
     }
     const semanticAssertions = target.semantics?.[route] ?? [];
     const missingSemantics = semanticAssertions.filter(
-      (expected) => !evidence.text.includes(expected),
+      // CASE IS A STYLE, NOT A SEMANTIC (2026-09-12). `innerText` reflects CSS `text-transform`,
+      // and this estate's headings are styled `uppercase` — so a route declaring it says
+      // "Managed instance" was compared against a rendered "MANAGED INSTANCE" and went red for a
+      // letter case no author chose and no reader would call wrong. That is the same defect as
+      // failing on a full stop in a heading: a semantics gate asserts WORDS, and the words are
+      // there. Both sides are folded for the comparison; nothing else about the match is relaxed,
+      // and the expectation is still an exact substring.
+      (expected) => !evidence.text.toLowerCase().includes(expected.toLowerCase()),
     );
     if (missingSemantics.length > 0) {
+      // A FINDING THAT SAYS WHAT IT SAW BEATS ONE THAT SAYS ONLY WHAT IT MISSED (2026-09-12).
+      // "missing [x]" cannot distinguish the three things this failure actually means: the label
+      // was renamed, the page rendered a load failure, or the page is still on its loading state.
+      // They need different fixes and the message named none of them, which cost a full seeded
+      // browser run per guess. The opening of what the page did render settles it at a glance.
+      const rendered = evidence.text.replace(/\s+/gu, " ").trim().slice(0, 200);
       throw new Error(
-        `${contextSpec.name} ${url} rendered the wrong route semantics; missing ${JSON.stringify(missingSemantics)}`,
+        `${contextSpec.name} ${url} rendered the wrong route semantics; missing ${JSON.stringify(missingSemantics)}; rendered instead: ${JSON.stringify(rendered)}`,
       );
     }
     const ownerContract = target.surfaceContracts?.[expectedPath];
@@ -1304,10 +1345,17 @@ try {
     // full-tuple predicate and reported, never fatal. Reproductions: #235, #237 ×2,
     // #241 + CI run 31444686784. REMOVAL: deleted in the same PR that lands the SPA
     // event-stream teardown fix (see scripts/lib/watchevents-fence.mjs).
+    // THE SPA SHELL IS MEASURED FROM THE DELIVERED DOCUMENT, NOT FROM A ROUTE LABEL
+    // (2026-09-12). This used to pass the V2_ROUTE_TABLE disposition of the final route, and
+    // that proxy is wrong: `/ai` is dispositioned "shell" and `/projects` "vendor_spa", and both
+    // serve the same shell, while owned surfaces such as `/__ioi/ontology/manager` serve neither
+    // the mount point nor the bundle entry. The route table records who OWNS the route; the fence
+    // needs to know which BUNDLE opened the stream. The measurement itself is taken in the DOM
+    // evaluate above — a first cut ran markup regexes over `evidence.text`, which is the body's
+    // innerText and carries no markup, so it read false for every page including the vendored one.
     const fenceRouteContext = {
       product_lane: target.name,
-      final_route_disposition:
-        target.routeDispositionByRoute?.[finalPath] ?? null,
+      spa_shell_document: evidence.spa_shell_document === true,
       served_origin: new URL(url).origin,
     };
     const fencedRequestFailures = requestFailures.filter((failure) =>
@@ -1543,12 +1591,20 @@ try {
     }
   }
 
+  const routeSweepFailures = [];
   for (const contextSpec of contexts) {
     const context = await newBrowserContext({
       colorScheme: contextSpec.colorScheme,
       viewport: { width: contextSpec.width, height: contextSpec.height },
       reducedMotion: "reduce",
     });
+    // ONE ROUTE'S RED NO LONGER HIDES THE REST OF THE SWEEP (2026-09-12). This loop threw on the
+    // first failing route, so a target with five independent findings reported one, and each
+    // repair bought exactly one more — five full runs to learn what one could have said. That is
+    // the same masking defect as a CI step that aborts its block, one level further in, and it is
+    // expensive here in a way it is not there: each discovery costs a whole browser sweep. Every
+    // route is inspected, every failure is kept with the route it belongs to, and the sweep fails
+    // at the end with all of them. Nothing is downgraded — one failure is still a failed smoke.
     for (const target of [...applicationTargets, ...staticTargets].filter(
       (target) => includesProduct(target.name),
     )) {
@@ -1556,11 +1612,20 @@ try {
         includesVisualRoute(target, route),
       )) {
         const page = await context.newPage();
-        await inspectRoute(page, target, contextSpec, route);
+        try {
+          await inspectRoute(page, target, contextSpec, route);
+        } catch (error) {
+          routeSweepFailures.push(`${contextSpec.name} ${target.name} ${route}: ${error.message}`);
+        }
         await page.close();
       }
     }
     await context.close();
+  }
+  if (routeSweepFailures.length > 0) {
+    throw new Error(
+      `the route sweep found ${routeSweepFailures.length} failure(s):\n  - ${routeSweepFailures.join("\n  - ")}`,
+    );
   }
 
   for (const target of functionalTargets.filter(includesFunctionalJourney)) {

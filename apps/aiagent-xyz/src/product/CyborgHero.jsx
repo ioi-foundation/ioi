@@ -152,6 +152,19 @@ export default function CyborgHero({ className }) {
     // web4 page uses).
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath('/draco/');
+    // THE JS DECODER, BECAUSE THIS ORIGIN'S CONTENT SECURITY POLICY IS STRICT (2026-09-12).
+    // DRACOLoader prefers the WebAssembly build, and instantiating WASM under `script-src 'self'`
+    // needs `'unsafe-eval'` (or CSP Level 3's `'wasm-unsafe-eval'`) — so the hero's model has
+    // never decoded in production: first the decoder worker was blocked outright, and once that
+    // was allowed the WASM compile was. Both are console errors the browser smoke treats as
+    // fatal, and both were invisible behind earlier reds in the same run.
+    //
+    // The fix is NOT a second widening of this origin's script policy. `public/draco/` already
+    // ships the pure-JS decoder beside the WASM pair, and this line selects it, so the hero runs
+    // under the posture the server actually declares rather than asking the posture to move for a
+    // marketing asset. It costs decode speed on one lazily-loaded hero and buys keeping
+    // `'unsafe-eval'` off an origin that serves an authority console.
+    dracoLoader.setDecoderConfig({ type: 'js' });
     const gltfLoader = new GLTFLoader();
     gltfLoader.setDRACOLoader(dracoLoader);
     gltfLoader.load('/models/cyborg/cyborg_female_separated.glb', (gltf) => {

@@ -53,7 +53,16 @@ const serveProduction = async (request, response) => {
   }
   response.writeHead(200, {
     'content-type': mime[path.extname(filePath)] || 'application/octet-stream',
-    'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    // `worker-src 'self' blob:` IS REQUIRED AND IS NOT A RELAXATION OF script-src (2026-09-12).
+    // The landing hero loads a Draco-compressed GLB, and three.js's DRACOLoader inlines its
+    // decoder and starts it from a Blob URL. `worker-src` was not set, so it fell back to
+    // `script-src 'self'` and every decoder start was BLOCKED — four violations per page load,
+    // and the hero's model silently never decoded. The browser smoke treats console errors as
+    // fatal and had been red on this since the visual port, behind an earlier red in the same run.
+    // This directive permits WORKERS from this origin and from blob URLs; it does not permit a
+    // script from anywhere new, so an injected remote script still cannot execute and therefore
+    // still cannot mint the blob a worker would be started from.
+    'content-security-policy': "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
   });

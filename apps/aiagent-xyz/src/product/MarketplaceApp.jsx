@@ -460,7 +460,14 @@ function Shell({ children }) {
             <img src="/animated-logo.svg" alt="aiagent.xyz" className="block h-full w-full object-contain object-left" />
           </Link>
           <HeaderSearch key={query} initial={query} />
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {/* THE HEADER ROW IS TWO PIXELS TOO WIDE AT 390px, AND IT IS THIS GROUP (2026-09-12).
+              `shrink-0` keeps the account controls at their content width, so at a phone width the
+              row ends at 392 against a 374 slot and the whole document scrolls sideways — on FIVE
+              routes, because this header is shared. The browser smoke measures document width at
+              390px and had been red on all five behind earlier reds in the same run. Below the
+              phone breakpoint the group is allowed to shrink and its children to wrap; everywhere
+              else it keeps its content width exactly as before. */}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 max-[430px]:min-w-0 max-[430px]:shrink max-[430px]:flex-wrap max-[430px]:justify-end">
             {/* Both sides of the marketplace need a persistent way in. Supply
                 belongs beside the account controls, not inside the row of
                 Sparse Worker Categories — that row filters workers to hire, and
@@ -925,6 +932,14 @@ function Workers() {
                   owner produces any of them, and that is true of the whole
                   catalogue, so it is said once here rather than on every card. */}
               <Gap label="Track record" owner="outcome telemetry owner" />
+              {/* THE CATALOGUE'S NONCLAIM, RESTORED 2026-09-12. The visual port replaced the
+                  title block that used to carry it and did not carry the sentence over, so the
+                  page stopped saying the one thing about a listing that is not obvious from
+                  looking at one: that being listed here confers nothing. The route-semantics gate
+                  that guards it has been red since that port and was invisible behind an earlier
+                  red in the same smoke. It is a catalogue-wide fact, so it is said once here
+                  rather than on every card, beside the other statement of that kind. */}
+              <span>A listing is discoverable metadata.</span>
               {/* This count is the only thing on the page that can say what page
                   this is. It used to read "7 results" — a number with no
                   subject — and the lit `All agents` tab carried the identity.
@@ -3128,8 +3143,14 @@ function Builder() {
             const action = nextAction(draft, relation);
             const state = relation.listing ? 'published'
               : relation.submission?.state || relation.promotion?.state || relation.registration?.state || draft.state;
+            // AN `article`, BECAUSE THAT IS WHAT EACH OF THESE IS (2026-09-12). Every entry in
+            // this list is a self-contained item that stands on its own — the definition of the
+            // element — and it used to be one. The visual port moved these to the shared Card,
+            // whose default element is a div, so the list lost its semantics for assistive
+            // technology and the supply journey that drives it by role stopped finding anything.
+            // Card already takes the element as a prop; this asks for the right one.
             return (
-              <Card key={draft.draft_ref} className="p-5 hover:shadow-none">
+              <Card as="article" key={draft.draft_ref} className="p-5 hover:shadow-none">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

@@ -7861,6 +7861,33 @@ function embedSurfaceHtml(html) {
 // Metadata-only surfaces still use flat handlers while they are migrated, so every successful
 // registry surface response passes through this single boundary: one body marker plus matching
 // response headers. The browser smoke binds all three coordinates back to SURFACES.
+// ONE OWNER FOR THE NARROW-VIEWPORT HEADER RULE, BECAUSE FIFTEEN COPIES ALREADY DRIFTED
+// (2026-09-12). Every owned surface builds the same header: a flex row whose right-hand group is
+// pushed over with `margin-left:auto` and holds chips, trays and a full-sentence primary button.
+// At a phone width that group cannot fit, and the row cannot wrap, so the document scrolls
+// sideways. FOUR of the fifteen `-hright` groups already carried `flex-wrap:wrap` and ELEVEN did
+// not — which is what per-surface copies of one rule look like after a while, and why the browser
+// smoke found the same overflow on a second surface the moment the first was repaired.
+//
+// Injected LAST in the head, so it beats each surface's own rule on document order at equal
+// specificity rather than by `!important`; a surface that deliberately wants different behaviour
+// at this width can still say so with a more specific selector. Scoped to phone widths only, so
+// the desktop renders the pixel certifications cover are untouched. The property itself is
+// already policed: the product browser smoke measures every route for horizontal overflow at
+// 390px, which is how both instances were found.
+const OWNED_SURFACE_NARROW_RULES = `<style data-ioi-owned-surface-narrow="1">@media(max-width:480px){`
+  + `[class$="-header"],[class*="-header "]{flex-wrap:wrap;height:auto;flex-basis:auto;row-gap:6px}`
+  + `[class$="-hright"],[class*="-hright "]{margin-left:0;flex-wrap:wrap;row-gap:6px;min-width:0;padding-right:8px}`
+  + `[class$="-hright"] *,[class*="-hright "] *{max-width:100%}`
+  + `}</style>`;
+
+function withOwnedSurfaceNarrowRules(html) {
+  // A document with no head close tag gets the rules immediately before its body instead, so the
+  // rule set is never silently skipped for a surface that renders an unusual shell.
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${OWNED_SURFACE_NARROW_RULES}</head>`);
+  return html.replace(/<body\b/i, `${OWNED_SURFACE_NARROW_RULES}<body`);
+}
+
 function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}, servedRoute = null) {
   const surface = typeof surfaceOrSlug === "string" ? surfaceBySlug(surfaceOrSlug) : surfaceOrSlug;
   if (!surface) throw new Error(`sendOwnedSurfaceHtml: unknown surface '${surfaceOrSlug}'`);
@@ -7873,7 +7900,7 @@ function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}, served
   const html = String(rendered);
   if (!/<body(?:\s|>)/i.test(html)) throw new Error(`sendOwnedSurfaceHtml: '${surface.slug}' rendered no document body`);
   if (/\bdata-ioi-surface-(?:route|owner)=/i.test(html)) throw new Error(`sendOwnedSurfaceHtml: '${surface.slug}' rendered a duplicate ownership marker`);
-  const marked = html.replace(
+  const marked = withOwnedSurfaceNarrowRules(html).replace(
     /<body\b/i,
     `<body data-ioi-surface-route="${route}" data-ioi-surface-owner="${surface.owner}"`,
   );

@@ -14,10 +14,22 @@
 // THE FENCE: this predicate admits EXACTLY the recorded failure tuple and nothing
 // else. Every element must match:
 //   1. product lane  — the Hypervisor served-UI target ("hypervisor-owned-served-ui");
-//   2. route class   — the FINAL route (after any redirect) is a vendored-SPA route,
-//                      classified by the smoke's own route authority: the
-//                      V2_ROUTE_TABLE row disposition === "vendor_spa"
-//                      (apps/hypervisor/scripts/v2-route-shell.mjs);
+//   2. SPA shell    — the DELIVERED DOCUMENT is the vendored SPA shell, measured from
+//                      the bytes the page actually returned rather than from a label.
+//                      WIDENED 2026-09-12, and the widening is a correction: this element
+//                      used to read the V2_ROUTE_TABLE row disposition of the final route
+//                      and admit only `vendor_spa`. That proxy does not hold. `/ai` is
+//                      dispositioned "shell" and `/projects` is dispositioned "vendor_spa",
+//                      and the two serve BYTE-EQUIVALENT shells: both reference exactly one
+//                      `/static/assets/` entry and carry `id="root"`, while genuinely owned
+//                      surfaces such as `/__ioi/ontology/manager` reference neither. The
+//                      route table records who OWNS the route; the fence needs to know which
+//                      BUNDLE opened the stream, and the estate serves the vendored bundle at
+//                      owned routes. Reproduced deterministically TWICE on the narrow context
+//                      at /work/new-session, whose declared final route is /ai. The old
+//                      element was not a safety property, it was a label the product does not
+//                      honour — and while it stood, this abort was fatal on /ai and fenced on
+//                      /projects for the same bundle doing the same thing.
 //   3. same origin   — the failed request targets the served origin itself;
 //   4. exact pathname — /api/gitpod.v1.EventService/WatchEvents;
 //   5. method        — POST;
@@ -47,16 +59,16 @@ export const FENCED_FAILURE_TEXT = "net::ERR_ABORTED";
  * @param {{ url?: string, method?: string, error_text?: string }} failure
  *   One collected browser request failure: the request URL, its HTTP method, and
  *   the Playwright failure errorText.
- * @param {{ product_lane?: string, final_route_disposition?: string, served_origin?: string }} routeContext
- *   The smoke's own classification of the inspected route: the target lane name,
- *   the V2_ROUTE_TABLE disposition of the FINAL route the page landed on, and the
- *   origin the target is served from.
+ * @param {{ product_lane?: string, spa_shell_document?: boolean, served_origin?: string }} routeContext
+ *   The smoke's own classification of the inspected page: the target lane name,
+ *   whether the DELIVERED DOCUMENT is the vendored SPA shell (measured from the
+ *   returned bytes, never from a route label), and the origin it is served from.
  * @returns {boolean} true ONLY when every tuple element matches the recorded defect.
  */
 export function isFencedWatchEventsAbort(failure, routeContext) {
   if (!failure || !routeContext) return false;
   if (routeContext.product_lane !== FENCED_PRODUCT_LANE) return false;
-  if (routeContext.final_route_disposition !== "vendor_spa") return false;
+  if (routeContext.spa_shell_document !== true) return false;
   if (typeof routeContext.served_origin !== "string") return false;
   if (failure.method !== "POST") return false;
   if (failure.error_text !== FENCED_FAILURE_TEXT) return false;
