@@ -579,6 +579,15 @@ const PINNED = {
   // time in this program's legs and the second time it is mine; the discipline is written three
   // paragraphs above and was still skipped. Recording it here rather than only in the register,
   // because this is the file a future re-pin reads.
+  // Re-pinned 2026-09-12 AGAIN, same day and same program (M07.4 item 3, hysteresis on the
+  // improvement gate). No module joined this time — `governance_routes.rs` was already in the
+  // walk — and no writer moved: the change is one `&[&str]` constant and one refusal function, so
+  // tokens go 149000 -> 149075 and opaque initialisers 2800 -> 2802 while every other pin holds.
+  // That is the shape worth noticing: an EXISTING module gaining a constant moves two pins in
+  // buckets that have nothing to do with governance, which is why "did I add a writer?" is not
+  // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
+  // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
+  // and that is the only reason this moved in the same commit as the change rather than in CI.
   modules: 118,
   familyMentions: 285,
   //
@@ -597,7 +606,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149000,
+  tokenMentions: 149075,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 245, runtimeParameter: 311 },
   productionFsCalls: 234,
@@ -619,7 +628,7 @@ const PINNED = {
    */
   unadjudicable: {
     "foreign-qualified": 4613,
-    "opaque-initialiser": 2800,
+    "opaque-initialiser": 2802,
     "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

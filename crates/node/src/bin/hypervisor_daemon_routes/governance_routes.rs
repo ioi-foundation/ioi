@@ -1777,6 +1777,70 @@ pub(crate) async fn handle_kill_enforce(
 }
 
 // ---- ImprovementGate ---------------------------------------------------------------------------
+
+/// HYSTERESIS IS A POLICY PARAMETER *HERE*, WHICH IS WHERE CANON PUTS IT.
+///
+/// `model-router/doctrine.md`: "Automatic switching is a governed change routed through the
+/// existing improvement-governance machinery — fresh simulation, approval, open release, canary,
+/// and receipted rollback — with hysteresis as a policy parameter there. No second switching
+/// mechanism is introduced by economic comparison."
+///
+/// So the route-cost comparison introduces no switch at all — its records carry `advisory_only`
+/// as a const true and the whole plane holds zero switching vocabulary — and the guard against
+/// oscillation lives on the gate a switch must pass. A gate whose subject is a SWITCH must carry
+/// this policy; one that governs anything else need not, because hysteresis is meaningless where
+/// there is nothing to flip back and forth.
+///
+/// Typed rather than free-form, because an unvalidated `hysteresis` field would be a word rather
+/// than a parameter: a malformed policy is REFUSED instead of recorded and later read as
+/// satisfied. The three members are the three ways an oscillation actually happens — switching on
+/// too little evidence, on too small a margin, or too soon after the last switch.
+const SWITCHING_SUBJECT_PREFIXES: &[&str] = &["model-route://", "route-cost-comparison://"];
+
+fn hysteresis_refusal(body: &Value, subject_ref: &str) -> Option<(String, String)> {
+    let governs_a_switch = SWITCHING_SUBJECT_PREFIXES
+        .iter()
+        .any(|prefix| subject_ref.starts_with(prefix));
+    let declared = body
+        .get("bounds")
+        .and_then(|bounds| bounds.get("hysteresis"))
+        .or_else(|| body.get("hysteresis"));
+    let Some(policy) = declared else {
+        return if governs_a_switch {
+            Some((
+                "improvement_gate_hysteresis_required".to_string(),
+                "a gate governing a route switch declares a hysteresis policy {min_observations, min_improvement_basis_points, cooldown_ms}; without one a switch may oscillate on one cheap sample".to_string(),
+            ))
+        } else {
+            None
+        };
+    };
+    // Declared is declared: a malformed policy refuses whatever the subject, because a recorded
+    // policy that nothing can read is worse than an absent one — it reads as satisfied.
+    for field in [
+        "min_observations",
+        "min_improvement_basis_points",
+        "cooldown_ms",
+    ] {
+        match policy.get(field) {
+            Some(Value::Number(number)) if number.is_u64() => {}
+            _ => {
+                return Some((
+                    "improvement_gate_hysteresis_invalid".to_string(),
+                    format!("hysteresis.{field} must be a non-negative integer; a hysteresis policy that cannot be read is not a policy"),
+                ))
+            }
+        }
+    }
+    if policy["min_observations"].as_u64() == Some(0) {
+        return Some((
+            "improvement_gate_hysteresis_invalid".to_string(),
+            "hysteresis.min_observations must be at least 1: switching on zero observations is the oscillation this parameter exists to prevent".to_string(),
+        ));
+    }
+    None
+}
+
 pub(crate) async fn handle_gate_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     g_list(&st.data_dir, KIND_GATE, "improvement_gates")
 }
@@ -1788,6 +1852,9 @@ pub(crate) async fn handle_gate_create(
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
     }
+    if let Some((code, message)) = hysteresis_refusal(&body, subject_ref) {
+        return bad(&code, &message);
+    }
     let id = format!("impg_{:x}", nanos());
     let now = iso_now();
     let bounds = body.get("bounds").cloned().unwrap_or_else(|| {
@@ -1796,7 +1863,8 @@ pub(crate) async fn handle_gate_create(
             "eval_threshold": body.get("eval_threshold").cloned().unwrap_or(Value::Null),
             "privacy_posture": body.get("privacy_posture").cloned().unwrap_or(Value::Null),
             "rollback_ref": body.get("rollback_ref").cloned().unwrap_or(Value::Null),
-            "promotion_policy_ref": body.get("promotion_policy_ref").cloned().unwrap_or(Value::Null)
+            "promotion_policy_ref": body.get("promotion_policy_ref").cloned().unwrap_or(Value::Null),
+            "hysteresis": body.get("hysteresis").cloned().unwrap_or(Value::Null)
         })
     });
     let mut record = json!({
@@ -1871,6 +1939,71 @@ pub(crate) async fn handle_gate_delete(
 #[cfg(test)]
 mod governance_tests {
     use super::*;
+
+    // ---------------------------------------------------------------------- hysteresis policy
+    //
+    // Canon puts hysteresis on THIS gate, not in the economic comparison, so these assert the
+    // parameter is real: declared, typed, and refused when it cannot be read. The positive case
+    // comes first — a battery that only proves refusals can pass because nothing works at all.
+
+    fn switching_subject() -> &'static str {
+        "model-route://provider-alpha/opus-class/1"
+    }
+
+    #[test]
+    fn a_well_formed_hysteresis_policy_is_accepted_on_a_switching_gate() {
+        let body = json!({
+            "bounds": { "hysteresis": {
+                "min_observations": 30,
+                "min_improvement_basis_points": 500,
+                "cooldown_ms": 3_600_000
+            }}
+        });
+        assert!(hysteresis_refusal(&body, switching_subject()).is_none());
+    }
+
+    #[test]
+    fn a_switching_gate_without_hysteresis_is_refused_and_a_non_switching_one_is_not() {
+        let empty = json!({});
+        let (code, _) = hysteresis_refusal(&empty, switching_subject())
+            .expect("a gate governing a route switch must declare hysteresis");
+        assert_eq!(code, "improvement_gate_hysteresis_required");
+        // Hysteresis is meaningless where there is nothing to flip back and forth, so a gate over
+        // another subject is not burdened with it.
+        assert!(hysteresis_refusal(&empty, "policy://acme/data-retention").is_none());
+    }
+
+    /// A recorded policy nothing can read is WORSE than an absent one — it reads as satisfied —
+    /// so a malformed policy refuses whatever the subject.
+    #[test]
+    fn a_malformed_hysteresis_policy_refuses_on_any_subject() {
+        for bad_policy in [
+            json!({ "min_improvement_basis_points": 500, "cooldown_ms": 1 }),
+            json!({ "min_observations": 30, "cooldown_ms": 1 }),
+            json!({ "min_observations": 30, "min_improvement_basis_points": 500 }),
+            json!({ "min_observations": 1.5, "min_improvement_basis_points": 500, "cooldown_ms": 1 }),
+            json!({ "min_observations": "30", "min_improvement_basis_points": 500, "cooldown_ms": 1 }),
+        ] {
+            let body = json!({ "bounds": { "hysteresis": bad_policy } });
+            let (code, _) = hysteresis_refusal(&body, "policy://acme/anything")
+                .expect("a malformed policy refuses regardless of subject");
+            assert_eq!(code, "improvement_gate_hysteresis_invalid");
+        }
+    }
+
+    /// Zero observations is the oscillation this parameter exists to prevent, so it is refused
+    /// rather than recorded as a policy that permits switching on the first cheap sample.
+    #[test]
+    fn zero_minimum_observations_is_refused() {
+        let body = json!({ "bounds": { "hysteresis": {
+            "min_observations": 0,
+            "min_improvement_basis_points": 500,
+            "cooldown_ms": 1
+        }}});
+        let (code, message) = hysteresis_refusal(&body, switching_subject()).expect("refused");
+        assert_eq!(code, "improvement_gate_hysteresis_invalid");
+        assert!(message.contains("min_observations"));
+    }
 
     #[test]
     fn approval_transitions_valid_and_invalid() {
