@@ -26,12 +26,27 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   const requireText = (source, value, code) => {
     if (!source.includes(value)) findings.push(code);
   };
+  /// A PRESENCE assertion is satisfied by any occurrence, including one the mutant did not touch.
+  /// That is not hypothetical: on 2026-09-12 two mutants survived this battery because the code had
+  /// grown a SECOND site for each pinned string (the settlement path added by R-14's work), and
+  /// `String.replace` edits only the first — so the planted defect was real and the assertion still
+  /// found the untouched twin. The durable form of these two claims is an ABSENCE: not "somewhere a
+  /// line still says checked_add", but "nowhere does an unchecked increment exist". An absence
+  /// cannot be satisfied by a second site, because a second site is exactly what would violate it.
+  const refuseText = (source, value, code) => {
+    if (source.includes(value)) findings.push(code);
+  };
 
   requireText(action, "struct ApprovalGrantSigningMaterial<'a>", "c7_grant_material_missing");
   requireText(action, "request_hash: [u8; 32]", "c7_exact_request_binding_missing");
   requireText(action, "pub struct StandingApprovalGrant", "standing_grant_not_separate");
   requireText(action, "standing_envelope_hash: [u8; 32]", "standing_envelope_hash_missing");
   requireText(handler, ".checked_add(1)", "usage_counter_not_overflow_safe");
+  // Every usage increment is overflow-checked, stated as the absence of an unchecked one. This is
+  // what the `usage_counter_wraps` mutant plants, and what a presence check could not see.
+  for (const unchecked of [".wrapping_add(1)", ".saturating_add(1)", "uses_consumed + 1"]) {
+    refuseText(handler, unchecked, "usage_counter_not_overflow_safe");
+  }
   requireText(handler, ".checked_add(params.estimated_deposit_microusd)", "deposit_counter_not_overflow_safe");
   requireText(handler, ".checked_add(params.estimated_spend_microusd)", "spend_counter_not_overflow_safe");
   requireText(handler, "next_usage > grant_state.grant.max_usages", "usage_ceiling_missing");
@@ -39,6 +54,10 @@ function inspect({ action, handler, wallet, auth, config, provider, governed, cl
   requireText(handler, "next_spend > grant_state.grant.max_cumulative_spend_microusd", "spend_ceiling_missing");
   requireText(handler, "params.actual_spend_microusd > consumption.estimated_spend_microusd", "terminal_spend_not_bounded_by_reservation");
   requireText(handler, "cumulative_spend_reserved_microusd: grant_state.cumulative_spend_reserved_microusd", "refund_releases_authority");
+  // A refund settles the SPEND; it must not release reserved authority by writing the settled
+  // figure back into the reservation. Stated as an absence for the same reason as above — this is
+  // exactly the `refund_releases_fresh_authority` mutant's edit.
+  refuseText(handler, "cumulative_spend_reserved_microusd: next_settled", "refund_releases_authority");
   requireText(handler, "validate_expected_principal_authority_binding", "current_principal_authority_not_resolved");
   requireText(handler, "standing approval grant principal or signer does not match current principal authority", "principal_authority_substitution_not_refused");
   requireText(handler, "StandingApprovalGrantStatus::Active", "revocation_status_not_enforced");

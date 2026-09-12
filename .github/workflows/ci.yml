@@ -168,18 +168,51 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm --prefix apps/hypervisor run check:m4-room-participation-contribution-architecture
 
-      - name: Verify passkey identity remains separate from effect authority
+      # ONE STEP PER GATE (2026-09-12), for the reason stated at the head of this job. These nine
+      # ran in one block, and on the first master run after the contract block stopped masking them
+      # `mutate:standing-authority` was red — two mutants surviving because a PRESENCE assertion was
+      # satisfied by a second, untouched occurrence the code had grown. A block would have hidden
+      # the three gates below it as well.
+      - name: Verify the passkey identity plane stays separate from effect authority
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
-        run: |
-          npm run check:device-custody-boundary
-          npm run mutate:device-custody-boundary
-          npm run check:secret-custody-profile
-          npm run mutate:secret-custody-profile
-          npm run check:standing-authority
-          npm run mutate:standing-authority
-          npm run test:authority-trajectory-admission
-          npm run check:authority-trajectory-admission
-          npm run mutate:authority-trajectory-admission
+        run: npm run check:device-custody-boundary
+
+      - name: Verify that separation goes red on its own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:device-custody-boundary
+
+      - name: Verify the secret custody profile
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:secret-custody-profile
+
+      - name: Verify the secret custody profile goes red on its own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:secret-custody-profile
+
+      - name: Verify the standing authority envelope and its draw-down
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:standing-authority
+
+      - name: Verify the standing authority battery goes red on its own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:standing-authority
+
+      - name: Verify the authority trajectory admission tests
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run test:authority-trajectory-admission
+
+      - name: Verify authority trajectory admission
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:authority-trajectory-admission
+
+      - name: Verify trajectory admission goes red on its own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:authority-trajectory-admission
+
+      - name: Verify a ceremony provisions a device-held wallet principal and STOPS (M03.8)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:device-held-wallet-principal
+
 
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the
@@ -246,13 +279,25 @@ jobs:
           command: test
           args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
 
-      - name: Convergent Fault Tolerance Gates
+      # Four independent convergent-fault-tolerance properties, one step each (2026-09-12): in one
+      # block the first red hid the other three, and these are four different claims about four
+      # different mechanisms.
+      - name: Convergent fault tolerance — guardian majority safety below the quorum-intersection budget
         if: ${{ !cancelled() }}
-        run: |
-          cargo test --locked -p ioi-consensus --features aft guardian_majority_safety_holds_below_quorum_intersection_budget -- --nocapture
-          cargo test --locked -p ioi-consensus --features aft experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
-          cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
-          cargo test --locked -p ioi-consensus --features aft boundary_ring_reference_trace_matches_committed_golden -- --nocapture
+        run: cargo test --locked -p ioi-consensus --features aft guardian_majority_safety_holds_below_quorum_intersection_budget -- --nocapture
+
+      - name: Convergent fault tolerance — deterministic witness-certificate assignment for nested guardians
+        if: ${{ !cancelled() }}
+        run: cargo test --locked -p ioi-consensus --features aft experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
+
+      - name: Convergent fault tolerance — refusal of an unsafe odd-sized guardian committee under production policy
+        if: ${{ !cancelled() }}
+        run: cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
+
+      - name: Convergent fault tolerance — the boundary-ring reference trace against its committed golden
+        if: ${{ !cancelled() }}
+        run: cargo test --locked -p ioi-consensus --features aft boundary_ring_reference_trace_matches_committed_golden -- --nocapture
+
 
   # THE MUTATION-EVENT COVERAGE GATES, ON THEIR OWN RUNNER UNDER THEIR OWNER'S NAME (2026-09-12).
   # `check:mutation-foundation` and `check:mutation-handlers` are red on master: the coverage
@@ -872,12 +917,18 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run build:all
 
-      - name: Verify developer documentation contracts and built routes
+      - name: Verify live developer documentation contracts
         if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
-        run: |
-          npm run validate:live --workspace=apps/developers-ioi-ai
-          npm run validate:seo --workspace=apps/developers-ioi-ai
-          npm run smoke:routes --workspace=apps/developers-ioi-ai
+        run: npm run validate:live --workspace=apps/developers-ioi-ai
+
+      - name: Verify developer documentation SEO contracts
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
+        run: npm run validate:seo --workspace=apps/developers-ioi-ai
+
+      - name: Verify the built developer documentation routes
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
+        run: npm run smoke:routes --workspace=apps/developers-ioi-ai
+
 
       - name: Verify the aiagent.xyz source graph and built authority boundary
         if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
@@ -1201,10 +1252,12 @@ jobs:
       - name: Verify the registered contract projections are current
         run: npm run check:architecture-contracts
 
+      - name: Verify the assurance-transition focused tests
+        run: cargo test --locked -p ioi-node --bin hypervisor-daemon assurance_transition_routes::tests
+
       - name: Verify the WorkResult resolver and graph projection focused tests
-        run: |
-          cargo test --locked -p ioi-node --bin hypervisor-daemon assurance_transition_routes::tests
-          cargo test --locked -p ioi-node --bin hypervisor-daemon work_result_routes::work_result_tests
+        if: ${{ !cancelled() }}
+        run: cargo test --locked -p ioi-node --bin hypervisor-daemon work_result_routes::work_result_tests
 
       - name: Verify the Verified Work Graph plane
         env:

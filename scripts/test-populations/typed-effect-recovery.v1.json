@@ -74,7 +74,7 @@
     {
       "label": "R-16: the ioi-services work-lifecycle planner reads the SAME set, so one field name cannot carry two vocabularies again",
       "path": "crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs",
-      "pattern": "effect_recovery_class::resolve\\(child\\.effect_recovery_class\\.as_deref\\(\\)\\)",
+      "pattern": "effect_recovery_class::resolve\\(\\s*child\\.effect_recovery_class\\.as_deref\\(\\),?\\s*\\)",
       "expect": 1
     },
     {
