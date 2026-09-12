@@ -6598,15 +6598,55 @@ pub(crate) async fn handle_product_surface_projection(
                     && candidate["installation_ref"] == selected_installation["installation_ref"]
                     && candidate["surface_operational_state"].as_str() == Some("serving")));
             let launchable = release.is_some() && installation.is_some() && serving.is_some();
+            // EVERY REGISTERED AXIS IS PROJECTED (M08.8, 2026-09-12). Before this, the join read
+            // seven axes — admission, package disposition, installation, enablement, operational
+            // state, class and availability — to compute ONE boolean and then emitted two. Seven
+            // registered facts were consumed and dropped, so no consumer could see them, which is
+            // exactly why the product-surface compiler re-derived substrate membership from a
+            // hard-coded set instead of reading the class the daemon already held. Non-Negotiable
+            // 36 requires one registration over ELEVEN INDEPENDENT axes; a projection that collapses
+            // them into a boolean has not served them independently, it has served their conjunction.
+            //
+            // An axis with no field on any record projects as null rather than as a guess:
+            // `surface_origin` and `surface_creation_method` are named by canon and registered
+            // nowhere, and a projection that invented a value for them would make the absence
+            // invisible.
+            let stage_reasons = {
+                let mut codes: Vec<Value> = Vec::new();
+                if release.is_none() {
+                    codes.push(json!("no_admitted_active_release"));
+                }
+                if release.is_some() && installation.is_none() {
+                    codes.push(json!("no_installed_enabled_installation_for_this_org"));
+                }
+                if installation.is_some() && serving.is_none() {
+                    codes.push(json!("no_serving_binding"));
+                }
+                codes
+            };
             json!({
                 "identity_ref": row["surface_ref"],
                 "display_name": row["display_name"],
                 "canonical_route": row["canonical_route"],
                 "resolved_launch_route": serving.map(|record| record["resolved_route"].clone()).unwrap_or(Value::Null),
                 "launchable": launchable,
-                "disabled_reason_codes": if launchable { json!([]) } else { json!(["no_eligible_release_installation_or_serving_binding"]) },
+                // TYPED PER STAGE rather than one opaque code: a caller learns WHICH of the three
+                // joins failed, which is the difference between a reason and a refusal.
+                "disabled_reason_codes": if launchable { json!([]) } else { Value::Array(stage_reasons) },
+                "surface_class": row["surface_class"],
+                "surface_availability": row["surface_availability"],
+                "surface_distribution": release.map(|record| record["surface_distribution"].clone()).unwrap_or(Value::Null),
+                "surface_admission_state": release.map(|record| record["surface_admission_state"].clone()).unwrap_or(Value::Null),
+                "surface_package_disposition": release.map(|record| record["surface_package_disposition"].clone()).unwrap_or(Value::Null),
+                "surface_installation_state": installation.map(|record| record["surface_installation_state"].clone()).unwrap_or(Value::Null),
+                "surface_enablement_state": installation.map(|record| record["surface_enablement_state"].clone()).unwrap_or(Value::Null),
                 "surface_capability_depth": release.map(|record| record["surface_capability_depth"].clone()).unwrap_or(Value::Null),
-                "surface_operational_state": serving.map(|record| record["surface_operational_state"].clone()).unwrap_or(Value::Null)
+                "surface_operational_state": serving.map(|record| record["surface_operational_state"].clone()).unwrap_or(Value::Null),
+                // Named by canonical-enums.md and registered nowhere. Null is the honest value; a
+                // consumer can tell "not registered" from "registered as X" only if this field
+                // exists and is null rather than absent.
+                "surface_origin": Value::Null,
+                "surface_creation_method": Value::Null
             })
         }).collect();
     // W2.3/W2.4 (next-legs III Leg 2) — the launcher feed also consumes the LIVE

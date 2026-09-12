@@ -67,8 +67,24 @@ export const SURFACE_REGISTRATION_INPUT = {
   },
 };
 
-// The substrate lane keys (canon first-party set: 12 owners + Environments/Operations substrate).
-const SUBSTRATE_KEYS = new Set(["environments", "operations"]);
+// THE LANE IS READ FROM THE REGISTERED CLASS, NOT RE-DERIVED (M08.8, 2026-09-12).
+//
+// This was a hard-coded `Set(["environments","operations"])` — a second, client-side derivation of
+// `surface_class`, which the daemon has held as a registered field all along and simply did not
+// project. Two places deciding the same fact is the defect Non-Negotiable 36 names: a registration
+// that does not reach its projections gets re-invented at every consumer, and the copies drift.
+// The daemon now emits `surface_class`, so the lane is a read.
+//
+// The fallback is the STATIC INVENTORY path only, where by construction there is no daemon answer
+// to read; it is kept beside the keys it serves rather than as a live classifier.
+const SUBSTRATE_FALLBACK_KEYS = new Set(["environments", "operations"]);
+const laneForClass = (surfaceClass, key) => {
+  if (surfaceClass === "substrate_application") return "substrate";
+  if (surfaceClass === "owner_application") return "owner";
+  // No registered class reached this consumer. Say so rather than guessing a lane: an unknown
+  // class rendered as "owner" is the same invisible re-derivation this change removes.
+  return surfaceClass ? "unclassified" : (SUBSTRATE_FALLBACK_KEYS.has(key) ? "substrate" : "owner");
+};
 
 function keyFromRef(ref) {
   // "surface://hypervisor/studio" → "studio" · "hypervisor-workspace://home" → "home"
@@ -97,7 +113,8 @@ function decorateApplication(entry) {
   return {
     key,
     name: entry.display_name || key,
-    lane: SUBSTRATE_KEYS.has(key) ? "substrate" : "owner",
+    lane: laneForClass(entry.surface_class, key),
+    surface_class: entry.surface_class || null,
     route: entry.canonical_route || null,
     launch_route: entry.resolved_launch_route || null,
     launchable: entry.launchable === true,
@@ -128,7 +145,7 @@ function staticFirstPartyInventory(reasonCode) {
   const applications = Object.entries(SURFACE_REGISTRATION_INPUT.applications).map(([key, reg]) => ({
     key,
     name: title(key),
-    lane: SUBSTRATE_KEYS.has(key) ? "substrate" : "owner",
+    lane: laneForClass(null, key),
     route: `/${key}`,
     launch_route: null,
     launchable: false,

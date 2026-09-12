@@ -444,7 +444,7 @@ async function run() {
 
   daemonPort = await freePort();
   servePort = await freePort();
-  // The serve spawns the product-ui mirror on PRODUCT_UI_PORT (default 9301); a journey must not
+  // The serve spawns the owned product-ui on PRODUCT_UI_PORT (default 9301); a journey must not
   // collide with an operator's own serve on the same host.
   const productUiPort = await freePort();
   DAEMON = `http://127.0.0.1:${daemonPort}`;
