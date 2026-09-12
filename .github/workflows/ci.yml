@@ -259,6 +259,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run mutate:portable-evidence-replay
 
+      # M07.2's runtime half. The contract half is already proven by the registry-driven contracts
+      # gate; this proves that a plane which RETAINS a resolved rights contract applies one of its
+      # ceilings rather than only citing it. Source-derived, so it needs no daemon.
+      - name: Verify a retained rights contract is applied and not merely cited (M07.2)
+        if: ${{ !cancelled() }}
+        run: npm run check:route-rights-contracts
+
+      - name: Verify that rights gate goes red on its own planted defects
+        if: ${{ !cancelled() }}
+        run: npm run mutate:route-rights-contracts
+
       # M08.6's five canon-document residuals, as standing properties. It reads the daemon's own
       # route registrations, so it sits beside the build that produces them.
       - name: Verify the canon-document residuals stay closed (M08.6)

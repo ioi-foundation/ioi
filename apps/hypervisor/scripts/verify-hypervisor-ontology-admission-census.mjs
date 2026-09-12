@@ -559,7 +559,14 @@ const PINNED = {
   // evidence for that rather than an assertion of it. Moved in the SAME COMMIT as the daemon
   // change, which is the discipline this pin exists to enforce and which M08.8 skipped two
   // commits before it.
-  tokenMentions: 148025,
+  //
+  // Re-pinned 2026-09-12 (M07.2's runtime half) from 148025, +8. The only daemon-source change is
+  // the route-rights ceiling now applied in vertical_pack_worker_binding_routes.rs: one route-use
+  // constant and two typed refusal codes with their messages. NO module joined and no writer moved;
+  // every other pin here held on the same run, which is the evidence for that rather than an
+  // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
+  // program's leg — the discipline M08.8 skipped and this census caught.
+  tokenMentions: 148033,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
   productionFsCalls: 234,

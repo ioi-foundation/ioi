@@ -405,6 +405,44 @@ pub(crate) async fn handle_vertical_pack_worker_binding_compile(
             format!("'{route_ref}' has expired, been superseded, suspended or revoked; a route contract that is not current contributes only denial"),
         );
     }
+    // AND THE CEILING IS APPLIED, NOT ONLY CITED (2026-09-12, M07.2). Liveness was the only thing
+    // asked of this contract before, after which its `revision_ref` and `content_hash` were stamped
+    // into every compiled field contract below. A contract cited by hash is evidence it was READ;
+    // it is not evidence its ceiling was OBEYED, and the two were being conflated here — a rights
+    // contract with `model_inference` unresolved could back a compiled worker binding while being
+    // recorded as that binding's basis.
+    //
+    // `model_inference` IS THE USE, and the choice is the module's own first line: this is a
+    // deterministic ontology-to-worker COMPILER whose product is a worker that will call this route
+    // to produce field values. Binding a worker to a route that does not permit inference compiles
+    // a worker that cannot lawfully run. Not `model_or_worker_training` — this module states it is
+    // a DERIVATION resolved server-side and trains nothing.
+    //
+    // The two causes get two codes, because they are two findings for two desks: an UNRESOLVED right
+    // is a term nobody has settled and belongs to whoever owns the terms, while a use outside both
+    // the permitted and the unresolved lanes is an affirmative prohibition in the contract as
+    // written. One code covering both would send either finding to the wrong person.
+    const BINDING_ROUTE_USE: &str = "model_inference";
+    if route
+        .unresolved_route_uses()
+        .iter()
+        .any(|held| held == BINDING_ROUTE_USE)
+    {
+        return refuse(
+            &spec.code("route_rights_inference_unresolved"),
+            format!("'{route_ref}' leaves '{BINDING_ROUTE_USE}' in its unresolved lane; a worker binding compiled against an unsettled right would cite a contract that does not yet permit the use it is being cited for"),
+        );
+    }
+    if !route
+        .permitted_route_uses()
+        .iter()
+        .any(|held| held == BINDING_ROUTE_USE)
+    {
+        return refuse(
+            &spec.code("route_rights_inference_not_permitted"),
+            format!("'{route_ref}' does not carry '{BINDING_ROUTE_USE}' among its permitted uses; a use outside both the permitted and the unresolved lanes is an affirmative prohibition in the contract's own terms, and a worker compiled against it could not lawfully run"),
+        );
+    }
 
     // ============================ the composition: COMMITTED, and its non-resolution is committed
     let worker_composition_ref = body_str(&body, "worker_composition_ref");

@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m07-2-route-rights-contracts",
+  "stage_id": "M07",
+  "required_work": [
+    "M07.2"
+  ],
+  "status": "verified",
+  "objective": "Close M07.2's runtime half and the defect measuring it found. The contract half was already proven: model-route-rights-contract.v1 is registered, its route-use vocabulary is closed at twelve with a registered invariant pinning the size, the unresolved lane must be the exact projection of the unresolved findings, and prohibitions must be covered exactly by the affirmative uses plus those. All of it is proven by the registry-driven contracts gate. Nothing checked that the planes which RESOLVE such a contract then apply it.",
+  "falsifiable_claim": "The ceiling vocabulary is derived from the resolved type's own impl blocks rather than written into the gate. The consumer population is closed in both directions, so a fourth plane that starts resolving rights contracts is a finding rather than an omission. Every function that RETAINS a resolved rights contract either applies one of its ceilings or hands the value on to something that does; a function that resolves without binding the result is doing reference resolvability and is exempt by construction rather than by an exemption list. The vertical-pack worker binding refuses on three distinct causes with three distinct codes: a contract that is not current, an unresolved inference right, and an inference use the contract affirmatively does not carry.",
+  "canon_owners": [
+    "docs/architecture/_meta/schemas/model-route-rights-contract.v1.schema.json"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/vertical_pack_worker_binding_routes.rs",
+      "literal": "route_rights_inference_unresolved",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/vertical_pack_worker_binding_routes.rs",
+      "literal": "route_rights_inference_not_permitted",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-route-rights-contracts.mjs",
+      "literal": "A FUNCTION THAT RETAINS A RESOLVED RIGHTS CONTRACT",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:route-rights-contracts",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:route-rights-contracts",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Six drills, and two of them exist because earlier cuts of this gate were WRONG rather than merely incomplete. The property took three corrections, each recorded in the script: grepping the field names called a guarded plane unguarded, because that plane reaches its ceiling through an accessor; requiring every resolving function to call a ceiling itself then accused two more functions that were innocent for two DIFFERENT reasons, one resolving without ever binding the result and one binding it and handing it to the fold that applies; and counting citations of revision_ref or content_hash was no better, because those are ordinary field names on many objects in those modules. The drills therefore include the defect replanted, the plane as it stands staying clean, an invented fourth plane being caught, the three-desk code separation collapsing, AND both innocents staying clean — because a rule that catches the defect by accusing the innocent is strict rather than right.",
+  "remaining_nonclaims": [
+    "THE CONTRACT HALF IS NOT RESTATED. The closed twelve-use vocabulary, the pinned vocabulary size, the unresolved-lane projection invariant and the prohibition-coverage invariant are registered and already proven by the registry-driven contracts gate. A second opinion on a settled question is not coverage.",
+    "THIS PROVES RESOLVE-AND-RETAIN IMPLIES APPLY, NOT THAT EACH PLANE APPLIES THE RIGHT CEILING. Which of the twelve uses a plane must require is a canon question answered per plane; the worker binding requires model_inference because its own first line describes a deterministic ontology-to-worker compiler whose product is a worker that will infer through the route, and not model_or_worker_training because that module states it is a derivation resolved server-side and trains nothing. A plane applying a ceiling for the wrong use would satisfy this gate.",
+    "ACC-16 AND ACC-18 ARE OUT. M07.2's acceptance names them beside ACC-11 and both are product_track under the worker-construction track this program puts deliberately out. A unit does not become product_track because its acceptance mentions one, and an mvp_required unit does not pull one back in by citation."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program. The defect was found by measurement, not by a failing test: the shared resolver takes no route-use argument, so per-use eligibility is structurally the caller's, and of three consumer planes one enforced fully, one enforced a different axis deliberately and said so in its own comment, and the third called is_live() and nothing else before stamping the contract's revision and content hash into every compiled field contract it produced. A contract cited by hash is evidence it was read, never evidence its ceiling was obeyed. check:route-rights-contracts 4/4; mutate: 6/6. The admission census pin moved with the daemon change in the same commit, 148025 to 148033.",
+  "last_status_transaction": "2026-09-12"
+}
