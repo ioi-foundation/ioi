@@ -161,7 +161,18 @@ function observeGovernedRoute(route, approval, targetScope, timings) {
   });
 }
 
+// THE DEPTH CAMPAIGN, COUNTED. Every governed crossing is a full
+// challenge -> recorded wallet approval -> resolved commit against the real
+// wallet-network chain: it is the state-deepening approval workload this lane
+// exists to soak. The count is REPORTED at the end so the scheduled
+// qualification can refuse a run whose campaign was reduced. A depth nobody
+// reports is a depth nobody can require.
+let governedCrossings = 0;
+const governedRoutes = [];
+
 async function governed(call, resolver, path, body) {
+  governedCrossings += 1;
+  governedRoutes.push(path);
   const challengeStarted = process.hrtime.bigint();
   const challengeAttempt = await retryAuthorityUnavailable(
     () => call("POST", path, body),
@@ -972,6 +983,8 @@ async function run() {
     rmSync(dataDir, { recursive: true, force: true });
   }
   const passed = results.filter((result) => result.pass).length;
+  console.log(`governed crossings: ${governedCrossings}`);
+  console.log(`governed routes: ${governedRoutes.join(" ")}`);
   console.log(`${passed}/${results.length} passed`);
   if (passed !== results.length) process.exitCode = 1;
 }

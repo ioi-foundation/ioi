@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m04-8-room-participation-contribution-pins",
+  "stage_id": "M04",
+  "required_work": [
+    "M04.8"
+  ],
+  "status": "verified",
+  "objective": "M04.8's two lanes stop being able to pass while proving less than they claim. The fast merge lane was a raw cargo filter that exits 0 when it selects nothing; the scheduled wallet-authority soak was an exit code that could not see a deleted assertion or a shortened approval campaign. Both are now pinned: the fast lane by an exact, source-bound, fail-empty test population, the soak by an assertion population, two independent depth floors and a fresh artifact.",
+  "falsifiable_claim": "114 names -- 111 in m048_collaboration_routes::m048_tests and 3 m048_* room-native seam tests in outcome_room_system_routes -- each exist as a fn in a pinned source, are listed EXACTLY by --list --exact, and pass with nothing ignored. Four source pins hold: the ten named lifecycles line, exactly four owner-local family dir constants, ZERO calls to persist_record/read_record_dir, and the OutcomeRoomDiscovery/ParticipantStateBundle exclusion. The scheduled wrapper refuses a run missing any of 15 pinned assertion names, a run whose tally disagrees with the pinned count in either direction, a governed-crossing campaign below the source-bound floor or below the ratchet set by the deepest qualified artifact, and a run that reports no campaign at all; it writes an artifact only from a run that qualified, and it refuses to judge anything if its own pinned population is not present in the lane's source.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/test-populations/m4-room-participation-contribution-architecture.v1.json",
+      "literal": "m048_collaboration_routes::m048_tests::all_ten_lifecycles_are_mounted_and_no_predecessor_handler_remains",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/m4-room-participation-contribution-architecture.v1.json",
+      "literal": "outcome_room_system_routes::tests::m048_contribution_plane_children_admit_through_the_room_native_seam",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/m4-room-participation-contribution-architecture.v1.json",
+      "literal": "persist_record\\\\(|read_record_dir\\\\(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/qualify-m4-room-participation-contribution-soak.mjs",
+      "literal": "the campaign does not fall below the deepest campaign any qualified artifact recorded",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/qualify-m4-room-participation-contribution-soak.mjs",
+      "literal": "pinned assertion is not in the lane's source",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
+      "literal": "console.log(`governed crossings: ${governedCrossings}`);",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/package.json",
+      "literal": "drill:m4-room-participation-contribution-soak",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The fast lane's driver plants three defects and requires each to be refused: a pinned name with no matching fn, a name whose fn exists but whose module path cannot be listed, and an empty population. The scheduled wrapper's drill runs five synthetic runs with no wallet fixture: a complete one that must qualify (the positive control, so the refusals below prove strictness rather than breakage), one missing a pinned assertion, one whose campaign fell under the source-bound floor, one under the ratchet, and one reporting no campaign at all -- each refused as named. The fast lane's population was additionally cross-checked against the harness's own --list after the first draft, derived by source regex, under-derived by 13: thirteen of the module's tests are #[tokio::test] async fn and a regex that scraped #[test] never saw them, so the driver passed 5/5 on a population that left 13 tests deletable in silence. The sibling M04.6 population was cross-checked the same way and is complete.",
+  "remaining_nonclaims": [
+    "These are PINS, not new behaviour. No daemon or kernel source changed except the soak verifier gaining a crossing counter, and nothing about what the plane does is different.",
+    "TYPED ABSENCE: the soak lane itself was not run on this host. It requires the release wallet fixture and this host builds debug only, so what is proven is the wrapper's refusals and not one real qualified run. Closure test: one artifact under _meta/evidence/m04-8-room-participation-soak-*.v1.json from a release host, which also sets the first ratchet; until then the ratchet floor is 0 and only the source-bound floor binds.",
+    "The wrapper makes the soak's depth non-reducible in silence. It does not make the campaign deeper, and the floor it records is the depth as it stands, not a judgement that the depth suffices.",
+    "Pinning 114 names asserts those tests exist and pass. A property of the ten lifecycles that nobody wrote a test for is not covered by pinning the tests that exist.",
+    "OutcomeRoomDiscovery publication, ParticipantStateBundle production and export, external participation, federation, verdict, settlement and acceptance remain their declared owners' and are covered by none of these tests -- the source pin asserts only that this module does not produce them."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program, leg 2b (fourth unit of the READY set). Recorded in canon-to-code-delta.md section Journey verification XLIII. Measured: check:m4-room-participation-contribution-architecture 6/6 checks with 114 pinned tests; the driver's self-drill refused all three planted defects; drill:m4-room-participation-contribution-soak 6/6. The predecessor's fail-empty defect was measured before replacement: the same filter with one character changed reported 0 passed and exit 0. Run 1 of the population pinned 98 names and is recorded as it happened.",
+  "last_status_transaction": "2026-09-12"
+}
