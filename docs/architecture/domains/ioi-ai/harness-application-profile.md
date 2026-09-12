@@ -10,7 +10,8 @@ Supersedes: the same admission-path decision when it lived inside
 as if selecting a harness selected a goal product (moved 2026-09-07 under
 ADR 0052 Decision 4; the text is unchanged apart from link paths).
 Superseded by: none.
-Last alignment pass: 2026-09-07.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the GoalRun admission-path decision is
 registered as an application contract; see
@@ -18,7 +19,7 @@ registered as an application contract; see
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/goal_profile_contract_routes.rs`
-Last implementation audit: 2026-07-30
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-30)
 
 ## Scope
 
@@ -91,3 +92,56 @@ Agent Wiki / `ioi-memory`, Agentgres-admitted mutations, receipts, provenance,
 and policy. Swapping from one model or harness to another should not discard
 that intelligence when workspace identity, compatibility, and authority remain
 valid.
+
+## Default Harness ContextCell Profile
+
+> Moved here from
+> [`default-harness-profile.md`](../../components/daemon-runtime/default-harness-profile.md)
+> § *Core Schemas* on 2026-09-12 under ADR 0052 Decision 4: a `ContextCell` is
+> an application object, so the profile a harness carries for one is owned
+> here. The text is unchanged apart from link paths. The information-flow,
+> hot-state and memory rules that bind every HarnessInvocation with or without
+> an application stayed with the Default Harness Profile.
+
+[`ContextCellEnvelope`](./goal-run-execution.md#contextcellenvelope)
+owns the shared cell identity, role, room/participant binding, harness/model
+route, leases, authority scopes, wake condition, and lifecycle. The Default
+Harness Profile extends that envelope with the following loop-local execution
+state; it does not define a second `ContextCell` object.
+
+```yaml
+DefaultHarnessContextCellProfile:
+  context_cell_ref: context_cell://...
+  run_ref: run://...
+  task_ref: task://...
+  resolution: coarse | medium | fine | forensic
+  goal: string
+  constraints: [string]
+  acceptance_criteria: [string]
+  authority_ref: grant://... | null
+  agentgres_refs:
+    - agentgres://operation/...
+    - agentgres://object/...
+  artifact_refs:
+    - artifact://...
+  receipt_refs:
+    - receipt://...
+  prior_observation_refs:
+    - observation://...
+  information_flow_label_refs:
+    - ifc-label://...
+  open_uncertainties:
+    - string
+  loop_policy:
+    current_iteration: integer
+    max_iterations: integer | null
+    model_reentry_required: boolean
+  memory_policy:
+    private_scratch_allowed: boolean
+    agent_wiki_retrieval_allowed: boolean
+    agentgres_memory_mutation_allowed: boolean
+  output_policy:
+    return_claims: true
+    return_uncertainty: true
+    return_state_patch: true
+```

@@ -4,7 +4,8 @@ Status: canonical low-level reference.
 Canonical owner: this file for the object shapes of GoalRun profiles, goal-run activations, orchestration constraints, orchestration policies, orchestration plans, and network goal budgets.
 Supersedes: untyped `activation_evidence` payloads as a claimed activation contract.
 Superseded by: none.
-Last alignment pass: 2026-08-07.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
 
@@ -127,6 +128,87 @@ The revision body and `content_hash` are immutable. `registry_status` and
 hash. A revoked profile remains replayable by its exact hash even when it is no
 longer eligible for new admission.
 
+## GoalRun Profile Resolution Receipts
+
+> Moved here from `events-receipts-delivery-bundles.md` on 2026-09-12
+> (ADR 0052 Decision 4): the receipt is an application contract of the ioi.ai
+> orchestration application and belongs beside the profile envelope it freezes,
+> not in the shared daemon receipt registry. The text is unchanged apart from
+> link paths. The core registry keeps the receipt name as an index row and
+> points here.
+
+A `GoalRunProfileResolutionReceipt` proves which immutable pursuit definition,
+overrides, and transitive component set daemon admission froze before a
+GoalRun became active. It proves resolution and admission, not that the profile
+is good, that later work is correct, or that any effect was authorized.
+
+```yaml
+GoalRunProfileResolutionReceipt:
+  receipt_id: receipt://...
+  receipt_type: goal_run_profile_resolution
+  goal_ref: goal://...
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  goal_run_profile_content_hash: hash
+  goal_run_execution_ceiling_revision_ref: goal-run-execution-ceiling://.../revision/sha256:... | omitted
+  goal_run_execution_ceiling_content_hash: sha256:... | omitted
+  declared_invocation_budget:
+    max_total_invocations: integer
+    max_parallel_invocations: integer
+    # the complete tuple is omitted only for predecessor lanes that have not
+    # yet adopted the execution-ceiling contract
+  admitted_override_set_ref: artifact://... | null
+  admitted_override_set_hash: hash | null
+  effective_constraint_envelope_ref: constraint://...
+  effective_constraint_envelope_hash: hash
+  orchestration_policy_ref: orchestration_policy://...
+  orchestration_policy_version_or_hash: semver_or_hash
+  workflow_template_resolutions:
+    - revision_ref: workflow-template://.../revision/...
+      content_hash: hash
+  resolved_skill_bindings:
+    - skill_entry_ref: skill-entry://...
+      skill_entry_binding_revision_ref: skill-entry://.../revision/...
+      skill_entry_binding_hash: hash
+      skill_manifest_revision_ref: skill://.../revision/...
+      skill_manifest_content_hash: hash
+  active_skill_set_snapshot_ref: active-skill-set://...
+  active_skill_set_hash: hash
+  resolved_harness_profile_revisions:
+    - revision_ref: harness-profile://.../revision/...
+      content_hash: hash
+  resolved_runtime_tool_contracts:
+    - revision_ref: tool://.../revision/...
+      content_hash: hash
+  role_topology_requirement_refs: []
+  worker_model_service_and_verifier_requirement_refs: []
+  primitive_capability_requirement_refs: []
+  initial_role_topology_revision_ref: role_topology://.../revision/... | null
+  initial_role_topology_content_hash: hash | null
+  initial_role_topology_decision_ref: decision://... | receipt://... | null
+  unresolved_late_binding_requirement_refs: []
+  effective_learning_boundary_profile_ref: learning-boundary://... | null
+  effective_learning_policy_hash: hash | null
+  compatibility_revocation_and_admission_decision_refs: []
+  resolved_component_set_snapshot_ref: artifact://...
+  resolved_component_set_hash: hash
+  agentgres_operation_refs: []
+  assurance_stage: attested
+  receipt_root: hash
+  signature: optional
+```
+
+When the override ref is null its hash is null; otherwise both are required.
+When any execution-ceiling field is present, all three ceiling revision/hash
+and declared-budget fields are required together, the ceiling revision is part
+of the resolved-component closure, and the receipt never fills a missing value
+from a default. The M4 `ioi_goal_draft` lane carries the exact immutable
+zero-execution ceiling and a `{0, 0}` declared budget; older partial lanes may
+omit the complete tuple until their own owner-approved adoption cut.
+Late-binding predicates may remain unresolved at run admission only when the
+profile permits them. Each actual worker, model, HarnessProfile, tool, runtime,
+context, and authority selection is then frozen by its owning
+`OrchestrationPlan`, `HarnessInvocation`, lease, decision, and receipt.
+
 ## GoalRunActivationEnvelope
 
 `GoalRunActivationEnvelope` is the typed crossing that carries work from an
@@ -238,6 +320,98 @@ Rules, each testable:
 [`goal-run-execution.md`](./goal-run-execution.md)). Product-lane doctrine —
 what ioi.ai may draft and must never admit — is owned by
 [`control-plane.md`](../../domains/ioi-ai/control-plane.md).
+
+## GoalRun Activation Receipts
+
+> Moved here from `events-receipts-delivery-bundles.md` on 2026-09-12
+> (ADR 0052 Decision 4): the receipt is an application contract of the ioi.ai
+> orchestration application and belongs beside the activation envelope it
+> admits, not in the shared daemon receipt registry. The text is unchanged
+> apart from link paths. The core registry keeps the receipt name as an index
+> row and points here.
+
+A `GoalRunActivationReceipt` is emitted only after the daemon admits one
+`GoalRunActivationEnvelope`. It proves the narrow crossing fact: the exact
+activation draft and typed source context were evaluated under the named
+authority, review, and admission decisions and admitted or joined the named
+`goal://` identity at the retained Agentgres state root. It does not prove the
+goal is correct or complete, widen authority, declassify carried context, grant
+room membership, create budget, or discharge any later work receipt.
+
+```yaml
+GoalRunActivationReceipt:
+  schema_version: ioi.goal-run-activation-receipt.v1
+  receipt_id: receipt://...
+  receipt_ref: receipt://...
+  receipt_type: goal_run_activation
+  receipt_profile_ref: schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1
+  activation_ref: goal-run-activation://...
+  activation_mode: create | join_existing
+  source_context:
+    source_kind:
+      ioi_goal_draft | hypervisor_session | work_run | work_item |
+      outcome_room_claim | automation_workflow_step | gateway_adapter_context
+    source_ref:
+      intent://... | prompt://... | session://... | work-run://... | run://... |
+      work-item://... | work-claim://... | action://goal-run/activate/... |
+      adapter://...
+    source_owner_ref: org://... | project://... | system://... | user://...
+  draft_activation_hash: sha256:...
+  source_context_hash: sha256:...
+  requesting_principal_ref: wallet://... | user://... | agent://... | system://...
+  authority_decision_ref: grant://... | approval://...
+  review_decision_ref: receipt://... | approval://... | null
+  admission_decision_ref: agentgres://... | decision://...
+  admission_receipt_ref: receipt://...
+  admitted_goal_ref: goal://...
+  existing_goal_ref: goal://... | null
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null
+  goal_run_profile_content_hash: sha256:... | null
+  resolved_component_set_snapshot_ref: artifact://...
+  resolved_component_set_hash: sha256:...
+  profile_resolution_receipt_ref: receipt://...
+  receipt_obligations_hash: sha256:...
+  attested_boundary_fact_refs:
+    - goal-run-activation://... | intent://... | grant://... |
+      decision://... | goal://... | goal-run-profile://... |
+      artifact://... | receipt://... | agentgres://...
+  admitted_state_root_ref: agentgres://state-root/goal-run/...
+  admitted_at: timestamp
+  non_grants:
+    authority_widening: none
+    context_declassification: none
+    room_membership: none
+    budget_creation: none
+  receipt_root: sha256:...
+```
+
+`receipt_id` and `receipt_ref` are the same portable identity.
+`receipt_root` is SHA-256 over JCS of every field above except
+`receipt_root`. `source_context_hash` commits the complete source object the
+daemon resolved, while the typed `source_context` makes its kind, ref, and
+owner independently inspectable. The resolved-component tuple and profile-
+resolution receipt bind the admission-time dependency closure;
+`receipt_obligations_hash` commits the exact typed obligation set, and every
+required bound fact must appear in `attested_boundary_fact_refs`. In `create`
+mode the exact profile revision and content hash are required and
+`existing_goal_ref` is null. In
+`join_existing` mode the profile fields are null and `existing_goal_ref`
+names the same pre-existing goal identity the admission evaluator joins.
+
+### Activation from an automation workflow step
+
+> Moved here from `events-receipts-delivery-bundles.md`
+> § *AutomationRun Resolution Receipts* on 2026-09-12 (ADR 0052 Decision 4).
+> `AutomationRunResolutionReceipt` is a registered contract owned by
+> [`../../components/hypervisor/core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md#hypervisor-automations);
+> its `goal_run_activation_resolutions` field set is unchanged and stays
+> there. Only this goal-specific reading of the bridge moved.
+
+Routine automations leave `goal_run_activation_resolutions` empty. A
+goal-shaped step may create or join a GoalRun only through a declared
+GoalRunActivationContract; that child GoalRun performs its own profile
+resolution and retains its own resolution receipt. The Automation receipt
+binds the bridge without collapsing the two run identities.
 
 ## OrchestrationConstraintEnvelope
 
@@ -459,3 +633,52 @@ RuntimeAssignments, attempts, artifacts, or domain lifecycle state.
 Ordinary Hypervisor sessions need no `GoalRunProfile`: the Default Harness
 Profile executes a direct session with no application present
 ([`harness-application-profile.md`](./harness-application-profile.md)).
+
+## Work / Goals Surface
+
+> Moved here from `core-clients-surfaces.md` on 2026-09-12 (ADR 0052
+> Decision 4): **Work / Goals** is a surface this application contributes
+> through the product-surface registration family, so its catalog entry and
+> route are owned here rather than by Hypervisor core. The core Work section
+> keeps one line naming this owner.
+
+**Work / Goals** is the Hypervisor navigation entry for this application's
+goal-shaped work, served at the canonical route `/work/goals`. Like every other
+Work view it is a policy-filtered read model: each row declares a typed
+`subject_kind` and canonical `subject_ref` and deep-links to the GoalRun owner.
+Work may derive display facets over GoalRun state but never writes a common
+status back over it, and the route mints no generic Mission id.
+
+## HypervisorGoalRunActivationContract
+
+> Moved here from `core-clients-surfaces.md` § *Minimal Implementation
+> Objects* on 2026-09-12 (ADR 0052 Decision 4): the object declares how an
+> automation workflow step reaches this application's activation contract, so
+> it belongs with the activation owner. The text is unchanged apart from link
+> paths.
+
+```yaml
+HypervisorGoalRunActivationContract:
+  activation_contract_ref: action://goal-run/activate/...
+  workflow_step_ref: workflow-step://...
+  activation_mode: create | join_existing
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  goal_run_profile_content_hash: hash
+  permitted_override_mapping_ref: schema://... | null
+  existing_goal_ref_parameter_ref: schema://... | null
+```
+
+A goal-shaped workflow step must reference a
+`HypervisorGoalRunActivationContract` that pins the exact GoalRunProfile and
+declares `create` or `join_existing`. The admitted AutomationRun records the
+resulting GoalRun ref, while that GoalRun retains its separate profile
+resolution receipt. Routine workflow steps leave the activation-contract list
+empty.
+
+`HypervisorAutomationSpec` and `HypervisorAutomationRun` are registered
+contracts owned by
+[`../../components/hypervisor/core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md#hypervisor-automations).
+Their `goal_run_activation_contract_refs`, `goal_run_refs`, and
+`outcome_room_ref` fields are unchanged and stay there; a field change would be
+a new contract version. This section owns only what those refs mean for the
+pursuit they reach.

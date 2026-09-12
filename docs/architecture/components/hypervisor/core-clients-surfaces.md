@@ -3,17 +3,19 @@
 Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Core product taxonomy, first-class
 client boundaries, core-workspace boundaries, application-surface boundaries,
-Work and Session projections, and adapter-target doctrine, including
-Hypervisor's projection of ioi.ai Goal Spaces and OutcomeRooms through Work and
-the Hypervisor-owned **Connect local agent** pairing/adapter surface. Dedicated
-Improvement, Evaluations, and Foundry owner contracts remain in
-[`improvement.md`](./improvement.md), [`evaluations.md`](./evaluations.md), and
-[`foundry.md`](./foundry.md).
+Work and Session projections, adapter-target doctrine, the Work read model every
+application-contributed view obeys, and the Hypervisor-owned **Connect local
+agent** pairing/adapter surface. The ioi.ai Goal Space, GoalRun and OutcomeRoom
+subjects those views project are owned by
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md) and
+[`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
+(moved 2026-09-12, ADR 0052 Decision 4); Improvement, Evaluations and Foundry
+contracts remain in [`improvement.md`](./improvement.md), [`evaluations.md`](./evaluations.md), and [`foundry.md`](./foundry.md).
 Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-08-20.
+Last alignment pass: 2026-09-12 (ioi.ai catalog/routes/terms/checks moved out).
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -40,7 +42,7 @@ contract, and older mapping documents remain archived historical evidence.
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-08-20 (scope: the Application Surfaces implementation-status block, the New Session block, and the Hypervisor Home block, re-derived against the running estate under the Reference-UX Remediation correction; core-workspace enumeration sections carry the 2026-08-08 R2 basis against the v2 route table and surface compiler; all other sections carry the 2026-07-05 basis and need re-derivation before citing)
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; NO implementation was re-derived in this pass. The substantive bases are unchanged: 2026-08-20 for the Application Surfaces implementation-status block, the New Session block, and the Hypervisor Home block, re-derived against the running estate under the Reference-UX Remediation correction; the 2026-08-08 R2 basis for core-workspace enumeration sections against the v2 route table and surface compiler; and the 2026-07-05 basis for all other sections, which still need re-derivation before citing)
 
 ## Canonical Definition
 
@@ -438,9 +440,13 @@ Term map for product surfaces:
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
 | ContributionReceipt | contribution record, payout evidence, attribution |
-| OutcomeRoom / CollaborativeWorkGraph | Goal Space in ioi.ai; Work / Room detail in Hypervisor |
-| RoomParticipantLease / WorkClaimLease | participant status/current work with advanced lease details |
 | Work Credits | managed-work allowance and usage budget |
+
+Application-owned terms map in their owner's canon, not here: the
+`OutcomeRoom` / `CollaborativeWorkGraph` and
+`RoomParticipantLease` / `WorkClaimLease` rows moved 2026-09-12 to
+[`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#the-application-contributed-rooms-view)
+under ADR 0052 Decision 4.
 
 Users should not be bounced between domains to grant ordinary access. Hypervisor
 and aiagent.xyz should embed the permission and connector flows; wallet.network
@@ -1822,17 +1828,17 @@ preview) — one daemon-backed launch lane, no forked truth.
 The composer is one visual seed with two explicit semantic acts; sharing its
 layout does not merge their contracts. Ordinary prompt submission and Enter
 remain **New Session** and may create only the bounded Session described above.
-A separately labelled **Activate Goal** affordance may draft, review, and
-submit a `GoalRunActivationEnvelope` with `source_kind: ioi_goal_draft`.
-Typing text, submitting a Session prompt, correlation, navigation, or Session
-attachment is never that activation act. Before submission, the activation
-affordance must show the normalized intent, selected profile revision/hash,
-requesting principal, requested authority/effect posture, review requirement,
-and source binding; daemon admission alone may mint or join the GoalRun and
-return the activation/admission receipts. A Session may be attached after that
-admission, but neither the composer nor its transcript becomes GoalRun or Goal
-Space truth. Reusing the ported composer this way is an in-place contract
-rebind under ADR 0028, not a replacement Home, route migration, or new client.
+A second, separately labelled affordance may draft, review, and submit an
+application's own activation object; for the ioi.ai **Activate Goal**
+affordance that object is the `GoalRunActivationEnvelope`, whose contract,
+required pre-submission disclosures, and admission rules are owned by
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope).
+The surface rule is generic and stays here: typing text, submitting a Session
+prompt, correlation, navigation, or Session attachment is never an activation
+act; daemon admission alone may admit one; and a Session may be attached after
+that admission without the composer or its transcript becoming application
+truth. Reusing the ported composer this way is an in-place contract rebind
+under ADR 0028, not a replacement Home, route migration, or new client.
 
 ## Hypervisor Home
 
@@ -1988,14 +1994,23 @@ universal lifecycle.
 
 ```text
 Work / Active
-Work / Goals
 Work / Sessions
-Work / Rooms
 Work / Queues
 Work / Reviews
 Work / Incidents
 Work / History
 ```
+
+Application-contributed Work views (Goals, Rooms) are declared by their owners
+under `domains/ioi-ai/` —
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#work--goals-surface)
+and
+[`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#the-application-contributed-rooms-view)
+— per
+[`term-boundaries.md`](../../foundations/term-boundaries.md#which-layer-owns-which)
+§ *Which layer owns which* (moved 2026-09-12, ADR 0052 Decision 4). Their rows
+obey every Work rule below; Hypervisor core owns the read model, not the
+subjects.
 
 Every Work row declares a typed `subject_kind` and canonical `subject_ref` and
 deep-links to the type-specific owner. Work may derive display facets across
@@ -2017,14 +2032,17 @@ peer application:
 
 ```text
 /work                         -> Work / Active
-/work/goals                   -> Work / Goals
 /work/sessions                -> Work / Sessions
-/work/rooms                   -> Work / Rooms
 /work/queues                  -> Work / Queues
 /work/reviews                 -> Work / Reviews
 /work/incidents               -> Work / Incidents
 /work/history                 -> Work / History
 ```
+
+The `/work/goals` and `/work/rooms` route rows belong to the same owners as
+their views and are declared there (moved 2026-09-12, ADR 0052 Decision 4).
+They are canonical Hypervisor routes under this section's routing rules, not a
+second route namespace.
 
 New writes never mint a generic Mission id, and there are no `/sessions` or
 `/missions` alias routes: retired paths are deleted, not aliased
@@ -2750,10 +2768,13 @@ Canvas may display:
 - approval and policy checkpoints;
 - cTEE/privacy posture;
 - receipt and replay projections;
-- harness, model, worker, service, verifier, and provider selection hints;
-- OutcomeRoom frontier, participant, claim, attempt, finding, verifier-
-  challenge, authority, budget, and contribution-lineage projections when
-  opened from Work / Rooms or a Goal Space handoff.
+- harness, model, worker, service, verifier, and provider selection hints; and
+- application-contributed graph projections when opened from an
+  application-contributed Work view, on that application's own terms — for the
+  ioi.ai room lenses see
+  [`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#goal-space-projection)
+  (the enumerated room bullet was deleted 2026-09-12 as a duplicate of that
+  owner's projection list, ADR 0052 Decision 4).
 
 Canvas does not own execution, authority, state truth, receipts, or workflow
 semantics. It edits or visualizes objects owned by Automations, the Workflow
@@ -3703,26 +3724,21 @@ These product and protocol concepts remain distinct:
 | AutomationSpec | Reusable trigger, schedule, monitor, workflow, service, API, queue, or approval-flow definition | One activation, GoalRun, or transcript |
 | AutomationInstallationBinding | Successor-versioned scope enablement and narrowing overlay for one exact AutomationSpec | Trigger/graph definition, one activation, concrete grant, or execution truth |
 | AutomationRun | One activation freezing the exact WorkflowTemplate, AutomationSpec, and AutomationInstallationBinding | Reusable definition or durable collective objective |
-| GoalRun | Durable bounded outcome pursuit with constraints, continuation, attempts, verification, and course correction | Automation definition or Session transcript |
-| OutcomeRoom | Persistent shared pursuit above admitted participant GoalRuns | Every goal, global swarm, or Mission wrapper |
 | Session | Bounded interactive, headless, or supervisory execution/control context | Durable intent or reusable trigger definition |
 | WorkRun | One governed execution attempt of a WorkItem inside a Session/environment | Goal identity or shared room frontier |
 | Node | Admitted deployment member with declared role, leases, failure domain, and observed state | System identity or automatic authority |
 | Application | Registered owner, substrate, tool, or extension control surface | Runtime, authority, or canonical truth |
 
-The canonical relationship model is:
+The `GoalRun` and `OutcomeRoom` rows moved 2026-09-12 to the canonical table in
+[`term-boundaries.md`](../../foundations/term-boundaries.md#protected-core-terms)
+under ADR 0052 Decision 4; the relationship ladder that stood here duplicated
+[`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#canonical-flow)
+and the directional rules in
+[`term-boundaries.md`](../../foundations/term-boundaries.md#session-goalrun-and-outcomeroom-are-three-different-things),
+and was deleted rather than restated.
 
-```text
-human / API / System event -> optional GoalRun
-AutomationSpec + exact AutomationInstallationBinding
-  -> AutomationRun -> direct completion or explicit GoalRun(s)
-OutcomeRoom -> accepted participant GoalRun(s)
-GoalRun -> zero or more Sessions over time
-Session -> zero or more WorkRuns
-WorkRun -> results, evidence, receipts -> GoalRun and optional OutcomeRoom
-```
-
-A GoalRun survives Session termination, worker replacement, compaction, sleep,
+The boundary those objects create for Hypervisor surfaces still holds and is
+owned here. A GoalRun survives Session termination, worker replacement, compaction, sleep,
 restore, and course correction. A direct terminal/editor/environment/provider
 Session may exist without a GoalRun. An AutomationRun may finish without a
 GoalRun and, when no managed execution occurs, without a Session. An
@@ -3747,21 +3763,12 @@ daemon's own execution path. Consolidation onto the durable event substrate
 is the standing thread-orchestration seam obligation and completes this rule
 rather than amending it.
 
-For a persistent collective outcome, Work / Room detail is graph-first:
+The graph-first Work / Room detail lens that stood here was deleted 2026-09-12
+as a duplicate of
+[`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#goal-space-projection)
+§ *Goal Space Projection*, which owns it (ADR 0052 Decision 4).
 
-```text
-objective, acceptance, constraints, deadline, visibility, stop policy
-work frontier and typed state
-participants, affiliations, leases, heartbeat/wake, spend, and blockers
-claims, attempts, findings, negative results, contradictions, and evidence
-evaluation, guardrails, Pareto frontier, verifier versions and challenges
-approvals, authority/privacy incidents, pause, kill, and quarantine
-contribution and derivation lineage
-replay explaining topology, budget, verifier, and course corrections
-```
-
-A live feed or chat is a social projection over this graph, not its truth. The
-product must not add a permanent Mission or Swarm application. `Mission` may be
+The product must not add a permanent Mission or Swarm application. `Mission` may be
 an optional label or creation preset only when it resolves to exactly one typed
 GoalRun or OutcomeRoom subject. It creates no independent canonical id,
 authority, lifecycle, budget, status, evidence, or receipts.
@@ -4267,14 +4274,10 @@ HypervisorCanvasLayout:
   revision: uint64
   agentgres_operation_ref: agentgres://operation/...
 
-HypervisorGoalRunActivationContract:
-  activation_contract_ref: action://goal-run/activate/...
-  workflow_step_ref: workflow-step://...
-  activation_mode: create | join_existing
-  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
-  goal_run_profile_content_hash: hash
-  permitted_override_mapping_ref: schema://... | null
-  existing_goal_ref_parameter_ref: schema://... | null
+# HypervisorGoalRunActivationContract moved 2026-09-12 to
+# domains/ioi-ai/goal-pursuit.md#hypervisorgoalrunactivationcontract
+# (ADR 0052 Decision 4). The AutomationSpec/AutomationRun fields that reach it
+# are registered contract fields and are unchanged below.
 
 HypervisorAutomationSpec:
   automation_id: automation://...
@@ -4937,13 +4940,12 @@ contains live enablement. Each installation binding revision is immutable;
 `binding_hash` commits the exact spec pin, owner scope, enablement, policy and
 authority overlays. The admission receipt and registry lifecycle/status are
 excluded; the receipt binds the already-computed binding hash. A binding-body
-change creates a successor revision. A
-goal-shaped workflow step must reference a
-`HypervisorGoalRunActivationContract` that pins the exact GoalRunProfile and
-declares `create` or `join_existing`. The admitted AutomationRun records the
-resulting GoalRun ref, while that GoalRun retains its separate profile
-resolution receipt. Routine workflow steps leave the activation-contract list
-empty.
+change creates a successor revision. What an application-shaped workflow step
+must reference, and what the admitted AutomationRun records about the pursuit
+it reaches, is owned by that application: for the ioi.ai goal lane see
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#hypervisorgoalrunactivationcontract)
+(moved 2026-09-12, ADR 0052 Decision 4). Routine workflow steps leave the
+activation-contract list empty.
 
 For code WorkRuns, the default materialized backing is a Git branch or worktree
 created from a pinned base commit. Agentgres patch branches remain the canonical
@@ -5074,18 +5076,10 @@ not mutate host state directly.
   it must not mint a universal Work status, owner, lifecycle, or id and write it
   back over GoalRun, OutcomeRoom, AutomationRun, Session, WorkItem, WorkRun,
   review, or incident owners.
-- A persistent collective outcome must be one underlying OutcomeRoom projected
-  as ioi.ai Goal Space and Hypervisor Work / Room detail, not duplicated product
-  state.
-- Goal Space and Work / Room UI must be graph-first and expose frontier, participants,
-  participant/claim leases, attempts, findings, verifier challenges, spend,
-  authority/privacy blockers, contribution lineage, and replay. Chat and live
-  feeds remain projections.
-- Network/Open discovery UI must query signed, versioned
-  `OutcomeRoomDiscoveryEnvelope` projections by category, semantic profile,
-  capability, eligibility/affiliation, privacy/locality, budget/quote,
-  verifier, and settlement posture. Joining creates a typed participation
-  request and shows the admission decision; it never silently mints membership.
+- Goal Space and Work / Room conformance checks are owned by
+  [`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#conformance-checks)
+  § *Conformance Checks* (moved 2026-09-12, ADR 0052 Decision 4). Hypervisor
+  core's own Work rules above still bind those views.
 - Connect local agent must use `LocalAgentPairingSessionEnvelope` with a
   one-time expiring challenge/device code stored hash-only at rest, a candidate-
   generated key, and an origin binding. Pairing authenticates a candidate but
@@ -5099,10 +5093,6 @@ not mutate host state directly.
   assurance. Submitted messages, artifacts, and proposals remain tainted until
   the normal isolation, evidence, verification, and room/domain admission path
   accepts them.
-- Goal Space and Work / Room participant controls must expose claim release,
-  retirement/revocation, portable participant-state export, acknowledgement,
-  supersession, and future-access revocation while preserving historical
-  contribution, receipt, acceptance, and dispute lineage.
 - Direct questions, sessions, one-off handoffs, and ordinary automations must
   remain direct; no OutcomeRoom or permanent Swarm surface is required by
   default.
@@ -5179,8 +5169,6 @@ background automation = hidden editor session
 automation spec = chat transcript
 ioi.ai collaborative outcome = group chat
 ioi.ai collaborative outcome = unbounded swarm
-OutcomeRoom = permanent Swarm application
-OutcomeRoom = duplicated Goal Space and Work / Room truth
 Work = universal canonical status or lifecycle written over every subject kind
 System = renamed Project
 Project = implicit live System identity
@@ -5189,7 +5177,6 @@ New Session = implicit Goal, Automation, or System creation
 generic Mission = background-work or collective-work truth object
 background agent = invisible process or token stream
 same-owner seed fleet = independent multi-party network
-Goal Space subscription = pooled provider chat seats
 Network / Open spend = hidden ordinary seat burn
 Connect local agent = shared organization read/write token
 pairing challenge = reusable durable API credential
@@ -5241,7 +5228,6 @@ ioi.ai = intent-to-outcome coordination, including multi-model/multi-path
 goal pursuit when useful
 Goal Space = ioi.ai outcome product projection
 Work / Room detail = Hypervisor projection of the same persistent OutcomeRoom
-OutcomeRoom = graph-first shared frontier above bounded GoalRuns
 background participants = visible claims, leases, spend, evidence, and controls
 Hypervisor Operator Plane = governed control-plane harness over declared
 application-surface contracts

@@ -759,13 +759,15 @@ synchronized.
   model/provider fallback is a semantic substitution that emits route evidence
   and re-runs applicable verification/acceptance;
 - `Auto` / 1-of-N, `Pinned`, and `Compare` / N-of-N are routing policies, not
-  subscription tiers. Auto may use a verified cheap-first cascade; Pinned fails
-  closed unless fallback was authorized; Compare accounts for every admitted
-  attempt, verifier, and synthesis step;
-- execution/custody (`Standard` or `Private`), contributor scope (`My workers`,
-  `Organization`, or `Network / Open`), and placement (local, customer
-  infrastructure, selected cloud, or Hypervisor-selected) are orthogonal.
-  Contributor scope never declassifies data or widens authority. Multi-model,
+  subscription tiers. The `goal_execution_policy` and `contributor_scope`
+  member sets and their exact meaning are owned by
+  [collaborative-outcome-pattern.md](../domains/ioi-ai/collaborative-outcome-pattern.md#goal-space-product-contract)
+  § *Goal Space Product Contract* (moved there 2026-09-12 from
+  `canonical-enums.md`, ADR 0052 Decision 4); this digest points rather than
+  restates them;
+- execution/custody (`Standard` or `Private`), contributor scope, and placement
+  (local, customer infrastructure, selected cloud, or Hypervisor-selected) are
+  orthogonal. Multi-model,
   multi-worker, and multi-node work does not become multi-party unless separate
   principals control authority, truth, challenge, risk, and settlement;
 - local-agent intake has three explicit product elevations rather than one

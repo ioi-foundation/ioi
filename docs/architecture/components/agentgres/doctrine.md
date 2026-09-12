@@ -11,7 +11,7 @@ Doctrine status: canonical
 Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
   - `crates/services/src/agentic/runtime/`
-Last implementation audit: 2026-07-30
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-30)
 
 ## Canonical Definition
 
@@ -1145,6 +1145,17 @@ ProjectionDefinition
 ProjectionCheckpoint
 DisputeRecord
 ```
+
+The list above is navigation and stays exhaustive; a native object named here
+is not thereby owned here. The room and collective-pursuit objects —
+`OutcomeRoom`, `OutcomeRoomDiscovery`, `RoomParticipationRequest`,
+`ParticipantStateBundle`, `RoomParticipantLease`, `ResourceOffer`,
+`CapabilityOffer`, `WorkFrontierItem`, `WorkClaimLease`, `Attempt`, `Finding`,
+and `VerifierChallenge` — are defined by
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md)
+(linked 2026-09-12, ADR 0052 Decision 4). `WorkResult` and `OutcomeDelta`
+remain the generic result seam owned by
+[`work-results-and-lifecycle.md`](../../foundations/objects/work-results-and-lifecycle.md).
 
 ## Database Surface
 

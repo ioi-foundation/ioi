@@ -4,10 +4,11 @@ Status: canonical architecture authority.
 Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, collaborative-pursuit topology, and the coherent machine-economy stack.
 Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonomous-system state machines, and IOI L1 into one layer.
 Superseded by: none.
-Last alignment pass: 2026-07-21.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: mixed (the improvement-proposal plane and bounded GoalRun multi-HarnessInvocation slice are built or partial. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections; current v2 participation, frontier/claim, offers/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started, while mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. M1.3 wallet-authorized one-time System genesis admission, M1.4 exact pre-activation materialization, and the M1.5 initialize/activate, generic protected-transition, amendment-execution, succession/migration/dissolution, and local-enrollment record paths are landed; the selected M1 profile is program-verified. Local-agent pairing, external network/runtime effects, membership/writer authority, settlement, federated admission, acceptance/verdict/settlement, local operational-finality domains, and complete product journeys remain planned or speculative.)
-Last implementation audit: 2026-07-30
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-30)
 
 ## Canonical Definition
 
@@ -561,70 +562,25 @@ release/profile refs, and cryptographically continuous admitted room state are
 bound. A temporary collaboration aggregate without that system contract is not
 the reference DAS.
 
-```text
-OutcomeRoom / CollaborativeWorkGraph
-  shared objective, frontier, participation, claims, attempts, findings,
-  resources, evaluation, contribution lineage, course correction, and replay
+The composition block, the `GoalRunProfile` / `GoalRun` / `OutcomeRoom`
+definitions, the list of what a room binds, and the room participation
+lifecycle that stood here were deleted 2026-09-12 as duplicates of their
+owners (ADR 0052 Decision 4): the definitions belong to
+[`term-boundaries.md`](./term-boundaries.md#protected-core-terms) and the
+composition and lifecycle to
+[`../domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md#collaborative-work-graph-and-shared-state-admission).
+The boundary this file keeps is the one that matters at this scale: a room is a
+composition profile over existing owners — never a peer runtime, a second
+admission spine, or a magically global Agentgres graph — and AIIP carries its
+participation across autonomous-system boundaries without moving ownership.
 
-    -> GoalRunProfile A -> GoalRun A -> HarnessInvocations / workers / modules
-    -> GoalRunProfile B -> GoalRun B -> HarnessInvocations / workers / modules
-    -> GoalRunProfile C -> GoalRun C -> HarnessInvocations / workers / modules
+The collective loop those participants run is one loop, not a second substrate.
+Its canonical phase list is owned by
+[`../domains/ioi-ai/goal-run-execution.md`](../domains/ioi-ai/goal-run-execution.md#goalgroundingloopenvelope)
+(the restatement here was deleted 2026-09-12 as a duplicate, ADR 0052
+Decision 4).
 
-  admitted deltas update the shared frontier and may create or retire GoalRuns
-```
-
-`GoalRunProfile` answers how one reusable class of adaptive pursuits should
-converge. Daemon admission freezes its exact revision, permitted overrides,
-and transitive dependency resolution into each GoalRun. It composes existing
-policies, templates, skills, capabilities, and verifier requirements without
-owning their state or granting authority.
-
-`GoalRun` answers how one bounded participant or subteam grounds, executes,
-verifies, repairs, and continues a goal. `OutcomeRoom` answers how many
-participants that accepted compatible terms discover work, claim it, exchange permitted artifacts, preserve
-positive and negative attempts, challenge evaluation, and collectively change
-course. AIIP carries that participation across autonomous-system boundaries.
-
-The `OutcomeRoom` / CollaborativeWorkGraph is a composition profile over the
-existing owners, not a peer runtime or a magically global Agentgres graph. It
-binds:
-
-- objective, constraints, acceptance, stop, visibility, budget, artifact
-  license/export, participation, contribution, and settlement policies;
-- exact collaboration terms roots, party acceptances, participant-rationality
-  decisions, and non-retroactive amendment policy;
-- `RoomParticipantLease`, `ResourceOffer` / `CapabilityOffer`,
-  `WorkFrontierItem`, `WorkClaimLease`, `Attempt`, `Finding`,
-  `VerifierChallenge`, and generic `WorkResult` / `OutcomeDelta` refs;
-- bounded GoalRuns, context/resource/tool/authority leases, verifier paths,
-  discussion projections, replay, and contribution lineage;
-- `MultiPartyCollaborationEnvelope` only when admitted principals are actually
-  independent parties.
-
-The room lifecycle supports invited, joining, active, sleeping, waiting,
-suspended, quarantined, retiring, retired, and revoked participants. Claims are
-leases with TTL, heartbeat, renewal, release, reassignment, duplication, and
-independent-replication policy. Dynamic roles and taskforces may emerge from
-the live frontier; the architecture does not hard-code a planner/executor/
-verifier DAG as the only topology.
-
-The shared intelligence loop is:
-
-```text
-ground objective, world state, constraints, and acceptance
-  -> observe uncertainty or opportunity
-  -> form hypotheses, plans, or frontier items
-  -> claim, allocate, or delegate bounded work
-  -> lease context, resources, tools, budget, and authority
-  -> execute isolated or terms-bound cooperative attempts
-  -> publish results, evidence, negative findings, and integrity incidents
-  -> evaluate, falsify, reproduce, compare, merge, reject, or challenge
-  -> update admitted knowledge, contribution lineage, and routing priors
-  -> adapt topology, budget, participants, and verifier paths
-  -> stop on acceptance, risk, budget, deadline, or marginal value
-```
-
-This loop permits direct execution, hierarchy, leaderless blackboard
+That loop permits direct execution, hierarchy, leaderless blackboard
 coordination, specialist meshes, markets, branch-and-merge, and independent
 replication as policies over one substrate. Ordinary goals must still collapse
 to one GoalRun, one process, one local authority context, and no L1 when
@@ -639,13 +595,13 @@ participant must have an accepted consideration path; total room value cannot
 justify making a required participant worse off than its permitted outside
 option.
 
-The communal board, inbox, digest, taskforce view, leaderboard, and replay are
-projections over structured room state. Narrative discussion is not the work
-contract. Participant scratch branches/workspaces remain separate from admitted
-shared state; promotion requires reproducible artifacts, declared verifier and
-rule versions, held-out or adversarial evaluation where appropriate, and the
-room's admission policy. One scalar leaderboard cannot replace multi-objective
-acceptance, guardrails, integrity challenges, or negative-result preservation.
+Two substrate rules survive whatever projections a room chooses: narrative
+discussion is never the work contract, and a scratch workspace is never
+admitted shared state. What a room's boards, digests, leaderboards, and
+promotion gates must do about them is owned by
+[`../domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md#collaborative-work-graph-and-shared-state-admission)
+(the restatement here was deleted 2026-09-12 as a duplicate, ADR 0052
+Decision 4).
 
 ### Shared-State Ordering And Admission
 
@@ -895,113 +851,22 @@ memory projections. Distributed recursive improvement should add successor
 profile/template/skill revisions, memory, tool-call refinements, route
 policies, or verifiers only where evidence shows value.
 
-Goal Kernel orchestration is primarily context orchestration. The kernel should
-split work into independent Context Cells only when separation creates value:
-protecting long-horizon intent, bounding implementation-token churn, enabling a
-fresh review, isolating private context, or satisfying policy. It should not
-spawn agent chatter merely because multiple resolvers or workers are available.
+Goal Kernel orchestration, the implemented GoalRun policy slice, the default
+role topology for implementation-oriented goals, and the high-to-low contract
+for typed GoalRun execution across agent harness adapters moved 2026-09-12 to
+[`../domains/ioi-ai/goal-run-execution.md`](../domains/ioi-ai/goal-run-execution.md#goal-kernel-orchestration-and-the-high-to-low-execution-contract)
+under ADR 0052 Decision 4. The GoalGroundingLoop phase list that stood with
+them was deleted rather than moved, because that owner already spells it. They
+are application contracts of the ioi.ai orchestration application, stated
+against the substrate-generic admission, authority, evidence, and result rules
+this file and the daemon owner keep.
 
-The implemented GoalRun policy is an intentionally narrow first slice:
-`parallel_implement_reconcile`, one deterministic conductor, at most two
-implementers, isolated software workspaces, implementation-shaped task briefs,
-deterministic candidate verification, and one admitted reconciliation. It is
-evidence for bounded multiple-HarnessInvocation execution, not evidence that open joining,
-pull-based claims, generic work results, dynamic taskforces, or federated rooms
-already exist.
-
-The durable result seam is generic `WorkResult` / `OutcomeDelta`.
-`ImplementationResultPayload` remains its software profile for changed files,
-patches, tests, and implementation artifacts. Research findings, ontology
-mutations, incident resolution, service delivery, review, evaluation, and
-physical mission state use domain profiles rather than pretending every outcome
-is a code patch.
-
-For ordinary goal-shaped work, the conductor may also be the verifier. The
-default verifier path is conductor-run deterministic evidence: tests, diffs,
-browser or runtime checks, receipts, policy checks, and acceptance-criteria
-reconciliation. Independent verifier workers or HarnessInvocations,
-different-model review, human
-review, or regulated-party review are escalation paths for high-risk work such
-as publish, runtime mount, external connector action, spend, secrets, unsafe
-plaintext, marketplace admission, release control, production mutation,
-physical action, or compliance review.
-
-The default role topology for implementation-oriented goals is therefore:
-
-```text
-GoalRun
-  -> GoalGroundingLoop orients the conductor
-  -> conductor grounds intent, canon, current runtime state, constraints, and acceptance
-  -> implementer Context Cell is opened only when bounded execution helps
-  -> conductor verifies through the selected VerifierPath
-  -> receipts and handoff summaries reconcile back into GoalRun state
-```
-
-The GoalGroundingLoop is the low-level conductor orientation loop. Its phases
-are receive intent, classify goal shape and risk, gather grounding, inspect
-current state, derive constraints and acceptance, select topology, lease context,
-open Context Cells only when useful, delegate or execute, monitor receipts and
-handoffs, verify, repair or escalate, reconcile, persist memory/skills, and
-continue or close. This loop should optimize useful progress per token, not
-maximize model calls, and should always prefer concrete state inspection over
-stale prose when state is available.
-
-The high-to-low contract for typed GoalRun execution across agent harness
-adapters is:
-
-```text
-Product intent
-  User asks ioi.ai or Hypervisor Session to build, fix, review, publish, or run.
-
-Goal coordination
-  Daemon admission freezes one GoalRunProfile revision, allowed overrides,
-  transitive component snapshot/hash, and resolution receipt.
-  GoalRun records normalized intent, constraints, loop phase, continuation,
-  receipts, selected RoleTopology, plans, and selected VerifierPath.
-
-Conductor orientation
-  GoalGroundingLoop gathers canon/project/runtime/memory grounding, inspects
-  current state, selects topology, and decides direct execution vs delegation.
-
-Context partition
-  Context Cells isolate conductor, implementer, reviewer, verifier, operator,
-  or specialist context only when separation creates value.
-
-Context governance
-  Context Leases scope the files, docs, memory, tools, connectors, authority,
-  budget, runtime, and receipt views each cell or HarnessInvocation may use.
-
-Typed handoff
-  ContextHandoff with a TaskBriefPayload carries objective, scope, constraints,
-  do-not-touch rules, acceptance, verification plan, and output contract.
-
-Step-resolution broker
-  HarnessInvocation adapts the task brief into the selected HarnessProfile or
-  Agent Harness Adapter. Rendered prompts or commands are adapter-private; they
-  are not the durable contract.
-
-Adapter normalization
-  HarnessAdapterEvents translate provider-/adapter-specific output into common
-  stdout/stderr, file_changed, patch_created, test_completed, blocker,
-  decision_request, artifact_created, receipt_emitted, completed, or failed
-  events.
-
-Result contract
-  WorkResult / OutcomeDelta returns the generic outcome, evidence, blockers,
-  artifacts, receipts, and recommended next handoff. Its software profile,
-  ImplementationResultPayload, returns changed files, patch refs, and tests.
-
-Verification and reconciliation
-  The conductor consumes normalized results, runs the VerifierPath, repairs or
-  escalates when evidence fails, updates receipts/memory/skills, and closes or
-  continues the GoalRun.
-```
-
-This is how IOI removes the human copy-paste relay across agent harness
-adapters. Humans may observe, approve, or override, but cross-adapter
-coordination should flow through typed handoffs, HarnessInvocations, normalized
-events, implementation results,
-verifier paths, and receipts.
+What this file keeps is the substrate consequence. The durable result seam is
+generic `WorkResult` / `OutcomeDelta`. `ImplementationResultPayload` remains its
+software profile for changed files, patches, tests, and implementation
+artifacts. Research findings, ontology mutations, incident resolution, service
+delivery, review, evaluation, and physical mission state use domain profiles
+rather than pretending every outcome is a code patch.
 
 Codex, Claude Code, OpenCode, local agents, browser agents, CI agents, and
 future agent harnesses are eligible implementations through HarnessProfiles or

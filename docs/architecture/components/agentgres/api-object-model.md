@@ -4,12 +4,13 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export validity; artifact-ref meaning and restore/import validity live in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: reference
 Implementation status: partial (object catalog; families land with their planes. Agent Execution Branch remains planned over existing fork/replay/snapshot substrate. Receipt-checkpoint/proof schemas, invariants, fixtures, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Room discovery, portable exit, federation, acceptance/verdict/settlement, NetworkGoalBudget, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs`
-Last implementation audit: 2026-07-30
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-30)
 
 ## Purpose
 
@@ -344,6 +345,17 @@ DomainSequenceCheckpoint
 DisputeRecord
 SettlementMirror
 ```
+
+The index above is navigation and stays exhaustive; an object class named here
+is not thereby owned here. The room and collective-pursuit classes —
+`OutcomeRoom`, `OutcomeRoomDiscovery`, `RoomParticipationRequest`,
+`ParticipantStateBundle`, `RoomParticipantLease`, `ResourceOffer`,
+`CapabilityOffer`, `WorkFrontierItem`, `WorkClaimLease`, `Attempt`, `Finding`,
+and `VerifierChallenge` — are defined by
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md),
+and `NetworkGoalBudget` by
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#networkgoalbudgetenvelope)
+(linked 2026-09-12, ADR 0052 Decision 4).
 
 Ontology profile registration is exact and does not introduce parallel storage
 schemas:
@@ -1432,134 +1444,32 @@ portability, restore, retention, export, or user-visible doctrine.
 }
 ```
 
-## OutcomeRoom And Collaborative Work Graph Shapes
+## Application Graph Shapes
 
 Agentgres persists the objects defined by
 [`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md)
-inside the domain that owns each operation. It does not create one global room
-database. A room declares one of two admission shapes:
+and by each application's own canon, inside the domain that owns each
+operation. It does not create one global application database, and no
+application graph becomes a second admission plane. The Agentgres operation
+owns the expected object head or heads, resolved policy and authority, accepted
+sequence, resulting head, state root, and receipt refs; the bounded-System
+transition owns predecessor and transition continuity plus its state and
+receipt roots. Domain objects may reference those canonical records as evidence
+but never mint parallel decisions, receipts, sequences, transitions, or roots.
+Agentgres preserves rejected and superseded proposals without rewriting
+history, and participant or client inputs remain tainted until the enclosing
+System's Agentgres operation path accepts an object or delta.
 
-```text
-hosted_admission
-  one named Agentgres domain owns room ordering and admission
+For a federated domain, a local Agentgres stores its own object heads plus
+signed remote refs and the last admitted federation watermark. It must not
+import a remote private context, raw operational database, or message stream as
+local truth merely because it arrived over AIIP.
 
-federated_admission
-  each domain retains local truth; a versioned federation policy owns
-  signed update ordering, merge, quorum/adjudication, conflicts, and failover
-```
-
-Minimum persisted room graph:
-
-```json
-{
-  "outcome_room_id": "outcome-room://research-123",
-  "object_class": "OutcomeRoom",
-  "system_id": "system://outcome-room/research-123",
-  "genesis_ref": "genesis://outcome-room/research-123",
-  "package_id": "package://ioi/outcome-room",
-  "manifest_ref": "package://ioi/outcome-room/release/1.0.0",
-  "constitution_ref": "constitution://outcome-room/research-123/v1",
-  "active_profile_refs": {
-    "deployment": "deployment-profile://...",
-    "ordering_admission_finality": "ordering-profile://...",
-    "oracle_evidence": [],
-    "lifecycle_continuity": "lifecycle-profile://...",
-    "network_enrollment": null
-  },
-  "goal_ref": "goal://research-123",
-  "room_mode": "private_goal | permissioned_team | cross_org | open_challenge",
-  "coordination_topology": "hosted_admission | federated_admission",
-  "host_domain_ref": "agentgres://domain/ioi-ai | null",
-  "coordination_policy_ref": "policy://room-admission-v1",
-  "multi_party_collaboration_ref": "collaboration://research-123 | null",
-  "ontology_profile_refs": [],
-  "acceptance_stop_privacy_participation_contribution_and_export_policy_refs": [],
-  "scorecard_guardrail_verifier_resource_budget_and_settlement_refs": [],
-  "network_goal_budget_ref": "goal-budget://research-123 | order://... | null",
-  "participant_lease_refs": [],
-  "member_goal_run_refs": [],
-  "frontier_item_refs": [],
-  "attempt_refs": [],
-  "finding_refs": [],
-  "verifier_challenge_refs": [],
-  "contribution_refs": [],
-  "latest_sequence": 42,
-  "latest_transition_commitment_ref": "commitment://outcome-room/research-123/42",
-  "room_state_root": "sha256:...",
-  "room_receipt_root": "sha256:...",
-  "status": "proposed | open | active | paused | blocked | verifying | accepted | disputed | settled | closed | revoked | archived"
-}
-```
-
-The room relation graph must preserve:
-
-```text
-OutcomeRoom
-  -> OutcomeRoomDiscovery
-       -> policy-filtered objective / category / semantic profile / eligibility
-       -> privacy / visibility / budget / verifier / settlement posture
-  -> RoomParticipationRequest
-       -> applicant / operator / home domain / affiliations / eligibility
-       -> requested role / capabilities / leases / accepted policy versions
-  -> RoomParticipantLease
-       -> identity / operator / home domain / affiliations
-       -> worker / model route / harness / runtime dependencies
-       -> context / resource / budget / authority leases
-       -> current WorkClaimLease / heartbeat / wake condition / quarantine
-       -> ParticipantStateBundle
-            -> released claims / included lineage / exclusions / redactions
-            -> export / acknowledgement / supersession / revocation
-  -> WorkFrontierItem
-       -> dependencies / related attempts and findings
-       -> required capabilities / context / resources / authority / evidence
-       -> expected value / uncertainty / priority / duplication policy
-       -> WorkClaimLease
-  -> ResourceOffer / CapabilityOffer
-       -> ResourceAllocationDecision / spend / contribution refs
-  -> NetworkGoalBudget
-       -> separate funding / cap / allocation / contribution / settlement refs
-       -> never an implicit draw on ordinary Goal Space Work Credits
-  -> Attempt
-       -> declared method / lineage / environment and version refs
-       -> positive / negative / inconclusive / invalid / exploit / superseded
-       -> WorkResult / OutcomeDelta / artifacts / evidence / costs
-       -> reproduction / verifier / license / export / contribution refs
-  -> Finding
-       -> uncertainty / time / provenance / applicability
-       -> supporting and contradicting evidence / supersession / dispute
-  -> VerifierChallenge
-       -> rule versions / adjudication / affected attempts / re-verification
-  -> CollaborativeWorkGraph projection
-       -> exact room revision/root and reciprocal GoalRun membership
-       -> participant/frontier/claim/attempt/finding/challenge/result/delta refs
-  -> OutcomeRoomDiscussionProjection
-       -> policy-filtered message refs / redaction summaries / replay cursor
-       -> exact information-flow labels and source admission receipts
-```
-
-Room messages, boards, inboxes, digests, feeds, taskforce lists, leaderboards,
-and replay timelines are projection definitions over those objects. They are
-not canonical state classes. Their durable room-specific form is the
-`OutcomeRoomDiscussionProjectionEnvelope` owned by
-[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md):
-it binds one exact room revision/root, source receipts, visibility policy, and
-information-flow labels, and is neither authoritative nor client-writable.
-Participant inputs remain tainted until the enclosing room System's Agentgres
-operation path accepts an object or delta. Every room-scoped typed payload binds
-the exact room System, OutcomeRoom, participant lease or room-System issuer, and
-payload root through `SystemScopedObjectBinding`. The binding is vocabulary, not
-an admission envelope. The Agentgres operation owns the expected object head or
-heads, resolved policy and authority, accepted sequence, resulting head, state
-root, and receipt refs; the bounded-System transition owns predecessor and
-transition continuity plus its state and receipt roots. Domain objects may
-reference those canonical records as evidence but never mint parallel room
-decisions, receipts, sequences, transitions, or roots. Agentgres preserves
-rejected and superseded proposals without rewriting history.
-
-For a federated room, a local domain stores its own object heads plus signed
-remote refs and the last admitted federation watermark. It must not import a
-remote private context, raw operational database, or message stream as local
-truth merely because it arrived over AIIP.
+The application-specific persisted shapes — the ioi.ai OutcomeRoom graph, its
+relation graph, and its `CollaborativeWorkGraph` /
+`OutcomeRoomDiscussionProjection` projection classes — moved 2026-09-12 to
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#agentgres-persistence-of-the-room-graph)
+under ADR 0052 Decision 4.
 
 ## Worker Runtime v0 Canonical Objects
 
