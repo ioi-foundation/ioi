@@ -130,7 +130,17 @@ fn execution_contract_violation_error_uses_contract_violation_as_primary_class()
 
 #[test]
 fn software_install_execute_plan_is_treated_as_command_execution_provider_tool() {
-    let install = software_install_execute_plan_tool("vlc", None);
+    // AN EXPLICIT MANAGER, BECAUSE `None` MEANS AUTO AND AUTO QUERIES THE HOST. Passing `None`
+    // sends plan resolution down `discover_package_manager_candidates`, which shells out to every
+    // package manager on the machine (`command_exists`, then the manager's own exact-candidate
+    // probe) and resolves only when EXACTLY ONE reports the package. That makes this test's
+    // outcome depend on which managers the host has installed and what their indexes currently
+    // contain: it passed on a developer box whose apt index carries `vlc` and failed on the CI
+    // runner, which is a statement about the two machines rather than about the code under test.
+    // The claim here is that a software-install execute plan is treated as a command-execution
+    // provider tool, and the manager is irrelevant to it — so this pins one, exactly as the
+    // sibling verification test below already does.
+    let install = software_install_execute_plan_tool("vlc", Some("apt-get"));
     assert!(is_command_execution_provider_tool(&install));
 }
 
