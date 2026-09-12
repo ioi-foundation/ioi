@@ -154,9 +154,9 @@
       "id": "native-shell",
       "npm_script": "check:native-shell",
       "source": "apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs",
-      "runtime_assertions": 117,
-      "assertion_names_sha256": "ed13d10e13588379feea9e7511a7459c39faf3821402d7aa318f6c278a5c0509",
-      "note": "M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census."
+      "runtime_assertions": 118,
+      "note": "117 -> 118 (2026-09-12): the embed claim was SPLIT into two, because it conjoined a form the surface always emits with row onclicks that exist only once the estate holds object types, and this gate runs against a freshly created isolated daemon. One assertion became two with different subjects. The pin should have moved in that commit and did not; the floor caught it, which is what it is for. M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census.",
+      "assertion_names_sha256": "d253cc49e5481ee75544c183a0bb5c258be3238414b18057a78096e81cf8aed0"
     },
     {
       "id": "odk-contract-and-domainapp",
@@ -198,9 +198,9 @@
       "id": "packages-journey",
       "npm_script": "check:packages-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
-      "runtime_assertions": 50,
-      "assertion_names_sha256": "58d10eb0f6f48fdad889f0c2679641488040a38779605b0ad56da249a5d0253b",
-      "note": "Measured after the recall successor and eligibility-cascade journey landed: 50 assertions exercise recall, replay, launcher-feed removal, restart survival, and terminal uninstall truth."
+      "runtime_assertions": 51,
+      "note": "50 -> 51 (2026-09-12): the journey gained an assertion that the RETIRED v1 descriptor shape is still refused, so the lane witnesses the M05.5 convergence rather than merely avoiding it. Same miss as above, same commit discipline, caught the same way. Measured after the recall successor and eligibility-cascade journey landed: 50 assertions exercise recall, replay, launcher-feed removal, restart survival, and terminal uninstall truth.",
+      "assertion_names_sha256": "8ca35b1732ad603086f3c6d2f965c04760aa210934fec88ac80b670d24eafa74"
     },
     {
       "id": "ported-seed",

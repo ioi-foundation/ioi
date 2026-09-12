@@ -171,11 +171,6 @@ jobs:
       # M05.10 is a Rust-backed live-daemon gate. Keep it beside the daemon build and full daemon
       # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
       # out-of-worktree binary and exercises only synthetic records on an isolated data directory.
-      - name: Verify vertical ontology pack compilation
-        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
-        env:
-          IOI_M0510_DAEMON_PREBUILT: "1"
-        run: npm run check:vertical-ontology-pack-compiler --workspace=@ioi/hypervisor-app
 
       # ADR 0038's named merge lane. The full daemon suite above also contains
       # these tests; the exact invocation keeps the M04.8 claim boundary visible
@@ -758,6 +753,21 @@ jobs:
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
+
+      # MOVED HERE FROM build_and_test (2026-09-12). It ran there and PASSED, and its runtime
+      # census was collected by nothing: build_and_test sets IOI_VERIFIER_CENSUS_DIR on zero steps
+      # and publishes no census artifact, so the verifier-family floor recorded `census_missing`
+      # for a verifier that had just succeeded. A floor that cannot receive a census it pins is a
+      # floor reporting on a run it never saw. This job builds the daemon the check needs, sets the
+      # census directory on every verifier step, and publishes the artifact the floor downloads —
+      # so the check joins six siblings that already work rather than growing a second collection
+      # path in a job that has none.
+      - name: Verify vertical ontology pack compilation
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_M0510_DAEMON_PREBUILT: "1"
+        run: npm run check:vertical-ontology-pack-compiler --workspace=@ioi/hypervisor-app
 
       - name: Verify the governed-effect assurance floor
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
