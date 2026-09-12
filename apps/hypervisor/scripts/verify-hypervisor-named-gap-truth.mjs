@@ -154,6 +154,11 @@ const PINNED = {
   // and the reconciliation between the three is what makes this a measurement rather than a tally.
   // The defect being corrected is mine twice over: both commits registered routes and neither moved
   // this pin in the same cut, which is what a pin exists to catch.
+  // 870 -> 871 (2026-09-12, M04.10): the per-dimension work-reservation admission. ONE route, on
+  // the work-lifecycle prefix rather than a new one, because the reservation bounds work that this
+  // owner already governs — but on its OWN event stream (R-74), never the record chain, since that
+  // chain's head moves on every phase transition and would invalidate pending claims for reasons
+  // unrelated to capacity.
   // 867 -> 870 (2026-09-12, M07.4 items 2b and 2c): one commit's worth of registrations, all in the
   // model-route CANDIDATE lane — price-schedule admit and read, and the advisory cost comparison.
   // NOTE FOR THE NEXT ROUTE ADDED UNDER AN EXISTING FAMILY'S PREFIX: naming these
@@ -170,7 +175,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 870,
+  registeredRoutes: 871,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

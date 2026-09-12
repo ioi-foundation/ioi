@@ -15260,7 +15260,7 @@
     {
       "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
       "canonical_name": "WorkDimensionReservation",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-and-labor.md#work-reservation",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-execution.md#resourceallocationdecisionenvelope",
       "schema_version": "ioi.foundations.work-dimension-reservation.v1",
       "maturity": "partial",
       "stability": "provisional",

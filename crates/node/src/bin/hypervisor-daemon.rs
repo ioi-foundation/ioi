@@ -2835,6 +2835,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/work-lifecycle/records",
             get(work_lifecycle_routes::handle_work_lifecycle_records),
         )
+        // M04.10: per-dimension reservations on their own stream (R-74), never the record chain.
+        .route(
+            "/v1/hypervisor/work-lifecycle/reservations",
+            post(work_lifecycle_routes::handle_work_reservation_admit),
+        )
         .route(
             "/v1/hypervisor/work-lifecycle/cancellation-plan",
             post(work_lifecycle_routes::handle_work_lifecycle_cancellation_plan),

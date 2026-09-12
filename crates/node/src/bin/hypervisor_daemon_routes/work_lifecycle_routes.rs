@@ -57,6 +57,17 @@ use super::DaemonState;
 /// Owner namespaces for the five durable families. Each is a canonical
 /// event-stream owner namespace (`[a-z0-9._-]`, <= 96 bytes).
 pub(crate) const RECORDS_NS: &str = "work-lifecycle-records";
+/// THE RESERVATION FAMILY'S OWN STREAM (M04.10, ruling R-74).
+///
+/// Deliberately NOT the work-lifecycle record stream. That chain has one head and every append
+/// moves it, so a PHASE TRANSITION would invalidate a pending reservation computation — refusing a
+/// claim for a reason with nothing to do with capacity. Exact-head CAS is what serializes sibling
+/// CLAIMS, and aiming it at a head unrelated work also moves turns a correctness device into a
+/// generator of spurious refusals. One stream per work TREE, keyed by the outermost ancestor, is
+/// the smallest scope on which all claims that can contend actually contend.
+pub(crate) const RESERVATIONS_NS: &str = "work-dimension-reservations";
+const RESERVATION_OP_KIND: &str = "event_stream.work_dimension_reservation";
+const RESERVATION_CONTRACT_ID: &str = "schema://ioi/foundations/work-dimension-reservation/v1";
 pub(crate) const PROJECTIONS_NS: &str = "work-lifecycle-projections";
 pub(crate) const CANCELLATION_PLANS_NS: &str = "work-lifecycle-cancellation-plans";
 pub(crate) const ARCHIVE_SEGMENTS_NS: &str = "work-lifecycle-archive-segments";
@@ -1067,34 +1078,183 @@ pub(crate) async fn handle_work_lifecycle_records(
     })))
 }
 
-/// The reservation transaction's legal edge (M04.10, ACC-5 clause 8).
+/// Everything one reservation admission needs to read, gathered once.
 ///
-/// THE DECISION IS THE KERNEL'S AND THE TABLE IS THIS MODULE'S, which is the split this whole
-/// owner is built on: the shared kernel owns integrity and arithmetic and never acquires a domain
-/// object's write authority, so the ceilings come from here and the sums happen there. The gate is
-/// the single bounding point `append_gated` already provides, so a reservation is admitted by the
-/// same path as every other record rather than by a second one written beside it.
-///
-/// THE HEAD COMES FROM `prior`, NOT FROM THE CALLER. `plan_reservation` refuses a claim whose
-/// `expected_ancestor_head` does not match, and taking that head from the kernel's own view of the
-/// chain is what makes the check meaningful — a caller-supplied head would be the caller agreeing
-/// with itself. A sibling admitted in between moves `prior`, and this claim is then refused with
-/// its capacity picture named as stale rather than applied to a bound already spent.
-struct ReservationEdgeGate<'a> {
-    core: &'a WorkLifecycleLogCore,
-    bounds: Vec<ReservationBound>,
-    siblings: &'a [Value],
+/// The siblings and the head come from the SAME read, which matters: reading them separately
+/// leaves a window in which a sibling lands between the two, and the sums would then describe a
+/// capacity picture the head no longer names. The admission's own exact-head CAS closes that
+/// window at the write, and taking both from one history read keeps the decision honest at the
+/// read.
+struct ReservationStream {
+    tail: String,
+    head: Option<String>,
+    siblings: Vec<Value>,
 }
 
-impl LegalEdgeGate for ReservationEdgeGate<'_> {
-    fn authorize(&self, prior: Option<&Value>, candidate: &Value) -> Result<(), String> {
-        let head = prior
-            .and_then(|record| record.get("resulting_head"))
-            .and_then(Value::as_str);
-        self.core
-            .plan_reservation(candidate, head, &self.bounds, self.siblings)
-            .map_err(|error| format!("{}: {}", error.code(), error.message()))
+/// The stream one claim contends on: its OUTERMOST ancestor, which is the last element of the
+/// chain. Every claim that could oversubscribe the same root serializes here, and claims under
+/// different roots never contend — so the CAS is as narrow as correctness allows and no narrower.
+fn reservation_stream_tail(candidate: &Value) -> Option<String> {
+    candidate
+        .get("ancestor_chain")
+        .and_then(Value::as_array)
+        .and_then(|chain| chain.last())
+        .and_then(Value::as_str)
+        .map(|root| format!("reservations/{}", stream_safe(root)))
+}
+
+fn stream_safe(reference: &str) -> String {
+    reference
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
+fn read_reservation_stream(data_dir: &str, tail: &str) -> Result<ReservationStream, Refused> {
+    let history = substrate_store::read_event_stream_history(data_dir, RESERVATIONS_NS, tail)
+        .map_err(|refusal| {
+            bad(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "work_reservation_substrate_unavailable",
+                &format!("the reservation stream could not be read: {refusal:?}"),
+            )
+        })?;
+    let head = history.last().map(|projection| projection.head.to_string());
+    Ok(ReservationStream {
+        tail: tail.to_string(),
+        head,
+        siblings: history
+            .into_iter()
+            .map(|projection| projection.operation.payload)
+            .collect(),
+    })
+}
+
+/// Admit one reservation against the bounds it narrows.
+///
+/// THE DECISION IS THE KERNEL'S AND THE TABLE IS THIS MODULE'S — the split this whole owner is
+/// built on. The ceilings are the ancestor owner's truth and come from the caller; the arithmetic
+/// that decides whether a claim fits inside them is `WorkLifecycleLogCore::plan_reservation`.
+///
+/// AN EARLIER CUT ROUTED THIS THROUGH `append_gated`'s `LegalEdgeGate`, which was wrong and is
+/// recorded rather than quietly dropped: that seam belongs to the work-lifecycle RECORD chain, and
+/// R-74 ruled reservations onto their own stream precisely because that chain's head moves on every
+/// phase transition. A trait impl on a path the family does not take would have implied a
+/// serialization guarantee it does not have, so it is gone rather than left compiling.
+///
+/// THE HEAD IS READ HERE AND ENFORCED TWICE, deliberately. `plan_reservation` refuses a claim whose
+/// `expected_ancestor_head` does not match what this read saw, which is the honest answer to the
+/// caller; and the admission carries the same head as its exact CAS, which is what actually
+/// serializes a concurrent winner. The first is a diagnosis, the second is the guarantee.
+fn admit_reservation(
+    data_dir: &str,
+    core: &WorkLifecycleLogCore,
+    candidate: &Value,
+    bounds: Vec<ReservationBound>,
+    recorded_at_ms: u64,
+) -> Result<Value, Refused> {
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            RESERVATION_CONTRACT_ID,
+            candidate,
+        )
+    {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "work_reservation_contract_invalid",
+            &format!(
+                "the reservation violates its registered contract and is NOT admitted: {error}"
+            ),
+        ));
     }
+    let Some(tail) = reservation_stream_tail(candidate) else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "work_reservation_narrows_nothing",
+            "a reservation narrows at least one ancestor bound",
+        ));
+    };
+    let stream = read_reservation_stream(data_dir, &tail)?;
+    core.plan_reservation(candidate, stream.head.as_deref(), &bounds, &stream.siblings)
+        .map_err(|error| bad(StatusCode::CONFLICT, error.code(), error.message()))?;
+    let reservation_ref = candidate
+        .get("reservation_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let admitted = substrate_store::admit_event_stream_operation(
+        data_dir,
+        RESERVATIONS_NS,
+        &stream.tail,
+        RESERVATION_OP_KIND,
+        stream.head.as_deref(),
+        candidate,
+        recorded_at_ms,
+        reservation_ref,
+    )
+    .map_err(|refusal| match refusal {
+        AdmissionRefusal::HeadConflict => bad(
+            StatusCode::CONFLICT,
+            "work_reservation_head_moved",
+            "a concurrent claim was admitted first; re-read the stream and recompute the available capacity",
+        ),
+        other => bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "work_reservation_substrate_unavailable",
+            &format!("the reservation could not be durably admitted: {other:?}"),
+        ),
+    })?;
+    Ok(json!({
+        "reservation": candidate,
+        "stream_tail": stream.tail,
+        "admitted_head": admitted.projection.head.to_string(),
+        "nonclaim": "An admitted reservation bounds capacity; it grants no authority and transfers no owner truth. The ceilings it was checked against are the ancestor owners' and were supplied to this transaction, not derived by it.",
+    }))
+}
+
+/// `POST /v1/hypervisor/work-lifecycle/reservations`
+///
+/// Admit one per-dimension reservation (M04.10, ACC-5 clause 8). The body carries the
+/// `reservation` itself and the `ancestor_bounds` it is to be checked against — the ceilings are
+/// the ancestor owners' truth and are SUPPLIED to this transaction rather than derived by it, for
+/// the same reason this whole module never acquires a domain object's write authority.
+///
+/// IDENTITY RESOLVES BEFORE THE BODY IS READ. The body arrives as raw bytes rather than through
+/// `Json<Value>`, because an extractor that parses first answers an anonymous caller with 400 or
+/// 415 — "your body is wrong" — where the only honest answer is 401.
+pub(crate) async fn handle_work_reservation_admit(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Json<Value>, Refused> {
+    let _identity = request_identity(&st, &headers)?;
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    let Some(candidate) = body.get("reservation") else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "work_reservation_required",
+            "the body carries the reservation to admit under `reservation`",
+        ));
+    };
+    // A bound this transaction was not handed is a bound it cannot check, and `plan_reservation`
+    // refuses on exactly that rather than skipping the ancestor — so an empty or partial list is
+    // a refusal there, with the missing ancestor named, instead of a silent pass here.
+    let bounds: Vec<ReservationBound> = body
+        .get("ancestor_bounds")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|row| {
+                    Some(ReservationBound {
+                        ancestor_ref: row.get("ancestor_ref")?.as_str()?.to_string(),
+                        bound_units: row.get("bound_units")?.as_u64()?,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let core = WorkLifecycleLogCore;
+    let admitted = admit_reservation(&st.data_dir, &core, candidate, bounds, now_ms() as u64)?;
+    Ok(Json(admitted))
 }
 
 /// `POST /v1/hypervisor/work-lifecycle/cancellation-plan`
