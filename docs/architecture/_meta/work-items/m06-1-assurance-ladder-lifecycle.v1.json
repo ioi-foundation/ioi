@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-1-assurance-ladder-lifecycle",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.1"
+  ],
+  "status": "verified",
+  "objective": "The assurance ladder is an explicit typed PROGRESSION on the work object, not a single transition seam: attested through settled, each rung naming its actor, its evidence and what it does not assert, preserving the negative, inconclusive, invalid, exploit, superseded, disputed and no-fault outcomes, with no consumer treating a receipt as a verdict.",
+  "falsifiable_claim": "All six ladder members are reachable in order over a WorkResult its own owner calls negative, each as its own object with its own actor_ref, evidence_refs and does_not_assert, and the six stage rows carry six distinct transitions. Six outcome classes are carried up that climb and invalid is admitted through an upheld adjudication, so every member ACC-8 clause 2 names by hand counts at least once on a real ladder and is still queryable after a daemon restart. Reaching settled does not rewrite the work: the projection still reports the owner's negative outcome_class, and five authority-bearing families that each answered 200 are byte-identical across the whole walk. A settled subject refuses a further transition; a first transition asserting verified refuses and creates no ladder; a challenge resolution outside adjudication refuses; an upheld resolution carrying a clean outcome refuses; an adjudication with no reviewer refuses; an unknown outcome class refuses -- each with the ladder's transition count and head unchanged afterwards.",
+  "canon_owners": [
+    "docs/architecture/foundations/canonical-enums.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/assurance_transition_routes.rs",
+      "literal": "const STAGES: &[&str] = &[",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/assurance_transition_routes.rs",
+      "literal": "assurance_transition_resolution_outcome_disagreement",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/assurance_transition_routes.rs",
+      "literal": "assurance_transition_resolution_reviewer_required",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
+      "literal": "every member of the ladder is reachable in order",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
+      "literal": "the authority comparison is not vacuous: every family it watches actually ANSWERED",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
+      "literal": "every outcome class ACC-8 clause 2 names by hand is retained and queryable on a real ladder",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/package.json",
+      "literal": "mutate:assurance-ladder-lifecycle",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Three defects are planted in the daemon's own source, rebuilt and re-run, each required to redden the ONE assertion it names; a mutant that reddens something else is reported as a MISS, never quietly counted. The stage the caller asserts is accepted instead of checked (reddens the no-skip clause); a challenge resolution becomes claimable at any rung (reddens the one-rung clause); and a non-positive outcome is normalised on the way into the census (reddens the outcome-survival clause). All three were CAUGHT and the source restored and rebuilt clean. Every refusal assertion additionally counts BY EFFECT, re-reading the ladder afterwards and requiring the transition count and head to be unchanged, because a 4xx that still appended is the failure the shape exists to catch. The authority comparison carries its own anti-vacuity assertion: each watched family must have answered 200, which is how a non-existent route silently contributing a 404-equals-404 comparison was found in this gate's own list.",
+  "remaining_nonclaims": [
+    "This gate proves the PROGRESSION. The transition seam over a non-WorkResult subject and the consumer projection's own semantics (census shape, unreached-stage independence, contract-version downgrade, bound-version history) belong to check:assurance-transition-receipt and check:verified-work-graph and are cited rather than restated -- a second set of answers to one question is a second spine waiting to disagree with the first.",
+    "Reaching settled is not a claim that any work is correct, accepted in fact, adjudicated rightly, paid for, or fit for any purpose. The gate proves the ladder records and retains; it proves nothing about the world the records describe.",
+    "Room discovery, contribution and portable-exit consumers of the ladder wait on M04.8 as this unit's scope says, and are not driven here.",
+    "One authenticated principal drives this gate. Cross-principal indistinguishability of a foreign ladder is the sibling graph gate's claim, which drives two real principals sharing one tenant.",
+    "The five authority families are read through their list routes. That they answered identically is evidence no record in them moved; it is not a proof that no authority exists anywhere else in the daemon."
+  ],
+  "source_provenance": "Landed 2026-09-11 by the MVP finish-line program, leg 2b (second unit of the READY set). Recorded in canon-to-code-delta.md section Journey verification XLIII. Measured: check:assurance-ladder-lifecycle 22/22 and mutate:assurance-ladder-lifecycle 3/3 against an isolated real daemon. Four earlier runs were the verifier's own construction errors and are recorded as they happened: run 1 (10/17) presented the record content hash as expected_head instead of the stream head; run 2 (12/17) carried an upheld+no_fault adjudication the daemon's resolution/outcome coupling forbids, with a missing reviewer_lineage and a non-principal adjudicator_ref; run 3 (17/19) aimed two probes at an already-settled subject; run 4 found the no-reviewer clause passing on the outside-adjudication code and re-aimed it.",
+  "last_status_transaction": "2026-09-11"
+}

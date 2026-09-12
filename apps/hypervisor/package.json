@@ -88,6 +88,8 @@
     "check:standing-authority-broker-contract": "node scripts/verify-standing-authority-broker-contract.mjs",
     "check:studio-journey": "node scripts/verify-hypervisor-studio-journey.mjs",
     "check:project-discovery-proposal": "node scripts/verify-hypervisor-project-discovery-proposal.mjs",
+    "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
+    "mutate:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs --mutate",
     "mutate:project-discovery-proposal": "node scripts/verify-hypervisor-project-discovery-proposal.mjs --mutation",
     "check:worker-secret-non-possession": "node scripts/verify-hypervisor-worker-secret-non-possession.mjs",
     "check:u1-campaign-certificate": "node scripts/verify-u1-campaign-certificate.mjs --self-test",
