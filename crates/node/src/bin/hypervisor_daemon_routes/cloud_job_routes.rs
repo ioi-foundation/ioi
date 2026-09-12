@@ -104,7 +104,11 @@ fn refuse(code: &str, message: String) -> (StatusCode, Json<Value>) {
     refuse_with(code, message, None)
 }
 
-fn refuse_with(code: &str, message: String, internal_ref: Option<&str>) -> (StatusCode, Json<Value>) {
+fn refuse_with(
+    code: &str,
+    message: String,
+    internal_ref: Option<&str>,
+) -> (StatusCode, Json<Value>) {
     let mut error = json!({ "code": code, "message": message });
     if let (Some(target), Some(r)) = (error.as_object_mut(), internal_ref) {
         target.insert("internal_ref".into(), json!(r));
@@ -140,7 +144,10 @@ fn find_key<'a>(body: &Value, keys: &'a [&'a str]) -> Option<&'a str> {
 /// A lease draw-down is a NARROWING of a grant a human made earlier. It is never a
 /// new grant an agent minted for itself, and it can never widen what the underlying
 /// grant already permits.
-fn resolve_authority_mode(caller_kind: &str, authority_ref: &str) -> Result<Value, (String, String)> {
+fn resolve_authority_mode(
+    caller_kind: &str,
+    authority_ref: &str,
+) -> Result<Value, (String, String)> {
     match caller_kind {
         "human" => {
             if !authority_ref.starts_with("wallet-grant://") {
@@ -334,23 +341,19 @@ pub(crate) async fn handle_cloud_job_create(
     if intent_body.is_null() {
         return refuse(
             "job_intent_required",
-            "a job request wraps exactly one CloudResourceIntent describing the capacity wanted".into(),
+            "a job request wraps exactly one CloudResourceIntent describing the capacity wanted"
+                .into(),
         );
     }
     let intent_id = format!("cri_{:x}", nanos());
     let intent = super::decentralized_cloud_routes::intent_record_for_job(&intent_id, &intent_body);
-    if persist_record(
-        &st.data_dir,
-        "cloud-resource-intents",
-        &intent_id,
-        &intent,
-    )
-    .is_err()
-    {
+    if persist_record(&st.data_dir, "cloud-resource-intents", &intent_id, &intent).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": { "code": "intent_persist_failed",
-                "message": "the intent could not be persisted; a job that references an intent no reader can find is not honest evidence" } })),
+            Json(
+                json!({ "ok": false, "error": { "code": "intent_persist_failed",
+                "message": "the intent could not be persisted; a job that references an intent no reader can find is not honest evidence" } }),
+            ),
         );
     }
 
@@ -384,12 +387,17 @@ pub(crate) async fn handle_cloud_job_create(
     if persist_record(&st.data_dir, JOB_KIND, &job_id, &record).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": { "code": "job_persist_failed",
-                "message": "the job could not be persisted" } })),
+            Json(
+                json!({ "ok": false, "error": { "code": "job_persist_failed",
+                "message": "the job could not be persisted" } }),
+            ),
         );
     }
 
-    (StatusCode::CREATED, Json(json!({ "ok": true, "job": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "job": record })),
+    )
 }
 
 /// A CapabilityLease draw-down, resolved to the broker authority the provider lane needs.
@@ -441,7 +449,9 @@ fn resolve_lease_drawdown(
     if expires_ms > 0 && expires_ms <= now_ms {
         return Err((
             "capability_lease_expired".into(),
-            format!("lease '{lease_id}' expired; a lapsed lease is re-obtained, never extended here"),
+            format!(
+                "lease '{lease_id}' expired; a lapsed lease is re-obtained, never extended here"
+            ),
         ));
     }
 
@@ -527,8 +537,10 @@ pub(crate) async fn handle_cloud_job_execute(
     if text(&job, "state") != "admitted_proposal" {
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "ok": false, "error": { "code": "cloud_job_not_admitted",
-                "message": format!("job '{want}' is in state '{}'; only an admitted_proposal executes, and it executes once", text(&job, "state")) } })),
+            Json(
+                json!({ "ok": false, "error": { "code": "cloud_job_not_admitted",
+                "message": format!("job '{want}' is in state '{}'; only an admitted_proposal executes, and it executes once", text(&job, "state")) } }),
+            ),
         );
     }
 
@@ -594,12 +606,13 @@ pub(crate) async fn handle_cloud_job_execute(
     }
 
     // ── Seam F/G: the existing placement decision, not a private one. ──
-    let (decide_code, Json(decision_body)) = super::placement_failover_routes::handle_placement_decide(
-        State(st.clone()),
-        inbound.clone(),
-        Json(json!({ "intent_ref": job["intent_ref"] })),
-    )
-    .await;
+    let (decide_code, Json(decision_body)) =
+        super::placement_failover_routes::handle_placement_decide(
+            State(st.clone()),
+            inbound.clone(),
+            Json(json!({ "intent_ref": job["intent_ref"] })),
+        )
+        .await;
     if decide_code != StatusCode::OK {
         // A job whose venue vanished between admission and execution fails HERE, with the
         // decision plane's own reason, and is recorded as refused rather than left open.
@@ -612,13 +625,18 @@ pub(crate) async fn handle_cloud_job_execute(
         let _ = persist_record(&st.data_dir, JOB_KIND, &want, &job);
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "ok": false, "error": { "code": "cloud_job_no_placement",
+            Json(
+                json!({ "ok": false, "error": { "code": "cloud_job_no_placement",
                 "message": "no placement-eligible candidate exists for this job's intent; the job is recorded as refused rather than retried silently" },
-                "placement": decision_body, "job": job })),
+                "placement": decision_body, "job": job }),
+            ),
         );
     }
 
-    let decision = decision_body.get("decision").cloned().unwrap_or(Value::Null);
+    let decision = decision_body
+        .get("decision")
+        .cloned()
+        .unwrap_or(Value::Null);
     let placement_receipt = decision_body.get("receipt").cloned().unwrap_or(Value::Null);
 
     // The venue is EVIDENCE, recorded now that placement chose it — never an input.
@@ -696,7 +714,11 @@ pub(crate) async fn handle_cloud_job_execute(
             arr.push(r.clone());
         }
     }
-    job["state"] = json!(if succeeded { "executed" } else { "refused_provider_operation" });
+    job["state"] = json!(if succeeded {
+        "executed"
+    } else {
+        "refused_provider_operation"
+    });
     job["provider_operation"] = json!({
         "http_status": op_code.as_u16(),
         "ok": succeeded,
@@ -782,7 +804,11 @@ mod lease_drawdown_tests {
     fn a_lease_that_does_not_exist_confers_nothing() {
         let dir = tmp_dir("absent");
         assert_eq!(
-            resolve(&dir, "capability-lease://nope", "cloud-resource-intent://cri_1"),
+            resolve(
+                &dir,
+                "capability-lease://nope",
+                "cloud-resource-intent://cri_1"
+            ),
             Err("capability_lease_absent".into())
         );
     }
@@ -827,9 +853,16 @@ mod lease_drawdown_tests {
     #[test]
     fn a_lease_for_another_resource_does_not_authorize_this_one() {
         let dir = tmp_dir("scope");
-        write_lease(&dir, base_lease("lease_other", "cloud-resource-intent://cri_OTHER"));
+        write_lease(
+            &dir,
+            base_lease("lease_other", "cloud-resource-intent://cri_OTHER"),
+        );
         assert_eq!(
-            resolve(&dir, "capability-lease://lease_other", "cloud-resource-intent://cri_MINE"),
+            resolve(
+                &dir,
+                "capability-lease://lease_other",
+                "cloud-resource-intent://cri_MINE"
+            ),
             Err("capability_lease_out_of_scope".into())
         );
     }
@@ -844,7 +877,11 @@ mod lease_drawdown_tests {
         lease["resource_refs"] = json!(["provider-account://pacc_test", "env-default"]);
         write_lease(&dir, lease);
         assert_eq!(
-            resolve(&dir, "capability-lease://lease_account", "cloud-resource-intent://cri_1"),
+            resolve(
+                &dir,
+                "capability-lease://lease_account",
+                "cloud-resource-intent://cri_1"
+            ),
             Err("capability_lease_out_of_scope".into())
         );
     }

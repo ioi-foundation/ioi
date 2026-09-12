@@ -1081,8 +1081,14 @@ let builtDaemonRoot = null;
 try {
   builtDaemonRoot = buildCurrentDaemonBinary();
   console.log(`M4_DAEMON_BINARY_SHA256=${builtDaemonRoot}`);
+  // Single-node ordering for the wallet.network fixture (2026-09-12): the AFT four-validator
+  // default stopped committing inside CI's ceilings after 2026-09-03 (see the same note in
+  // verify-m4-goalrun-activation-plane.mjs); authority semantics are unchanged under Solo.
   resolver = await startRealWalletNetworkPrincipalAuthorityFixture({
-    baseEnv: CLEAN_BASE_ENV,
+    baseEnv: {
+      ...CLEAN_BASE_ENV,
+      IOI_M049_ORDERING_PROFILE: process.env.IOI_ALPHA_FIXTURE_ORDERING_PROFILE || "Solo",
+    },
   });
   const basePlaneEnv = {
     ...resolver.env,

@@ -528,8 +528,21 @@ try {
     `${JSON.stringify(legacyResult, null, 2)}\n`,
     { flag: "wx" },
   );
+  // Single-node ordering for the wallet.network fixture (2026-09-12). The fixture's default is the
+  // AFT four-validator profile, and on the CI runner that profile stopped committing inside the
+  // job's ceilings after the AFT/QUV engine series landed (2026-09-03 → 2026-09-07): every master
+  // run from 298b0b875 to 8315d8128 ended in one of "fixture did not become ready after
+  // 1200000ms", "record_approval timed out after 900000ms", or the daemon's fail-closed 503
+  // `goal_run_activation_authority_required` when its own wallet crossing hit the 900 s ceiling.
+  // The daemon path was byte-identical to the last green commit (023526469); the verifier's
+  // fixture profile was the variable. Authority semantics are the same under Solo (one validator
+  // orders; the wallet still mints, records and consumes on chain), which is why eight sibling
+  // verifiers already run it. Override: IOI_ALPHA_FIXTURE_ORDERING_PROFILE.
   authorityResolver = await startRealWalletNetworkPrincipalAuthorityFixture({
-    baseEnv: CLEAN_BASE_ENV,
+    baseEnv: {
+      ...CLEAN_BASE_ENV,
+      IOI_M049_ORDERING_PROFILE: process.env.IOI_ALPHA_FIXTURE_ORDERING_PROFILE || "Solo",
+    },
   });
   plane = await startActivationPlane({ dataDir });
   if (!plane) {
@@ -938,7 +951,7 @@ try {
     );
     if (admitted.status !== 201 || !goalRun?.goal_ref) {
       throw new Error(
-        `positive activation did not reach GoalRun admission: status=${admitted.status} code=${admitted.body?.error?.code || "none"} activation_status=${admitted.body?.activation?.status || "absent"} goal_ref_present=${Boolean(goalRun?.goal_ref)} response_keys=${Object.keys(admitted.body || {}).sort().slice(0, 32).map((key) => key.slice(0, 120)).join(",")}`,
+        `positive activation did not reach GoalRun admission: status=${admitted.status} code=${admitted.body?.error?.code || "none"} activation_status=${admitted.body?.activation?.status || "absent"} goal_ref_present=${Boolean(goalRun?.goal_ref)} response_keys=${Object.keys(admitted.body || {}).sort().slice(0, 32).map((key) => key.slice(0, 120)).join(",")} authority_challenge=${JSON.stringify(admitted.body?.error?.authority_challenge ?? null).slice(0, 1200)}`,
       );
     }
     check(

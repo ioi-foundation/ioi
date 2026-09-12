@@ -521,7 +521,10 @@ pub(crate) async fn handle_entries_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load(&st, ENTRY_FAMILY.kind, ENTRY_FAMILY.id_key, &id) {
-        Some(record) => (StatusCode::OK, Json(json!({ "ok": true, "record": record }))),
+        Some(record) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "record": record })),
+        ),
         None => bad(
             StatusCode::NOT_FOUND,
             "intelligence_record_not_found",
@@ -1458,7 +1461,14 @@ pub(crate) async fn handle_vault_import(
             "at": iso_now(),
             "runtimeTruthSource": "daemon-runtime",
         });
-        if persist_record(&st.data_dir, "receipts", &import_receipt_ref, &import_receipt).is_err() {
+        if persist_record(
+            &st.data_dir,
+            "receipts",
+            &import_receipt_ref,
+            &import_receipt,
+        )
+        .is_err()
+        {
             rejected.push(json!({
                 "path": path,
                 "reason_code": "memory_vault_import_receipt_persistence_failed",

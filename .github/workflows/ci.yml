@@ -58,16 +58,35 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      # EVERY GATE REPORTS ON ITS OWN (2026-09-12). Until this date the six contract gates ran in
+      # one `run:` block, so the first red aborted the block, and because a failed step skips every
+      # later step in the job, one owner's red masked the daemon suite, M06.2's pin, the M04.6
+      # floor, the M04.8 matrix, the passkey boundary, the admission mutation battery and the
+      # agentgres suite — none of which had run to completion on master since 2026-08-30. Now each
+      # gate is its own step; a step that does not depend on an earlier step runs whenever the job
+      # is not cancelled, and a step that needs the built daemon runs whenever THAT build succeeded.
+      # The job is red if any step is red — nothing is downgraded — but a red names exactly its own
+      # gate and hides no other. The two mutation-event coverage gates (`check:mutation-foundation`,
+      # `check:mutation-handlers`) moved to the `mutation_event_coverage` job below: they are red on
+      # R-18 (decentralized-cloud's, unresolved), and a red that is someone else's belongs in a job
+      # that carries their name, not in front of nine gates that are not theirs.
       - name: Verify generated architecture contracts
-        run: |
-          npm run check:architecture-contracts
-          npm run check:architecture-docs
-          npm run check:surface-records
-          npm run check:mutation-foundation
-          npm run check:mutation-handlers
-          npm run check:admission-evidence
+        run: npm run check:architecture-contracts
+
+      - name: Verify the architecture docs and work-item records
+        if: ${{ !cancelled() }}
+        run: npm run check:architecture-docs
+
+      - name: Verify the generated surface records
+        if: ${{ !cancelled() }}
+        run: npm run check:surface-records
+
+      - name: Verify admission-evidence provenance
+        if: ${{ !cancelled() }}
+        run: npm run check:admission-evidence
 
       - name: Cache dependencies
+        if: ${{ !cancelled() }}
         uses: actions/cache@v3
         with:
           path: |
@@ -77,18 +96,22 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check format
+        if: ${{ !cancelled() }}
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
       - name: Build
+        if: ${{ !cancelled() }}
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
 
       - name: Build the shipped Hypervisor daemon
+        id: daemon_build
+        if: ${{ !cancelled() }}
         # mint-approval-grant rides along for the systems journey: its refusal-ladder rung mints
         # a structurally real dcrypt-signed grant (no test-only bypass) and the product_surfaces
         # job installs no Rust toolchain, so the signer must arrive as a built artifact.
@@ -100,6 +123,7 @@ jobs:
       # differently each time cannot gate anything: a green run is not evidence and a red run does
       # not identify a defect. Injection is now thread-local, and this is a real gate.
       - name: Test the shipped Hypervisor daemon
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: cargo test --locked -p ioi-node --bin hypervisor-daemon
 
       # M06.2's FLOOR. The step above runs the daemon's whole suite, so a deleted or renamed test
@@ -108,6 +132,7 @@ jobs:
       # --exact` to return exactly the pin, and requires passed == pinned with nothing ignored, so
       # removing the proof is red rather than quiet. The binary is already built and tested above.
       - name: Pin the typed effect-recovery population (M06.2)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run check:typed-effect-recovery
 
       # M04.6's FLOOR, the same failure class as the step above and bound for the same reason: the
@@ -124,12 +149,14 @@ jobs:
       # 244.8 s on a warm target. It is bound HERE anyway because the daemon-bin half is warm only
       # here, and splitting one population across two jobs would leave two files to keep in sync.
       - name: Pin the work-lifecycle integrity population (M04.6)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run check:work-lifecycle-integrity
 
       # M05.10 is a Rust-backed live-daemon gate. Keep it beside the daemon build and full daemon
       # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
       # out-of-worktree binary and exercises only synthetic records on an isolated data directory.
       - name: Verify vertical ontology pack compilation
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         env:
           IOI_M0510_DAEMON_PREBUILT: "1"
         run: npm run check:vertical-ontology-pack-compiler --workspace=@ioi/hypervisor-app
@@ -138,9 +165,11 @@ jobs:
       # these tests; the exact invocation keeps the M04.8 claim boundary visible
       # and prevents the scheduled real-wallet soak from drifting back into PR CI.
       - name: Verify the deterministic M04.8 architecture matrix
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm --prefix apps/hypervisor run check:m4-room-participation-contribution-architecture
 
       - name: Verify passkey identity remains separate from effect authority
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: |
           npm run check:device-custody-boundary
           npm run mutate:device-custody-boundary
@@ -162,12 +191,15 @@ jobs:
       # toolchain, so a cold full-daemon check there exits 101 with no rustc error line — which the
       # battery correctly reports as a BLOCKED compile check rather than as a passing run.
       - name: Replay the admission census mutation battery
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run mutate:ontology-admission-census --workspace=@ioi/hypervisor-app
 
       - name: Test the Agentgres substrate
+        if: ${{ !cancelled() }}
         run: cargo test --locked -p agentgres
 
       - name: Publish the shipped Hypervisor daemon for live product smoke
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: hypervisor-daemon-linux-debug
@@ -177,10 +209,15 @@ jobs:
             target/debug/mint-approval-grant
 
       - name: Smoke implementation-complete daemon paths
+        id: smoke_daemon
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run smoke:implementation-daemon
 
+      # Evidence is published whenever the smoke RAN (green or red). `if: always()` used to make
+      # this upload itself red — "no files found" — whenever the smoke was skipped, which added a
+      # noise red to every run whose real red was upstream.
       - name: Publish implementation daemon smoke evidence
-        if: always()
+        if: ${{ !cancelled() && steps.smoke_daemon.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: implementation-daemon-smoke-evidence
@@ -189,10 +226,12 @@ jobs:
           path: .artifacts/implementation/daemon-smoke
 
       - name: Smoke the canonical package registry through restart
+        id: smoke_registry
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run smoke:package-registry
 
       - name: Publish package registry smoke evidence
-        if: always()
+        if: ${{ !cancelled() && steps.smoke_registry.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: package-registry-smoke-evidence
@@ -201,17 +240,54 @@ jobs:
           path: .artifacts/implementation/package-registry-smoke
 
       - name: Run tests
+        if: ${{ !cancelled() }}
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
 
       - name: Convergent Fault Tolerance Gates
+        if: ${{ !cancelled() }}
         run: |
           cargo test --locked -p ioi-consensus --features aft guardian_majority_safety_holds_below_quorum_intersection_budget -- --nocapture
           cargo test --locked -p ioi-consensus --features aft experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
           cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
           cargo test --locked -p ioi-consensus --features aft boundary_ring_reference_trace_matches_committed_golden -- --nocapture
+
+  # THE MUTATION-EVENT COVERAGE GATES, ON THEIR OWN RUNNER UNDER THEIR OWNER'S NAME (2026-09-12).
+  # `check:mutation-foundation` and `check:mutation-handlers` are red on master: the coverage
+  # registry (docs/architecture/_meta/mutation-event-foundation-coverage.v1.json) is stale on
+  # `handle_cloud_job_execute` (cloud_job_routes.rs, 49eecf0bc), which meets both discarded-write
+  # tests in source and is classified in neither MEF-GAP-008 nor a recorded absence. That is the
+  # private register's R-18 and it belongs to the decentralized-cloud program, which owns the
+  # handler; this program does not resolve it. Until 2026-09-12 the two gates ran inside
+  # build_and_test's contracts block, where their red aborted the block and masked every later
+  # gate of that job. Here their red is exactly one job, named for its owner, that masks nothing:
+  # it is not a `needs:` of any other job, and it stays red until R-18's closure (the handler
+  # classified in MEF-GAP-008 or its absence recorded with a reason, both gates green), after
+  # which it simply stays green here. Nothing is downgraded: a red job is a red run.
+  mutation_event_coverage:
+    name: Mutation-event coverage gates (R-18, owner decentralized-cloud)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Verify the mutation-event foundation census
+        run: npm run check:mutation-foundation
+
+      - name: Verify the mutation-event handler classification
+        if: ${{ !cancelled() }}
+        run: npm run check:mutation-handlers
 
   # THE LIBRARY-SUITE FLOOR (2026-09-10, leg 2 of the correctness program before the review;
   # private register R-21). Until this job CI ran the full suite of six crates — the shipped daemon
@@ -274,35 +350,141 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run the library suite of every floored crate
-        run: |
-          set -euo pipefail
-          # crate                                                    tests · compile s · test s · wall s (6bc07025d, 2026-09-10)
-          cargo test --locked -p ioi-macros --lib                    #    0 ·   1.9 ·   0.0 ·   1.9
-          cargo test --locked -p ioi-crypto --lib                    #   65 ·  55.8 ·  21.6 ·  77.5
-          cargo test --locked -p ioi-ipc --lib                       #    1 ·  59.8 ·   0.0 ·  59.9
-          cargo test --locked -p ioi-tx --lib                        #    1 · 116.0 ·   0.0 · 116.5
-          cargo test --locked -p ioi-state --lib                     #   17 ·  63.0 ·   8.0 ·  71.5
-          cargo test --locked -p ioi-storage --lib                   #    2 ·  55.1 ·   0.1 ·  55.3
-          cargo test --locked -p ioi-memory --lib                    #    7 ·   5.3 ·   0.0 ·   5.4
-          cargo test --locked -p ioi-networking --lib                #   52 · 111.0 ·  21.8 · 133.2
-          cargo test --locked -p ioi-execution --lib                 #   27 · 109.0 ·   0.0 · 109.3
-          cargo test --locked -p ioi-vm-wasm --lib                   #    0 ·  70.0 ·   0.0 ·  70.9
-          cargo test --locked -p ioi-drivers --lib                   #  196 ·  68.0 ·  26.4 ·  94.6
-          cargo test --locked -p ioi-system --lib                    #    0 ·   9.3 ·   0.0 ·   9.3
-          cargo test --locked -p ioi-validator --lib                 #  292 · 122.0 ·  21.8 · 144.5
-          cargo test --locked -p ioi-finality --lib                  #   52 ·  55.3 · 131.7 · 187.0
-          cargo test --locked -p ioi-consensus --lib --features aft  #  322 ·   7.8 · 167.0 · 174.9
-          cargo test --locked -p ioi-client --lib                    #    3 ·   3.4 ·   0.0 ·   3.5
-          cargo test --locked -p ioi-services --lib                  # 3635 · 120.0 · 230.4 · ~350   (3624 at the 2026-09-10 measurement; +1 R-21's fix, +10 M03.7's SIWE verifier. Test seconds re-measured 2026-09-12 on a warm target; the compile figure is the 2026-09-10 one and was not re-measured)
-          cargo test --locked -p ioi-cli --lib                       #   15 · 122.0 ·   0.3 · 122.5
-          cargo test --locked -p zk-types --lib                      #    0 ·   2.5 ·   0.0 ·   2.6
-          cargo test --locked -p transport-verifier --lib            #    0 · 120.0 ·   0.0 · 120.1
-          cargo test --locked -p http-rpc-gateway --lib              #    8 ·  62.0 ·   0.0 ·  63.1
-          cargo test --locked -p ioi-plugin-ibc-service --lib        #    0 ·  73.0 ·   0.0 ·  73.3
-          cargo test --locked -p ioi-relayer --lib                   #    0 ·  60.0 ·   0.0 ·  60.3
-          cargo test --locked -p ioi-tee-driver --lib                #    0 ·  49.0 ·   0.0 ·  49.1
-          cargo test --locked -p zk-driver-succinct --lib            #    4 ·   1.5 ·   0.0 ·   1.6
+      # ONE STEP PER CRATE (2026-09-12). The 25 commands ran in one `set -euo pipefail` block, so
+      # the first red crate aborted the block and every crate AFTER it stopped running: on
+      # 2026-09-12 `ioi-networking` was red (register R-32) and the seventeen crates below it —
+      # execution, vm-wasm, drivers, system, validator, finality, consensus, client, services,
+      # cli, zk-types, transport-verifier, http-rpc-gateway, plugin-ibc-service, relayer,
+      # tee-driver, zk-driver-succinct — had never once run in CI, which is the same masking
+      # defect this floor was built to end one layer up. Each crate is now its own step and runs
+      # whenever the job is not cancelled; the job is red if any crate is red, and a red names its
+      # crate. The measured cost of each line (tests · compile s · test s · wall s on 6bc07025d,
+      # 2026-09-10) stays beside it.
+
+      - name: Library suite — ioi-macros
+        if: ${{ !cancelled() }}
+        # 0 ·   1.9 ·   0.0 ·   1.9
+        run: cargo test --locked -p ioi-macros --lib
+
+      - name: Library suite — ioi-crypto
+        if: ${{ !cancelled() }}
+        # 65 ·  55.8 ·  21.6 ·  77.5
+        run: cargo test --locked -p ioi-crypto --lib
+
+      - name: Library suite — ioi-ipc
+        if: ${{ !cancelled() }}
+        # 1 ·  59.8 ·   0.0 ·  59.9
+        run: cargo test --locked -p ioi-ipc --lib
+
+      - name: Library suite — ioi-tx
+        if: ${{ !cancelled() }}
+        # 1 · 116.0 ·   0.0 · 116.5
+        run: cargo test --locked -p ioi-tx --lib
+
+      - name: Library suite — ioi-state
+        if: ${{ !cancelled() }}
+        # 17 ·  63.0 ·   8.0 ·  71.5
+        run: cargo test --locked -p ioi-state --lib
+
+      - name: Library suite — ioi-storage
+        if: ${{ !cancelled() }}
+        # 2 ·  55.1 ·   0.1 ·  55.3
+        run: cargo test --locked -p ioi-storage --lib
+
+      - name: Library suite — ioi-memory
+        if: ${{ !cancelled() }}
+        # 7 ·   5.3 ·   0.0 ·   5.4
+        run: cargo test --locked -p ioi-memory --lib
+
+      - name: Library suite — ioi-networking
+        if: ${{ !cancelled() }}
+        # 52 · 111.0 ·  21.8 · 133.2
+        run: cargo test --locked -p ioi-networking --lib
+
+      - name: Library suite — ioi-execution
+        if: ${{ !cancelled() }}
+        # 27 · 109.0 ·   0.0 · 109.3
+        run: cargo test --locked -p ioi-execution --lib
+
+      - name: Library suite — ioi-vm-wasm
+        if: ${{ !cancelled() }}
+        # 0 ·  70.0 ·   0.0 ·  70.9
+        run: cargo test --locked -p ioi-vm-wasm --lib
+
+      - name: Library suite — ioi-drivers
+        if: ${{ !cancelled() }}
+        # 196 ·  68.0 ·  26.4 ·  94.6
+        run: cargo test --locked -p ioi-drivers --lib
+
+      - name: Library suite — ioi-system
+        if: ${{ !cancelled() }}
+        # 0 ·   9.3 ·   0.0 ·   9.3
+        run: cargo test --locked -p ioi-system --lib
+
+      - name: Library suite — ioi-validator
+        if: ${{ !cancelled() }}
+        # 292 · 122.0 ·  21.8 · 144.5
+        run: cargo test --locked -p ioi-validator --lib
+
+      - name: Library suite — ioi-finality
+        if: ${{ !cancelled() }}
+        # 52 ·  55.3 · 131.7 · 187.0
+        run: cargo test --locked -p ioi-finality --lib
+
+      - name: Library suite — ioi-consensus
+        if: ${{ !cancelled() }}
+        # 322 ·   7.8 · 167.0 · 174.9
+        run: cargo test --locked -p ioi-consensus --lib --features aft
+
+      - name: Library suite — ioi-client
+        if: ${{ !cancelled() }}
+        # 3 ·   3.4 ·   0.0 ·   3.5
+        run: cargo test --locked -p ioi-client --lib
+
+      - name: Library suite — ioi-services
+        if: ${{ !cancelled() }}
+        # 3635 · 120.0 · 230.4 · ~350   (3624 at the 2026-09-10 measurement; +1 R-21's fix, +10 M03.7's SIWE verifier. Test seconds re-measured 2026-09-12 on a warm target; the compile figure is the 2026-09-10 one and was not re-measured)
+        run: cargo test --locked -p ioi-services --lib
+
+      - name: Library suite — ioi-cli
+        if: ${{ !cancelled() }}
+        # 15 · 122.0 ·   0.3 · 122.5
+        run: cargo test --locked -p ioi-cli --lib
+
+      - name: Library suite — zk-types
+        if: ${{ !cancelled() }}
+        # 0 ·   2.5 ·   0.0 ·   2.6
+        run: cargo test --locked -p zk-types --lib
+
+      - name: Library suite — transport-verifier
+        if: ${{ !cancelled() }}
+        # 0 · 120.0 ·   0.0 · 120.1
+        run: cargo test --locked -p transport-verifier --lib
+
+      - name: Library suite — http-rpc-gateway
+        if: ${{ !cancelled() }}
+        # 8 ·  62.0 ·   0.0 ·  63.1
+        run: cargo test --locked -p http-rpc-gateway --lib
+
+      - name: Library suite — ioi-plugin-ibc-service
+        if: ${{ !cancelled() }}
+        # 0 ·  73.0 ·   0.0 ·  73.3
+        run: cargo test --locked -p ioi-plugin-ibc-service --lib
+
+      - name: Library suite — ioi-relayer
+        if: ${{ !cancelled() }}
+        # 0 ·  60.0 ·   0.0 ·  60.3
+        run: cargo test --locked -p ioi-relayer --lib
+
+      - name: Library suite — ioi-tee-driver
+        if: ${{ !cancelled() }}
+        # 0 ·  49.0 ·   0.0 ·  49.1
+        run: cargo test --locked -p ioi-tee-driver --lib
+
+      - name: Library suite — zk-driver-succinct
+        if: ${{ !cancelled() }}
+        # 4 ·   1.5 ·   0.0 ·   1.6
+        run: cargo test --locked -p zk-driver-succinct --lib
 
   # These verifiers are JavaScript orchestrators, but each intentionally
   # launches focused Cargo tests or a Rust extractor. Give that family its own
@@ -360,21 +542,57 @@ jobs:
       # current checkout explicitly: a restored target/ is a cache, never proof
       # that the runnable daemon matches this revision.
       - name: Build the daemon the Rust-backed verifiers boot
+        id: rust_backed_daemon
         run: cargo build --locked -p ioi-node --bin hypervisor-daemon
 
-      - name: Verify the Rust-backed product contract family
+      # One step per verifier (2026-09-12): these seven belong to different owners, and in one
+      # `run:` block the first red hid the other six — on 2026-09-12 `check:env-lease-authority`
+      # was red on a pin and masked `check:ontology-admission-census`, which was red on a
+      # different pin. Each step runs whenever the daemon built; the job is red if any is red.
+      - name: Verify env-lease authority
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
-        run: |
-          npm run check:env-lease-authority --workspace=@ioi/hypervisor-app
-          npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
-          npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
-          npm run check:runtime-tool-contract-admission --workspace=@ioi/hypervisor-app
-          npm run check:provider-proposal-provenance --workspace=@ioi/hypervisor-app
-          npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
-          npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
+        run: npm run check:env-lease-authority --workspace=@ioi/hypervisor-app
+
+      - name: Verify command-execution guardrails
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
+
+      - name: Verify the enforcement-coverage producer
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
+
+      - name: Verify runtime tool-contract admission
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:runtime-tool-contract-admission --workspace=@ioi/hypervisor-app
+
+      - name: Verify provider-proposal provenance
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:provider-proposal-provenance --workspace=@ioi/hypervisor-app
+
+      - name: Verify the ontology admission census
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
+
+      - name: Verify the governed-effect assurance floor
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
 
       - name: Publish the Rust-backed verifier census
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: rust-backed-verifier-census
@@ -483,10 +701,15 @@ jobs:
         if: matrix.verifier_id == 'outcome-room-system-spine'
         run: |
           curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.18.3 sh
-          # A freshly installed client can print a transient server-connect warning before its
-          # version line. Parse the client version line itself instead of comparing every token
-          # emitted by the command substitution, while retaining the exact-version refusal.
-          OLLAMA_CLIENT_VERSION="$(ollama --version 2>&1 | sed -n 's/^ollama version is //p' | tail -n 1)"
+          # The client prints its version in one of two shapes: `ollama version is X` when it can
+          # reach a server, and `Warning: client version is X` when it cannot — and right after the
+          # installer starts the systemd unit it usually cannot yet, which is why this step read
+          # "absent" and failed on every master run from 2026-09-03 to 2026-09-12 (the previous
+          # parse accepted only the first shape). Both shapes carry `version is X`; parse that, and
+          # print the raw output so the next drift is visible in the log. The exact-version refusal
+          # is unchanged.
+          ollama --version 2>&1 || true
+          OLLAMA_CLIENT_VERSION="$(ollama --version 2>&1 | sed -n 's/^.*version is //p' | tail -n 1)"
           echo "installed Ollama client version: ${OLLAMA_CLIENT_VERSION:-absent}"
           test "$OLLAMA_CLIENT_VERSION" = "0.18.3"
           nohup ollama serve > /tmp/ollama-serve.log 2>&1 &
@@ -574,15 +797,18 @@ jobs:
         run: npm ci
 
       - name: Download the built Hypervisor daemon
+        id: daemon_artifact
         uses: actions/download-artifact@v4
         with:
           name: hypervisor-daemon-linux-debug
           path: target/debug
 
       - name: Make the downloaded daemon executable
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
         run: chmod +x target/debug/hypervisor-daemon target/debug/mint-approval-grant
 
       - name: Install browser runtime
+        if: ${{ !cancelled() }}
         run: npx playwright install --with-deps chromium
 
       # `check:architecture-contracts` is deliberately NOT repeated here. It shells out to the
@@ -590,84 +816,257 @@ jobs:
       # job, and this step has been failing for exactly that reason. The check already runs in
       # `build_and_test`, which this job `needs:`, so repeating it adds a full Rust toolchain
       # install to a Node-only job for no additional signal.
-      - name: Verify product client contracts
-        run: |
-          npm run check:shipped-products
-          npm run test:shipped-products
-          npm run test:hypervisor-scm-publication-client
-          npm run test:hypervisor-domain-app-runtime
-          npm run test:hypervisor-app-harness
-          npm run test:vite-production-authority-scan
-          npm run test:smoke-fence
-          npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
+      # ONE STEP PER GATE (2026-09-12), for the reason stated in build_and_test: the product
+      # client contracts, the marketplace suites, the seed/source-neutral verifiers and the
+      # twenty-three surface journeys belong to many owners, and in one `run:` block the first red
+      # hid every later one (on 2026-09-11 `check:studio-journey`, R-31, would have masked twenty
+      # journeys behind it). Steps that need the downloaded daemon run whenever it arrived; steps
+      # that need the built products run whenever `build:all` succeeded; the rest run whenever the
+      # job is not cancelled. The job is red if any step is red.
+      - name: Verify product client contract — check:shipped-products
+        if: ${{ !cancelled() }}
+        run: npm run check:shipped-products
 
-      - name: Test marketplace authority, lifecycle, and recovery contracts
-        run: |
-          npm test --workspace=apps/aiagent-xyz
-          npm test --workspace=apps/sas-xyz
-          npm run check --workspace=apps/sas-xyz
+      - name: Verify product client contract — test:shipped-products
+        if: ${{ !cancelled() }}
+        run: npm run test:shipped-products
+
+      - name: Verify product client contract — test:hypervisor-scm-publication-client
+        if: ${{ !cancelled() }}
+        run: npm run test:hypervisor-scm-publication-client
+
+      - name: Verify product client contract — test:hypervisor-domain-app-runtime
+        if: ${{ !cancelled() }}
+        run: npm run test:hypervisor-domain-app-runtime
+
+      - name: Verify product client contract — test:hypervisor-app-harness
+        if: ${{ !cancelled() }}
+        run: npm run test:hypervisor-app-harness
+
+      - name: Verify product client contract — test:vite-production-authority-scan
+        if: ${{ !cancelled() }}
+        run: npm run test:vite-production-authority-scan
+
+      - name: Verify product client contract — test:smoke-fence
+        if: ${{ !cancelled() }}
+        run: npm run test:smoke-fence
+
+      - name: Verify product client contract — test:product-shell-auth
+        if: ${{ !cancelled() }}
+        run: npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
+
+      - name: Test the aiagent.xyz marketplace contracts
+        if: ${{ !cancelled() }}
+        run: npm test --workspace=apps/aiagent-xyz
+
+      - name: Test the sas.xyz marketplace contracts
+        if: ${{ !cancelled() }}
+        run: npm test --workspace=apps/sas-xyz
+
+      - name: Check the sas.xyz workspace
+        if: ${{ !cancelled() }}
+        run: npm run check --workspace=apps/sas-xyz
 
       - name: Build every shipped JavaScript product and package
+        id: build_all
+        if: ${{ !cancelled() }}
         run: npm run build:all
 
       - name: Verify developer documentation contracts and built routes
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
         run: |
           npm run validate:live --workspace=apps/developers-ioi-ai
           npm run validate:seo --workspace=apps/developers-ioi-ai
           npm run smoke:routes --workspace=apps/developers-ioi-ai
 
-      - name: Verify marketplace source graphs and built authority boundaries
-        run: |
-          npm run check:production --workspace=apps/aiagent-xyz
-          npm run check:production --workspace=apps/sas-xyz
+      - name: Verify the aiagent.xyz source graph and built authority boundary
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
+        run: npm run check:production --workspace=apps/aiagent-xyz
+
+      - name: Verify the sas.xyz source graph and built authority boundary
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
+        run: npm run check:production --workspace=apps/sas-xyz
 
       - name: Typecheck JavaScript workspaces
+        if: ${{ !cancelled() }}
         run: npm run typecheck
 
       - name: Lint JavaScript workspaces
+        if: ${{ !cancelled() }}
         run: npm run lint
-
-      - name: Verify the ported Hypervisor seed and source-neutral boundary
-        env:
-          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
-        run: |
-          npm run check:owned-product-ui --workspace=@ioi/hypervisor-app
-          npm run check:shell-parity --workspace=@ioi/hypervisor-app
-          npm run check:ported-seed --workspace=@ioi/hypervisor-app
-          npm run check:seed-provenance --workspace=@ioi/hypervisor-app
-          npm run check:source-neutral --workspace=@ioi/hypervisor-app
 
       # IOI_VERIFIER_CENSUS_DIR makes each verifier write the runtime assertion
       # census consumed by verifier_family_floor. Missing evidence fails closed.
-      - name: Verify the first surface journeys against an isolated live daemon
+      - name: Verify the ported seed boundary — owned-product-ui
+        if: ${{ !cancelled() }}
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
-        run: |
-          npm run check:ontology-journey --workspace=@ioi/hypervisor-app
-          npm run check:governance-journey --workspace=@ioi/hypervisor-app
-          npm run check:studio-journey --workspace=@ioi/hypervisor-app
-          npm run check:packages-journey --workspace=@ioi/hypervisor-app
-          npm run check:automations-journey --workspace=@ioi/hypervisor-app
-          npm run check:odk-contract-and-domainapp --workspace=@ioi/hypervisor-app
-          npm run check:skill-contracts --workspace=@ioi/hypervisor-app
-          npm run check:goal-profile-contracts --workspace=@ioi/hypervisor-app
-          npm run check:m3-goalrun-plane --workspace=@ioi/hypervisor-app
-          npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app
-          npm run check:launch-chain --workspace=@ioi/hypervisor-app
-          npm run check:session-authority --workspace=@ioi/hypervisor-app
-          npm run check:session-authority-profile --workspace=@ioi/hypervisor-app
-          npm run check:landing-designations --workspace=@ioi/hypervisor-app
-          npm run check:projects-saga --workspace=@ioi/hypervisor-app
-          npm run check:provider-transport --workspace=@ioi/hypervisor-app
-          npm run check:model-route-authority --workspace=@ioi/hypervisor-app
-          npm run check:model-router-decisions --workspace=@ioi/hypervisor-app
-          npm run check:backup-restore --workspace=@ioi/hypervisor-app
-          npm run check:environment-custody --workspace=@ioi/hypervisor-app
-          npm run check:operational-depth --workspace=@ioi/hypervisor-app
-          npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
-          npm run check:named-gap-truth --workspace=@ioi/hypervisor-app
+        run: npm run check:owned-product-ui --workspace=@ioi/hypervisor-app
+
+      - name: Verify the ported seed boundary — shell-parity
+        if: ${{ !cancelled() }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:shell-parity --workspace=@ioi/hypervisor-app
+
+      - name: Verify the ported seed boundary — ported-seed
+        if: ${{ !cancelled() }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:ported-seed --workspace=@ioi/hypervisor-app
+
+      - name: Verify the ported seed boundary — seed-provenance
+        if: ${{ !cancelled() }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:seed-provenance --workspace=@ioi/hypervisor-app
+
+      - name: Verify the ported seed boundary — source-neutral
+        if: ${{ !cancelled() }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:source-neutral --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — ontology-journey
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:ontology-journey --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — governance-journey
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:governance-journey --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — studio-journey
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:studio-journey --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — packages-journey
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:packages-journey --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — automations-journey
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:automations-journey --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — odk-contract-and-domainapp
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:odk-contract-and-domainapp --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — skill-contracts
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:skill-contracts --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — goal-profile-contracts
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:goal-profile-contracts --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — m3-goalrun-plane
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:m3-goalrun-plane --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — m4-work-lifecycle-plane
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — launch-chain
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:launch-chain --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — session-authority
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:session-authority --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — session-authority-profile
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:session-authority-profile --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — landing-designations
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:landing-designations --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — projects-saga
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:projects-saga --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — provider-transport
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:provider-transport --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — model-route-authority
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:model-route-authority --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — model-router-decisions
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:model-router-decisions --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — backup-restore
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:backup-restore --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — environment-custody
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:environment-custody --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — operational-depth
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:operational-depth --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — ontology-backend-families
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
+
+      - name: Verify against an isolated live daemon — named-gap-truth
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:named-gap-truth --workspace=@ioi/hypervisor-app
 
       - name: Verify the product-shell safety and native-container contracts
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: |
@@ -690,6 +1089,7 @@ jobs:
           npm run check:native-shell --workspace=@ioi/hypervisor-app
 
       - name: Publish the Node product verifier census
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: product-verifier-census
@@ -698,6 +1098,7 @@ jobs:
           path: .artifacts/verifier-census
 
       - name: Record post-build shipped-product artifact identities
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' }}
         run: |
           mkdir -p .artifacts/implementation/shipped-products
           for lane in \
@@ -715,6 +1116,7 @@ jobs:
           done
 
       - name: Browser-smoke shipped product routes
+        if: ${{ !cancelled() && steps.build_all.outcome == 'success' && steps.daemon_artifact.outcome == 'success' }}
         run: npm run smoke:product-surfaces
 
       # An ioi.ai web-UI block used to follow here. It was residue of the dual runtime removed under

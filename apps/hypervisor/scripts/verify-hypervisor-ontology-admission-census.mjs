@@ -503,11 +503,33 @@ const PINNED = {
   // judged token positions 281, the FAMILY writer bucket 57, the non-ODK literal writer bucket
   // 243, and raw production filesystem calls 234 are all unchanged. M13.7 removed two direct
   // entry writers and added one receipt writer; no new family is admitted anywhere.
-  modules: 114,
+  //
+  // Re-pinned 2026-09-12 (MVP finish-line program, leg 0; basis 8315d8128) from 114 / 146695 /
+  // 4538 / 2746 / 534 / runtime 309. The census was red on master from 2026-09-10 to 2026-09-12 and
+  // nobody saw it: the Rust-backed family's CI block ran `check:env-lease-authority` first, which
+  // was red on its own pin, and the block aborted before this gate ran. Derived by running the
+  // extractor at the pin's basis (c782aca10), at b553939cf and at HEAD and diffing:
+  //   - c782aca10 → b553939cf: +2 writer calls in the RUNTIME-PARAMETER bucket, both in
+  //     hypervisor-daemon.rs — `mint_run_scoped_model_token` and `revoke_run_scoped_model_token`
+  //     (`fe9f8a770`, M13.9's daemon-proxied remote route; the run-scoped token is persisted
+  //     under a family passed in), plus +198 source tokens, +2 bare-undeclared and +2
+  //     foreign-qualified names from the same window's daemon-source commits (fe9f8a770,
+  //     b553939cf's `scrub_secret_environment`, adca48912, be4d708dc, cc6f73dae). No module joined.
+  //   - b553939cf → HEAD: exactly one module joined the reachable graph —
+  //     project_discovery_routes.rs (`a4f6987d9`, M09.1) — bringing +640 tokens, +18
+  //     opaque-initialisers and +16 foreign-qualified names and ZERO writer calls in any bucket
+  //     (its two `admit_owner_scoped_mutation` calls are the shared event-stream seam, which this
+  //     census does not count as a record writer).
+  // THE INVARIANTS THAT WOULD MEAN A NEW ADMITTER DID NOT MOVE: family mentions 285, judged token
+  // positions 281, the FAMILY writer bucket 57, the non-ODK literal writer bucket 243 and raw
+  // production filesystem calls 234 are unchanged; the recorded admitter map is unchanged. A
+  // rustfmt pass over nine daemon files in the same commit moved none of these numbers (measured
+  // before and after; the extractor tokenises, so layout is invisible to it).
+  modules: 115,
   familyMentions: 285,
-  tokenMentions: 146695,
+  tokenMentions: 147533,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 309 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -526,9 +548,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4538,
-    "opaque-initialiser": 2746,
-    "bare-undeclared": 534,
+    "foreign-qualified": 4556,
+    "opaque-initialiser": 2764,
+    "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

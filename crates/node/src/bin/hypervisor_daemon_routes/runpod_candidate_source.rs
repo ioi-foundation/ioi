@@ -209,7 +209,10 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
                         .iter()
                         .filter(|o| {
                             o.get("securePrice").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
-                                || o.get("communityPrice").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
+                                || o.get("communityPrice")
+                                    .and_then(Value::as_f64)
+                                    .unwrap_or(0.0)
+                                    > 0.0
                         })
                         .count();
                     json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,

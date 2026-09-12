@@ -5144,7 +5144,9 @@ mod typed_effect_recovery_tests {
             "non_retryable",
         ] {
             assert_eq!(
-                RecoveryClass::parse(Some(label)).expect("declared class").label(),
+                RecoveryClass::parse(Some(label))
+                    .expect("declared class")
+                    .label(),
                 label
             );
         }
@@ -5236,7 +5238,11 @@ mod typed_effect_recovery_tests {
                 "{class:?} must refuse a second bite at a completed effect"
             );
             assert!(matches!(
-                evaluate_recovery(RecoveryClass::NonRetryable, FinalInvocationDisposition::Admitted, true),
+                evaluate_recovery(
+                    RecoveryClass::NonRetryable,
+                    FinalInvocationDisposition::Admitted,
+                    true
+                ),
                 RecoveryDecision::Refuse(_)
             ));
             let _ = class;

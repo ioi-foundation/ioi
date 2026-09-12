@@ -63,7 +63,10 @@ use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
 use ioi_cli::testing::{
     build_test_artifacts,
-    rpc::{get_block_by_height, get_chain_timestamp, query_state_key, submit_transaction, tip_height_resilient},
+    rpc::{
+        get_block_by_height, get_chain_timestamp, query_state_key, submit_transaction,
+        tip_height_resilient,
+    },
     wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -198,7 +201,10 @@ enum Command {
         /// The exact governed scope the challenge named (e.g. scope:hypervisor.live-route.session-execute).
         #[arg(long)]
         target_scope: String,
-        #[arg(long, default_value = "Hypervisor operator approval of the exact effect")]
+        #[arg(
+            long,
+            default_value = "Hypervisor operator approval of the exact effect"
+        )]
         reason: String,
     },
 }
@@ -264,25 +270,48 @@ struct Keys {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Serve { state_dir, principal_ref, client_label, wall_clock } => {
-            serve(&state_dir, &principal_ref, &client_label, wall_clock).await
-        }
+        Command::Serve {
+            state_dir,
+            principal_ref,
+            client_label,
+            wall_clock,
+        } => serve(&state_dir, &principal_ref, &client_label, wall_clock).await,
         Command::Rotate { state_dir } => rotate(&state_dir).await,
         Command::Revoke { state_dir, reason } => revoke(&state_dir, &reason).await,
         Command::Status { state_dir } => status(&state_dir).await,
-        Command::RecordApproval { state_dir, grant_file, target_scope, reason } => {
-            record_approval(&state_dir, &grant_file, &target_scope, &reason).await
+        Command::RecordApproval {
+            state_dir,
+            grant_file,
+            target_scope,
+            reason,
+        } => record_approval(&state_dir, &grant_file, &target_scope, &reason).await,
+        Command::RecordStandingApproval {
+            state_dir,
+            grant_file,
+            envelope_file,
+            context_file,
+            factor_file,
+        } => {
+            record_standing_approval(
+                &state_dir,
+                &grant_file,
+                &envelope_file,
+                &context_file,
+                &factor_file,
+            )
+            .await
         }
-        Command::RecordStandingApproval { state_dir, grant_file, envelope_file, context_file, factor_file } => {
-            record_standing_approval(&state_dir, &grant_file, &envelope_file, &context_file, &factor_file).await
-        }
-        Command::RevokeStandingApproval { state_dir, grant_hash } => {
-            revoke_standing_approval(&state_dir, &grant_hash).await
-        }
+        Command::RevokeStandingApproval {
+            state_dir,
+            grant_hash,
+        } => revoke_standing_approval(&state_dir, &grant_hash).await,
         Command::ChainTimestamp { state_dir } => {
             let ready = read_ready(&state_dir)?;
             let chain_timestamp_ms = latest_committed_chain_timestamp_ms(&ready.rpc_addr).await?;
-            println!("{}", serde_json::json!({ "ok": true, "chain_timestamp_ms": chain_timestamp_ms }));
+            println!(
+                "{}",
+                serde_json::json!({ "ok": true, "chain_timestamp_ms": chain_timestamp_ms })
+            );
             Ok(())
         }
     }
@@ -292,7 +321,12 @@ async fn main() -> Result<()> {
 // serve
 // ---------------------------------------------------------------------------------------------
 
-async fn serve(state_dir: &Path, principal_ref: &str, client_label: &str, wall_clock: bool) -> Result<()> {
+async fn serve(
+    state_dir: &Path,
+    principal_ref: &str,
+    client_label: &str,
+    wall_clock: bool,
+) -> Result<()> {
     validate_principal_ref(principal_ref)?;
     std::fs::create_dir_all(state_dir.join("keys"))?;
     std::fs::set_permissions(state_dir, std::fs::Permissions::from_mode(0o700))?;
@@ -305,7 +339,10 @@ async fn serve(state_dir: &Path, principal_ref: &str, client_label: &str, wall_c
     // launcher then builds nothing and refuses typed if a binary is absent. Only a checkout
     // builds the (IBC-test-only) artifacts and, on demand, the node profile.
     match ioi_cli::testing::build::pinned_node_binary_dir() {
-        Some(dir) => println!("--- wallet-network-local-authority: node binaries pinned to {} (no build) ---", dir.display()),
+        Some(dir) => println!(
+            "--- wallet-network-local-authority: node binaries pinned to {} (no build) ---",
+            dir.display()
+        ),
         None => {
             println!("--- wallet-network-local-authority: building node artifacts ---");
             build_test_artifacts();
@@ -314,7 +351,10 @@ async fn serve(state_dir: &Path, principal_ref: &str, client_label: &str, wall_c
     if wall_clock {
         // Same seam the fixture's wall-clock profile uses: the height-zero parent clock starts one
         // second behind the host so the first block is already due.
-        std::env::set_var("IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS", now_ms().saturating_sub(1_000).to_string());
+        std::env::set_var(
+            "IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS",
+            now_ms().saturating_sub(1_000).to_string(),
+        );
     }
     let mut builder = TestCluster::builder()
         .with_validators(1)
@@ -514,7 +554,8 @@ async fn rotate(state_dir: &Path) -> Result<()> {
     let root_record: WalletControlPlaneRootRecord =
         serde_json::from_slice(&std::fs::read(&ready.root_record_path)?)?;
     let chain_id = ChainId(ready.chain_id);
-    let head = read_head(&ready.rpc_addr, &ready.principal_ref).await?
+    let head = read_head(&ready.rpc_addr, &ready.principal_ref)
+        .await?
         .ok_or_else(|| anyhow!("no binding head for {}", ready.principal_ref))?;
     let previous = read_proof(&ready.rpc_addr, &head.coordinates.binding_hash).await?;
 
@@ -533,21 +574,51 @@ async fn rotate(state_dir: &Path) -> Result<()> {
     let next = keypair(&next_seed)?;
     let authority = approval_authority(&next)?;
     let mut nonce = account_nonce(&ready.rpc_addr, &root_record.account_id).await?;
-    submit(&ready.rpc_addr, &root, chain_id, nonce, "register_approval_authority@v1",
-        &RegisterApprovalAuthorityParams { authority: authority.clone() }).await?;
+    submit(
+        &ready.rpc_addr,
+        &root,
+        chain_id,
+        nonce,
+        "register_approval_authority@v1",
+        &RegisterApprovalAuthorityParams {
+            authority: authority.clone(),
+        },
+    )
+    .await?;
     nonce += 1;
-    let proof = signed_binding(&root, &root_record, &ready.principal_ref, &authority,
-        previous.statement.binding_version + 1, Some(&previous))?;
-    submit(&ready.rpc_addr, &root, chain_id, nonce, "issue_principal_authority_binding@v1",
-        &IssuePrincipalAuthorityBindingParams { proof: proof.clone() }).await?;
-    let new_head = read_head(&ready.rpc_addr, &ready.principal_ref).await?
+    let proof = signed_binding(
+        &root,
+        &root_record,
+        &ready.principal_ref,
+        &authority,
+        previous.statement.binding_version + 1,
+        Some(&previous),
+    )?;
+    submit(
+        &ready.rpc_addr,
+        &root,
+        chain_id,
+        nonce,
+        "issue_principal_authority_binding@v1",
+        &IssuePrincipalAuthorityBindingParams {
+            proof: proof.clone(),
+        },
+    )
+    .await?;
+    let new_head = read_head(&ready.rpc_addr, &ready.principal_ref)
+        .await?
         .ok_or_else(|| anyhow!("rotation committed but no head is readable"))?;
-    if new_head.status != PrincipalAuthorityBindingStatus::Active || new_head.coordinates != proof.coordinates() {
+    if new_head.status != PrincipalAuthorityBindingStatus::Active
+        || new_head.coordinates != proof.coordinates()
+    {
         bail!("persisted binding head differs from the signed rotation");
     }
     // Retire the old key (read-only, versioned) and promote the new one.
     let current_path = state_dir.join("keys/approver.seed");
-    let retired_path = state_dir.join(format!("keys/approver.seed.v{}", previous.statement.binding_version));
+    let retired_path = state_dir.join(format!(
+        "keys/approver.seed.v{}",
+        previous.statement.binding_version
+    ));
     std::fs::rename(&current_path, &retired_path)?;
     std::fs::set_permissions(&retired_path, std::fs::Permissions::from_mode(0o400))?;
     std::fs::rename(&next_path, &current_path)?;
@@ -565,10 +636,17 @@ async fn rotate(state_dir: &Path) -> Result<()> {
         binding_ref: proof.binding_ref.clone(),
         binding_version: proof.statement.binding_version,
         approver_authority_id: record.approver_authority_id.clone(),
-        detail: format!("previous {} retired to {}", previous.binding_ref, retired_path.display()),
+        detail: format!(
+            "previous {} retired to {}",
+            previous.binding_ref,
+            retired_path.display()
+        ),
     });
     write_authority_record(state_dir, &record)?;
-    println!("rotated: {} v{} authority {}", proof.binding_ref, proof.statement.binding_version, record.approver_authority_id);
+    println!(
+        "rotated: {} v{} authority {}",
+        proof.binding_ref, proof.statement.binding_version, record.approver_authority_id
+    );
     Ok(())
 }
 
@@ -579,23 +657,39 @@ async fn revoke(state_dir: &Path, reason: &str) -> Result<()> {
     let root_record: WalletControlPlaneRootRecord =
         serde_json::from_slice(&std::fs::read(&ready.root_record_path)?)?;
     let chain_id = ChainId(ready.chain_id);
-    let head = read_head(&ready.rpc_addr, &ready.principal_ref).await?
+    let head = read_head(&ready.rpc_addr, &ready.principal_ref)
+        .await?
         .ok_or_else(|| anyhow!("no binding head for {}", ready.principal_ref))?;
     if head.status != PrincipalAuthorityBindingStatus::Active {
-        bail!("binding head is already {:?}; nothing to revoke", head.status);
+        bail!(
+            "binding head is already {:?}; nothing to revoke",
+            head.status
+        );
     }
     let previous = read_proof(&ready.rpc_addr, &head.coordinates.binding_hash).await?;
-    let signed_at_ms = get_chain_timestamp(&ready.rpc_addr).await?.saturating_mul(1_000);
+    let signed_at_ms = get_chain_timestamp(&ready.rpc_addr)
+        .await?
+        .saturating_mul(1_000);
     let revoked = signed_revocation(&root, &root_record, &previous, signed_at_ms, reason)?;
     let nonce = account_nonce(&ready.rpc_addr, &root_record.account_id).await?;
-    submit(&ready.rpc_addr, &root, chain_id, nonce, "revoke_principal_authority_binding@v1",
+    submit(
+        &ready.rpc_addr,
+        &root,
+        chain_id,
+        nonce,
+        "revoke_principal_authority_binding@v1",
         &RevokePrincipalAuthorityBindingParams {
             predecessor_binding_ref: previous.binding_ref.clone(),
             proof: revoked.clone(),
-        }).await?;
-    let new_head = read_head(&ready.rpc_addr, &ready.principal_ref).await?
+        },
+    )
+    .await?;
+    let new_head = read_head(&ready.rpc_addr, &ready.principal_ref)
+        .await?
         .ok_or_else(|| anyhow!("revocation committed but no head is readable"))?;
-    if new_head.status != PrincipalAuthorityBindingStatus::Revoked || new_head.coordinates != revoked.coordinates() {
+    if new_head.status != PrincipalAuthorityBindingStatus::Revoked
+        || new_head.coordinates != revoked.coordinates()
+    {
         bail!("persisted binding head differs from the signed revocation");
     }
     record.binding_ref = revoked.binding_ref.clone();
@@ -612,7 +706,10 @@ async fn revoke(state_dir: &Path, reason: &str) -> Result<()> {
         detail: reason.to_string(),
     });
     write_authority_record(state_dir, &record)?;
-    println!("revoked: {} v{}", revoked.binding_ref, revoked.statement.binding_version);
+    println!(
+        "revoked: {} v{}",
+        revoked.binding_ref, revoked.statement.binding_version
+    );
     Ok(())
 }
 
@@ -622,7 +719,8 @@ async fn status(state_dir: &Path) -> Result<()> {
     match read_ready(state_dir) {
         Ok(ready) => {
             let head = read_head(&ready.rpc_addr, &ready.principal_ref).await?;
-            out["node"] = serde_json::json!({ "ready": true, "rpc_addr": ready.rpc_addr, "pid": ready.pid });
+            out["node"] =
+                serde_json::json!({ "ready": true, "rpc_addr": ready.rpc_addr, "pid": ready.pid });
             out["live_head"] = match head {
                 Some(head) => serde_json::json!({
                     "binding_ref": head.coordinates.binding_ref,
@@ -676,12 +774,18 @@ impl Drop for TransactionLock {
     fn drop(&mut self) {
         use std::os::fd::AsRawFd;
         // SAFETY: the descriptor stays owned by this guard.
-        unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN); }
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
     }
 }
 fn acquire_transaction_lock(path: &Path) -> Result<TransactionLock> {
     use std::os::fd::AsRawFd;
-    let file = OpenOptions::new().create(true).read(true).write(true).open(path)?;
+    let file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(path)?;
     loop {
         // SAFETY: `file` owns a live descriptor for the duration of flock.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
@@ -720,15 +824,23 @@ async fn record_standing_approval(
     let ready = read_ready(state_dir)?;
     let record = read_authority_record(state_dir)?;
     if record.binding_status != "active" {
-        bail!("the principal's binding is {}; nothing can be approved", record.binding_status);
+        bail!(
+            "the principal's binding is {}; nothing can be approved",
+            record.binding_status
+        );
     }
     let guardian_pass = guardian_pass()?;
     let sealed = std::fs::read(&ready.capability_key_path)?;
     let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, &guardian_pass)
         .map_err(|error| anyhow!("open capability key: {error}"))?;
-    let capability_seed: [u8; 32] = capability_seed.0.as_slice().try_into().map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability_seed: [u8; 32] = capability_seed
+        .0
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
     let capability = keypair(&capability_seed)?;
-    let capability_account_id = account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
+    let capability_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
     // RECORDING a standing grant is a CONTROL-PLANE act (client_auth gates the method to
     // WalletAuthRole::ControlPlane, exactly as it gates authority registration and revocation):
     // it creates standing authority rather than spending it, so the deployment's control root
@@ -736,28 +848,43 @@ async fn record_standing_approval(
     // consume each draw — and is checked below.
     let root_seed = read_seed_hex(&state_dir.join("keys").join("root.seed"))?;
     let root = keypair(&root_seed)?;
-    let root_account_id = account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
+    let root_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
 
-    let grant: StandingApprovalGrant = serde_json::from_str(&read_json_arg(grant_file, "standing approval grant")?)
-        .context("standing approval grant JSON")?;
-    grant.verify().map_err(|error| anyhow!("standing approval grant is structurally invalid: {error}"))?;
+    let grant: StandingApprovalGrant =
+        serde_json::from_str(&read_json_arg(grant_file, "standing approval grant")?)
+            .context("standing approval grant JSON")?;
+    grant
+        .verify()
+        .map_err(|error| anyhow!("standing approval grant is structurally invalid: {error}"))?;
     if hex::encode(grant.authority_id) != record.approver_authority_id
         || hex::encode(&grant.approver_public_key) != record.approver_public_key
     {
         bail!("the standing grant is not signed by the custodied approver ({}); refusing to record a foreign approval", record.approver_authority_id);
     }
     if grant.audience != capability_account_id {
-        bail!("the standing grant's audience is not this deployment's capability account {}", hex::encode(capability_account_id));
+        bail!(
+            "the standing grant's audience is not this deployment's capability account {}",
+            hex::encode(capability_account_id)
+        );
     }
     let envelope_json = read_json_arg(envelope_file, "standing envelope")?;
     let context_json = read_json_arg(context_file, "approval ceremony context")?;
     let factor_json = read_json_arg(factor_file, "auth factor receipt")?;
-    let envelope: serde_json::Value = serde_json::from_str(&envelope_json).context("standing envelope JSON")?;
-    let factor: serde_json::Value = serde_json::from_str(&factor_json).context("auth factor receipt JSON")?;
-    if factor.get("factor_kind").and_then(serde_json::Value::as_str) != Some("deployment_local_operator") {
+    let envelope: serde_json::Value =
+        serde_json::from_str(&envelope_json).context("standing envelope JSON")?;
+    let factor: serde_json::Value =
+        serde_json::from_str(&factor_json).context("auth factor receipt JSON")?;
+    if factor
+        .get("factor_kind")
+        .and_then(serde_json::Value::as_str)
+        != Some("deployment_local_operator")
+    {
         bail!("this recorder records the deployment-local operator custody tier only; the factor receipt names another tier");
     }
-    if envelope.get("body_hash").and_then(serde_json::Value::as_str)
+    if envelope
+        .get("body_hash")
+        .and_then(serde_json::Value::as_str)
         != Some(format!("sha256:{}", hex::encode(grant.standing_envelope_hash)).as_str())
     {
         bail!("the standing grant does not bind the envelope submitted with it");
@@ -765,21 +892,37 @@ async fn record_standing_approval(
     let params = RecordStandingApprovalGrantParams {
         grant: grant.clone(),
         standing_envelope_json: serde_jcs::to_vec(&envelope)?,
-        approval_ceremony_context_json: serde_jcs::to_vec(&serde_json::from_str::<serde_json::Value>(&context_json).context("approval ceremony context JSON")?)?,
+        approval_ceremony_context_json: serde_jcs::to_vec(
+            &serde_json::from_str::<serde_json::Value>(&context_json)
+                .context("approval ceremony context JSON")?,
+        )?,
         auth_factor_receipt_json: serde_jcs::to_vec(&factor)?,
     };
-    let grant_hash = grant.artifact_hash().map_err(|error| anyhow!("standing grant hash: {error}"))?;
+    let grant_hash = grant
+        .artifact_hash()
+        .map_err(|error| anyhow!("standing grant hash: {error}"))?;
     let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
     let nonce = account_nonce(&ready.rpc_addr, &root_account_id).await?;
-    submit(&ready.rpc_addr, &root, ChainId(ready.chain_id), nonce, "record_standing_approval_grant@v1", &params).await?;
-    println!("{}", serde_json::json!({
-        "ok": true,
-        "standing_grant_hash": hex::encode(grant_hash),
-        "standing_envelope_hash": hex::encode(grant.standing_envelope_hash),
-        "custody_tier": "deployment_local_operator",
-        "recorded": "committed",
-        "nonce": nonce,
-    }));
+    submit(
+        &ready.rpc_addr,
+        &root,
+        ChainId(ready.chain_id),
+        nonce,
+        "record_standing_approval_grant@v1",
+        &params,
+    )
+    .await?;
+    println!(
+        "{}",
+        serde_json::json!({
+            "ok": true,
+            "standing_grant_hash": hex::encode(grant_hash),
+            "standing_envelope_hash": hex::encode(grant.standing_envelope_hash),
+            "custody_tier": "deployment_local_operator",
+            "recorded": "committed",
+            "nonce": nonce,
+        })
+    );
     Ok(())
 }
 
@@ -790,30 +933,59 @@ async fn revoke_standing_approval(state_dir: &Path, grant_hash: &str) -> Result<
     // the other keys the operator custodies.
     let root_seed = read_seed_hex(&state_dir.join("keys").join("root.seed"))?;
     let root = keypair(&root_seed)?;
-    let root_account_id = account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
+    let root_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
     let decoded = hex::decode(grant_hash.trim()).context("standing grant hash is not hex")?;
-    let grant_hash_bytes: [u8; 32] = decoded.as_slice().try_into().map_err(|_| anyhow!("standing grant hash must be 32 bytes"))?;
+    let grant_hash_bytes: [u8; 32] = decoded
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("standing grant hash must be 32 bytes"))?;
     let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
     let nonce = account_nonce(&ready.rpc_addr, &root_account_id).await?;
-    submit(&ready.rpc_addr, &root, ChainId(ready.chain_id), nonce, "revoke_standing_approval_grant@v1",
-        &RevokeStandingApprovalGrantParams { grant_hash: grant_hash_bytes }).await?;
-    println!("{}", serde_json::json!({ "ok": true, "standing_grant_hash": grant_hash.trim(), "standing_grant_status": "revoked", "nonce": nonce }));
+    submit(
+        &ready.rpc_addr,
+        &root,
+        ChainId(ready.chain_id),
+        nonce,
+        "revoke_standing_approval_grant@v1",
+        &RevokeStandingApprovalGrantParams {
+            grant_hash: grant_hash_bytes,
+        },
+    )
+    .await?;
+    println!(
+        "{}",
+        serde_json::json!({ "ok": true, "standing_grant_hash": grant_hash.trim(), "standing_grant_status": "revoked", "nonce": nonce })
+    );
     Ok(())
 }
 
-async fn record_approval(state_dir: &Path, grant_file: &str, target_scope: &str, reason: &str) -> Result<()> {
+async fn record_approval(
+    state_dir: &Path,
+    grant_file: &str,
+    target_scope: &str,
+    reason: &str,
+) -> Result<()> {
     let ready = read_ready(state_dir)?;
     let record = read_authority_record(state_dir)?;
     if record.binding_status != "active" {
-        bail!("the principal's binding is {}; nothing can be approved", record.binding_status);
+        bail!(
+            "the principal's binding is {}; nothing can be approved",
+            record.binding_status
+        );
     }
     let guardian_pass = guardian_pass()?;
     let sealed = std::fs::read(&ready.capability_key_path)?;
     let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, &guardian_pass)
         .map_err(|error| anyhow!("open capability key: {error}"))?;
-    let capability_seed: [u8; 32] = capability_seed.0.as_slice().try_into().map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability_seed: [u8; 32] = capability_seed
+        .0
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
     let capability = keypair(&capability_seed)?;
-    let capability_account_id = account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
+    let capability_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
     let grant_json = if grant_file == "-" {
         let mut text = String::new();
         std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
@@ -822,11 +994,16 @@ async fn record_approval(state_dir: &Path, grant_file: &str, target_scope: &str,
         std::fs::read_to_string(grant_file)?
     };
     let grant: ApprovalGrant = serde_json::from_str(&grant_json).context("approval grant JSON")?;
-    if hex::encode(grant.authority_id) != record.approver_authority_id || hex::encode(&grant.approver_public_key) != record.approver_public_key {
+    if hex::encode(grant.authority_id) != record.approver_authority_id
+        || hex::encode(&grant.approver_public_key) != record.approver_public_key
+    {
         bail!("the grant is not signed by the custodied approver ({}); refusing to record a foreign approval", record.approver_authority_id);
     }
     if grant.audience != capability_account_id {
-        bail!("the grant's audience is not this deployment's capability account {}", hex::encode(capability_account_id));
+        bail!(
+            "the grant's audience is not this deployment's capability account {}",
+            hex::encode(capability_account_id)
+        );
     }
     if grant.max_usages != Some(1) {
         bail!("a session-execute approval must be a one-use grant (max_usages=1)");
@@ -837,9 +1014,13 @@ async fn record_approval(state_dir: &Path, grant_file: &str, target_scope: &str,
     let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
     let approval_key = wallet_approval_key(&grant.request_hash);
     if let Some(existing_bytes) = query_state_key(&ready.rpc_addr, &approval_key).await? {
-        let existing: WalletApprovalDecision = decode_state_value(&existing_bytes, "approval decision")?;
+        let existing: WalletApprovalDecision =
+            decode_state_value(&existing_bytes, "approval decision")?;
         if approval_matches(&existing, &grant, target_scope, reason) {
-            println!("{}", serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "existing" }));
+            println!(
+                "{}",
+                serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "existing" })
+            );
             return Ok(());
         }
         bail!("request_hash already names a different wallet approval decision");
@@ -864,14 +1045,26 @@ async fn record_approval(state_dir: &Path, grant_file: &str, target_scope: &str,
         decided_at_ms,
     };
     let nonce = account_nonce(&ready.rpc_addr, &capability_account_id).await?;
-    submit(&ready.rpc_addr, &capability, ChainId(ready.chain_id), nonce, "record_approval@v1", &approval).await?;
-    let persisted = query_state_key(&ready.rpc_addr, &approval_key).await?
+    submit(
+        &ready.rpc_addr,
+        &capability,
+        ChainId(ready.chain_id),
+        nonce,
+        "record_approval@v1",
+        &approval,
+    )
+    .await?;
+    let persisted = query_state_key(&ready.rpc_addr, &approval_key)
+        .await?
         .ok_or_else(|| anyhow!("record_approval committed but no approval state is readable"))?;
     let persisted: WalletApprovalDecision = decode_state_value(&persisted, "approval decision")?;
     if !approval_matches(&persisted, &grant, target_scope, reason) {
         bail!("persisted approval decision differs from the one submitted");
     }
-    println!("{}", serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "committed", "nonce": nonce }));
+    println!(
+        "{}",
+        serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "committed", "nonce": nonce })
+    );
     Ok(())
 }
 
@@ -899,7 +1092,9 @@ fn load_or_generate_keys(state_dir: &Path, guardian_pass: &str) -> Result<Keys> 
         if approver_path.exists() || capability_key_path.exists() {
             bail!("keys/ is partially populated (no root.seed but other keys exist); refusing to guess which deployment this is");
         }
-        println!("--- generating the deployment's control root, capability client and approver keys ---");
+        println!(
+            "--- generating the deployment's control root, capability client and approver keys ---"
+        );
         write_secret_hex(&root_path, &random_seed())?;
         write_secret_hex(&approver_path, &random_seed())?;
         let capability_seed = random_seed();
@@ -912,10 +1107,19 @@ fn load_or_generate_keys(state_dir: &Path, guardian_pass: &str) -> Result<Keys> 
     let sealed = std::fs::read(&capability_key_path)?;
     let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, guardian_pass)
         .map_err(|error| anyhow!("open capability key with IOI_GUARDIAN_KEY_PASS: {error}"))?;
-    let capability_seed: [u8; 32] = capability_seed.0.as_slice().try_into()
+    let capability_seed: [u8; 32] = capability_seed
+        .0
+        .as_slice()
+        .try_into()
         .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
     let capability = keypair(&capability_seed)?;
-    Ok(Keys { root, capability, approver, approver_path, capability_key_path })
+    Ok(Keys {
+        root,
+        capability,
+        approver,
+        approver_path,
+        capability_key_path,
+    })
 }
 
 fn random_seed() -> [u8; 32] {
@@ -930,7 +1134,11 @@ fn write_secret_hex(path: &Path, seed: &[u8; 32]) -> Result<()> {
 }
 
 fn write_secret_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
-    let mut file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(path)
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
         .with_context(|| format!("create {}", path.display()))?;
     file.write_all(bytes)?;
     file.sync_all()?;
@@ -940,15 +1148,24 @@ fn write_secret_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
 fn read_seed_hex(path: &Path) -> Result<[u8; 32]> {
     let metadata = std::fs::metadata(path).with_context(|| format!("read {}", path.display()))?;
     if metadata.permissions().mode() & 0o077 != 0 {
-        bail!("{} is readable by group/other (mode {:o}); refusing a shared key", path.display(), metadata.permissions().mode() & 0o777);
+        bail!(
+            "{} is readable by group/other (mode {:o}); refusing a shared key",
+            path.display(),
+            metadata.permissions().mode() & 0o777
+        );
     }
     let text = std::fs::read_to_string(path)?;
-    let bytes = hex::decode(text.trim()).with_context(|| format!("{} is not hex", path.display()))?;
-    bytes.as_slice().try_into().map_err(|_| anyhow!("{} is not a 32-byte seed", path.display()))
+    let bytes =
+        hex::decode(text.trim()).with_context(|| format!("{} is not hex", path.display()))?;
+    bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("{} is not a 32-byte seed", path.display()))
 }
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
-    let private = Ed25519PrivateKey::from_bytes(seed).map_err(|error| anyhow!(error.to_string()))?;
+    let private =
+        Ed25519PrivateKey::from_bytes(seed).map_err(|error| anyhow!(error.to_string()))?;
     Ed25519KeyPair::from_private_key(&private).map_err(|error| anyhow!(error.to_string()))
 }
 
@@ -975,7 +1192,10 @@ fn wallet_policy() -> ServicePolicy {
     .into_iter()
     .map(|method| (method.to_string(), MethodPermission::User))
     .collect();
-    ServicePolicy { methods, allowed_system_prefixes: Vec::new() }
+    ServicePolicy {
+        methods,
+        allowed_system_prefixes: Vec::new(),
+    }
 }
 
 fn approval_authority(signer: &Ed25519KeyPair) -> Result<ApprovalAuthority> {
@@ -1063,7 +1283,11 @@ fn sign_statement(
         SignatureProof {
             suite: SignatureSuite::ED25519,
             public_key: root_record.public_key.clone(),
-            signature: root.private_key().sign(&message).map_err(|error| anyhow!(error.to_string()))?.to_bytes(),
+            signature: root
+                .private_key()
+                .sign(&message)
+                .map_err(|error| anyhow!(error.to_string()))?
+                .to_bytes(),
         },
     )
     .map_err(|error| anyhow!(error.to_string()))
@@ -1077,9 +1301,18 @@ fn create_call<P: Encode>(
     params: &P,
 ) -> Result<ChainTransaction> {
     let public_key = signer.public_key().to_bytes();
-    let account_id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &public_key)?);
+    let account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &public_key,
+    )?);
     let mut transaction = SystemTransaction {
-        header: SignHeader { account_id, nonce, chain_id, tx_version: 1, session_auth: None },
+        header: SignHeader {
+            account_id,
+            nonce,
+            chain_id,
+            tx_version: 1,
+            session_auth: None,
+        },
         payload: SystemPayload::CallService {
             service_id: "wallet_network".to_string(),
             method: method.to_string(),
@@ -1087,11 +1320,17 @@ fn create_call<P: Encode>(
         },
         signature_proof: SignatureProof::default(),
     };
-    let signing_bytes = transaction.to_sign_bytes().map_err(|error| anyhow!(error))?;
+    let signing_bytes = transaction
+        .to_sign_bytes()
+        .map_err(|error| anyhow!(error))?;
     transaction.signature_proof = SignatureProof {
         suite: SignatureSuite::ED25519,
         public_key,
-        signature: signer.private_key().sign(&signing_bytes).map_err(|error| anyhow!(error.to_string()))?.to_bytes(),
+        signature: signer
+            .private_key()
+            .sign(&signing_bytes)
+            .map_err(|error| anyhow!(error.to_string()))?
+            .to_bytes(),
     };
     Ok(ChainTransaction::System(Box::new(transaction)))
 }
@@ -1120,7 +1359,8 @@ fn decode_state_value<T: Decode>(bytes: &[u8], label: &str) -> Result<T> {
     }
     let entry: StateEntry = codec::from_bytes_canonical(bytes)
         .map_err(|error| anyhow!("{label} state wrapper is malformed: {error}"))?;
-    codec::from_bytes_canonical(&entry.value).map_err(|error| anyhow!("{label} state value is malformed: {error}"))
+    codec::from_bytes_canonical(&entry.value)
+        .map_err(|error| anyhow!("{label} state value is malformed: {error}"))
 }
 
 async fn account_nonce(rpc_addr: &str, account_id: &[u8; 32]) -> Result<u64> {
@@ -1132,7 +1372,11 @@ async fn account_nonce(rpc_addr: &str, account_id: &[u8; 32]) -> Result<u64> {
 }
 
 async fn wallet_control_root(rpc_addr: &str) -> Result<Option<WalletControlPlaneRootRecord>> {
-    let key = [service_namespace_prefix("wallet_network").as_slice(), b"control_root"].concat();
+    let key = [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"control_root",
+    ]
+    .concat();
     query_state_key(rpc_addr, &key)
         .await?
         .map(|bytes| decode_state_value(&bytes, "wallet control root"))
@@ -1160,14 +1404,20 @@ fn principal_authority_proof_key(binding_hash: &[u8; 32]) -> Vec<u8> {
     .concat()
 }
 
-async fn read_head(rpc_addr: &str, principal_ref: &str) -> Result<Option<PrincipalAuthorityBindingHeadV1>> {
+async fn read_head(
+    rpc_addr: &str,
+    principal_ref: &str,
+) -> Result<Option<PrincipalAuthorityBindingHeadV1>> {
     query_state_key(rpc_addr, &principal_authority_head_key(principal_ref))
         .await?
         .map(|bytes| decode_state_value(&bytes, "principal authority head"))
         .transpose()
 }
 
-async fn read_proof(rpc_addr: &str, binding_hash: &[u8; 32]) -> Result<PrincipalAuthorityBindingProofV1> {
+async fn read_proof(
+    rpc_addr: &str,
+    binding_hash: &[u8; 32],
+) -> Result<PrincipalAuthorityBindingProofV1> {
     let bytes = query_state_key(rpc_addr, &principal_authority_proof_key(binding_hash))
         .await?
         .ok_or_else(|| anyhow!("principal authority proof is absent"))?;
@@ -1192,27 +1442,48 @@ async fn latest_committed_chain_timestamp_ms(rpc_addr: &str) -> Result<u64> {
 
 fn read_ready(state_dir: &Path) -> Result<ReadyManifest> {
     let path = state_dir.join(READY_FILE);
-    let bytes = std::fs::read(&path)
-        .with_context(|| format!("{} is absent: the authority node is not serving", path.display()))?;
+    let bytes = std::fs::read(&path).with_context(|| {
+        format!(
+            "{} is absent: the authority node is not serving",
+            path.display()
+        )
+    })?;
     Ok(serde_json::from_slice(&bytes)?)
 }
 
 fn read_authority_record(state_dir: &Path) -> Result<AuthorityRecord> {
     let path = state_dir.join(AUTHORITY_RECORD_FILE);
-    Ok(serde_json::from_slice(&std::fs::read(&path).with_context(|| format!("read {}", path.display()))?)?)
+    Ok(serde_json::from_slice(
+        &std::fs::read(&path).with_context(|| format!("read {}", path.display()))?,
+    )?)
 }
 
 fn write_authority_record(state_dir: &Path, record: &AuthorityRecord) -> Result<()> {
-    write_atomic_durable(&state_dir.join(AUTHORITY_RECORD_FILE), &serde_json::to_vec_pretty(record)?)
+    write_atomic_durable(
+        &state_dir.join(AUTHORITY_RECORD_FILE),
+        &serde_json::to_vec_pretty(record)?,
+    )
 }
 
 fn write_atomic_durable(path: &Path, bytes: &[u8]) -> Result<()> {
-    let parent = path.parent().ok_or_else(|| anyhow!("atomic publication requires a parent directory"))?;
-    let file_name = path.file_name().and_then(|value| value.to_str())
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow!("atomic publication requires a parent directory"))?;
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
         .ok_or_else(|| anyhow!("atomic publication requires a UTF-8 filename"))?;
-    let temporary = parent.join(format!(".{file_name}.{}.{}.tmp", std::process::id(), now_ms()));
+    let temporary = parent.join(format!(
+        ".{file_name}.{}.{}.tmp",
+        std::process::id(),
+        now_ms()
+    ));
     let result = (|| -> Result<()> {
-        let mut file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temporary)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temporary)?;
         file.write_all(bytes)?;
         file.sync_all()?;
         std::fs::rename(&temporary, path)?;
@@ -1226,9 +1497,15 @@ fn write_atomic_durable(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 fn validate_principal_ref(principal_ref: &str) -> Result<()> {
-    let valid_scheme = ["worker://", "service://", "org://", "domain://", "agentgres://domain/"]
-        .iter()
-        .any(|scheme| principal_ref.starts_with(scheme) && principal_ref.len() > scheme.len());
+    let valid_scheme = [
+        "worker://",
+        "service://",
+        "org://",
+        "domain://",
+        "agentgres://domain/",
+    ]
+    .iter()
+    .any(|scheme| principal_ref.starts_with(scheme) && principal_ref.len() > scheme.len());
     if !valid_scheme {
         bail!("principal ref {principal_ref:?} is not in the canonical grammar (worker:// service:// org:// domain:// agentgres://domain/)");
     }
@@ -1236,11 +1513,17 @@ fn validate_principal_ref(principal_ref: &str) -> Result<()> {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 fn iso_now() -> String {
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     // RFC 3339 without a chrono dependency: days since epoch → civil date (Howard Hinnant).
     let days = (secs / 86_400) as i64;
     let sod = secs % 86_400;
@@ -1254,5 +1537,10 @@ fn iso_now() -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
-    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", sod / 3_600, (sod % 3_600) / 60, sod % 60)
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        sod / 3_600,
+        (sod % 3_600) / 60,
+        sod % 60
+    )
 }

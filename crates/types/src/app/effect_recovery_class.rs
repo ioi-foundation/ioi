@@ -99,7 +99,10 @@ pub fn resolve(value: Option<&str>) -> RecoveryClassResolution {
     let Some(raw) = value.map(str::trim).filter(|raw| !raw.is_empty()) else {
         return RecoveryClassResolution::Undeclared;
     };
-    if let Some(canonical) = EFFECT_RECOVERY_CLASSES.iter().find(|member| **member == raw) {
+    if let Some(canonical) = EFFECT_RECOVERY_CLASSES
+        .iter()
+        .find(|member| **member == raw)
+    {
         return RecoveryClassResolution::Canonical(canonical);
     }
     match RETIRED_EFFECT_RECOVERY_CLASSES
@@ -187,7 +190,10 @@ mod tests {
                 to: "reconciliation_required"
             }
         );
-        assert_eq!(resolve(Some("best_effort")), RecoveryClassResolution::Unknown);
+        assert_eq!(
+            resolve(Some("best_effort")),
+            RecoveryClassResolution::Unknown
+        );
         // Absent, empty and whitespace are all UNDECLARED — never defaulted into a member.
         assert_eq!(resolve(None), RecoveryClassResolution::Undeclared);
         assert_eq!(resolve(Some("")), RecoveryClassResolution::Undeclared);

@@ -42,11 +42,18 @@ fn reply(status: StatusCode, body: Value) -> Response {
 }
 
 fn refuse(status: StatusCode, code: &str, message: impl Into<String>) -> Response {
-    reply(status, json!({ "ok": false, "error": { "code": code, "message": message.into(), "runtimeTruthSource": "daemon-runtime" } }))
+    reply(
+        status,
+        json!({ "ok": false, "error": { "code": code, "message": message.into(), "runtimeTruthSource": "daemon-runtime" } }),
+    )
 }
 
 fn hex64(value: Option<&Value>) -> Option<String> {
-    let text = value?.as_str()?.trim().trim_start_matches("sha256:").to_ascii_lowercase();
+    let text = value?
+        .as_str()?
+        .trim()
+        .trim_start_matches("sha256:")
+        .to_ascii_lowercase();
     (text.len() == 64 && text.bytes().all(|b| b.is_ascii_hexdigit())).then_some(text)
 }
 
@@ -63,7 +70,11 @@ fn records_dir(data_dir: &str) -> std::path::PathBuf {
 }
 
 fn load_plan(data_dir: &str, plan_id: &str) -> Option<Value> {
-    if !plan_id.starts_with("rcp_") || !plan_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+    if !plan_id.starts_with("rcp_")
+        || !plan_id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    {
         return None;
     }
     let path = records_dir(data_dir).join(format!("{plan_id}.json"));
@@ -87,7 +98,12 @@ fn list_plans(data_dir: &str) -> Vec<Value> {
     plans
 }
 
-fn write_receipt(data_dir: &str, plan: &Value, event: &str, detail: Value) -> Result<String, String> {
+fn write_receipt(
+    data_dir: &str,
+    plan: &Value,
+    event: &str,
+    detail: Value,
+) -> Result<String, String> {
     let plan_id = plan["plan_id"].as_str().unwrap_or_default();
     let receipt_ref = format!("receipt://hypervisor/release-change-plan/{plan_id}/{event}");
     let receipt = json!({
@@ -101,8 +117,13 @@ fn write_receipt(data_dir: &str, plan: &Value, event: &str, detail: Value) -> Re
         "recorded_at": super::iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    persist_receipt_no_clobber(data_dir, "receipts", &format!("release-change-plan-{plan_id}-{event}"), &receipt)
-        .map_err(|e| format!("{e:?}"))?;
+    persist_receipt_no_clobber(
+        data_dir,
+        "receipts",
+        &format!("release-change-plan-{plan_id}-{event}"),
+        &receipt,
+    )
+    .map_err(|e| format!("{e:?}"))?;
     Ok(receipt_ref)
 }
 
@@ -121,23 +142,50 @@ pub(crate) async fn handle_release_change_plan_admit(
         Ok(identity) => identity,
         Err((status, Json(value))) => return reply(status, value),
     };
-    let kind = body.get("kind").and_then(Value::as_str).unwrap_or_default().to_string();
+    let kind = body
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     if !KINDS.contains(&kind.as_str()) {
-        return refuse(StatusCode::UNPROCESSABLE_ENTITY, "release_change_plan_kind_invalid", "kind must be update or rollback");
+        return refuse(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "release_change_plan_kind_invalid",
+            "kind must be update or rollback",
+        );
     }
     let target = body.get("target_release").cloned().unwrap_or(Value::Null);
-    let target_version = target.get("version").and_then(Value::as_str).unwrap_or_default().trim().to_string();
+    let target_version = target
+        .get("version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
     let target_manifest = hex64(target.get("manifest_sha256"));
     let target_daemon = hex64(target.get("daemon_sha256"));
-    let signer = target.get("signer_public_key").and_then(Value::as_str).unwrap_or_default().trim().to_string();
-    if target_version.is_empty() || target_manifest.is_none() || target_daemon.is_none() || signer.is_empty() {
+    let signer = target
+        .get("signer_public_key")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if target_version.is_empty()
+        || target_manifest.is_none()
+        || target_daemon.is_none()
+        || signer.is_empty()
+    {
         return refuse(
             StatusCode::UNPROCESSABLE_ENTITY,
             "release_change_plan_target_invalid",
             "target_release requires version, manifest_sha256 (64 hex), daemon_sha256 (64 hex) and signer_public_key",
         );
     }
-    let verified_by = target.get("signature_verified_by").and_then(Value::as_str).unwrap_or_default().trim().to_string();
+    let verified_by = target
+        .get("signature_verified_by")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
     if verified_by.is_empty() {
         return refuse(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -147,7 +195,13 @@ pub(crate) async fn handle_release_change_plan_admit(
     }
     let running = match running_daemon_sha256() {
         Ok(digest) => digest,
-        Err(error) => return refuse(StatusCode::SERVICE_UNAVAILABLE, "release_change_plan_self_identity_unavailable", error),
+        Err(error) => {
+            return refuse(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "release_change_plan_self_identity_unavailable",
+                error,
+            )
+        }
     };
     // Refuse a plan whose target is what is ALREADY running: an update to self is not a change,
     // and admitting it would mint a completed-looking receipt for nothing.
@@ -159,14 +213,31 @@ pub(crate) async fn handle_release_change_plan_admit(
         );
     }
     // One in-flight plan at a time: a second admitted plan would make the observed outcome ambiguous.
-    if let Some(open) = list_plans(&st.data_dir).into_iter().find(|p| p["status"] == json!("admitted")) {
+    if let Some(open) = list_plans(&st.data_dir)
+        .into_iter()
+        .find(|p| p["status"] == json!("admitted"))
+    {
         return refuse(
             StatusCode::CONFLICT,
             "release_change_plan_already_admitted",
-            format!("plan {} is admitted and not yet observed or cancelled", open["plan_id"].as_str().unwrap_or("?")),
+            format!(
+                "plan {} is admitted and not yet observed or cancelled",
+                open["plan_id"].as_str().unwrap_or("?")
+            ),
         );
     }
-    let plan_id = format!("rcp_{}", &hex::encode(Sha256::digest(format!("{kind}|{target_version}|{}|{}|{}", target_manifest.as_deref().unwrap_or(""), running, super::iso_now()).as_bytes()))[..24]);
+    let plan_id = format!(
+        "rcp_{}",
+        &hex::encode(Sha256::digest(
+            format!(
+                "{kind}|{target_version}|{}|{}|{}",
+                target_manifest.as_deref().unwrap_or(""),
+                running,
+                super::iso_now()
+            )
+            .as_bytes()
+        ))[..24]
+    );
     let plan = json!({
         "schema": SCHEMA,
         "plan_id": plan_id,
@@ -191,22 +262,42 @@ pub(crate) async fn handle_release_change_plan_admit(
         "runtimeTruthSource": "daemon-runtime",
     });
     let mut plan = plan;
-    match write_receipt(&st.data_dir, &plan, "admitted", json!({ "running_daemon_sha256": plan["current_release"]["observed_daemon_sha256_at_admission"] })) {
+    match write_receipt(
+        &st.data_dir,
+        &plan,
+        "admitted",
+        json!({ "running_daemon_sha256": plan["current_release"]["observed_daemon_sha256_at_admission"] }),
+    ) {
         Ok(receipt_ref) => plan["receipt_refs"] = json!([receipt_ref]),
-        Err(error) => return refuse(StatusCode::INTERNAL_SERVER_ERROR, "release_change_plan_receipt_failed", error),
+        Err(error) => {
+            return refuse(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "release_change_plan_receipt_failed",
+                error,
+            )
+        }
     }
     if let Err(error) = persist_plan(&st.data_dir, &plan) {
-        return refuse(StatusCode::INTERNAL_SERVER_ERROR, "release_change_plan_persist_failed", error);
+        return refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "release_change_plan_persist_failed",
+            error,
+        );
     }
     reply(StatusCode::CREATED, json!({ "ok": true, "plan": plan }))
 }
 
 /// GET /v1/hypervisor/release-change-plans
-pub(crate) async fn handle_release_change_plan_list(State(st): State<Arc<DaemonState>>) -> Response {
+pub(crate) async fn handle_release_change_plan_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Response {
     let running = running_daemon_sha256().ok();
     // v2 of the family also reports the running daemon's crate version beside its digest, so a
     // client can tell WHICH release answered without hashing anything itself.
-    reply(StatusCode::OK, json!({ "ok": true, "running_daemon_sha256": running, "running_daemon_crate_version": env!("CARGO_PKG_VERSION"), "plans": list_plans(&st.data_dir) }))
+    reply(
+        StatusCode::OK,
+        json!({ "ok": true, "running_daemon_sha256": running, "running_daemon_crate_version": env!("CARGO_PKG_VERSION"), "plans": list_plans(&st.data_dir) }),
+    )
 }
 
 /// GET /v1/hypervisor/release-change-plans/:id
@@ -216,7 +307,11 @@ pub(crate) async fn handle_release_change_plan_get(
 ) -> Response {
     match load_plan(&st.data_dir, &plan_id) {
         Some(plan) => reply(StatusCode::OK, json!({ "ok": true, "plan": plan })),
-        None => refuse(StatusCode::NOT_FOUND, "release_change_plan_not_found", format!("no plan {plan_id}")),
+        None => refuse(
+            StatusCode::NOT_FOUND,
+            "release_change_plan_not_found",
+            format!("no plan {plan_id}"),
+        ),
     }
 }
 
@@ -231,19 +326,35 @@ pub(crate) async fn handle_release_change_plan_action(
         Err((status, Json(value))) => return reply(status, value),
     };
     let Some(mut plan) = load_plan(&st.data_dir, &plan_id) else {
-        return refuse(StatusCode::NOT_FOUND, "release_change_plan_not_found", format!("no plan {plan_id}"));
+        return refuse(
+            StatusCode::NOT_FOUND,
+            "release_change_plan_not_found",
+            format!("no plan {plan_id}"),
+        );
     };
     if plan["status"] != json!("admitted") {
         // Terminal truth is replayed, never re-decided.
-        return reply(StatusCode::OK, json!({ "ok": true, "plan": plan, "replayed": true }));
+        return reply(
+            StatusCode::OK,
+            json!({ "ok": true, "plan": plan, "replayed": true }),
+        );
     }
     match action.as_str() {
         "observe" => {
             let running = match running_daemon_sha256() {
                 Ok(digest) => digest,
-                Err(error) => return refuse(StatusCode::SERVICE_UNAVAILABLE, "release_change_plan_self_identity_unavailable", error),
+                Err(error) => {
+                    return refuse(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "release_change_plan_self_identity_unavailable",
+                        error,
+                    )
+                }
             };
-            let expected = plan["target_release"]["daemon_sha256"].as_str().unwrap_or_default().to_string();
+            let expected = plan["target_release"]["daemon_sha256"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
             let matched = running == expected;
             plan["status"] = json!(if matched { "completed" } else { "failed" });
             plan["observed"] = json!({
@@ -259,20 +370,41 @@ pub(crate) async fn handle_release_change_plan_action(
             plan["status"] = json!("cancelled");
             plan["cancelled"] = json!({ "at": super::iso_now(), "by": identity.principal_ref });
         }
-        other => return refuse(StatusCode::UNPROCESSABLE_ENTITY, "release_change_plan_action_invalid", format!("unknown action {other}; expected observe or cancel")),
+        other => {
+            return refuse(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "release_change_plan_action_invalid",
+                format!("unknown action {other}; expected observe or cancel"),
+            )
+        }
     }
     plan["updated_at"] = json!(super::iso_now());
     let event = plan["status"].as_str().unwrap_or("updated").to_string();
-    match write_receipt(&st.data_dir, &plan, &event, plan.get("observed").cloned().unwrap_or(Value::Null)) {
+    match write_receipt(
+        &st.data_dir,
+        &plan,
+        &event,
+        plan.get("observed").cloned().unwrap_or(Value::Null),
+    ) {
         Ok(receipt_ref) => {
             if let Some(refs) = plan["receipt_refs"].as_array_mut() {
                 refs.push(json!(receipt_ref));
             }
         }
-        Err(error) => return refuse(StatusCode::INTERNAL_SERVER_ERROR, "release_change_plan_receipt_failed", error),
+        Err(error) => {
+            return refuse(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "release_change_plan_receipt_failed",
+                error,
+            )
+        }
     }
     if let Err(error) = persist_plan(&st.data_dir, &plan) {
-        return refuse(StatusCode::INTERNAL_SERVER_ERROR, "release_change_plan_persist_failed", error);
+        return refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "release_change_plan_persist_failed",
+            error,
+        );
     }
     reply(StatusCode::OK, json!({ "ok": true, "plan": plan }))
 }

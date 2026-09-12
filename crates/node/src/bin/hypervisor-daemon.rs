@@ -50,6 +50,8 @@ mod azure_candidate_source;
 mod binding_routes;
 #[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
 mod capability_lease_plan_routes;
+#[path = "hypervisor_daemon_routes/cloud_job_routes.rs"]
+mod cloud_job_routes;
 #[path = "hypervisor_daemon_routes/connector_execution_routes.rs"]
 mod connector_execution_routes;
 #[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
@@ -60,8 +62,6 @@ mod connector_session_routes;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/data_transformation_routes.rs"]
 mod data_transformation_routes;
-#[path = "hypervisor_daemon_routes/cloud_job_routes.rs"]
-mod cloud_job_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
@@ -70,8 +70,6 @@ mod device_custody_routes;
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/download_intent_routes.rs"]
 mod download_intent_routes;
-#[path = "hypervisor_daemon_routes/release_change_plan_routes.rs"]
-mod release_change_plan_routes;
 #[path = "hypervisor_daemon_routes/durable_fs.rs"]
 mod durable_fs;
 #[path = "hypervisor_daemon_routes/economics_routes.rs"]
@@ -184,6 +182,8 @@ mod provider_routes;
 mod provider_transport;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
 mod recipe_routes;
+#[path = "hypervisor_daemon_routes/release_change_plan_routes.rs"]
+mod release_change_plan_routes;
 #[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
 mod resource_capability_offer_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]

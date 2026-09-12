@@ -1096,7 +1096,9 @@ impl WorkLifecycleLogCore {
             // meant; a member of neither vocabulary is refused; and a record that declares NOTHING
             // is refused rather than defaulted, because defaulting an undeclared effect into the
             // most permissive posture is precisely the widening the claim gate refuses.
-            let declared = match effect_recovery_class::resolve(child.effect_recovery_class.as_deref()) {
+            let declared = match effect_recovery_class::resolve(
+                child.effect_recovery_class.as_deref(),
+            ) {
                 effect_recovery_class::RecoveryClassResolution::Canonical(member) => member,
                 effect_recovery_class::RecoveryClassResolution::Migrated { to, .. } => to,
                 effect_recovery_class::RecoveryClassResolution::Undeclared => {
@@ -1937,7 +1939,10 @@ mod tests {
             let plan = core
                 .plan_cancellation_fanout(OBJECT, &head, &log, &intent)
                 .unwrap_or_else(|error| {
-                    panic!("canonical member {member} is not a live planner arm: {}", error.code())
+                    panic!(
+                        "canonical member {member} is not a live planner arm: {}",
+                        error.code()
+                    )
                 });
             assert!(
                 !plan["targets"][0]["actions"]
@@ -1951,7 +1956,11 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut log = Vec::new();
         let head = commit(&core, &mut log, genesis());
-        let head = commit(&core, &mut log, attach("a", "k-a", "best_effort", &head, 2_000));
+        let head = commit(
+            &core,
+            &mut log,
+            attach("a", "k-a", "best_effort", &head, 2_000),
+        );
         let intent = CancellationIntent {
             requested_by_ref: "actor://owner".into(),
             reason: "stop".into(),
@@ -2004,7 +2013,11 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut log = Vec::new();
         let head = commit(&core, &mut log, genesis());
-        let head = commit(&core, &mut log, attach_without_class("a", "k-a", &head, 2_000));
+        let head = commit(
+            &core,
+            &mut log,
+            attach_without_class("a", "k-a", &head, 2_000),
+        );
         let active = core
             .project_active_children(&log)
             .expect("the projection still reads the child");

@@ -142,7 +142,15 @@ check("R1_DERIVED_CLOSED_WORLD",
   // route and neither is a create seam: both delegate to the connector-invoke draw-down gate,
   // which is why the candidate count is unchanged at 45. Derived, not adjusted to fit — the
   // growth is exactly those two and unresolved/unclassified are still 0.
-  census.registered_route_handlers === 1110 && census.workspace_route_handlers === 38
+  //
+  // Re-pinned 2026-09-12 (basis 8315d8128) from 1110: a4f6987d9 (M09.1, HypervisorProjectDiscovery
+  // Proposal) registered exactly four handlers in project_discovery_routes.rs — proposal admit,
+  // acceptance admit, proposal get, proposal list. None is an environment route and none is a
+  // create seam: discovery proposes and STOPS (the acceptance is a separate admitted successor on
+  // the owner-scoped write path), so the candidate count is unchanged at 45 and unresolved and
+  // unclassified are still 0. Found by CI on 2026-09-12, not by the landing commit: the M09.1
+  // session did not run this check, and this job's contract block masked it for four runs.
+  census.registered_route_handlers === 1114 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
