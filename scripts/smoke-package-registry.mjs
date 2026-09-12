@@ -509,17 +509,37 @@ async function run() {
       "create_odk_manifest",
       "POST",
       "/v1/hypervisor/odk/manifests",
+      // v2 MEMBER NAMES. This body still carried `recipe_refs` after the descriptor half of this
+      // smoke was converged — a leftover that made the whole registry smoke red once the CI block
+      // in front of it stopped aborting (2026-09-12). The daemon refuses the v1 name rather than
+      // translating it, by design: silently mapping it would make the convergence invisible and
+      // leave two spellings alive for one fact. So every member here is the owner-qualified
+      // successor, and the four this smoke has nothing for are EMPTY LISTS rather than absent,
+      // because an absent member and a declared "there are none" are different claims.
       {
         name: "Package registry smoke manifest",
+        version: "1.0.0",
         ontology_refs: [ontologyRef],
-        recipe_refs: [],
+        data_recipe_refs: [],
         surface_descriptor_refs: [descriptorRef],
+        evaluation_dataset_refs: [],
+        benchmark_profile_refs: [],
+        operator_contract_refs: [],
+        mcp_contract_refs: [],
         owner_ref: OWNER,
         idempotency_key: "package-registry-smoke-manifest-v1",
       },
     );
     expectStatus(manifest, 201, "ODK manifest source is durable");
-    const manifestRef = manifest.body.manifest.ref;
+    // v2 spells the manifest's identity `odk_manifest_id` (`ref` was the v1 name). Read the v2
+    // field and refuse an empty one rather than carrying `undefined` into the next request, where
+    // it would surface three calls later as a missing field on a different object.
+    const manifestRef = manifest.body.manifest.odk_manifest_id;
+    assertThat(
+      typeof manifestRef === "string" && manifestRef.startsWith("odk://"),
+      "the admitted manifest names its own v2 identity",
+      { odk_manifest_id: manifestRef },
+    );
 
     const domainApp = await request(
       daemon,
@@ -535,7 +555,13 @@ async function run() {
       },
     );
     expectStatus(domainApp, 201, "DomainApp source is durable");
-    const domainAppRef = domainApp.body.domain_app.domain_app_ref;
+    // Same correction one object along: the v2 DomainApp record's identity is `domain_app_id`.
+    const domainAppRef = domainApp.body.domain_app.domain_app_id;
+    assertThat(
+      typeof domainAppRef === "string" && domainAppRef.length > 0,
+      "the admitted DomainApp names its own v2 identity",
+      { domain_app_id: domainAppRef },
+    );
 
     const candidateRequest = {
       package_id: "local-package-registry-smoke",
