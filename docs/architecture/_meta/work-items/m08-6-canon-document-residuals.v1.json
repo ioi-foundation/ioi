@@ -1,0 +1,54 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-6-canon-document-residuals",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.6"
+  ],
+  "status": "verified",
+  "objective": "Close the five named canon-document residuals, and close them as PROPERTIES rather than as five hand-corrections. The scar the named-gap gate recorded is that hand-correction does not converge; five repaired instances with no standing check decay back into five residuals nobody is looking for.",
+  "falsifiable_claim": "Over the tracked canon under docs/architecture and docs/decisions, excluding _archive by name: no numbered Non-Negotiables list repeats an ordinal and every list counts from 1 without a gap; every numeric citation of a non-negotiable names an ordinal some policed list has; no live document links to an archived one without an archival qualifier, where archived-ness is read from the TARGET's own front matter rather than from adjectives in the citing prose; every endpoint documented in a fenced block under the daemon's own two namespaces is registered or annotated, with the wider specification population pinned as an EXACT ratchet; and every route a surface table calls canonical is one the estate registers or the row says what happened to it.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-canon-document-residuals.mjs",
+      "literal": "no numbered canon list repeats an ordinal",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-canon-document-residuals.mjs",
+      "literal": "archived-ness is read from the TARGET",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-canon-document-residuals.mjs",
+      "literal": "const ENDPOINT_RATCHET",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:canon-document-residuals",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:canon-document-residuals",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Seven drills, one per finding plus a vacuity guard: a repeated ordinal, the gap a duplicate leaves behind, a citation of an ordinal no list has, the known archived stub read as archived from its own front matter, a LIVE document read as NOT archived so the archived finding cannot be vacuously satisfied, a documented endpoint absent from the registration set, and a canonical route absent from both the taxonomy and the surface records. The check also corrected its own first construction twice: it compared another service's documented API against the daemon's router (the agentgres Core API, whose crate registers zero routes), and it required an absolute zero where the honest claim is a ratchet.",
+  "remaining_nonclaims": [
+    "The endpoint property is policed only for /v1/hypervisor/ and /v1/goal-orchestration/, the two namespaces this router owns. Other services' documented APIs are outside what a check that reads this router can speak for, and at least one of them — the agentgres Core API — is documented against a crate that registers no routes at all. That is a real finding and it is not this one.",
+    "The endpoint population is a RATCHET pinned at 168, not a zero. 100 of those are in the daemon API reference and 61 in the ioi.ai orchestration API, which are specification documents describing a target surface; requiring them to be annotated or registered would forbid canon from specifying anything not yet built. The 168 are RECORDED rather than approved, and the closure test for their owners is that the number goes down and the pin moves with it in the same commit.",
+    "The numeric-citation claim is deliberately the weaker one the check can ground: no citation names an ordinal no policed list has. It does not guess which list a given citation means, so it cannot catch a citation that names a real ordinal in the wrong list.",
+    "Numbered lists are policed where canon cites them by number, which is the Non-Negotiables sections. Other ordered lists in canon are not judged."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program, leg 2 (second unit of the READY set). All five residuals located exactly before any edit: the nine endpoints at collaborative-outcome-pattern.md:583-593 (six served by nothing under any spelling, two near-misses under different registered spellings, and one served by the aiagent.xyz service rather than the daemon); the duplicated ordinal at README.md:653 and :656, making a 39-item list run 1-38; the Related-Canon entry, which turned out to be TWO byte-identical entries and both were repointed; the surface-table row at core-clients-surfaces.md:1126, contradicted by the same file 690 lines later; and the delta-ledger owner at canon-to-code-delta.md:104, the only room-object row still naming aiip.md after the 2026-09-12 strip. A sibling list in default-harness-profile.md had the same duplicate defect twice and was repaired in the same cut. Eleven stale citations of archived documents were closed to bring the archived-citation property to an absolute zero. check:canon-document-residuals 7/7, mutate: 14/14.",
+  "last_status_transaction": "2026-09-12"
+}

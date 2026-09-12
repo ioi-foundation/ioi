@@ -653,33 +653,33 @@ access to an IOI-hosted room. Same-owner multiplicity never satisfies it.
 30. Product surfaces monetize real product value. Substrates meter, attest,
     authorize, record, or settle; token economics activate only with real
     verified network demand.
-30. UI boards, chat, leaderboards, replays, and admin consoles are projections.
+31. UI boards, chat, leaderboards, replays, and admin consoles are projections.
     They never become authority or canonical runtime truth by convenience.
-31. Direct Sessions, Projects, AutomationSpecs, and stand-alone GoalRuns do not
+32. Direct Sessions, Projects, AutomationSpecs, and stand-alone GoalRuns do not
     require creation of a System. Systems is the coherent read/context surface
     for work that is actually bound to an admitted `system_id`.
-32. Work always exposes typed subject refs and applies policy before search,
+33. Work always exposes typed subject refs and applies policy before search,
     counts, caching, or recents. It does not flatten distinct work objects into
     one universal state machine.
-33. The generic `HypervisorMission` is retired; optional Mission presentation
+34. The generic `HypervisorMission` is retired; optional Mission presentation
     profiles have exactly one GoalRun or OutcomeRoom backing and no independent
     lifecycle. Typed physical mission contracts remain canonical.
-34. Packages owns package lifecycle even when Marketplace is absent.
+35. Packages owns package lifecycle even when Marketplace is absent.
     Marketplace is an optional distribution/commerce mode, not an application
     origin, install state, or separate truth owner.
-35. One registered product-surface compiler serves shell, catalog, command
+36. One registered product-surface compiler serves shell, catalog, command
     palette, contextual, and API projections using independent surface class,
     publisher origin, creation method, distribution, availability, admission,
     installation, package disposition, enablement, capability depth, and
     operational state axes from `canonical-enums.md`.
-36. Reference-product captures, parity matrices, and copied interaction
+37. Reference-product captures, parity matrices, and copied interaction
     patterns are evidence only. They cannot register a product surface, assign
     an owner, or grant operational maturity.
-37. A domain has exactly one admission owner. Behavioral parity with the
+38. A domain has exactly one admission owner. Behavioral parity with the
     substrate contract confers no authority to admit, creates no second truth,
     and replaces no runtime owner except through a governed cutover with no
     dual-authority interval.
-38. Upgrades narrow authority or leave it unchanged. Expanding authority, or
+39. Upgrades narrow authority or leave it unchanged. Expanding authority, or
     weakening an ordering, admission, finality, durability, availability,
     non-equivocation, freshness, or revocation guarantee that bounds it, takes
     a separately governed path with a threshold, a delay, a checkpoint, and an
@@ -700,7 +700,7 @@ current proof. The target Hypervisor shell taxonomy, shared product-surface
 compiler, and registration axes likewise remain target architecture where the
 delta still records hard-coded catalogs, routes, or parity-derived UI
 classifications. Parity-derived UI classification is never an acceptance test
-in the first place — Non-Negotiable 36 makes captures and parity matrices
+in the first place — Non-Negotiable 37 makes captures and parity matrices
 evidence only.
 
 When implementing:

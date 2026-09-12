@@ -224,6 +224,16 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run mutate:admission-census-entailment
 
+      # M08.6's five canon-document residuals, as standing properties. It reads the daemon's own
+      # route registrations, so it sits beside the build that produces them.
+      - name: Verify the canon-document residuals stay closed (M08.6)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:canon-document-residuals
+
+      - name: Verify those residual properties go red on their own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:canon-document-residuals
+
 
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the

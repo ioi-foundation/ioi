@@ -1123,7 +1123,7 @@ v2 target route ledger is:
 | Surface/action | Canonical target route | Rule |
 | --- | --- | --- |
 | Home | `/home` | — |
-| New Session | `/work/new-session` | remains a one-click action |
+| New Session | `/work/new-session` | remains a one-click action. **Annotated 2026-09-12 (M08.6):** the route has had no bound surface module since the E7-1 cockpit retirement (2026-08-20) and renders the honest v2 route-shell page; the polished composer lane is `/ai#new-session`. See § *Hypervisor Sessions* below, which records both. |
 | Systems | `/systems` | no fabricated System rows before honest read models |
 | Projects | `/projects` | existing Project context is preserved |
 | Applications | `/applications` | one catalog/compiler projection |
@@ -1530,7 +1530,7 @@ merely comparative evidence" and made per-application migration acceptance
 "proving parity and negative no-fallback behavior" — landing-level parity as
 the done-bar. That is the program-level conflation the correction closed. A
 captured reference ROOT is not the application, and a landing that matches a
-capture has been compared, not accepted. Non-Negotiable 36 governs.
+capture has been compared, not accepted. Non-Negotiable 37 governs.
 
 A surface is accepted when three conditions hold together, none of which a
 capture can satisfy:

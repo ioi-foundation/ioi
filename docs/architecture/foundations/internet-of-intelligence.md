@@ -7,7 +7,7 @@ Superseded by: none.
 Last alignment pass: 2026-08-30 (Machine Authority category/protocol ownership
 linked and retired conformance-tree reference removed).
 Doctrine status: canonical
-Implementation status: mixed (category definition; the network proof is an unmet target — see [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md))
+Implementation status: mixed (category definition; the network proof is an unmet target — see [`../_meta/canon-to-code-delta.md`](../_meta/canon-to-code-delta.md) and the [`work-items/`](../_meta/work-items/) records; the former [`implementation-matrix.md`](../_meta/implementation-matrix.md) is an archived stub)
 Last implementation audit: 2026-08-05
 
 This file is the definitional owner of the Internet of Intelligence category,

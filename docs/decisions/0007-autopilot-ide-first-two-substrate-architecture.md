@@ -79,7 +79,7 @@ Autopilot/Tauri execution instructions beside the current Hypervisor shell.
 Use the tracked architecture
 [`source-of-truth-map.md`](../architecture/_meta/source-of-truth-map.md) for
 ownership and
-[`implementation-matrix.md`](../architecture/_meta/implementation-matrix.md)
+[`canon-to-code-delta.md`](../architecture/_meta/canon-to-code-delta.md) (the former archived [`implementation-matrix.md`](../architecture/_meta/implementation-matrix.md))
 for current implementation posture. Ignored internal guides are not canon or
 active sequencing authority.
 

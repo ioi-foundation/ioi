@@ -154,7 +154,8 @@ run replay, counterfactual what-if replay (improvement simulation), and
 workspace snapshot/restore custody exist in the daemon today; the durable
 `AgentExecutionTrace` / `AgentExecutionBranch` / `StagedEffect` /
 `BranchCheckpoint` / `BranchMergePlan` objects are planned over that substrate
-(see [`../../_meta/implementation-matrix.md`](../../_meta/implementation-matrix.md)).
+(see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md); the former
+[`implementation-matrix.md`](../../_meta/implementation-matrix.md) is an archived stub).
 
 This does not replace Git. Git remains the source-code version-control system.
 Agentgres records the autonomous-work state around Git: why the branch exists,
@@ -1383,8 +1384,9 @@ loss.
   canonical-state/projection taxonomy and legacy terminology boundary.
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md):
   daemon-executed profile that admits runtime truth through Agentgres.
-- [`../../_meta/implementation-matrix.md`](../../_meta/implementation-matrix.md):
-  concept-to-durable-form implementation index.
+- [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md) and the
+  [`work-items/`](../../_meta/work-items/) records — the live per-object implementation
+  status (the former implementation matrix is an archived stub with no ownership).
 
 ## Invariants
 

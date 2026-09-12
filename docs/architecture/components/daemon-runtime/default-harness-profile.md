@@ -1404,8 +1404,9 @@ optional L1 settlement hooks
   envelopes.
 - [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md):
   Goal Space and collaborative work graph product behavior above GoalRuns.
-- [`../../_meta/implementation-matrix.md`](../../_meta/implementation-matrix.md):
-  concept-to-durable-form implementation index.
+- [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md) and the
+  [`work-items/`](../../_meta/work-items/) records — the live per-object implementation
+  status (the former implementation matrix is an archived stub with no ownership).
 
 ## Non-Negotiables
 
@@ -1454,16 +1455,16 @@ optional L1 settlement hooks
 27. A HarnessProfile cannot declassify data or upgrade instruction authority;
     consequential effects use the daemon's central pre-effect evaluator.
     `ImplementationResultPayload` remains the software implementation profile.
-26. Dynamic room participation, claim leasing, resource allocation, shared
+28. Dynamic room participation, claim leasing, resource allocation, shared
     frontier admission, and verifier challenges belong to the collaborative
     work graph, not private harness state.
-27. Background agents are durable delegated work with visible leases, spend,
+29. Background agents are durable delegated work with visible leases, spend,
     evidence, blockers, verification, and cancellation/quarantine controls.
-28. Reusable GoalRunProfile, WorkflowTemplate, SkillManifest, and Package
+30. Reusable GoalRunProfile, WorkflowTemplate, SkillManifest, and Package
     definitions grant no authority and never drift into active work: exact
     revisions, hashes, permitted overrides, dependency snapshots, and
     resolution receipts are frozen at the owning admission boundary.
-29. Patching a released profile, template, or skill creates a successor
+31. Patching a released profile, template, or skill creates a successor
     revision. Adopting another GoalRunProfile requires an explicit receipted
     migration or fork; no active run is silently rebound.
 

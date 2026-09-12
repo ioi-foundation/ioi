@@ -577,20 +577,32 @@ initial path.
 
 The planned ioi.ai product actions compile to the canonical Hypervisor pairing
 and OutcomeRoom routes rather than creating an ioi.ai execution or credential
-plane:
+plane. **Annotated 2026-09-12 (M08.6): the block below documents a PLANNED
+compilation target, and the spellings it used were not the daemon's.** Each line
+now carries what the daemon actually registers today, so a reader cannot take a
+planned shape for a served one — the previous text asserted in the present tense
+that these *are* the canonical routes, and six of the nine were served by nothing
+under any spelling:
 
 ```http
-POST /v1/hypervisor/local-agent-pairings
-GET  /v1/hypervisor/local-agent-pairings/{pairing_ref}
-POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/claim
-POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
-POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
-POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
+# PLANNED. The registered pairing collection and read are spelled
+# /v1/goal-orchestration/local-agent-pairing-sessions and .../{id}; there is no
+# registered claim, complete, cancel or revoke verb under any spelling.
+POST /v1/hypervisor/local-agent-pairings                                   # planned; nearest served: POST /v1/goal-orchestration/local-agent-pairing-sessions
+GET  /v1/hypervisor/local-agent-pairings/{pairing_ref}                     # planned; nearest served: GET  /v1/goal-orchestration/local-agent-pairing-sessions/{id}
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/claim               # planned; no registered route
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete            # planned; no registered route
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel              # planned; no registered route
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke              # planned; no registered route
 
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+# PLANNED. Participation requests are registered TOP-LEVEL rather than nested
+# under the room, and the live verbs are transition and admit, not decide.
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests # planned; nearest served: GET /v1/goal-orchestration/room-participation-requests
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide # planned; nearest served: POST .../room-participation-requests/{id}/transition and .../admit
 
-POST /v1/worker-registrations
+# SERVED, but NOT by the daemon: apps/aiagent-xyz registers this route. The
+# handoff below is current behaviour; it is simply not a Hypervisor route.
+POST /v1/worker-registrations                                              # served by the aiagent.xyz service
 ```
 
 The worker-registration route is an explicit handoff to aiagent.xyz only when
