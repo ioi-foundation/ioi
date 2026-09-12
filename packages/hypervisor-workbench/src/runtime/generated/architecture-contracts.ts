@@ -11810,6 +11810,35 @@ export type VerticalPackWorkerBindingV1 = {
   content_hash: string;
 };
 
+export type ModelRoutePriceScheduleV1 = {
+  schema_version: "ioi.components.model-router.model-route-price-schedule.v1";
+  price_schedule_ref: string;
+  route_ref: string;
+  provider_ref: string;
+  version: number;
+  body_hash: string;
+  currency_code: string;
+  price_components: Array<{
+        component_class: "input_tokens" | "output_tokens" | "cache_read_tokens" | "cache_write_tokens" | "reasoning_tokens" | "gpu_seconds" | "minimum_rental_period" | "commitment" | "storage" | "egress" | "cold_start" | "redundancy_headroom";
+        meter_unit: "per_token" | "per_second" | "per_gibibyte" | "per_gibibyte_transferred" | "per_invocation" | "per_period" | "flat";
+        minor_units_per_meter_unit: number;
+        tier?: {
+                from_meter_units: number;
+                to_meter_units: number | null;
+              } | null;
+        notes?: string;
+      }>;
+  provenance: {
+      source_class: "provider_published" | "candidate_lane_observation" | "reconciled_capacity_spend" | "operator_declared";
+      evidence_refs: Array<string>;
+      observed_from_ref?: string | null;
+    };
+  confidence: "observed" | "published" | "estimated";
+  advisory_only: true;
+  observed_at_ms: number;
+  expires_at_ms: number;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -22163,6 +22192,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "vertical_pack_worker_binding.risk.the_resolved_contract_column_agrees_with_the_ladder"
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-price-schedule/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-price-schedule/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-born-stale.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-price-schedule/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-claims-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-price-schedule/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-floating-price.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -26109,6 +26170,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json","contract_id":"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json","contract_id":"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json","contract_id":"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/positive-complete.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-born-stale.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-born-stale.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-claims-authority.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-claims-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-floating-price.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-floating-price.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27441,7 +27506,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/dataset-split-manifest/v1": "sha256:18172276af0aa49fe45389817839b6e238e84081e84cfbb419ef53bc4256397b",
   "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": "sha256:175805eb63f09cbde5e976c4c35e4f44430ba8e7dae9ecc146b38522c6dafa64",
   "schema://ioi/domains/aiagent/vertical-ontology-pack/v1": "sha256:2590a073ea9384efcba39b69e6a39a6f112d5b0996b3c509221fca18575ecee7",
-  "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1": "sha256:969ea0579666b16df0a2f3c8f7b96153e896a1d0a927cd336a13b7023a0a60b8"
+  "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1": "sha256:969ea0579666b16df0a2f3c8f7b96153e896a1d0a927cd336a13b7023a0a60b8",
+  "schema://ioi/components/model-router/model-route-price-schedule/v1": "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -119152,6 +119218,223 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "description": "TEN MANDATORY MEMBERS, EACH NAMED. A `minItems` floor alone would let ten comfortable tokens stand in for the six that carry NN 9 and the four that carry ACC-18's boundary."
       }
     ]
+  },
+  "schema://ioi/components/model-router/model-route-price-schedule/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/model-router/model-route-price-schedule/v1",
+    "title": "ModelRoutePriceSchedule",
+    "description": "ONE PROVIDER'S PRICE SHAPE FOR ONE ROUTE, AS EXPIRING ADVISORY EVIDENCE. Canon requires an extensible price SCHEDULE rather than a metered-versus-amortized enum, so cost shapes are carried as a LIST of typed components: a provider whose pricing has a dimension nobody has priced before adds a component and extends the schedule, and never forks the contract to hold it. Three properties are structural rather than procedural, because each is a rule that prose has already failed to keep. FIRST, PRICE AUTHORIZES NOTHING: `advisory_only` is a const true that every schedule must carry, so a record asserting otherwise cannot be admitted at all — economic comparison neither grants route rights nor independently authorizes placement or migration, and the byte that says so is not a runtime branch anyone can forget to take. SECOND, A SCHEDULE EXPIRES: `expires_at_ms` is required and must be strictly after `observed_at_ms`, so a schedule cannot be born stale and a stale one is a TYPED GAP rather than a silently aged number. THIRD, EVIDENCE CARRIES ITS OWN PROVENANCE AND CONFIDENCE, so a ranking can state how old and how trustworthy its inputs were instead of presenting an estimate as a measurement. Amounts are integer minor currency units per priced unit; no floating-point price is valid, for the same reason the managed-work billing chain refuses one.",
+    "x-ioi-schema-version": "ioi.components.model-router.model-route-price-schedule.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "price_schedule_ref",
+      "route_ref",
+      "provider_ref",
+      "version",
+      "body_hash",
+      "currency_code",
+      "price_components",
+      "provenance",
+      "confidence",
+      "advisory_only",
+      "observed_at_ms",
+      "expires_at_ms"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.components.model-router.model-route-price-schedule.v1"
+      },
+      "price_schedule_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "route_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "provider_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "version": {
+        "$ref": "#/$defs/positive_safe_integer"
+      },
+      "body_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "currency_code": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+      },
+      "price_components": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/price_component"
+        }
+      },
+      "provenance": {
+        "$ref": "#/$defs/provenance"
+      },
+      "confidence": {
+        "type": "string",
+        "enum": [
+          "observed",
+          "published",
+          "estimated"
+        ]
+      },
+      "advisory_only": {
+        "type": "boolean",
+        "const": true,
+        "description": "Price ranks routes that already qualify; it never admits one. A schedule that claims to authorize placement is refused offline rather than relied upon at runtime."
+      },
+      "observed_at_ms": {
+        "$ref": "#/$defs/safe_integer"
+      },
+      "expires_at_ms": {
+        "$ref": "#/$defs/positive_safe_integer"
+      }
+    },
+    "$defs": {
+      "safe_integer": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positive_safe_integer": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "price_component": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One priced dimension. The class vocabulary covers the cost shapes canon names — token tiers including cache and reasoning, GPU-seconds, minimum rental periods, commitments, storage, egress, cold starts, and redundancy or headroom — and a provider with a dimension outside it extends this list rather than reshaping the record.",
+        "required": [
+          "component_class",
+          "meter_unit",
+          "minor_units_per_meter_unit"
+        ],
+        "properties": {
+          "component_class": {
+            "type": "string",
+            "enum": [
+              "input_tokens",
+              "output_tokens",
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "reasoning_tokens",
+              "gpu_seconds",
+              "minimum_rental_period",
+              "commitment",
+              "storage",
+              "egress",
+              "cold_start",
+              "redundancy_headroom"
+            ]
+          },
+          "meter_unit": {
+            "type": "string",
+            "enum": [
+              "per_token",
+              "per_second",
+              "per_gibibyte",
+              "per_gibibyte_transferred",
+              "per_invocation",
+              "per_period",
+              "flat"
+            ]
+          },
+          "minor_units_per_meter_unit": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/tier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "tier": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A half-open usage band. A null upper bound is the final, unbounded tier; it is spelled explicitly so an omitted bound cannot read as zero.",
+        "required": [
+          "from_meter_units",
+          "to_meter_units"
+        ],
+        "properties": {
+          "from_meter_units": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "to_meter_units": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/positive_safe_integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "provenance": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Where the schedule came from and what evidence stands behind it. A schedule that cites no evidence is admissible but declares itself so; a ranking may then report the gap rather than inventing a figure.",
+        "required": [
+          "source_class",
+          "evidence_refs"
+        ],
+        "properties": {
+          "source_class": {
+            "type": "string",
+            "enum": [
+              "provider_published",
+              "candidate_lane_observation",
+              "reconciled_capacity_spend",
+              "operator_declared"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "observed_from_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -135466,6 +135749,27 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_path": "$.constants.measured_confidence_token"
       }
     }
+  ],
+  "schema://ioi/components/model-router/model-route-price-schedule/v1": [
+    {
+      "rule_id": "model_route_price_schedule.window",
+      "description": "A schedule has a finite non-empty validity interval, so it cannot be born stale. Canon requires schedules to enter as EXPIRING advisory evidence where a stale schedule is a typed gap rather than a silently aged number; a record whose expiry does not follow its observation could never become that typed gap, because it was never fresh.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.observed_at_ms",
+          "$.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_price_schedule.components.non_empty",
+      "description": "A schedule prices at least one dimension. An empty schedule would rank a route at zero cost, which is the exact shape of reading an absence as a number.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.price_components"
+      }
+    }
   ]
 };
 
@@ -137915,4 +138219,10 @@ export function validateVerticalPackWorkerBindingV1(
   value: unknown,
 ): value is VerticalPackWorkerBindingV1 {
   return validateArchitectureContract("schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1", value).ok;
+}
+
+export function validateModelRoutePriceScheduleV1(
+  value: unknown,
+): value is ModelRoutePriceScheduleV1 {
+  return validateArchitectureContract("schema://ioi/components/model-router/model-route-price-schedule/v1", value).ok;
 }

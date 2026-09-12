@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/components/model-router/model-route-price-schedule/expiring-advisory-evidence/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/model-router/model-route-price-schedule/v1",
+  "rules": [
+    {
+      "rule_id": "model_route_price_schedule.window",
+      "description": "A schedule has a finite non-empty validity interval, so it cannot be born stale. Canon requires schedules to enter as EXPIRING advisory evidence where a stale schedule is a typed gap rather than a silently aged number; a record whose expiry does not follow its observation could never become that typed gap, because it was never fresh.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.observed_at_ms", "$.expires_at_ms"]
+      }
+    },
+    {
+      "rule_id": "model_route_price_schedule.components.non_empty",
+      "description": "A schedule prices at least one dimension. An empty schedule would rank a route at zero cost, which is the exact shape of reading an absence as a number.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.price_components"
+      }
+    }
+  ]
+}

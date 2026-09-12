@@ -1,0 +1,75 @@
+{
+  "schema_version": "ioi.components.model-router.model-route-price-schedule.v1",
+  "price_schedule_ref": "price-schedule://provider-alpha/route-1/v1",
+  "route_ref": "model-route://provider-alpha/opus-class/1",
+  "provider_ref": "provider://provider-alpha",
+  "version": 1,
+  "body_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "currency_code": "USD",
+  "price_components": [
+    {
+      "component_class": "input_tokens",
+      "meter_unit": "per_token",
+      "minor_units_per_meter_unit": 3,
+      "tier": { "from_meter_units": 0, "to_meter_units": 1000000 }
+    },
+    {
+      "component_class": "input_tokens",
+      "meter_unit": "per_token",
+      "minor_units_per_meter_unit": 2,
+      "tier": { "from_meter_units": 1000000, "to_meter_units": null },
+      "notes": "volume tier; the unbounded upper bound is explicit rather than omitted"
+    },
+    {
+      "component_class": "output_tokens",
+      "meter_unit": "per_token",
+      "minor_units_per_meter_unit": 15,
+      "tier": null
+    },
+    {
+      "component_class": "cache_read_tokens",
+      "meter_unit": "per_token",
+      "minor_units_per_meter_unit": 1,
+      "tier": null
+    },
+    {
+      "component_class": "reasoning_tokens",
+      "meter_unit": "per_token",
+      "minor_units_per_meter_unit": 15,
+      "tier": null
+    },
+    {
+      "component_class": "gpu_seconds",
+      "meter_unit": "per_second",
+      "minor_units_per_meter_unit": 4,
+      "tier": null
+    },
+    {
+      "component_class": "minimum_rental_period",
+      "meter_unit": "per_period",
+      "minor_units_per_meter_unit": 6000,
+      "tier": null
+    },
+    {
+      "component_class": "cold_start",
+      "meter_unit": "per_invocation",
+      "minor_units_per_meter_unit": 25,
+      "tier": null
+    },
+    {
+      "component_class": "egress",
+      "meter_unit": "per_gibibyte_transferred",
+      "minor_units_per_meter_unit": 900,
+      "tier": null
+    }
+  ],
+  "provenance": {
+    "source_class": "provider_published",
+    "evidence_refs": ["evidence://model-router/provider-alpha/published-price-page/2026-09-12"],
+    "observed_from_ref": "candidate://model-router/provider-alpha/probe-1"
+  },
+  "confidence": "published",
+  "advisory_only": true,
+  "observed_at_ms": 1757635200000,
+  "expires_at_ms": 1757721600000
+}

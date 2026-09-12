@@ -1,0 +1,26 @@
+{
+  "schema_version": "ioi.components.model-router.model-route-price-schedule.v1",
+  "price_schedule_ref": "price-schedule://provider-alpha/route-1/float",
+  "route_ref": "model-route://provider-alpha/opus-class/1",
+  "provider_ref": "provider://provider-alpha",
+  "version": 1,
+  "body_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "currency_code": "USD",
+  "price_components": [
+    {
+      "component_class": "input_tokens",
+      "meter_unit": "per_token",
+      "minor_units_per_meter_unit": 3.5,
+      "tier": null
+    }
+  ],
+  "provenance": {
+    "source_class": "provider_published",
+    "evidence_refs": [],
+    "observed_from_ref": null
+  },
+  "confidence": "published",
+  "advisory_only": true,
+  "observed_at_ms": 1757635200000,
+  "expires_at_ms": 1757721600000
+}
