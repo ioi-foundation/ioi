@@ -67,6 +67,7 @@
     "check:portable-evidence-replay": "cargo build -p aft-c8-verifier && node scripts/check-portable-evidence-replay.mjs",
     "check:route-rights-contracts": "node scripts/check-route-rights-contracts.mjs",
     "check:work-credit-budget-contract": "node scripts/check-work-credit-budget-contract.mjs --mutation",
+    "check:eligible-route-cost-shape": "node scripts/check-eligible-route-cost-shape.mjs --mutation",
     "check:provider-spend-reconciliation": "node scripts/check-provider-spend-reconciliation.mjs",
     "check:canon-document-residuals": "node scripts/check-canon-document-residuals.mjs",
     "check:prompt-corpus-currentness": "node scripts/check-prompt-corpus-currentness.mjs",
