@@ -209,10 +209,6 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run mutate:authority-trajectory-admission
 
-      - name: Verify a ceremony provisions a device-held wallet principal and STOPS (M03.8)
-        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
-        run: npm run check:device-held-wallet-principal
-
       # M06.5's two census residuals. Bound here rather than in the Rust-backed family because it
       # reads rustc's own dep-info for the daemon binary, which exists only where that binary was
       # built — and it rebuilds to make sure the file set it entails is THIS tree's.
@@ -1214,6 +1210,75 @@ jobs:
       # deliberately rather than closed by guessing: `OQ-4` — whether the ioi.ai web UI ships, and
       # from which root — is an open question in the implementation guide, and inventing a
       # working-directory here would answer it by accident.
+
+  # M03.8's device-held wallet-principal seam, on its own runner because of what it needs rather
+  # than where it belongs. It drives a REAL WebAuthn ceremony on a virtual authenticator, so it
+  # needs a browser runtime; its composed supplementary (`check:passkey-only-authority`) boots the
+  # real wallet.network fixture, so it needs a Rust toolchain; and both boot the daemon, so it needs
+  # that built. `build_and_test` has the Rust half and no browser, `product_surfaces` has the
+  # browser and no Rust — wiring it into either would have made it BLOCKED or red for its
+  # environment rather than for its subject, which is how a gate stops measuring anything. It was
+  # in build_and_test for exactly one master run (2026-09-12) and failed there for that reason.
+  m038_device_held_principal:
+    name: M03.8 device-held wallet-principal seam
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps for daemon-backed verification
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Cache M03.8 verifier dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-m038-device-held-principal-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install the browser runtime the WebAuthn ceremony needs
+        run: npx playwright install --with-deps chromium
+
+      # A restored target/ is a cache, never proof that the runnable daemon matches this revision.
+      - name: Build the daemon this verifier boots
+        id: m038_daemon
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+
+      - name: Verify a ceremony provisions a device-held wallet principal and STOPS
+        if: ${{ !cancelled() && steps.m038_daemon.outcome == 'success' }}
+        run: npm run check:device-held-wallet-principal
+
+      - name: Verify that seam goes red on its own planted defects
+        if: ${{ !cancelled() && steps.m038_daemon.outcome == 'success' }}
+        run: npm run mutate:device-held-wallet-principal
 
   # M06.1's deterministic gate on its own runner, beside the other verifier
   # families rather than inside them. It boots the daemon it just built and needs
