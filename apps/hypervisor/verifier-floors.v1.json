@@ -291,9 +291,9 @@
       "id": "studio-journey",
       "npm_script": "check:studio-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-studio-journey.mjs",
-      "runtime_assertions": 33,
-      "assertion_names_sha256": "81a366ec57539e244108b450404aad5aa9a8dd2fc10a4b49cd48a59919a2b254",
-      "note": "Measured after the STU-3 canonical landing transfer: the runtime count remains 33, while landing/ownership assertion names now describe the shipped family landing rather than the predecessor wording."
+      "runtime_assertions": 34,
+      "assertion_names_sha256": "19a64da8d338e4652b1be340d97d3e1e494e4c5c58fa110bc97e95aaa64f61e8",
+      "note": "R-31 (2026-09-12): 33 -> 34. The Studio descriptor lane was re-authored onto ioi.ontology-surface-descriptor.v2, so the five previously-red descriptor clauses are green honestly (v2 schema, display_name, exact admitted ontology revision, CAS successor, restart readback) and one clause is ADDED — the surface-built descriptor is registered-valid v2: the exact bound revision carries the ontology owner's committed hash, all eight invariant-11 binding members are present under their canonical names, and the six mandatory nonclaims ride the record. Digest recomputed from the census this run emitted."
     },
     {
       "id": "vertical-ontology-pack-compiler",

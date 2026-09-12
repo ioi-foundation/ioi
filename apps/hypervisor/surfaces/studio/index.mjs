@@ -43,16 +43,85 @@ export const meta = {
 };
 
 const BLUEPRINT_SCHEMA = "ioi.hypervisor.studio.blueprint.v1";
-const DESCRIPTOR_SCHEMA = "ioi.hypervisor.odk.surface-descriptor.v1";
+// R-31 / M05.5 — THE AUTHORING LANE SPEAKS THE CONTRACT IT IS AUTHORED AGAINST. The daemon's
+// registered descriptor contract converged onto `ioi.ontology-surface-descriptor.v2` (the
+// invariant-11 binding set); v1 is READABLE and no longer authorable. This constant is also the
+// module's own success gate — a create that answered 2xx under any other schema_version fails
+// CLOSED here — so it has to move together with the body builder, never separately.
+const DESCRIPTOR_SCHEMA = "ioi.ontology-surface-descriptor.v2";
 const BLUEPRINT_PLANE = "/v1/hypervisor/studio/blueprints";
 const DESCRIPTOR_PLANE = "/v1/hypervisor/odk/surface-descriptors";
+// The ontology family plane a descriptor may actually bind. NOT the ODK domain-ontology plane: that
+// one mints `ontology://ont_<hex>` refs, and the v2 contract owner-resolves every `ontology_refs`
+// member through `ontology_version_routes::resolve_admitted_revision`, which refuses anything that
+// is not an EXACT admitted revision (`ontology://<ns>/<name>/revision/<n>`). Offering a ref the
+// contract refuses is an authoring lane that composes refusals.
+const ONTOLOGY_VERSION_PLANE = "/v1/hypervisor/ontology-versions";
+// Bounds on the revision fan-out, so a large estate cannot turn one page render into an unbounded
+// per-family walk. A truncated offer is stated in the form rather than silently shortened.
+const ONTOLOGY_FAMILY_FANOUT_MAX = 12;
+const ONTOLOGY_REVISIONS_PER_FAMILY_MAX = 20;
+
+// THE SIX MANDATORY NONCLAIMS, AS A SURFACE CONSTANT. The v2 contract requires every descriptor to
+// disclaim all six: a descriptor that does not say so is read as claiming it by omission. The
+// surface asserts them rather than asking the operator because they are facts about the DESCRIPTOR
+// OBJECT, not choices about this particular composition — authoring a descriptor confers no
+// authority, crosses no CapabilityLease (the stale wording that said otherwise was withdrawn by
+// ruling), and is not runtime, semantic, permission or marketplace truth. A form that let an
+// operator drop one would let a surface understate what it is by leaving a checkbox unticked.
+const DESCRIPTOR_NONCLAIMS = [
+  "authority",
+  "capability_lease_crossing",
+  "runtime_truth",
+  "semantic_truth",
+  "permission_truth",
+  "marketplace_truth",
+];
+
+// The v2 ref-set members as the form collects them: one ref per line. EVERY member is sent on every
+// create — an empty array when the operator left the box blank — because the contract distinguishes
+// an ABSENT member (refused: it cannot be checked against invariant 11) from a declared empty one
+// ("this surface binds none"), and only one of those is a checkable fact. `min: 1` members are the
+// eight the contract requires non-empty; the rest are envelope members required in presence only.
+// `ontology_refs` is rendered as a SELECT over admitted revisions rather than a free textarea — the
+// serve lane forwards only the first value per field name, so a multi-select could not be honest
+// about what it sent, and a hand-typed family head would be refused by the resolver anyway.
+const DESCRIPTOR_REF_FIELDS = [
+  { name: "ontology_refs", label: "Owning ontology revisions", hint: "ontology://<ns>/<name>/revision/<n> — an EXACT admitted revision", min: 1 },
+  { name: "canonical_object_model_refs", label: "Canonical object models", hint: "object-model://…", min: 1 },
+  { name: "data_recipe_refs", label: "Data recipes (where applicable)", hint: "data-recipe://…/revision/… — may be empty", min: 0 },
+  { name: "policy_bound_data_view_refs", label: "Policy-bound data views", hint: "view://…", min: 1 },
+  { name: "authority_requirement_refs", label: "Authority requirements", hint: "policy://… · grant://… · scope:… — REQUIREMENTS, never holdings", min: 1 },
+  { name: "daemon_api_refs", label: "Daemon APIs", hint: "api://…", min: 1 },
+  { name: "receipt_obligations", label: "Receipt obligations", hint: "receipt://…", min: 1 },
+  { name: "conformance_profile_refs", label: "Conformance profiles", hint: "profile://…", min: 1 },
+  { name: "connector_mapping_refs", label: "Connector mappings", hint: "mapping://… — may be empty", min: 0 },
+  { name: "ontology_projection_refs", label: "Ontology projections", hint: "projection://… — may be empty", min: 0 },
+  { name: "allowed_action_refs", label: "Allowed actions", hint: "action://… · ontology-action://… — what the surface may OFFER", min: 0 },
+  { name: "operator_contract_refs", label: "Operator contracts", hint: "contract://… — may be empty", min: 0 },
+  { name: "mcp_contract_refs", label: "MCP contracts", hint: "mcp-profile://… — may be empty", min: 0 },
+  { name: "generated_artifact_refs", label: "Generated artifacts", hint: "artifact://… — may be empty", min: 0 },
+];
+// One authored textarea → the canonical ref array: split on newline or comma, trim, drop blanks.
+// ALWAYS an array — an absent field yields `[]`, never an omitted member.
+const refList = (raw) => String(raw ?? "").split(/[\n,]/u).map((entry) => entry.trim()).filter(Boolean);
+// A v2 record's identity is `surface-descriptor://sd_…`; it carries no `id`. The record id the
+// surface links, redirects and CAS-patches on is that ref with its scheme stripped.
+const descriptorRecordId = (record) => String(record?.surface_descriptor_id || "").replace(/^surface-descriptor:\/\//u, "");
 
 // ---------------------------------------------------------------------------------------------
 // load — the lens fan-out plus the per-view detail reads. Every plane degrades INDEPENDENTLY and
 // TYPED (the read client's contract): a down plane renders as its code, never a fabricated [].
 export async function load(ctx) {
   const { createReadClient } = await import("../read-client.mjs");
-  const client = createReadClient({ daemon: ctx.daemon });
+  // IDENTITY-FIRST READS. The descriptor and ontology-version families adjudicate every GET against
+  // the caller's own scope, so a plain unauthenticated fetch renders a signed-in operator's own
+  // records as a refusal band. The request-scoped capability carries THIS caller's envelope and
+  // nothing else: anonymous stays anonymous and sees the family's typed refusal, never another
+  // caller's truth.
+  const client = typeof ctx.daemonFetch === "function"
+    ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch })
+    : createReadClient({ daemon: ctx.daemon });
   const sp = ctx.url.searchParams;
   const results = await client.readMany({
     // The agent-estate lens planes (the /__ioi/agent-studio T2 readout grammar).
@@ -73,10 +142,34 @@ export async function load(ctx) {
     improvements: "/v1/hypervisor/intelligence/improvement-proposals",
     odk_overview: "/v1/hypervisor/odk/overview",
     descriptors: DESCRIPTOR_PLANE,
-    ontologies: "/v1/hypervisor/odk/domain-ontologies",
+    ontology_families: ONTOLOGY_VERSION_PLANE,
     blueprints: BLUEPRINT_PLANE,
   });
   const model = { results };
+  // The admitted ontology REVISIONS this caller may bind. The family inventory names families
+  // (`ontology://ns/name`), which the descriptor contract refuses — durable product inventory may
+  // not silently re-mean itself when a family advances — so each family is opened once for its
+  // lineage and only the exact revision refs are offered. Bounded on both axes; a degraded family
+  // read contributes nothing rather than a fabricated entry.
+  model.ontologyRevisions = null;
+  model.ontologyOfferTruncated = false;
+  if (results.ontology_families?.ok) {
+    const all = Array.isArray(results.ontology_families.payload?.ontology_families)
+      ? results.ontology_families.payload.ontology_families
+      : [];
+    const families = all.slice(0, ONTOLOGY_FAMILY_FANOUT_MAX);
+    model.ontologyOfferTruncated = all.length > families.length;
+    const lineages = await Promise.all(families.map((family) => {
+      const [namespace = "", name = ""] = String(family).replace(/^ontology:\/\//u, "").split("/");
+      return client.read(`${ONTOLOGY_VERSION_PLANE}?namespace=${enc(namespace)}&name=${enc(name)}`);
+    }));
+    model.ontologyRevisions = lineages.flatMap((result, index) => (result?.ok
+      ? (Array.isArray(result.payload?.lineage) ? result.payload.lineage : [])
+        .slice(-ONTOLOGY_REVISIONS_PER_FAMILY_MAX)
+        .map((revision) => ({ family: families[index], ontology_id: revision?.ontology_id || "" }))
+        .filter((entry) => entry.ontology_id.startsWith("ontology://"))
+      : []));
+  }
   // Selected-record detail reads: the GET carries `admitted_head` from the admitted stream — the
   // exact value the CAS forms must send back. Without it the successor forms render disabled.
   const bp = (sp.get("bp") || "").trim();
@@ -112,8 +205,15 @@ export const actions = [
   { id: "create-blueprint", method: "POST", route: "/actions/create-blueprint", fields: ["owner_ref", "idempotency_key", "name", "description", "graph_json", "layout_ref"], fieldMax: 8192, context: [], authority: BP_AUTHORITY, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "update-blueprint", method: "POST", route: "/:id/update", fields: ["idempotency_key", "expected_head", "name", "description", "graph_json", "layout_ref"], fieldMax: 8192, context: ["id"], authority: BP_AUTHORITY, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "promote-blueprint", method: "POST", route: "/:id/promote", fields: ["idempotency_key", "expected_head", "reason"], context: ["id"], authority: { plane: "studio.blueprints+governance.approval-requests", operation: "POST /v1/hypervisor/studio/blueprints/:id/promote (composes an ApprovalRequest)" }, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
-  { id: "create-descriptor", method: "POST", route: "/actions/create-descriptor", fields: ["owner_ref", "idempotency_key", "name", "description", "composition_pattern", "ontology_ref"], context: [], authority: SD_AUTHORITY, receipt: DESCRIPTOR_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
-  { id: "update-descriptor", method: "POST", route: "/:id/update-descriptor", fields: ["idempotency_key", "expected_head", "name", "description", "composition_pattern"], context: ["id"], authority: SD_AUTHORITY, receipt: DESCRIPTOR_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  // The v2 authoring set: the five scalars plus the fourteen ref-set members. Every member is
+  // DECLARED, because the serve lane forwards declared fields only — an undeclared one never
+  // reaches this module and would surface as the contract's "binding member absent" refusal about a
+  // field the operator did in fact fill in.
+  { id: "create-descriptor", method: "POST", route: "/actions/create-descriptor", fields: ["owner_ref", "idempotency_key", "display_name", "surface_ref", "composition_pattern", ...DESCRIPTOR_REF_FIELDS.map((member) => member.name)], context: [], authority: SD_AUTHORITY, receipt: DESCRIPTOR_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  // A v2 successor moves exactly what an ordinary governed patch may move. `owner_ref` is refused by
+  // the contract (moving a descriptor between owners is not an ordinary patch) and the binding
+  // members are not patchable at all, so neither is offered here.
+  { id: "update-descriptor", method: "POST", route: "/:id/update-descriptor", fields: ["idempotency_key", "expected_head", "display_name", "composition_pattern"], context: ["id"], authority: SD_AUTHORITY, receipt: DESCRIPTOR_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
 ];
 
 // One typed result per action. Success carries the daemon's admission evidence (receipt_ref) or
@@ -161,18 +261,24 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     body.expected_head = fields.expected_head;
     if (fields.reason) body.reason = fields.reason;
   } else if (action.id === "create-descriptor") {
+    // The v2 authoring body. `schema_version` is declared explicitly — the contract's version gate
+    // is FIRST and refuses an unversioned request outright rather than assuming a default. There is
+    // no `name` and no `description`: v2 spells the label `display_name` and has no free-text
+    // description field at all, and the legacy `ontology_ref`/`recipe_refs` spellings are refused
+    // rather than translated, so sending either would be a refusal, not a compatibility shim.
     path = DESCRIPTOR_PLANE;
+    body.schema_version = DESCRIPTOR_SCHEMA;
     body.owner_ref = fields.owner_ref;
-    body.name = fields.name;
-    if (fields.description !== undefined) body.description = fields.description;
+    body.display_name = fields.display_name;
+    body.surface_ref = fields.surface_ref;
     body.composition_pattern = fields.composition_pattern;
-    body.ontology_ref = fields.ontology_ref;
+    for (const member of DESCRIPTOR_REF_FIELDS) body[member.name] = refList(fields[member.name]);
+    body.does_not_assert = [...DESCRIPTOR_NONCLAIMS];
   } else if (action.id === "update-descriptor") {
     path = `${DESCRIPTOR_PLANE}/${enc(id)}`;
     method = "PATCH";
     body.expected_head = fields.expected_head;
-    if (fields.name !== undefined) body.name = fields.name;
-    if (fields.description !== undefined) body.description = fields.description;
+    if (fields.display_name !== undefined) body.display_name = fields.display_name;
     if (fields.composition_pattern) body.composition_pattern = fields.composition_pattern;
   } else {
     return { kind: "failure", http: 500, code: "action_unknown", message: `undeclared action '${action.id}'` };
@@ -202,12 +308,17 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
   if (!record || record.schema_version !== action.receipt || !receiptRef) {
     return { kind: "failure", http: 502, code: "receipt_missing", message: `the mutation answered 2xx without the ${action.receipt} record + receipt_ref admission evidence — failing closed (do not trust the mutation)` };
   }
+  // The blueprint family carries `id`; a v2 descriptor carries `surface_descriptor_id`
+  // (`surface-descriptor://sd_…`) and no `id` at all, so the created-record id is derived from the
+  // ref. Reading `record.id` alone redirected to the list with an empty `sd=` — a create that
+  // worked, rendered as one that produced nothing.
+  const recordId = record.id || descriptorRecordId(record);
   return {
     kind: "success",
     status: action.id === "promote-blueprint" ? (record.promote_state || record.status || "") : (record.status || ""),
-    created: record.id || "",
+    created: recordId,
     receipt_ref: receiptRef,
-    redirect: back(record.id || id, view === "descriptors" ? "sd" : "bp"),
+    redirect: back(recordId || id, view === "descriptors" ? "sd" : "bp"),
   };
 }
 
@@ -323,9 +434,9 @@ function systemDesigns(model) {
     ? degraded(r.descriptors)
     : (designs.length
       ? `<table><thead><tr><th>System design</th><th>Pattern</th><th>Ref</th></tr></thead><tbody>${designs.map((d) => `<tr>
-          <td><b>${esc(d.name || d.title || d.id || "—")}</b></td>
-          <td>${pill("muted", prettyPattern(d.composition_pattern || d.pattern || "—"))}</td>
-          <td><code style="font-size:11px">${esc(d.ref || d.surface_descriptor_ref || d.id || "")}</code></td>
+          <td><b>${esc(d.display_name || descriptorRecordId(d) || "—")}</b></td>
+          <td>${pill("muted", prettyPattern(d.composition_pattern || "—"))}</td>
+          <td><code style="font-size:11px">${esc(d.surface_descriptor_id || "")}</code></td>
         </tr>`).join("")}</tbody></table>`
       : `<div class="empty">No saved system designs yet. Compose one on the <a href="/__ioi/studio/designer">system design canvas →</a>; the daemon persists an admitted design as an ODK surface descriptor.</div>`);
   return `<h2 id="system-designs">System designs</h2>
@@ -491,34 +602,39 @@ function descriptorsView(model, sp) {
   const r = model.results;
   const rows = rowsOf(r.descriptors, "surface_descriptors");
   const patterns = r.odk_overview?.ok ? (r.odk_overview.payload?.composition_patterns || []) : [];
-  const ontologies = rowsOf(r.ontologies, "ontologies") || [];
+  const revisions = model.ontologyRevisions;
   const selectedId = (sp.get("sd") || "").trim();
   const mintKey = () => `studio-ui-${globalThis.crypto.randomUUID()}`;
   const patternOpts = (cur) => (patterns.length ? patterns : ["list_detail"]).map((p) => `<option value="${esc(p)}"${p === cur ? " selected" : ""}>${esc(String(p).replace(/_/g, " "))}</option>`).join("");
   const list = rows === null
     ? degraded(r.descriptors)
     : (rows.length
-      ? `<table><thead><tr><th>Descriptor</th><th>Pattern</th><th>Status</th><th>Ontology</th><th>Updated</th></tr></thead><tbody>${rows.map((d) => `<tr>
-          <td><a href="?view=descriptors&sd=${enc(d.id || "")}"><b>${esc(d.name || d.id || "—")}</b></a><div style="color:#878a93;font-size:11.5px"><code>${esc(d.ref || "")}</code></div></td>
+      ? `<table><thead><tr><th>Descriptor</th><th>Pattern</th><th>Status</th><th>Bound ontology revisions</th><th>Bound</th></tr></thead><tbody>${rows.map((d) => `<tr>
+          <td><a href="?view=descriptors&sd=${enc(descriptorRecordId(d))}"><b>${esc(d.display_name || descriptorRecordId(d) || "—")}</b></a><div style="color:#878a93;font-size:11.5px"><code>${esc(d.surface_descriptor_id || "")}</code></div></td>
           <td>${pill("muted", String(d.composition_pattern || "—").replace(/_/g, " "))}</td>
           <td>${pill(d.status === "draft" ? "muted" : "ok", d.status || "—")}</td>
-          <td>${code(d.ontology_ref)}</td>
-          <td>${esc(d.updated_at || "—")}</td>
+          <td>${(Array.isArray(d.ontology_refs) ? d.ontology_refs : []).map((o) => `<code style="font-size:11px">${esc(o)}</code>`).join("<br>") || "—"}</td>
+          <td>${esc(String(d.bound_ontology_revision_count ?? "—"))}</td>
         </tr>`).join("")}</tbody></table>`
       : `<div class="empty">No surface descriptors yet — author one below. A descriptor is a declared composition; nothing here generates or mounts a surface.</div>`);
-  const createForm = ontologies.length
+  // One textarea per ref-set member, one ref per line. The blanks are kept: leaving a member empty
+  // is an authoring statement ("this surface binds none"), and the body builder sends it as `[]`.
+  const refField = (member) => `<label class="fl">${esc(member.label)}${member.min ? " *" : ""}<textarea name="${esc(member.name)}" rows="${member.min ? 2 : 1}" maxlength="2000" placeholder="${esc(member.hint)}"${member.min ? " required" : ""}></textarea><span class="sub" style="margin:0;text-transform:none;letter-spacing:0;font-weight:400">one ref per line · ${esc(member.hint)}</span></label>`;
+  const createForm = revisions && revisions.length
     ? `<h3 style="margin:18px 0 6px;font-size:13px">Author a descriptor</h3>
+    <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0;font-weight:400">Authored at <code>${esc(DESCRIPTOR_SCHEMA)}</code>: the eight invariant-11 binding members are declared here, and the six mandatory nonclaims are carried by the record itself (a descriptor confers no authority and crosses no CapabilityLease).</p>
     <form class="aform" method="post" action="${LEGACY_ROUTE}/actions/create-descriptor">
       <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
       <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?view=descriptors`)}">
       <label class="fl">Owner (org:// or project://)<input name="owner_ref" placeholder="org://… or project://…" required title="The single org:// or project:// that owns this record. The daemon admits the write under it and refuses a caller who holds no authority over it."></label>
-      <label class="fl">Name<input name="name" maxlength="200" required></label>
-      <label class="fl">Description<input name="description" maxlength="2000"></label>
+      <label class="fl">Display name<input name="display_name" maxlength="160" required></label>
+      <label class="fl">Surface ref<input name="surface_ref" maxlength="250" placeholder="surface://…" required></label>
       <label class="fl">Composition pattern<select name="composition_pattern">${patternOpts("")}</select></label>
-      <label class="fl">Ontology<select name="ontology_ref">${ontologies.map((o) => `<option value="${esc(o.ref || "")}">${esc(o.domain || o.id || o.ref || "")}</option>`).join("")}</select></label>
+      <label class="fl">Owning ontology revision *<select name="ontology_refs" required>${revisions.map((rev) => `<option value="${esc(rev.ontology_id)}">${esc(rev.ontology_id)}</option>`).join("")}</select><span class="sub" style="margin:0;text-transform:none;letter-spacing:0;font-weight:400">an EXACT admitted revision — the daemon resolves it through its owner and binds that owner's committed hash${model.ontologyOfferTruncated ? ` · showing the first ${ONTOLOGY_FAMILY_FANOUT_MAX} families` : ""}</span></label>
+      ${DESCRIPTOR_REF_FIELDS.filter((member) => member.name !== "ontology_refs").map(refField).join("\n      ")}
       <button class="act" type="submit">Create descriptor</button>
     </form>`
-    : `<div class="empty" style="margin-top:14px">${r.ontologies?.ok ? `Descriptor authoring needs an existing ontology (the daemon requires a resolvable <code>ontology_ref</code>) — create one in the <a href="/ontology/schema">Ontology Manager</a> first.` : `The ontology plane is unavailable (<code>${esc(r.ontologies?.code || "daemon_unavailable")}</code>) — authoring is disabled rather than guessed.`}</div>`;
+    : `<div class="empty" style="margin-top:14px">${r.ontology_families?.ok ? `Descriptor authoring needs an <b>admitted ontology revision</b> to bind — <code>ontology://&lt;namespace&gt;/&lt;name&gt;/revision/&lt;n&gt;</code>. A family head is refused: durable inventory may not re-mean itself when its family advances. Admit one in the <a href="/ontology/schema">Ontology Manager</a> first.` : `The ontology-version plane is unavailable (<code>${esc(r.ontology_families?.code || "daemon_unavailable")}</code>) — authoring is disabled rather than guessed.`}</div>`;
   let detail = "";
   if (selectedId) {
     const d = model.descriptorDetail;
@@ -531,26 +647,32 @@ function descriptorsView(model, sp) {
       const casNote = head
         ? `<span class="sub" style="margin:0">compare-and-swap against admitted head <code>${esc(shortHash(head))}</code></span>`
         : `<span class="sub" style="margin:0">no admitted head is readable — successor writes are disabled rather than guessed</span>`;
+      // The v2 record as it is: `display_name`, its own `surface_descriptor_id`, the exact bound
+      // revisions and how many of them the daemon's own resolver committed. No `description` and no
+      // `updated_at` — v2 carries neither, and rendering "—" for a field the contract does not have
+      // would state an absence that is really a category error.
+      const boundRefs = Array.isArray(sd.ontology_refs) ? sd.ontology_refs : [];
       detail = `<h3 id="descriptor-detail" style="margin:18px 0 6px;font-size:13px">Descriptor detail</h3>
       <dl class="grid">
-        <dt>Name</dt><dd><b>${esc(sd.name || "—")}</b></dd>
-        <dt>Ref</dt><dd>${code(sd.ref)}</dd>
+        <dt>Display name</dt><dd><b>${esc(sd.display_name || "—")}</b></dd>
+        <dt>Descriptor</dt><dd>${code(sd.surface_descriptor_id)}</dd>
+        <dt>Surface</dt><dd>${code(sd.surface_ref)}</dd>
         <dt>Status</dt><dd>${pill(sd.status === "draft" ? "muted" : "ok", sd.status || "—")}</dd>
         <dt>Pattern</dt><dd>${pill("muted", String(sd.composition_pattern || "—").replace(/_/g, " "))}</dd>
-        <dt>Ontology</dt><dd>${code(sd.ontology_ref)}</dd>
+        <dt>Ontology revisions</dt><dd>${boundRefs.length ? boundRefs.map((o) => `<code>${esc(o)}</code>`).join("<br>") : "—"}</dd>
+        <dt>Bound revisions</dt><dd><span data-testid="sd-bound-count">${esc(String(sd.bound_ontology_revision_count ?? "—"))}</span> resolved through the ontology family's own owner seam</dd>
         <dt>Owner</dt><dd>${code(sd.owner_ref)}</dd>
         <dt>Admitted head</dt><dd><code data-testid="sd-admitted-head">${esc(head || "—")}</code></dd>
-        <dt>Updated</dt><dd>${esc(sd.updated_at || "—")}</dd>
       </dl>
       <h3 style="margin:16px 0 6px;font-size:13px">Revise</h3>
-      <form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(sd.id)}/update-descriptor">
+      <form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(selectedId)}/update-descriptor">
         <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
-        <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?view=descriptors&sd=${enc(sd.id)}`)}">
+        <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?view=descriptors&sd=${enc(selectedId)}`)}">
         ${head ? `<input type="hidden" name="expected_head" value="${esc(head)}">` : ""}
-        <label class="fl">Name<input name="name" maxlength="200" value="${esc(sd.name || "")}"${dis}></label>
-        <label class="fl">Description<input name="description" maxlength="2000" value="${esc(sd.description || "")}"${dis}></label>
+        <label class="fl">Display name<input name="display_name" maxlength="160" value="${esc(sd.display_name || "")}"${dis}></label>
         <label class="fl">Composition pattern<select name="composition_pattern"${dis}>${patternOpts(sd.composition_pattern || "")}</select></label>
         <button class="act" type="submit"${dis}>Submit revision</button> ${casNote}
+        <span class="sub" style="margin:0;text-transform:none;letter-spacing:0;font-weight:400">the binding members are not patchable — converge a descriptor by authoring a successor, never by editing what it binds</span>
       </form>`;
     }
   }

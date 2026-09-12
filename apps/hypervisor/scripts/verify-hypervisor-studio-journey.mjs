@@ -14,20 +14,22 @@
 // constant the verifier picked: hardcoding an owner would keep passing against a deployment
 // where this session owns nothing.
 //
-// KNOWN RED, NAMED AT ITS SITE (R-31, 2026-09-11; measured 28/33 on b553939cf). The five descriptor
-// clauses below fail with `odk_descriptor_request_field_unknown: 'description'`. They are ONE defect:
-// the Studio descriptor lane still speaks the RETIRED v1 descriptor contract, while the daemon's
-// registered contract moved to `ioi.ontology-surface-descriptor.v2` (M05.5's convergence, which
-// landed on the daemon and never reached the surface). THREE deltas, not one — `description` has no
-// v2 field at all, `name` is spelled `display_name`, and `ontology_ref` is a v1 name the daemon
-// refuses rather than translates; serde_json orders object keys, so `description` is only the first
-// of the three to be reached. Surface: ../surfaces/studio/index.mjs:115,116 (declared action fields)
-// and :166-169, :174-176 (the forwarded body). Contract: odk_routes.rs DESCRIPTOR_CREATE_REQUEST_FIELDS
-// (:4315), DESCRIPTOR_PATCH_REQUEST_FIELDS (:4349), LEGACY_DESCRIPTOR_FIELDS (:3235). This file's own
-// v1 expectations are at :296, :310, :314, :323, :338. Owner M05.5; closure is a re-authored surface
-// packet, because v2 also requires `schema_version`, `surface_ref` and eight member ref-sets this
-// four-field form does not collect. NOT suppressed and NOT excused: the clauses stay red and this
-// verifier keeps failing until the surface speaks v2.
+// THE DESCRIPTOR LANE IS WALKED AT v2 (R-31 closed, 2026-09-12; owner M05.5). The descriptor clauses
+// below were the register's R-31: the Studio authoring lane still spoke the RETIRED
+// `ioi.hypervisor.odk.surface-descriptor.v1` while the daemon's registered contract had converged
+// onto `ioi.ontology-surface-descriptor.v2`, and every create came back
+// `odk_descriptor_request_field_unknown: 'description'` — only the first refusal of a cascade, since
+// serde_json orders object keys and `name`, `ontology_ref`, an absent `schema_version` and every
+// absent binding member stood behind it. The surface now authors v2: `display_name`, `surface_ref`,
+// the fourteen ref-set members (always PRESENT, empty where the operator declared none), the six
+// mandatory nonclaims, and ontology refs that are EXACT admitted revisions the daemon resolves
+// through the ontology family's own owner seam. The create below is still driven through the
+// surface's own form-encoded action lane, so what is proven is the SURFACE's body-building and not a
+// body this verifier wrote; the readback then holds that record against the registered contract's
+// own field names. Three v1 descriptor POST sites remain OUTSIDE CI and outside verifier-floors and
+// are left for the ledger rather than silently repaired here: scripts/verify-hypervisor-surface-
+// parity.mjs, scripts/verify-hypervisor-app-parity-studio-designer.mjs, and the cosmetic
+// `d.ontology_ref` read in ux-seeds/widgets/surface.mjs.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (daemon binary missing).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
@@ -112,9 +114,15 @@ const jd = (p, init) => fetch(`${DAEMON}${p}`, {
 }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }))
   .catch(() => ({ status: 0, body: {} }));
 
-const pageText = (p) => fetch(`${SERVE}${p}`)
+const pageText = (p, { as = null } = {}) => fetch(`${SERVE}${p}`, as ? { headers: { cookie: `ioi_session=${as}` } } : {})
   .then(async (r) => ({ status: r.status, text: await r.text(), headers: r.headers }))
   .catch(() => ({ status: 0, text: "", headers: new Headers() }));
+// The descriptor and ontology-version families adjudicate READS against the caller's own scope, and
+// the surface reads them through the request-scoped daemon capability — so a descriptor view has to
+// be fetched AS the operator. A cookie-less fetch of those views is not a bug to route around: it is
+// the family's typed refusal, and asserting record content from one would be asserting that an
+// anonymous caller can read another principal's descriptors.
+const pageTextAsOperator = (p) => pageText(p, { as: SESSION });
 
 // A module action POST on the legacy lane: form-encoded, PRG 303, result in the redirect query.
 async function act(tail, fields, { authenticated = true } = {}) {
@@ -297,20 +305,62 @@ async function run() {
     approvalsPage.status === 200 && approvalsPage.text.includes("studio_blueprint_promotion") && approvalsPage.text.includes(`blueprint://${bpId}`.slice(0, 46)),
     "");
 
-  // -- descriptor authoring over the SAME admission contract ------------------
-  const ont = await jd("/v1/hypervisor/odk/domain-ontologies", {
+  // -- descriptor authoring over the SAME admission contract, at v2 -----------
+  // THE PREREQUISITE IS AN ADMITTED ONTOLOGY REVISION ON M05.1's OWN ROUTE. The v2 contract resolves
+  // every `ontology_refs` member through `ontology_version_routes::resolve_admitted_revision` and
+  // binds that owner's committed hash, so the binding is made against a revision this run really
+  // admitted — never a fixture that agrees with itself. The ODK domain-ontology plane mints
+  // `ontology://ont_<hex>` refs, which that resolver refuses: a descriptor may not bind a ref it
+  // merely spells correctly.
+  const ONT_NS = "studio-journey";
+  const ONT_NAME = "intake-review";
+  const REVISION_1 = `ontology://${ONT_NS}/${ONT_NAME}/revision/1`;
+  const term = (t) => ({ term_id: `ontology://${ONT_NS}/${ONT_NAME}/term/${t}`, label: t });
+  const ont = await jd("/v1/hypervisor/ontology-versions", {
     method: "POST",
-    body: JSON.stringify({ domain: "studio-journey", owner_ref: OWNER, idempotency_key: "studio-journey-ont-1" }),
+    body: JSON.stringify({
+      owner_ref: OWNER,
+      idempotency_key: "studio-journey-ont-1",
+      namespace: ONT_NS,
+      name: ONT_NAME,
+      governing_scope_ref: `domain://${ONT_NS}/intake`,
+      policy_hash: `sha256:${"1a".repeat(32)}`,
+      entity_types: [term("patient")],
+      action_types: [term("schedule-followup")],
+      valid_time: { starts_at: "2026-01-01T00:00:00Z", ends_at: null },
+    }),
   });
-  const ontRef = ont.body?.ontology?.ref || "";
-  ok("an ODK ontology fixture admits for the descriptor to reference", ont.status === 201 && !!ontRef, ontRef);
+  const ontRevision = ont.body?.ontology_version?.ontology_id || "";
+  const ontHash = ont.body?.ontology_version?.content_hash || "";
+  ok("an admitted ontology REVISION exists for the descriptor to bind (M05.1's own family route)",
+    ont.status === 201 && ontRevision === REVISION_1 && String(ontHash).startsWith("sha256:"),
+    `${ontRevision || "(none)"} ${String(ontHash).slice(0, 18)}…`);
+
+  // The create goes through the SURFACE's own action lane, form-encoded: what is under test is the
+  // module's body-building at v2, not a JSON body this verifier assembled. The blank members are
+  // sent blank on purpose — the serve lane drops an empty field, so the surface must still emit the
+  // member as `[]` (an absent member is refused; a declared-empty one is a fact).
+  const SD_SURFACE_REF = `surface://${ONT_NS}/intake-review`;
   const sdCreated = await act("/actions/create-descriptor", {
     owner_ref: OWNER,
     idempotency_key: "studio-journey-sd-1",
-    name: "journey descriptor",
-    description: "list/detail over the journey ontology",
+    display_name: "journey descriptor",
+    surface_ref: SD_SURFACE_REF,
     composition_pattern: "list_detail",
-    ontology_ref: ontRef,
+    ontology_refs: REVISION_1,
+    canonical_object_model_refs: `object-model://${ONT_NS}/${ONT_NAME}/appointment`,
+    data_recipe_refs: "",
+    policy_bound_data_view_refs: `view://${ONT_NS}/intake/reviewer`,
+    authority_requirement_refs: `scope:intake.review\npolicy://${ONT_NS}/intake/reviewer`,
+    daemon_api_refs: "api://v1/hypervisor/ontology-versions",
+    receipt_obligations: `receipt://${ONT_NS}/intake/review-decision`,
+    conformance_profile_refs: `profile://${ONT_NS}/intake/review-inbox/v1`,
+    connector_mapping_refs: "",
+    ontology_projection_refs: "",
+    allowed_action_refs: `ontology-action://${ONT_NS}/${ONT_NAME}/schedule-followup`,
+    operator_contract_refs: "",
+    mcp_contract_refs: "",
+    generated_artifact_refs: "",
     return: "/__ioi/studio/workbench?view=descriptors",
   });
   const sdId = sdCreated.q.get("record") || "";
@@ -319,14 +369,43 @@ async function run() {
     sdCreated.location.slice(0, 140));
   let sd = await sdGet(sdId);
   const sdHead = sd.admitted_head || "";
-  ok("the descriptor reads back admitted (schema + head) and the authoring view renders it",
-    sd.ok === true && sd.surface_descriptor?.schema_version === "ioi.hypervisor.odk.surface-descriptor.v1" && !!sdHead
-      && (await pageText(`/__ioi/studio/workbench?view=descriptors&sd=${encodeURIComponent(sdId)}`)).text.includes("journey descriptor"),
-    "");
+  const sdView = await pageTextAsOperator(`/__ioi/studio/workbench?view=descriptors&sd=${encodeURIComponent(sdId)}`);
+  ok("the descriptor reads back admitted at v2 (schema + display_name + bound revision + head) and the authoring view renders it",
+    sd.ok === true && sd.surface_descriptor?.schema_version === "ioi.ontology-surface-descriptor.v2"
+      && sd.surface_descriptor?.display_name === "journey descriptor"
+      && sd.surface_descriptor?.ontology_refs?.[0] === REVISION_1
+      && !!sdHead && sdView.text.includes("journey descriptor"),
+    `${sd.surface_descriptor?.schema_version || "(no schema)"} · view ${sdView.status}`);
+
+  // R-31 — WHAT THE SURFACE BUILT IS REGISTERED-VALID v2, not merely accepted. Every field asserted
+  // here is read from `assemble_descriptor_v2` and the registered contract
+  // `ontology-surface-descriptor.v2.schema.json`: the exact bound revision carries the ontology
+  // owner's own committed hash (naming a revision is not binding one), the eight invariant-11
+  // members are present under their canonical names with the declared-empty one still an array, and
+  // the six mandatory nonclaims ride the record — including `capability_lease_crossing`, the wording
+  // a withdrawn ruling once made true.
+  const sdRecord = sd.surface_descriptor || {};
+  const BINDING_MEMBERS = ["ontology_refs", "canonical_object_model_refs", "data_recipe_refs", "policy_bound_data_view_refs", "authority_requirement_refs", "daemon_api_refs", "receipt_obligations", "conformance_profile_refs"];
+  const REQUIRED_NONCLAIMS = ["authority", "capability_lease_crossing", "runtime_truth", "semantic_truth", "permission_truth", "marketplace_truth"];
+  ok("the surface-built descriptor is registered-valid v2: it binds the exact admitted revision with the ontology owner's committed hash, declares all eight binding members, and carries the six mandatory nonclaims",
+    sdRecord.surface_descriptor_id === `surface-descriptor://${sdId}`
+      && sdRecord.surface_ref === SD_SURFACE_REF
+      && sdRecord.ontology_resolved_by === "ontology_version_routes::resolve_admitted_revision"
+      && sdRecord.bound_ontology_revision_count === 1
+      && sdRecord.bound_ontology_revisions?.[0]?.ontology_revision_ref === REVISION_1
+      && sdRecord.bound_ontology_revisions?.[0]?.ontology_content_hash === ontHash
+      && BINDING_MEMBERS.every((member) => Array.isArray(sdRecord[member]))
+      && Array.isArray(sdRecord.data_recipe_refs) && sdRecord.data_recipe_refs.length === 0
+      && JSON.stringify(sdRecord.invariant_11_binding_set) === JSON.stringify(BINDING_MEMBERS)
+      && sdRecord.invariant_11_member_count === 8
+      && REQUIRED_NONCLAIMS.every((token) => (sdRecord.does_not_assert || []).includes(token))
+      && String(sdRecord.content_hash || "").startsWith("sha256:"),
+    `bound ${sdRecord.bound_ontology_revision_count} · members ${sdRecord.invariant_11_member_count} · nonclaims ${(sdRecord.does_not_assert || []).length}`);
+
   const sdUpdated = await act(`/${encodeURIComponent(sdId)}/update-descriptor`, {
     idempotency_key: "studio-journey-sd-update-1",
     expected_head: sdHead,
-    description: "list/detail over the journey ontology — revised",
+    display_name: "journey descriptor revised",
     return: `/__ioi/studio/workbench?view=descriptors&sd=${encodeURIComponent(sdId)}`,
   });
   ok("descriptor update with the exact head crosses receipted",
@@ -335,7 +414,7 @@ async function run() {
   const sdStale = await act(`/${encodeURIComponent(sdId)}/update-descriptor`, {
     idempotency_key: "studio-journey-sd-stale-1",
     expected_head: sdHead,
-    description: "must not apply",
+    display_name: "must not apply",
     return: `/__ioi/studio/workbench?view=descriptors&sd=${encodeURIComponent(sdId)}`,
   });
   ok("a stale descriptor head refuses typed on the same contract",
@@ -350,8 +429,8 @@ async function run() {
   sd = await sdGet(sdId);
   ok("blueprint + promotion state + descriptor survive a daemon restart",
     bp.ok === true && bp.blueprint?.promote_state === "approval_requested" && !!bp.admitted_head
-      && sd.ok === true && sd.surface_descriptor?.description?.includes("revised"),
-    "");
+      && sd.ok === true && sd.surface_descriptor?.display_name === "journey descriptor revised",
+    `descriptor display_name ${sd.surface_descriptor?.display_name ?? "(absent)"}`);
   const survivors = await jd("/v1/hypervisor/governance/approval-requests");
   ok("the composed ApprovalRequest survives the restart",
     (survivors.body?.approval_requests || []).some((a) => a.subject_ref === `blueprint://${bpId}`), "");
