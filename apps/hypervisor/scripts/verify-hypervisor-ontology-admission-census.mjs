@@ -548,7 +548,24 @@ const PINNED = {
   // being corrected is mine: M08.8 moved the daemon's literal population and did not move the pin
   // in the same commit, which is the same class of miss as the census pins stranded by a mutation
   // battery earlier in this program.
-  modules: 116,
+  //
+  // Re-pinned 2026-09-12 (M07.3, the provider-spend reconciliation plane). ONE MODULE JOINED the
+  // reachable graph — provider_spend_reconciliation_routes.rs, the readback that compares an
+  // admitted provider billing statement against the authorized ceiling of each closed exposure —
+  // bringing +387 tokens, +11 opaque initialisers and +9 foreign-qualified names. The writer
+  // buckets move by exactly ONE, in the non-ODK literal lane (243 -> 244): the module's single
+  // record write is the charge-gate projection, whose family is a constant this census resolves and
+  // which is not an ontology family. Family writers stay at 57 and runtime-parameter writers at
+  // 311, because nothing here admits an ontology family.
+  //
+  // THE CENSUS CAUGHT A REAL DEFECT IN THAT MODULE BEFORE THIS RE-PIN, which is worth recording
+  // because it is the case a pin cannot express. The first cut wrote the projection with an inlined
+  // `provider_ref.replace([':', '/'], "_")` as the record id, and this census reads the
+  // constant-shaped leaves of a write call's arguments to decide which family is being written —
+  // so the replacement string read to it as a family leaf it could not resolve, and the run said
+  // so by name. The fix was to bind the id first, which is clearer code and leaves the write call's
+  // arguments as exactly what they are. The gate found it; the pin is only the bookkeeping after.
+  modules: 117,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -566,9 +583,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 148033,
+  tokenMentions: 148420,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 244, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -587,8 +604,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4578,
-    "opaque-initialiser": 2779,
+    "foreign-qualified": 4587,
+    "opaque-initialiser": 2790,
     "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

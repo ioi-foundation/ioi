@@ -1,0 +1,56 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m07-3-provider-spend-reconciliation",
+  "stage_id": "M07",
+  "required_work": [
+    "M07.3"
+  ],
+  "status": "verified",
+  "objective": "Close M07.3 without the credential it looked like it needed. The estate had one reconciliation route and its own doc comment said what it was: reconciliation over existing records only, because actual provider bills are never invented. That is the estate correctly refusing to fabricate a figure it cannot source, and it means the old route reconciles the estimate against itself. The acceptance asks for something else: a charge that may or may not have landed is reconciled against provider billing before any figure is reported.",
+  "falsifiable_claim": "A provider billing statement is an admitted, owner-scoped, immutable object whose field set is closed and whose duplicate lines are refused rather than summed. A reconciliation reads that statement back through the caller's own scope, never from the request, and compares coverage both ways plus the authorized ceiling of each CLOSED exposure. Full coverage with every bill inside its ceiling reconciles and only then is a figure reported. A bill above the ceiling diverges and reports none. A statement line naming an exposure never opened, an exposure the bill omits, and an exposure still open are each ambiguous, and ambiguity reports no figure. An unresolved reconciliation places its provider under a charge gate that the provider op path consults before any adapter resolves, and the gate survives a daemon restart because it is derived from admitted records.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_spend_reconciliation_routes.rs",
+      "literal": "AN OPEN EXPOSURE IS AMBIGUOUS BY CONSTRUCTION",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "literal": "provider_spend_reconciliation_required",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-provider-spend-reconciliation.mjs",
+      "literal": "NO RETRY BEFORE RECONCILIATION",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:provider-spend-reconciliation",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:provider-spend-reconciliation",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Five drills: the gate does not latch, so a later reconciliation that still finds the open exposure keeps it shut and clearing requires resolving the cause rather than reconciling again; a reconciliation citing a statement this estate never admitted is refused at the scope boundary before any record is read; an unauthenticated statement is refused before any field is read, so an anonymous caller cannot seed the figures a reconciliation will trust; a statement with no figure provenance is refused; and a window that does not advance is refused rather than covering nothing silently. One drill's expectation was MEASURED WRONG and corrected on record: it expected a not-found for an absent statement and the scope boundary answers first, which is the stronger refusal and the estate's own doctrine. Separately, the admission census caught a real defect in this module before it was pinned: the charge-gate projection's record id was written as an inlined string replacement, and the census reads the constant-shaped leaves of a write call's arguments to decide which family is being written, so the replacement string read to it as an unresolvable family leaf. The id is now a named binding.",
+  "remaining_nonclaims": [
+    "THE TRANSPORT IS SCHEDULED, NOT PROVEN. A statement is admitted however its figures arrive; fetching them from a provider's billing API under a credential is a connector this unit does not build, and running one against a real account is a scheduled qualification rather than a gate here. What is proven is that the comparison, the typing, the gate and the restart are correct for any figures that arrive — which is everything a credential could not have taught us.",
+    "ADMITTING A STATEMENT PROVES SOMEONE WITH WRITE SCOPE ASSERTED THESE ARE THE PROVIDER'S FIGURES. It does not prove the provider sent them, and the record says so: figure_provenance is carried verbatim and is evidence about who asserted, not about who billed.",
+    "THE COMPARISON IS NOT TOTAL AGAINST TOTAL, and deliberately so. The op path records a rate and a ceiling per exposure and never computes a total, because until teardown there is not one; a total-against-total comparison would have to invent our side, which is the exact thing the old route refused to do. What is compared is coverage both ways and the authorized ceiling of each closed exposure, which is arithmetic from a start, an end and a rate this estate itself authorized.",
+    "A RECONCILED OUTCOME PROVES THE TWO SIDES CORRESPOND AND THE BILL IS WITHIN THE CEILING THIS ESTATE AUTHORIZED. It does not prove the provider's figure is correct, and it settles nothing: no spend is authorized, paid or settled here.",
+    "THE EXPOSURES IN THE GATE'S OWN CHECK ARE SEEDED AT THE STORAGE LAYER, because opening a real one requires a live provider. The reconciliation reads them through the same record reader it would use for real ones, and nothing about a statement or a reconciliation is seeded — both go through the admitting routes, because the admission is the subject.",
+    "THE CHARGE GATE COVERS create AND redeploy, NOT teardown or reads. Refusing a teardown because the bill is disputed would strand the very resource that is accruing the charge."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program, after the owner struck the idea that a missing credential is a stop condition: a credential blocks a live RUN, never the unit, and everything that can be got wrong here is in the comparison rather than in the transport. Built against measured record shapes rather than assumed ones — a first cut compared total against total and had to be rebuilt when measurement showed the op path records a rate and a ceiling and deliberately never a total. check:provider-spend-reconciliation 11/11 including the restart; mutate: 5/5. The admission census moved by one module and was re-pinned in the same commit.",
+  "last_status_transaction": "2026-09-12"
+}

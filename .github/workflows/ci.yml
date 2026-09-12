@@ -270,6 +270,18 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run mutate:route-rights-contracts
 
+      # M07.3. The readback that turns an estimate into reconciled truth: an admitted provider
+      # billing statement compared against the authorized ceiling of each closed exposure, with
+      # typed ambiguity and divergence, a per-provider charge gate, and a restart. It boots an
+      # isolated daemon and needs no provider, no credential and no network.
+      - name: Verify provider spend reconciles against a billing statement (M07.3)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:provider-spend-reconciliation
+
+      - name: Verify that reconciliation gate goes red on its own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:provider-spend-reconciliation
+
       # M08.6's five canon-document residuals, as standing properties. It reads the daemon's own
       # route registrations, so it sits beside the build that produces them.
       - name: Verify the canon-document residuals stay closed (M08.6)

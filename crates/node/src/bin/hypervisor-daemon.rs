@@ -180,6 +180,8 @@ mod project_discovery_routes;
 mod provenance_assertion_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
+#[path = "hypervisor_daemon_routes/provider_spend_reconciliation_routes.rs"]
+mod provider_spend_reconciliation_routes;
 #[path = "hypervisor_daemon_routes/provider_transport.rs"]
 mod provider_transport;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
@@ -3993,6 +3995,22 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/provider-spend/reconciliation",
             get(provider_routes::handle_spend_reconciliation),
+        )
+        // M07.3 — the readback that turns an estimate into reconciled truth. The GET above
+        // reconciles our records against our records; these admit the provider's own figures and
+        // compare against them, with a charge gate that holds shut while the two disagree.
+        .route(
+            "/v1/hypervisor/provider-spend/statements",
+            post(provider_spend_reconciliation_routes::handle_provider_billing_statement_admit),
+        )
+        .route(
+            "/v1/hypervisor/provider-spend/reconciliations",
+            post(provider_spend_reconciliation_routes::handle_provider_spend_reconciliation_admit)
+                .get(provider_spend_reconciliation_routes::handle_provider_spend_reconciliation_list),
+        )
+        .route(
+            "/v1/hypervisor/provider-spend/charge-gate",
+            get(provider_spend_reconciliation_routes::handle_provider_charge_gate),
         )
         .route(
             "/v1/hypervisor/provider-operations",

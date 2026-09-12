@@ -8973,6 +8973,40 @@ async fn handle_provider_op_internal(
         .unwrap_or("env-default")
         .to_string();
 
+    // ── NO RETRY BEFORE RECONCILIATION (M07.3). A provider whose most recent billing
+    //    reconciliation came back diverged or ambiguous may not open a new customer-borne spend
+    //    exposure until a later reconciliation reconciles. Spending again on a provider whose last
+    //    bill does not agree with your records is how a small disagreement becomes an unbounded
+    //    one, and this is the earliest honest place to say so: BEFORE the adapter resolves, before
+    //    any credential is touched and before any provider-side object exists. The gate is
+    //    per-provider, so one open question never freezes the estate, and it is derived from
+    //    admitted records rather than held in memory, so it survives a restart without a feature
+    //    for it. `destroy` and every read op are deliberately outside it — refusing a teardown
+    //    because the bill is disputed would strand the very resource that is accruing the charge.
+    if matches!(op, "create" | "redeploy") {
+        let gated = super::provider_spend_reconciliation_routes::charge_gated_providers(data_dir);
+        if let Some(reconciliation) = gated.get(provider_id) {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "ok": false,
+                    "op": op,
+                    "provider": provider_id,
+                    "code": "provider_spend_reconciliation_required",
+                    "reason": format!(
+                        "'{provider_id}' has an unreconciled billing statement ({}); a new customer-borne exposure may not open until a later reconciliation reconciles. Teardown and reads are unaffected.",
+                        reconciliation
+                            .get("outcome")
+                            .and_then(Value::as_str)
+                            .unwrap_or("unresolved")
+                    ),
+                    "reconciliation_ref": reconciliation.get("reconciliation_ref").cloned().unwrap_or(Value::Null),
+                    "statement_ref": reconciliation.get("statement_ref").cloned().unwrap_or(Value::Null),
+                })),
+            );
+        }
+    }
+
     // ── BYO account lane: budget BEFORE mutation, REAL wallet grant (never a presence check),
     //    capability-lease receipts on every path. The KeyGuard removes the materialized ssh key.
     if let Some(resolved) = resolve_account_adapter(data_dir, provider_id) {

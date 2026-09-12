@@ -157,7 +157,10 @@ check("R1_DERIVED_CLOSED_WORLD",
   // write path and the binding-state read calls wallet.network rather than writing anything, so the
   // candidate count is unchanged at 45 and unresolved and unclassified are still 0. (Three routes
   // are mounted; the list and admit share one path, which the census counts as two handlers.)
-  census.registered_route_handlers === 1118 && census.workspace_route_handlers === 38
+  // 1118 -> 1122 (2026-09-12, M07.3). The provider-spend reconciliation plane registers three
+  // paths, one of which carries two methods, and the router counts handlers rather than paths —
+  // so four. Moved in the SAME COMMIT as the routes, like every other pin this program touched.
+  census.registered_route_handlers === 1122 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
