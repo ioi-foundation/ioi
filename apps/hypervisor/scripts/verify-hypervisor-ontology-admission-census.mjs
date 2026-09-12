@@ -535,10 +535,10 @@ const PINNED = {
   // source. Family mentions, judged token positions, raw production filesystem calls and the
   // recorded admitter map are unchanged; no family is admitted anywhere new.
   modules: 116,
-  familyMentions: 286,
-  tokenMentions: 148004,
-  judgedTokenPositions: 282,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 243, runtimeParameter: 311 },
+  familyMentions: 285,
+  tokenMentions: 148003,
+  judgedTokenPositions: 281,
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.

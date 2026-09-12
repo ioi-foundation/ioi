@@ -213,6 +213,17 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run check:device-held-wallet-principal
 
+      # M06.5's two census residuals. Bound here rather than in the Rust-backed family because it
+      # reads rustc's own dep-info for the daemon binary, which exists only where that binary was
+      # built — and it rebuilds to make sure the file set it entails is THIS tree's.
+      - name: Verify the admission census is entailed from what the compiler read (M06.5)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run check:admission-census-entailment
+
+      - name: Verify that entailment goes red on its own planted defects
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: npm run mutate:admission-census-entailment
+
 
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the

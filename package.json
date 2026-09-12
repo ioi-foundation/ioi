@@ -62,6 +62,8 @@
     "check:secret-free-unattended-authority": "node scripts/check-secret-free-unattended-authority.mjs",
     "check:passkey-only-authority": "node scripts/check-passkey-only-authority.mjs --mutation",
     "check:device-held-wallet-principal": "node scripts/check-device-held-wallet-principal.mjs",
+    "check:admission-census-entailment": "node scripts/check-admission-census-entailment.mjs",
+    "mutate:admission-census-entailment": "node scripts/check-admission-census-entailment.mjs --mutation",
     "mutate:device-held-wallet-principal": "node scripts/check-device-held-wallet-principal.mjs --mutation",
     "check:router-path-params": "node scripts/check-router-path-params.mjs",
     "mutate:router-path-params": "node scripts/check-router-path-params.mjs --mutation",
