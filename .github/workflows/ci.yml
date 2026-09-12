@@ -236,6 +236,18 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run mutate:admission-census-entailment
 
+      # M01.7. The live ACC-4 run is RETAINED evidence, not a standing proof — this asks the only
+      # question the three gates beside it cannot: does that evidence still describe THIS tree?
+      # It needs git history and the tracked evidence file, and no daemon, no browser and no
+      # provider, so it belongs in the job that already has a full checkout.
+      - name: Verify the retained T7 capstone still applies to this tree (M01.7)
+        if: ${{ !cancelled() }}
+        run: npm run check:t7-retained-capstone-applicability
+
+      - name: Verify that applicability gate goes red on its own planted defects
+        if: ${{ !cancelled() }}
+        run: npm run mutate:t7-retained-capstone-applicability
+
       # M08.6's five canon-document residuals, as standing properties. It reads the daemon's own
       # route registrations, so it sits beside the build that produces them.
       - name: Verify the canon-document residuals stay closed (M08.6)

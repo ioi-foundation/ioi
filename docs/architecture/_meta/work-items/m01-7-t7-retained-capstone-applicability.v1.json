@@ -1,0 +1,54 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m01-7-t7-retained-capstone-applicability",
+  "stage_id": "M01",
+  "required_work": [
+    "M01.7"
+  ],
+  "status": "verified",
+  "objective": "Close M01.7's named gap. The bounded owner-authorized live external execution HAPPENED and its evidence is retained; three gates already prove things about that evidence without contacting a provider. None of them answers whether the evidence still describes THIS tree, which is the one property that decays silently as the tree moves on.",
+  "falsifiable_claim": "The retained T7 capstone evidence is tracked, parses, and declares the registered capstone-evidence format; every attested coordinate it rests on is well-formed; the commit the integrated capstone was performed on resolves in this repository and is an ANCESTOR of HEAD; the benchmark lineage still resolves, with its ancestry reported rather than demanded; the evidence carries the seven terminal claims a completed bounded effect must carry and a non-empty nonclaim list; the capstone's 22 structural mutations EXECUTE as part of this one command with zero false greens; the durable battery's 22 cases are pinned in the source that owns them; and the two governed-effect gates that can run whole are composed rather than restated.",
+  "canon_owners": [
+    "docs/architecture/_meta/evidence/governed-effect-t7-integrated-capstone.v1.json"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-t7-retained-capstone-applicability.mjs",
+      "literal": "THE RETAINED RUN'S SOURCE IS AN ANCESTOR OF THIS TREE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-t7-retained-capstone-applicability.mjs",
+      "literal": "THE 22 MUTATIONS EXECUTE HERE, AS PART OF THIS ONE COMMAND",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-t7-retained-capstone-applicability.mjs",
+      "literal": "the evidence and capstone paths may only be overridden by this gate's own mutation battery",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:t7-retained-capstone-applicability",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:t7-retained-capstone-applicability",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Eight drills, and every one of them PLANTS A DEFECT AND RE-RUNS THE GATE rather than testing a predicate in isolation. The first cut did the latter — it asserted that a malformed hash fails a regex and that an all-zero commit does not resolve, both trivially true and both silent about whether the gate would go red. Worse, when the planting cut was written it joined absolute override paths onto the repository root, so every evidence drill went red because the file could not be READ: each drill passed while proving nothing about the assertion it named, which is the exact failure mode these drills exist to prevent, reproduced inside them. Both defects are recorded in the script beside the code that fixes them. The battery now plants a malformed certificate hash, a source commit this repository does not have, a source commit that exists but is not an ancestor (ancestry is directional, and two commits both existing is not applicability), a non-zero unknown exposure, an empty nonclaim list, a benchmark commit that no longer resolves, and a durable battery one case short — and separately proves the override seam FAILS CLOSED, because a gate that can be pointed at different evidence is a gate that can be pointed at fake evidence.",
+  "remaining_nonclaims": [
+    "THE CERTIFICATE BYTES ARE NOT TRACKED, and the unit's own text asked this gate to verify the committed certificate hash. Measured before anything was written: the certificate lives under internal-docs/prompts/, which .gitignore ignores entirely, so `git ls-files` over that tree returns zero and on a fresh clone the bytes do not exist. A gate that hashed them would pass vacuously in CI — the same defect ruled on for M08.7's corpus. The hash is therefore verified as ATTESTED and well-formed rather than recomputed, and a certificate edited in place on one machine could not be caught here or by any gate over this repository.",
+    "ANCESTRY IS NOT EQUIVALENCE. An ancestor commit proves this tree DESCENDS from the one the live run used. It does not prove the code paths that run exercised are unchanged since, and deliberately does not try: a file-level claim would be either trivially red on an active tree or narrowed until it proved nothing.",
+    "NO EXTERNAL EFFECT IS PERFORMED OR AUTHORISED. This gate contacts no provider, spends nothing and re-runs nothing. It answers whether a retained proof still applies; the proof remains the one recorded run, and re-running ACC-4 live is a fresh owner authorization, never an inference from this gate being green.",
+    "THE BENCHMARK LINEAGE IS NOT AN ANCESTOR, and that is recorded rather than repaired. Measured: it resolves as a commit object here and is not an ancestor of HEAD, because the benchmark ran on its own branch and was never merged. Requiring ancestry of it would fail honestly-retained evidence."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program. Measured before authoring: the integrated source commit IS an ancestor of HEAD, so the retained evidence applies to this tree; the benchmark commit resolves but is not an ancestor; the certificate the evidence attests is untracked. check:t7-retained-capstone-applicability 9/9 with the capstone self-test's 22 mutations executed and zero false greens, and the two composable governed-effect gates green; mutate: 8/8 with every drill red on target for the reason it names.",
+  "last_status_transaction": "2026-09-12"
+}
