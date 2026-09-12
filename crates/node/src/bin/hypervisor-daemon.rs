@@ -138,6 +138,8 @@ mod materializing_run_routes;
 mod media_trajectory_dataset_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/model_route_candidate_routes.rs"]
+mod model_route_candidate_routes;
 #[path = "hypervisor_daemon_routes/model_route_rights_routes.rs"]
 mod model_route_rights_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -3839,6 +3841,16 @@ async fn async_main() -> anyhow::Result<()> {
         // NON-CLAIM: no settlement, escrow, payout, or exchange executes here — those rails are
         // wallet.network-side by doctrine; amounts are INTEGER micro work credits / currency
         // minor, never floats.
+        // The model-route CANDIDATE lane: expiring advisory price evidence, never route
+        // authority and never billing truth (model-router doctrine).
+        .route(
+            "/v1/hypervisor/model-routes/price-schedules",
+            post(model_route_candidate_routes::handle_price_schedule_create),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/price-schedules/:id",
+            get(model_route_candidate_routes::handle_price_schedule_get),
+        )
         .route(
             "/v1/hypervisor/economics/rate-cards",
             post(economics_routes::handle_rate_card_create),
