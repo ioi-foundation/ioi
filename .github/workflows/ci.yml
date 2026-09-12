@@ -110,6 +110,22 @@ jobs:
       - name: Pin the typed effect-recovery population (M06.2)
         run: npm run check:typed-effect-recovery
 
+      # M04.6's FLOOR, the same failure class as the step above and bound for the same reason: the
+      # daemon suite runs the plane's thirteen route tests, so deleting or renaming one stops it
+      # running and the suite stays green. This wrapper pins those thirteen AND the twenty-five
+      # kernel-core tests by exact name, because the module header is explicit that every mechanic
+      # — content commitment, exact-head CAS, chain reconstruction, the rebuildable projection,
+      # cancellation planning and archive/snapshot/resume continuity — lives in the core, so
+      # pinning only the I/O half would leave the convergence proofs unpinned.
+      #
+      # COST, STATED RATHER THAN HIDDEN: the second family is `ioi-services --lib`, whose test
+      # harness this job does not otherwise compile (it tests six crates under --all-features plus
+      # the daemon binary and agentgres). The `rust_library_suite_floor` job measured that suite at
+      # 244.8 s on a warm target. It is bound HERE anyway because the daemon-bin half is warm only
+      # here, and splitting one population across two jobs would leave two files to keep in sync.
+      - name: Pin the work-lifecycle integrity population (M04.6)
+        run: npm run check:work-lifecycle-integrity
+
       # M05.10 is a Rust-backed live-daemon gate. Keep it beside the daemon build and full daemon
       # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
       # out-of-worktree binary and exercises only synthetic records on an isolated data directory.

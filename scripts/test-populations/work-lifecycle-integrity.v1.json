@@ -1,0 +1,105 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:work-lifecycle-integrity",
+  "unit": "M04.6",
+  "families": [
+    {
+      "name": "work_lifecycle_routes",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
+      "tests": [
+        "work_lifecycle_routes::tests::append_persists_then_reloads_as_a_chain",
+        "work_lifecycle_routes::tests::cancellation_plan_persists_and_never_claims_completion",
+        "work_lifecycle_routes::tests::cancellation_route_rejects_requester_substitution",
+        "work_lifecycle_routes::tests::compaction_repairs_a_missing_snapshot_after_a_persisted_archive",
+        "work_lifecycle_routes::tests::compaction_then_resume_equals_full_replay",
+        "work_lifecycle_routes::tests::idempotent_replay_repairs_a_missing_projection_checkpoint",
+        "work_lifecycle_routes::tests::idempotent_replay_writes_no_new_record",
+        "work_lifecycle_routes::tests::owner_scope_accepts_the_exact_principal_or_an_authorized_tenant",
+        "work_lifecycle_routes::tests::read_rejects_a_foreign_tail_record",
+        "work_lifecycle_routes::tests::read_rejects_a_tampered_log_is_covered_by_the_kernel",
+        "work_lifecycle_routes::tests::refused_append_writes_nothing",
+        "work_lifecycle_routes::tests::replaying_an_old_record_keeps_the_latest_projection_at_the_current_head",
+        "work_lifecycle_routes::tests::status_summary_counts_durable_families"
+      ]
+    },
+    {
+      "name": "runtime_work_lifecycle_log",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs",
+      "tests": [
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::active_children_project_from_attach_and_detach",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::an_undeclared_recovery_class_is_refused_rather_than_defaulted",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::archive_root_binds_records_and_snapshot_binds_root",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::authority_gate_refuses_and_admits",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::chain_reconstruction_detects_a_fork",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::chain_reconstructs_from_unordered_storage",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::duplicate_genesis_fails_closed",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::every_retired_member_plans_exactly_what_its_canonical_target_plans",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::fanout_emits_a_schema_valid_plan_and_never_claims_completion",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::fanout_refuses_ambiguous_child_without_reconciliation_policy",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::fanout_refuses_compensatable_child_without_policy",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::fork_on_stale_head_fails_closed",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::genesis_commits_and_head_equals_commitment",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::idempotency_key_reuse_with_changed_bytes_fails",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::idempotent_replay_returns_the_original",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::orphan_successor_fails_closed",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::owner_drift_in_reconstruction_fails_closed",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::owner_drift_on_successor_fails_closed",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::payload_cardinality_is_enforced",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::projection_matches_the_registered_schema",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::resume_plus_tail_equals_full_replay",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::resume_refuses_a_tail_that_does_not_chain",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::tampered_stored_hash_fails_closed",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::the_planner_arms_are_exactly_the_canonical_member_set",
+        "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::timestamp_regression_fails_closed"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "the plane has exactly FIVE durable families — the record log, the projection checkpoint, cancellation-fanout plans, archive segments and archive-bound snapshots. A sixth namespace would be a sixth thing to converge that no pinned test covers, and the population would still read green",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
+      "pattern": "^pub\\(crate\\) const [A-Z_]+_NS: &str = \"work-lifecycle-",
+      "expect": 5
+    },
+    {
+      "label": "each of the five families crosses as its own event-stream operation kind, so a family cannot be persisted by borrowing another's crossing",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
+      "pattern": "^const [A-Z_]+_OP_KIND: &str = \"event_stream\\.work_lifecycle_",
+      "expect": 5
+    },
+    {
+      "label": "the precedent store's write path is never CALLED here. `265ee73b8` wrote plain daemon JSON projections through persist_record/read_record_dir, which never cross Agentgres, so a crash between 'the route said yes' and 'the truth is durable' was invisible. This pin is the absence, measured — counting admission call sites instead would pin a number that moves whenever a test is added, and would say nothing about the path that must not return",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
+      "pattern": "persist_record\\(|read_record_dir\\(",
+      "expect": 0
+    },
+    {
+      "label": "the GoalRun binding stays bounded: composing this owner transfers no Session, launch, thread or HarnessInvocation truth, and no other object owner is implied to be wired here (ADR 0034 sub-ruling 1, INV-35)",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
+      "pattern": "does not transfer Session, launch, thread, HarnessInvocation, or other kernel",
+      "expect": 1
+    }
+  ],
+  "pinned_on": "2026-09-11",
+  "rule": "M04.6's done-bar. `npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app` already drives the isolated plane end to end; what it could not give was a FAIL-EMPTY pin over the module's own repair and convergence tests, because a raw filtered `cargo test` exits 0 when its filter selects nothing, so a renamed or deleted module reads as green. Both halves of the plane are pinned rather than only the routes: the module header says every mechanic — content commitment, exact-head CAS, object-scoped idempotency, chain reconstruction, the rebuildable projection, cancellation planning and archive/snapshot/resume continuity — lives in the kernel core, so pinning only the I/O half would leave the tests that actually prove convergence unpinned. ACC-5 clause 7's repair and convergence members are named here explicitly: `idempotent_replay_repairs_a_missing_projection_checkpoint`, `compaction_repairs_a_missing_snapshot_after_a_persisted_archive`, `compaction_then_resume_equals_full_replay`, `replaying_an_old_record_keeps_the_latest_projection_at_the_current_head`, `resume_plus_tail_equals_full_replay` and `chain_reconstructs_from_unordered_storage`. The live half is COMPOSED rather than cited: `check:m4-work-lifecycle-plane` runs as this population's supplementary, so one command answers both halves of the module doc's bar. NOT claimed: the per-dimension reservation/allocation transaction, which is M04.10's, and which no test here covers.",
+  "supplementary": [
+    {
+      "label": "the live GoalRun journey on an isolated plane (check:m4-work-lifecycle-plane) — the module doc requires this check to COMPOSE it with the fail-empty matrix, not to stand beside it: a name-pinned population proves the tests still exist and pass, and proves nothing about the plane answering over a real daemon",
+      "argv": [
+        "npm",
+        "run",
+        "check:m4-work-lifecycle-plane",
+        "--workspace=@ioi/hypervisor-app"
+      ]
+    }
+  ]
+}

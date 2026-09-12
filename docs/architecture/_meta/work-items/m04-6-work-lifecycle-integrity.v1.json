@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m04-6-work-lifecycle-integrity",
+  "stage_id": "M04",
+  "required_work": [
+    "M04.6"
+  ],
+  "status": "verified",
+  "objective": "The shared work-lifecycle persistence plane's convergence proofs cannot be deleted in silence. A raw filtered cargo test exits 0 when its filter selects zero tests, so a renamed or removed module read as green while the daemon suite stayed green around it; this binds the plane's own tests by exact name, fail-empty and source-bound, and composes the live GoalRun journey into the same command.",
+  "falsifiable_claim": "38 pinned names -- 13 in work_lifecycle_routes and 25 in the runtime_work_lifecycle_log kernel core -- each exist as a fn in a pinned source file, are listed exactly by cargo test -- --list --exact with no missing and no extra and never empty, and pass with passed == pinned, 0 failed and 0 ignored. Four source pins hold: exactly five durable-family namespaces, exactly five distinct event-stream op kinds, exactly ZERO calls to persist_record/read_record_dir, and the bounded GoalRun binding sentence. The live plane verifier runs as the population's supplementary and must exit 0.",
+  "canon_owners": [
+    "docs/architecture/_meta/canon-to-code-delta.md",
+    "docs/architecture/_meta/execution-horizons.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/test-populations/work-lifecycle-integrity.v1.json",
+      "literal": "work_lifecycle_routes::tests::idempotent_replay_repairs_a_missing_projection_checkpoint",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/work-lifecycle-integrity.v1.json",
+      "literal": "agentic::runtime::kernel::runtime_work_lifecycle_log::tests::resume_plus_tail_equals_full_replay",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/work-lifecycle-integrity.v1.json",
+      "literal": "persist_record\\\\(|read_record_dir\\\\(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
+      "literal": "pub(crate) const RECORDS_NS: &str = \"work-lifecycle-records\";",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs",
+      "literal": "fn resume_plus_tail_equals_full_replay",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "Pin the work-lifecycle integrity population (M04.6)",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "mutate:work-lifecycle-integrity",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The driver's own self-drill plants three defects and requires each to be refused: a pinned test name with no matching fn in the pinned source, a name whose fn exists but whose module path cannot be listed, and an empty population. All three were refused. The population additionally states its durability claim as a measured ABSENCE rather than a guessed call count: the first draft pinned admit_event_stream_operation at 2, the driver reported 6 (one doc comment, three production sites, two test sites), and the pin was replaced with zero calls to persist_record/read_record_dir -- a count that moves whenever a test is added would have said nothing about the path that must not return. The live half is composed rather than cited, because a name-pinned population proves the tests still exist and pass and proves nothing about the plane answering over a real daemon.",
+  "remaining_nonclaims": [
+    "This is a PIN, not new behaviour. The plane was closed for its integrity/replay core in 2026-08; nothing here changes what the plane does, and no daemon or kernel source was modified.",
+    "The per-dimension reservation/allocation transaction is M04.10's and no test in this population covers it.",
+    "Hosted OutcomeRoom creation and binding remain M04.7's claim.",
+    "Pinning 38 names asserts those tests exist and pass. It does not assert that they are sufficient: a convergence property nobody wrote a test for is not covered by pinning the tests that exist.",
+    "The CI binding adds an ioi-services --lib test-harness compile to build_and_test, which that job does not otherwise pay. The rust_library_suite_floor job measured that suite at 244.8 s on a warm target; the actual marginal cost in CI is not measured here and the next push is what proves it."
+  ],
+  "source_provenance": "Landed 2026-09-11 by the MVP finish-line program, leg 2b (third unit of the READY set). Recorded in canon-to-code-delta.md section Journey verification XLIII. Measured: check:work-lifecycle-integrity 7/7 checks, 38 pinned tests, supplementary exit 0 (11 s); the driver's self-drill refused all three planted defects. Run 1 was 5/6 on a guessed source pin and is recorded as it happened.",
+  "last_status_transaction": "2026-09-11"
+}

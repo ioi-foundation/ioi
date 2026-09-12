@@ -97,6 +97,8 @@
     "check:standing-lease-lifecycle": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/standing-lease-lifecycle.v1.json",
     "mutate:standing-lease-lifecycle": "node scripts/mutate-standing-lease.mjs --unit standing-lease-lifecycle",
     "check:typed-effect-recovery": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/typed-effect-recovery.v1.json",
+    "check:work-lifecycle-integrity": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/work-lifecycle-integrity.v1.json",
+    "mutate:work-lifecycle-integrity": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/work-lifecycle-integrity.v1.json --mutation",
     "mutate:typed-effect-recovery": "node scripts/mutate-standing-lease.mjs --unit typed-effect-recovery",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
     "build:workbench": "npm run build --workspace=@ioi/hypervisor-workbench",
