@@ -154,13 +154,23 @@ const PINNED = {
   // and the reconciliation between the three is what makes this a measurement rather than a tally.
   // The defect being corrected is mine twice over: both commits registered routes and neither moved
   // this pin in the same cut, which is what a pin exists to catch.
+  // 867 -> 870 (2026-09-12, M07.4 items 2b and 2c): one commit's worth of registrations, all in the
+  // model-route CANDIDATE lane — price-schedule admit and read, and the advisory cost comparison.
+  // NOTE FOR THE NEXT ROUTE ADDED UNDER AN EXISTING FAMILY'S PREFIX: naming these
+  // `/v1/hypervisor/model-routes/...` enrolled both POSTs in the model-route AUTHORITY census
+  // automatically, because that census derives from the path prefix in source rather than from a
+  // list. That is the gate working as designed, and it caught a real ordering defect — the two new
+  // handlers took `Json<Value>`, so an anonymous caller with no body got a 400/415 body-parse
+  // rejection instead of the 401 that census requires of every mutating endpoint on the surface.
+  // Five sibling endpoints satisfy it by taking no body at all; these two now read raw bytes and
+  // resolve identity first. A route's prefix is an enrolment, not just a name.
   // 864 -> 867 (2026-09-12, M07.3): one commit, three registrations, all in the provider-spend
   // reconciliation plane — the statement admission, the reconciliation admission which also serves
   // the list on GET, and the charge-gate read. 868 `.route(` occurrences, 868 with a path literal,
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 867,
+  registeredRoutes: 870,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

@@ -305,8 +305,15 @@ fn mint_price_schedule(
 pub(crate) async fn handle_price_schedule_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    body: axum::body::Bytes,
 ) -> Reply {
+    // IDENTITY RESOLVES BEFORE THE BODY IS READ, so the body is taken as raw bytes rather than
+    // through `Json<Value>`. An extractor that parses first answers an ANONYMOUS caller with 400
+    // or 415 — "your body is wrong" — where the only honest answer is 401, and the model-route
+    // authority census asserts exactly that of every mutating endpoint on this surface. Five
+    // sibling endpoints already satisfy it by taking no body at all; these two take one, so they
+    // have to decline it in the right order instead.
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
     let caller = match require_write_caller(&st.data_dir, &headers, &body) {
         Ok(caller) => caller,
         Err(response) => return response,
@@ -704,8 +711,10 @@ pub(crate) fn build_cost_comparison(
 pub(crate) async fn handle_cost_comparison(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    body: axum::body::Bytes,
 ) -> Reply {
+    // Same ordering as above: an anonymous caller is owed 401, never a body-parse complaint.
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
     let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
         Ok(identity) => identity,
         Err(refusal) => return scope_refusal_reply(refusal),
