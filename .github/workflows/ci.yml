@@ -753,6 +753,27 @@ jobs:
           )"
           CARGO_TARGET_DIR="$NODE_DIR" cargo build --locked --release -p ioi-node \
             --no-default-features --features "$NODE_FEATURES"
+          # AND WRITE THE MARKER, or the prebuild above buys nothing (2026-09-12, private register
+          # R-34's recorded second cause, now fixed). The harness does not decide reuse by "are the
+          # binaries present" — `node_profile_needs_build` reads `.ioi-source-revision` from this
+          # directory and rebuilds unless it equals the checkout's source identity. This step
+          # populated the directory and never wrote the marker, so the fixture rebuilt all four node
+          # binaries INSIDE its 20-minute readiness window every run: the failing logs show it still
+          # Compiling when the window closed. The prebuild was real and entirely wasted.
+          #
+          # On a clean checkout that identity is exactly HEAD (validator.rs `checkout_source_revision`
+          # returns the bare sha when the diff, the porcelain status and the untracked set are all
+          # empty), so this is reproducible here without duplicating the hashing path. If the tree is
+          # NOT clean the marker is deliberately left unwritten and the fixture rebuilds — reusing
+          # binaries built from different source is exactly what the marker exists to prevent, and a
+          # wrong marker would be worse than none.
+          if [ -z "$(git status --porcelain)" ]; then
+            git rev-parse HEAD > "$NODE_DIR/.ioi-source-revision"
+            echo "node-profile source revision marker: $(cat "$NODE_DIR/.ioi-source-revision")"
+          else
+            echo "working tree is not clean; leaving the marker unwritten so the fixture rebuilds"
+            git status --porcelain | head -20
+          fi
 
       - name: Install the exact Outcome adapter
         if: matrix.verifier_id == 'outcome-room-system-spine'
