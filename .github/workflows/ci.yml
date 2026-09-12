@@ -23,7 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     # Hard ceiling so a hung step (e.g. a flaky Ubuntu mirror) fails fast and a
     # rerun lands on a fresh VM, instead of hanging toward the 6h default.
-    timeout-minutes: 90
+    #
+    # RAISED 90 -> 150 (2026-09-12), as a direct and owned consequence of splitting the `run:`
+    # blocks. This job used to ABORT at the first red and skip everything after it; on 2026-08-30
+    # that meant one failure and twenty skipped steps in a few minutes. Now every gate runs, so the
+    # job's worst case is the SUM of its steps rather than a prefix of them — and the first full run
+    # was cancelled at exactly 90 minutes with 47 of 47 steps started and `Run tests` still going.
+    # That is not a hang; it is the job finally doing all of its work. The ceiling is a hang ceiling,
+    # not a performance target, and it has to cover what the job actually runs or it silently turns
+    # completed work into a cancellation — which reads as neither pass nor fail.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
@@ -391,7 +400,13 @@ jobs:
   rust_library_suite_floor:
     name: Rust library-suite floor (R-21)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # RAISED 90 -> 150 (2026-09-12), same cause as build_and_test and measured the same way: with
+    # the 25 crates split into their own steps the job no longer stops at the first red, so it now
+    # reaches crates it had never compiled. Its first full run was cancelled at 90 minutes with 33
+    # of 33 steps started and `ioi-services` — the 3,635-test suite — still running. The budget note
+    # below measured 36.4 min of TEST time on a warm target; a cold cache pays the shared dependency
+    # build on top, and that is what the ceiling has to cover.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
