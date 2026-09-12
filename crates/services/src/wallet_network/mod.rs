@@ -673,6 +673,19 @@ impl BlockchainService for WalletNetworkService {
                 let owner: OwnerAnchor = codec::from_bytes_canonical(params)?;
                 handlers::identity::link_owner(state, ctx, owner)
             }
+            // M03.7 — the verified successor to link_owner@v1. Two operations, because minting a
+            // challenge and answering one are different acts by different parties at different
+            // times; folding them into one call would make the nonce meaningless.
+            "mint_wallet_authentication_challenge@v1" => {
+                let request: handlers::wallet_siwe::MintWalletAuthChallengeParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::wallet_siwe::mint_wallet_authentication_challenge(state, ctx, request)
+            }
+            "verify_wallet_ownership_proof@v1" => {
+                let request: handlers::wallet_siwe::VerifyWalletOwnershipProofParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::wallet_siwe::verify_wallet_ownership_proof(state, ctx, request)
+            }
             "store_secret_record@v1" => {
                 let secret: VaultSecretRecord = codec::from_bytes_canonical(params)?;
                 handlers::identity::store_secret_record(state, ctx, secret)

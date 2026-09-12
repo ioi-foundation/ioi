@@ -1,0 +1,72 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-7-wallet-siwe-link-owner-v2",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.7"
+  ],
+  "status": "verified",
+  "objective": "Portable delegated authority survives a user arriving with an externally owned account without that account becoming effect authority. An EVM wallet proves control of a CAIP-10 account against a server-minted, single-use, domain/chain/session-bound challenge, and the verified proof yields a web3_wallet factor and NOTHING else; a consequential path still commits its own authority request.",
+  "falsifiable_claim": "A real secp256k1 signature over the exact ERC-4361 text the handler rebuilds from its own stored challenge verifies, writes a proof with contract_wallet_state_ref null and effect_authority_created false, writes a chain-qualified factor, and leaves six authority families (approval, approval_grant_state, standing_approval_grant_state, session_delegation, injection_grant, policy) empty under prefix scan. The nonce moves to consumed in the same transition, and a replay refuses by naming it. A signature by another key refuses naming the address it actually proves; a signature over another challenge, an account on another chain, and an account the challenge did not target each refuse by their own cause with the challenge still issued. An expired challenge refuses and is recorded expired. erc1271_contract and erc6492_counterfactual refuse before the challenge is touched, naming contract_wallet_state_ref.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/_meta/schemas/wallet-authentication-challenge.v1.schema.json",
+    "docs/architecture/_meta/schemas/wallet-ownership-proof.v1.schema.json"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "literal": "a state nobody observed cannot be recorded",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "literal": "fn erc4361_message",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "literal": "recover_from_prehash",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "literal": "effect_authority_created: false",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/mod.rs",
+      "literal": "verify_wallet_ownership_proof@v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/wallet_network/tests/wallet_siwe.rs",
+      "literal": "which would make identity into authority",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/wallet-siwe-link-owner-v2.v1.json",
+      "literal": "wallet_network::tests::identity_owner_link::link_owner_refuses_the_unverified_anchor_store_and_persists_nothing",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "mutate:wallet-siwe-link-owner-v2",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Ten tests drive real secp256k1 signatures, and the negatives are the unit rather than a coda. A VALID signature over the RIGHT message by the WRONG key is refused naming the address it actually proves, so the failure is the identity rather than the shape of the bytes. A signature over a different challenge is refused by the recovered identity rather than by a message comparison, which is the structural consequence of rebuilding the message from the stored challenge. The same address on another chain, and an account the challenge did not target, each refuse by their own cause. Every refusal re-reads the challenge and requires its status still issued, because a refusal that consumed the nonce would burn a challenge on a path that failed. The contract-account kinds refuse BEFORE the challenge is touched for the same reason. The population driver additionally plants a missing test name, an unlistable module path and an empty population, and refuses all three.",
+  "remaining_nonclaims": [
+    "Verifying a signature proves control of a key at this instant. It does not prove who holds that key, that the holder intended anything beyond signing this statement, or that the account is safe to transact with. The factor is authentication evidence and is named as such.",
+    "TYPED ABSENCE: ERC-1271 and ERC-6492 verification are unbuilt. They require reading the wallet contract's own isValidSignature answer at an exact chain state and this build binds no audited on-chain verifier, so both fail closed. What is proven is the fail-closed behaviour, not that a contract wallet can be verified here. Closure test: a bound chain-state reader plus a proof carrying a real contract_wallet_state_ref.",
+    "This is the wallet-network handler and its state transitions. It does not add a product surface, a daemon route or a UI for wallet sign-in, and it does not migrate any owner anchor that predates verification: such anchors stay inert and a verified linking flow must re-prove them.",
+    "The v1 wallet protocol and SDK suites are compatibility subchecks in this population, exactly as the unit's own text says. They prove the v1 boundary still holds; they are not evidence for this successor.",
+    "k256 is promoted from a transitive dependency to a direct edge. That is a supply-chain surface statement about an existing dependency, not an audit of it."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program, leg 2b (fifth unit of the READY set). Recorded in canon-to-code-delta.md section Journey verification XLIV. Measured: check:wallet-siwe-link-owner-v2 7/7 checks with 11 pinned tests (10 wallet_siwe plus the v1 superseded test, plus the v1 wallet-protocol suite as a supplementary compatibility subcheck); cargo test --locked -p ioi-services --lib 3635 passed, 0 failed, 4 ignored (230.4 s), up from 3625 by this unit's ten tests. The test-name population was derived from the harness's own --list, not a source regex.",
+  "last_status_transaction": "2026-09-12"
+}

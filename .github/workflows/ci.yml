@@ -294,7 +294,7 @@ jobs:
           cargo test --locked -p ioi-finality --lib                  #   52 ·  55.3 · 131.7 · 187.0
           cargo test --locked -p ioi-consensus --lib --features aft  #  322 ·   7.8 · 167.0 · 174.9
           cargo test --locked -p ioi-client --lib                    #    3 ·   3.4 ·   0.0 ·   3.5
-          cargo test --locked -p ioi-services --lib                  # 3624 · 120.0 · 253.0 · 374.0  (red on 6bc07025d — R-21; green from leg 2's fix)
+          cargo test --locked -p ioi-services --lib                  # 3635 · 120.0 · 230.4 · ~350   (3624 at the 2026-09-10 measurement; +1 R-21's fix, +10 M03.7's SIWE verifier. Test seconds re-measured 2026-09-12 on a warm target; the compile figure is the 2026-09-10 one and was not re-measured)
           cargo test --locked -p ioi-cli --lib                       #   15 · 122.0 ·   0.3 · 122.5
           cargo test --locked -p zk-types --lib                      #    0 ·   2.5 ·   0.0 ·   2.6
           cargo test --locked -p transport-verifier --lib            #    0 · 120.0 ·   0.0 · 120.1

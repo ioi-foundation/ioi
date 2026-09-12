@@ -7256,6 +7256,7 @@ dependencies = [
  "ioi-pii",
  "ioi-state",
  "ioi-types",
+ "k256",
  "lettre",
  "libp2p",
  "log",

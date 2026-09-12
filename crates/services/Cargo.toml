@@ -9,6 +9,11 @@ license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
+# M03.7 — EVM SIWE ownership verification needs secp256k1 public-key RECOVERY, which the
+# estate's own dcrypt provides for no curve (its ECDSA is P-224/256/384/521 only). k256 is not
+# a new supply-chain entry: it is already in Cargo.lock and already built here through
+# tendermint -> ibc, so this promotes an existing transitive dependency to a direct edge.
+k256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
 # Types only: the admission capability, its request shape, and its refusal
 # vocabulary are DEFINED in agentgres and redefined nowhere.
 agentgres = { path = "../agentgres" }

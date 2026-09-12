@@ -747,3 +747,4 @@ mod portable_authority_state;
 mod principal_authority;
 mod replay_and_receipts;
 mod standing_drawdown;
+mod wallet_siwe;

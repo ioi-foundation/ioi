@@ -8,6 +8,12 @@ pub(super) const REGISTERED_CLIENT_PREFIX: &[u8] = b"registered_client::";
 pub(super) const REGISTERED_CLIENT_GET_RECEIPT_PREFIX: &[u8] = b"registered_client_get_receipt::";
 pub(super) const REGISTERED_CLIENT_LIST_RECEIPT_PREFIX: &[u8] = b"registered_client_list_receipt::";
 pub(super) const SECRET_PREFIX: &[u8] = b"secret::";
+/// M03.7 — the verifying wallet-interop pipeline. A challenge is single-use authentication
+/// material; the proof it yields is evidence; the factor is chain-qualified. None of the three is
+/// authority, and none shares a prefix with anything that is.
+pub(super) const WALLET_AUTH_CHALLENGE_PREFIX: &[u8] = b"wallet_auth_challenge::";
+pub(super) const WALLET_OWNERSHIP_PROOF_PREFIX: &[u8] = b"wallet_ownership_proof::";
+pub(super) const WEB3_WALLET_FACTOR_PREFIX: &[u8] = b"web3_wallet_factor::";
 pub(super) const SECRET_ALIAS_PREFIX: &[u8] = b"secret_alias::";
 pub(super) const CONNECTOR_AUTH_PREFIX: &[u8] = b"connector_auth::";
 pub(super) const CONNECTOR_AUTH_GET_RECEIPT_PREFIX: &[u8] = b"connector_auth_get_receipt::";

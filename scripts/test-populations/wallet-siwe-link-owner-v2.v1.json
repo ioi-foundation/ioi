@@ -1,0 +1,76 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:wallet-siwe-link-owner-v2",
+  "unit": "M03.7",
+  "families": [
+    {
+      "name": "wallet_siwe_verifying_handler",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/wallet_siwe.rs",
+      "tests": [
+        "wallet_network::tests::wallet_siwe::a_challenge_is_single_use_by_id_and_its_bindings_are_required",
+        "wallet_network::tests::wallet_siwe::a_contract_account_kind_fails_closed_before_the_challenge_is_touched",
+        "wallet_network::tests::wallet_siwe::a_discover_then_bind_challenge_accepts_the_account_that_actually_signed",
+        "wallet_network::tests::wallet_siwe::a_proof_may_not_substitute_the_account_the_challenge_targeted",
+        "wallet_network::tests::wallet_siwe::a_real_signature_over_this_challenge_yields_a_web3_wallet_factor_and_nothing_else",
+        "wallet_network::tests::wallet_siwe::a_signature_from_another_key_is_refused_and_names_the_address_it_actually_proves",
+        "wallet_network::tests::wallet_siwe::a_signature_over_a_different_challenge_does_not_verify_against_this_one",
+        "wallet_network::tests::wallet_siwe::an_account_on_another_chain_is_a_different_factor_and_is_refused",
+        "wallet_network::tests::wallet_siwe::an_expired_challenge_is_refused_and_marked_rather_than_left_answerable",
+        "wallet_network::tests::wallet_siwe::the_nonce_is_consumed_at_verification_and_a_replay_is_refused_by_name"
+      ]
+    },
+    {
+      "name": "link_owner_v1_superseded",
+      "package": "ioi-services",
+      "target": [
+        "--lib"
+      ],
+      "source": "crates/services/src/wallet_network/tests/identity_owner_link.rs",
+      "tests": [
+        "wallet_network::tests::identity_owner_link::link_owner_refuses_the_unverified_anchor_store_and_persists_nothing"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "the signed message is rebuilt from the STORED challenge, never taken from the caller: the verify params carry no message field at all, so 'the signature is valid' and 'the signature is over THIS challenge' are the same statement",
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "pattern": "^    pub signature: String,$",
+      "expect": 1
+    },
+    {
+      "label": "the two contract-account kinds fail closed by NAMING the observation the proof contract requires — contract_wallet_state_ref records the exact chain state observed, and a state nobody observed cannot be recorded. Pinned as the refusal itself rather than a count of the kind names, which moves with every mention",
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "pattern": "a state nobody observed cannot be recorded",
+      "expect": 1
+    },
+    {
+      "label": "identity is not authority (INV-40): both the proof and the factor record effect_authority_created, and this module holds no writer for any approval, grant, delegation or policy key",
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "pattern": "approval_key|approval_grant_state_key|session_delegation_key|injection_grant_key|policy_key",
+      "expect": 0
+    },
+    {
+      "label": "the nonce is consumed in the same transition that verified it, written BEFORE the proof and the factor so there is no ordering in which a verified challenge is still spendable",
+      "path": "crates/services/src/wallet_network/handlers/wallet_siwe.rs",
+      "pattern": "challenge\\.status = \"consumed\"\\.to_string\\(\\);",
+      "expect": 1
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "v1 wallet protocol compatibility subcheck (the unit's own words: the v1 suites are compatibility subchecks, never this successor's proof)",
+      "argv": [
+        "npm",
+        "run",
+        "test:wallet-protocol"
+      ]
+    }
+  ],
+  "pinned_on": "2026-09-12",
+  "rule": "M03.7's done-bar. `link_owner@v1` was superseded because it stored a caller-supplied owner anchor having verified NOTHING — not the signature, message, chain, nonce, domain, expiry or replay state — which is the standing-access defect INV-40 forbids. This population pins the verifying successor: a real secp256k1 signature over the exact ERC-4361 text the handler rebuilds from its own stored challenge, recovered independently, plus every substitution that must fail — another key, another challenge, another chain, the account the challenge did not target, a replayed consumed nonce, an expired window — and the contract-account kinds this build cannot observe failing closed BEFORE the challenge is touched. The names are derived from the harness's own `--list`, not a source regex. NOT claimed: ERC-1271/6492 verification itself, which needs an audited on-chain read this build does not bind; that they fail closed is what is proven. Verifying a signature proves control of a key at this instant — not who holds it, not their intent beyond signing this statement, and not that the account is safe to transact with."
+}
