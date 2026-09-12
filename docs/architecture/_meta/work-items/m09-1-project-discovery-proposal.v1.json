@@ -1,0 +1,81 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m09-1-project-discovery-proposal",
+  "stage_id": "M09",
+  "required_work": [
+    "M09.1"
+  ],
+  "status": "verified",
+  "objective": "Evidenced project discovery is a read-only proposal stage before Project or recipe admission: a policy-bound source snapshot plus a detector revision produce one immutable HypervisorProjectDiscoveryProposal, and only an explicit acceptance of one exact candidate and one admitted override set may freeze it into lineage. Discovery reads, proposes, and stops.",
+  "falsifiable_claim": "proposal_hash covers the complete proposal through permitted_override_schema_ref including the allocated ref and the exact ordered candidate set and excluding only itself, is re-derived on every read rather than echoed, and moves when any covered field moves (candidate ORDER included). A proposal naming project_id, a recipe, a placement, a lease or a startup plan refuses project_discovery_proposal_boundary_field, not an unknown-field code. Admitting a proposal leaves seven other served families byte-identical, and so does accepting one. Acceptance requires the exact commitment and an explicit selected_candidate_id that is never defaulted, reads no confidence value, admits an override only against a permitted-override schema the build resolves, is attributed to the daemon's resolved principal, and happens exactly once. The same idempotency key with identical content replays; with any changed covered field it refuses project_discovery_proposal_immutable and the stored bytes do not move.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/_meta/vocabulary.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/project_discovery_routes.rs",
+      "literal": "const PROPOSAL_MATERIAL_FIELDS: &[&str] = &[",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/project_discovery_routes.rs",
+      "literal": "project_discovery_proposal_boundary_field",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/project_discovery_routes.rs",
+      "literal": "project_discovery_acceptance_candidate_required",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/project_discovery_routes.rs",
+      "literal": "project_discovery_override_schema_unresolvable",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/project_discovery_routes.rs",
+      "literal": "project_discovery_proposal_immutable",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/project_discovery_routes.rs",
+      "literal": "fn proposal_commitment_holds",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "/v1/hypervisor/project-discovery-proposals/:id/acceptances",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-project-discovery-proposal.mjs",
+      "literal": "an unaccepted proposal changes NO other family",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-project-discovery-proposal.mjs",
+      "literal": "DRILL 2: a project created between two snapshots turns the no-effect-anywhere comparison RED",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/package.json",
+      "literal": "mutate:project-discovery-proposal",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Three planted defects run beside the positive journey. DRILL 1 reorders the candidate set and swaps the discovery policy inside the verifier's own re-derived copy and requires its independent JCS oracle to notice both, because an oracle that cannot fail is not one and this verifier transcribes the material list from canon rather than importing the daemon's constant. DRILL 2 creates a real project through the daemon's own route between two estate snapshots and requires the no-effect-anywhere comparison to go red on /v1/hypervisor/projects, because a comparison of two empty sets passes for the wrong reason. DRILL 3 is the positive control for the central negative: the same acceptance must refuse without an explicit candidate and be admitted when only that field is added, so the refusal proves explicitness rather than a broken route. Eight daemon unit tests additionally prove the commitment binds the allocated ref, moves with candidate order, and that a tampered record fails its own re-derivation.",
+  "remaining_nonclaims": [
+    "This plane ADMITS what a detector produced; it does not run the detector. Canon's 'static discovery executes no project code, package install, network call or secret access' is a property of the detector's own sandbox, which this unit neither provides nor claims. The narrower checkable claim is that nothing admitted here executes, installs, grants or starts anything.",
+    "Acceptance freezes a decision; it creates no Project, recipe, resolution, placement or startup plan. What is built from a freeze is M09.2's, and both the proposal and the acceptance carry that as a does_not_assert on the record.",
+    "TYPED ABSENCE: the object is not registered in the architecture contract registry. M09.1 names no registration and the commitment is pinned by an independent re-derivation plus unit tests; closure is a registry entry with a schema file and a portable invariant over the material list, so the commitment is checkable offline with no daemon present.",
+    "A proposal carries one revision segment (/revision/1). Re-discovery under a new idempotency key is a NEW proposal, not revision 2 of this one; a re-run lineage that reuses the ref across revisions is not built and is not claimed.",
+    "The permitted-override vocabulary is one built-in schema with eight keys. It is not an extensible override registry, and a proposal naming any other schema has every override against it refused rather than partially checked."
+  ],
+  "source_provenance": "Landed 2026-09-11 by the MVP finish-line program, leg 2b (first unit of the READY set). Recorded in canon-to-code-delta.md section Journey verification XLIII. Measured: check:project-discovery-proposal 28/28 and mutate:project-discovery-proposal 31/31 against an isolated real daemon (run 1 was 29/31 on the verifier's own defect, a response-generation timestamp compared as state; recorded as it happened and fixed); cargo test --locked -p ioi-node --bin hypervisor-daemon 1156 passed, 0 failed, 8 ignored (104.9 s), up from the 1148 baseline by this unit's eight tests.",
+  "last_status_transaction": "2026-09-11"
+}

@@ -174,6 +174,8 @@ mod policy_bound_data_view_revision_routes;
 mod policy_bound_data_view_routes;
 #[path = "hypervisor_daemon_routes/portal_session_exchange_routes.rs"]
 mod portal_session_exchange_routes;
+#[path = "hypervisor_daemon_routes/project_discovery_routes.rs"]
+mod project_discovery_routes;
 #[path = "hypervisor_daemon_routes/provenance_assertion_routes.rs"]
 mod provenance_assertion_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
@@ -1573,6 +1575,22 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/projects/:id/environment-classes",
             patch(environment_routes::handle_project_environment_classes_patch),
+        )
+        // M09.1 — evidenced project discovery. The proposal stage sits BEFORE the routes above:
+        // discovery reads, proposes and stops, and only an explicit acceptance of one exact
+        // candidate and one admitted override set may create Project or recipe lineage.
+        .route(
+            "/v1/hypervisor/project-discovery-proposals",
+            get(project_discovery_routes::handle_project_discovery_proposal_list)
+                .post(project_discovery_routes::handle_project_discovery_proposal_admit),
+        )
+        .route(
+            "/v1/hypervisor/project-discovery-proposals/:id",
+            get(project_discovery_routes::handle_project_discovery_proposal_get),
+        )
+        .route(
+            "/v1/hypervisor/project-discovery-proposals/:id/acceptances",
+            post(project_discovery_routes::handle_project_discovery_acceptance_admit),
         )
         // WS-A/WS-B: Environment object model + local_workspace_provider_v0 (daemon-owned).
         .route(
