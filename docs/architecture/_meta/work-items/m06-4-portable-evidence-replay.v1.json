@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-4-portable-evidence-replay",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.4"
+  ],
+  "status": "verified",
+  "objective": "Close M06.4's named gap. The managed-backup half of ACC-8 clauses 4 and 5 was already proven by a backup crossing to a FRESH daemon; the portable half was not. What was missing is not a bundle format — that exists and is registered — but the claim that an untampered bundle REPRODUCES the decision it carries, offline, with no daemon at all.",
+  "falsifiable_claim": "A portable evidence bundle, handed to the standalone offline relying party with no daemon, no network and no record store, is accepted and re-derives the same certificate hash twice running. Every member's key order may be reversed and the decision and certificate hash are unchanged, because the same meaning in different bytes is still the same evidence. Reordering the manifest's member ARRAY is refused on the bundle hash, because an array's order is part of its value. Removing any one of the 23 declared members is refused, tested exhaustively rather than sampled. Substituting one member's bytes for another well-formed member's is refused. The member population is pinned in both counts so none of it can run over an empty bundle.",
+  "canon_owners": [
+    "docs/architecture/_meta/schemas/c8-portable-evidence-bundle.v1.schema.json"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-portable-evidence-replay.mjs",
+      "literal": "THE BUNDLE REPRODUCES ITS DECISION OFFLINE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-portable-evidence-replay.mjs",
+      "literal": "SAME MEANING IN DIFFERENT BYTES STILL VERIFIES",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-c8-v3-relying-party.mjs",
+      "literal": "--emit-fixture",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:portable-evidence-replay",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:portable-evidence-replay",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Five drills, each breaking the property its assertion rests on: one declared member removed must flip the verdict, the same bundle untouched must still be accepted (so the refusals are caused by the defect and not the harness), one member's key order reversed must still be accepted, a member edited after sealing must be refused (so the hash binding is live rather than nominal), and a manifest shrunk to three objects must fail the population pin rather than make the exhaustive loop trivial. Two construction defects are recorded in the script beside the code that fixes them. The first omitted the verifier's required clock and expected-revision arguments, so every acceptance failed on a usage error that read exactly like a rejection: the pristine run went red and the MISSING axis went GREEN for it, which is the shape of a battery passing because nothing works rather than because everything does. The second assumed reordering has one answer; measurement showed it has two, with opposite expected outcomes, and asserting either alone would have called a real binding a bug or called canonicalisation a bug.",
+  "remaining_nonclaims": [
+    "THIS IS THE PORTABLE HALF, NOT THE MANAGED-BACKUP HALF. check:backup-restore proves a managed backup crossing to a FRESH daemon with restart and deletion truth; this proves a bundle re-deriving its decision with NO daemon at all. Both are needed for ACC-8 clauses 4 and 5 and neither implies the other.",
+    "THE BUNDLE IS THE RELYING-PARTY GATE'S FIXTURE, not one produced by a particular live governed effect. That is deliberate — it is the bundle whose construction the estate owns and can rebuild deterministically, and composing it rather than copying it keeps one author for what 'a valid bundle' means — but it means this gate speaks for the format and the verifier rather than for whatever a given live run emitted.",
+    "SUBSTITUTION IS TESTED AT ONE PAIR, not across the matrix of members. The binding it exercises is per-member and identical for every pair, so the matrix would multiply runtime without adding a distinct claim. The MISSING axis is the one run exhaustively, because absence is where an optional member could hide."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program. Measured before authoring, which is what separated this unit from M04.10 on the same day: the subject EXISTS here — a registered portable-bundle contract, a standalone offline relying party as its own crate, six structural tests over the format and a battery rejecting forty resealed semantic mutations — while none of them claims an untampered bundle reproduces its decision, and 'refuses what is wrong' plus 'the format is well-formed' does not add up to 'reproduces what is right'. The fixture is COMPOSED from the relying-party gate through a new --emit-fixture flag rather than rebuilt, because assembling a valid bundle is two hundred and fifty lines and a second copy would be a second drifting definition of validity. check:portable-evidence-replay 7/7; mutate: 5/5; the relying-party gate re-run unchanged at 40 rejections.",
+  "last_status_transaction": "2026-09-12"
+}

@@ -248,6 +248,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run mutate:t7-retained-capstone-applicability
 
+      # M06.4. The portable half of ACC-8: a bundle re-deriving its decision with NO daemon at all,
+      # which is a different claim from check:backup-restore's managed backup crossing to a fresh
+      # one. It builds the offline relying party and needs no daemon, browser or provider.
+      - name: Verify a portable evidence bundle reproduces its decision offline (M06.4)
+        if: ${{ !cancelled() }}
+        run: npm run check:portable-evidence-replay
+
+      - name: Verify that replay gate goes red on its own planted defects
+        if: ${{ !cancelled() }}
+        run: npm run mutate:portable-evidence-replay
+
       # M08.6's five canon-document residuals, as standing properties. It reads the daemon's own
       # route registrations, so it sits beside the build that produces them.
       - name: Verify the canon-document residuals stay closed (M08.6)

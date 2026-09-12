@@ -290,6 +290,36 @@ try {
   assemblePortableBundle(spec, positive);
   const registry = sealSelfHash({ schema_version: "ioi.aft.measured-results-registry.v1", registry_ref: "registry://aft/measured-results", revision: 0, previous_state_hash: null, entries: [] });
   const registryPath = write("registry.json", registry);
+
+  // ONE OWNER FOR THIS FIXTURE (2026-09-12, M06.4). Assembling a valid C8 v3 bundle takes the two
+  // hundred and fifty lines above, and M06.4's replay gate needs exactly the same one. Copying it
+  // would put a second, drifting definition of "a valid bundle" in the estate — the defect this
+  // program has now corrected three times in workflows and stylesheets. So this gate EMITS its
+  // fixture on request and stays its only author. The flag assembles and prints; it changes
+  // nothing about the default run, which continues past it.
+  if (process.argv.includes("--emit-fixture")) {
+    const out = path.resolve(process.argv[process.argv.indexOf("--emit-fixture") + 1] || "");
+    if (!out) throw new Error("--emit-fixture requires an output directory");
+    fs.mkdirSync(out, { recursive: true });
+    const emittedBundle = path.join(out, "bundle");
+    assemblePortableBundle(spec, emittedBundle);
+    const emittedRegistry = path.join(out, "registry.json");
+    fs.writeFileSync(emittedRegistry, `${JSON.stringify(registry, null, 2)}\n`, { mode: 0o600 });
+    console.log(JSON.stringify({
+      schema_version: "ioi.check.c8-v3-relying-party.fixture.v1",
+      bundle: emittedBundle,
+      policy: path.join(emittedBundle, "policy.json"),
+      registry: emittedRegistry,
+      verifier,
+      // The clock and the expected revision are part of the fixture, not of the caller: the bundle
+      // is sealed against this instant and the registry is at revision zero. A consumer that
+      // guessed either would be asking a different question and getting a refusal for it.
+      now,
+      expected_revision: 0,
+      member_files: fs.readdirSync(emittedBundle).sort(),
+    }, null, 2));
+    process.exit(0);
+  }
   const accepted = run("accept", "--bundle", positive, "--policy", path.join(positive, "policy.json"), "--registry", registryPath, "--row-output", path.join(temp, "accepted-row.json"), "--receipt", path.join(temp, "accepted-receipt.json"), "--expected-revision", "0", "--now", now);
   if (accepted.status !== 0) throw new Error(`positive acceptance failed: ${accepted.stderr}`);
   const after = JSON.parse(fs.readFileSync(registryPath, "utf8"));
