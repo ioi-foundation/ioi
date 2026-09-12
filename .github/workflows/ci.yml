@@ -853,9 +853,21 @@ jobs:
     name: Product builds and browser smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Product work needs only the daemon artifact. Rust-backed and M04 verifier
+    # Product work needs only the daemon ARTIFACT, and that is now what it waits for rather than
+    # what it depends on (2026-09-12, private register R-43). `needs:` alone means "after AND only
+    # if green", so any red anywhere in build_and_test's forty-odd gates SKIPPED this job and all
+    # 43 of its own — which is how `check:source-neutral` stayed red and invisible from 2026-09-07
+    # to 2026-09-12, and how the twenty-three surface journeys stopped running entirely. That is the
+    # same masking defect as the `run:` blocks, one level up in the job graph: splitting the steps
+    # made each gate report for itself, and a job gated behind another still lost every one of them.
+    #
+    # `if: !cancelled()` keeps the ordering and drops the conditioning. The artifact download is the
+    # real dependency and it fails honestly when the artifact is absent — the upload that produces
+    # it is itself gated on the daemon build succeeding, so "the daemon did not build" arrives here
+    # as a missing artifact rather than as a silently skipped job. Rust-backed and M04 verifier
     # families run beside it; a small final job merges all census artifacts.
     needs: build_and_test
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
 
@@ -1387,6 +1399,12 @@ jobs:
         m4_plane_verifiers,
         m061_verified_work_graph,
       ]
+    # RUNS EVEN WHEN A PRODUCING JOB IS RED (2026-09-12), for the reason the floor exists: this job's
+    # whole claim is that omission and shrinkage FAIL CLOSED here. Skipping it because an upstream
+    # job failed reports "skipped", which reads as fine; running it reports `census_missing` for the
+    # verifiers that did not get to speak, which is what actually happened. The floor is allowed to
+    # say it could not be established — it is not allowed to stay silent about it.
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
 
