@@ -45,8 +45,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use ioi_services::agentic::runtime::kernel::runtime_work_lifecycle_log::{
-    AppendOutcome, CancellationIntent, LegalEdgeGate, ResumedProjection, WorkLifecycleLogCore,
-    WorkLifecycleLogError,
+    AppendOutcome, CancellationIntent, LegalEdgeGate, ReservationBound, ResumedProjection,
+    WorkLifecycleLogCore, WorkLifecycleLogError,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -1065,6 +1065,36 @@ pub(crate) async fn handle_work_lifecycle_records(
         "record_count": records.len() as u64,
         "records": records,
     })))
+}
+
+/// The reservation transaction's legal edge (M04.10, ACC-5 clause 8).
+///
+/// THE DECISION IS THE KERNEL'S AND THE TABLE IS THIS MODULE'S, which is the split this whole
+/// owner is built on: the shared kernel owns integrity and arithmetic and never acquires a domain
+/// object's write authority, so the ceilings come from here and the sums happen there. The gate is
+/// the single bounding point `append_gated` already provides, so a reservation is admitted by the
+/// same path as every other record rather than by a second one written beside it.
+///
+/// THE HEAD COMES FROM `prior`, NOT FROM THE CALLER. `plan_reservation` refuses a claim whose
+/// `expected_ancestor_head` does not match, and taking that head from the kernel's own view of the
+/// chain is what makes the check meaningful — a caller-supplied head would be the caller agreeing
+/// with itself. A sibling admitted in between moves `prior`, and this claim is then refused with
+/// its capacity picture named as stale rather than applied to a bound already spent.
+struct ReservationEdgeGate<'a> {
+    core: &'a WorkLifecycleLogCore,
+    bounds: Vec<ReservationBound>,
+    siblings: &'a [Value],
+}
+
+impl LegalEdgeGate for ReservationEdgeGate<'_> {
+    fn authorize(&self, prior: Option<&Value>, candidate: &Value) -> Result<(), String> {
+        let head = prior
+            .and_then(|record| record.get("resulting_head"))
+            .and_then(Value::as_str);
+        self.core
+            .plan_reservation(candidate, head, &self.bounds, self.siblings)
+            .map_err(|error| format!("{}: {}", error.code(), error.message()))
+    }
 }
 
 /// `POST /v1/hypervisor/work-lifecycle/cancellation-plan`
