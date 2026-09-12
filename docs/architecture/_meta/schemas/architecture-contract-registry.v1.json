@@ -15256,6 +15256,63 @@
           "expected_failure": "invariant"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+      "canonical_name": "WorkDimensionReservation",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-and-labor.md#work-reservation",
+      "schema_version": "ioi.foundations.work-dimension-reservation.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "work-dimension-reservation.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/work-dimension-reservation/atomic-transfer/v1",
+          "path": "invariants/work-dimension-reservation.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkDimensionReservationV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkDimensionReservationV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-dimension-reservation-v1/positive-complete.json",
+        "fixtures/work-dimension-reservation-v1/positive-transferred.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/work-dimension-reservation-v1/negative-zero-units.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

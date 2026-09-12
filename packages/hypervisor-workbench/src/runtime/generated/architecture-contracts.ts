@@ -11880,6 +11880,25 @@ export type ModelRouteCostComparisonV1 = {
   computed_at_ms: number;
 };
 
+export type WorkDimensionReservationV1 = {
+  schema_version: "ioi.foundations.work-dimension-reservation.v1";
+  reservation_ref: string;
+  work_ref: string;
+  holder_ref: string;
+  dimension: "compute_seconds" | "memory_gibibyte_seconds" | "storage_gibibytes" | "egress_gibibytes" | "concurrent_invocations" | "wall_clock_seconds";
+  reserved_units: number;
+  ancestor_chain: Array<string>;
+  expected_ancestor_head: string;
+  protected_capacity: {
+      recovery_units: number;
+      integration_units: number;
+    };
+  status: "active" | "transferred" | "released" | "expired";
+  transferred_to_ref: string | null;
+  created_at_ms: number;
+  expires_at_ms: number;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -22297,6 +22316,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-transferred.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -26251,6 +26310,11 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-claims-authority.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-claims-authority.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-synthesized-success-rate.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-synthesized-success-rate.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-complete.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-transferred.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-transferred.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27585,7 +27649,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/domains/aiagent/vertical-ontology-pack/v1": "sha256:2590a073ea9384efcba39b69e6a39a6f112d5b0996b3c509221fca18575ecee7",
   "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1": "sha256:969ea0579666b16df0a2f3c8f7b96153e896a1d0a927cd336a13b7023a0a60b8",
   "schema://ioi/components/model-router/model-route-price-schedule/v1": "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146",
-  "schema://ioi/components/model-router/model-route-cost-comparison/v1": "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0"
+  "schema://ioi/components/model-router/model-route-cost-comparison/v1": "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0",
+  "schema://ioi/foundations/work-dimension-reservation/v1": "sha256:fe04b155dd19bbf11cf6d2290aa6f751dd9b1e7e681858d35836ce623d8c24f2"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -119784,6 +119849,141 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/foundations/work-dimension-reservation/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "title": "WorkDimensionReservation",
+    "description": "ONE CLAIM ON ONE RESOURCE DIMENSION, HELD AGAINST AN ANCESTOR THAT CANNOT BE OVERSUBSCRIBED. ACC-5 clause 8 requires reservations that are exact-head, per-dimension and disjoint, that preserve protected recovery and integration capacity, that narrow every ancestor bound, and that transfer atomically on reassignment — with crash, sibling races and replacement unable to duplicate or leak one. Three of those are properties of a SET and belong to the admission transaction: disjointness, the protected-capacity floor, and narrowing are all statements about this reservation together with its siblings, and no single record can assert them. What this contract does is make the admission transaction POSSIBLE and make a malformed claim impossible: a reservation names exactly one dimension from a closed vocabulary, carries a POSITIVE unit count (a zero-unit reservation reserves nothing and would sit in the ledger looking like a claim), pins the exact ancestor head it was computed against so a sibling that moved the head invalidates it rather than silently oversubscribing, and lists the full ancestor chain it narrows so the transaction knows every bound to check rather than only the nearest. TRANSFER IS ATOMIC BY SHAPE: a registered invariant requires a transferred reservation to name its successor, so a reassignment cannot leave a claim in a state where the units belong to nobody — which is the leak clause 8 names. The units are integers, like every other quantity the estate counts.",
+    "x-ioi-schema-version": "ioi.foundations.work-dimension-reservation.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "reservation_ref",
+      "work_ref",
+      "holder_ref",
+      "dimension",
+      "reserved_units",
+      "ancestor_chain",
+      "expected_ancestor_head",
+      "protected_capacity",
+      "status",
+      "transferred_to_ref",
+      "created_at_ms",
+      "expires_at_ms"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.work-dimension-reservation.v1"
+      },
+      "reservation_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "work_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "holder_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The legal owner binding. A reservation reference never copies the holder's own truth; it names it."
+      },
+      "dimension": {
+        "type": "string",
+        "description": "Exactly one resource dimension. Per-dimension means a claim on compute does not narrow a bound on storage, so the vocabulary is closed and a reservation may not straddle two.",
+        "enum": [
+          "compute_seconds",
+          "memory_gibibyte_seconds",
+          "storage_gibibytes",
+          "egress_gibibytes",
+          "concurrent_invocations",
+          "wall_clock_seconds"
+        ]
+      },
+      "reserved_units": {
+        "$ref": "#/$defs/positive_safe_integer",
+        "description": "A zero-unit reservation reserves nothing while occupying a slot that reads as a claim, so the floor is one."
+      },
+      "ancestor_chain": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "Every ancestor whose bound this claim narrows, nearest first. The WHOLE chain rather than the parent alone: narrowing only the nearest bound lets a grandchild oversubscribe a grandparent through a parent with room. Unique, because an ancestor named twice would be checked twice and appear to have more headroom than it has.",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "expected_ancestor_head": {
+        "$ref": "#/$defs/hash",
+        "description": "The exact head the available capacity was computed against. A sibling admitted in between moves the head, and this reservation is then refused rather than applied to a bound that has already been spent."
+      },
+      "protected_capacity": {
+        "$ref": "#/$defs/protected_capacity"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "active",
+          "transferred",
+          "released",
+          "expired"
+        ]
+      },
+      "transferred_to_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The successor claim a reassignment moved these units to. Required by invariant whenever the status is `transferred`, so units can never belong to nobody."
+      },
+      "created_at_ms": {
+        "$ref": "#/$defs/safe_integer"
+      },
+      "expires_at_ms": {
+        "$ref": "#/$defs/positive_safe_integer"
+      }
+    },
+    "$defs": {
+      "safe_integer": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positive_safe_integer": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "protected_capacity": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Capacity the admission transaction must leave untouched. Recovery and integration are named separately because they are spent by different actors at different times, and a single pooled figure would let a recovery exhaust the room an integration needs.",
+        "required": [
+          "recovery_units",
+          "integration_units"
+        ],
+        "properties": {
+          "recovery_units": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "integration_units": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -136165,6 +136365,39 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/foundations/work-dimension-reservation/v1": [
+    {
+      "rule_id": "work_dimension_reservation.transfer_names_its_successor",
+      "description": "A TRANSFERRED reservation names the claim its units moved to. Reassignment must be atomic, and the way a transfer leaks is precisely this: the source is marked transferred, the successor is never recorded, and the units belong to nobody while still counting against the ancestor. A record in that state cannot be admitted.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.status",
+        "values": [
+          "transferred"
+        ],
+        "path": "$.transferred_to_ref"
+      }
+    },
+    {
+      "rule_id": "work_dimension_reservation.window",
+      "description": "A reservation has a finite non-empty lifetime. An unbounded claim never returns its units to the ancestor, which is oversubscription arriving slowly rather than at once.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.created_at_ms",
+          "$.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "work_dimension_reservation.narrows_an_ancestor",
+      "description": "A reservation narrows at least one ancestor bound. A claim that narrows nothing is not bounded by anything, and clause 8's whole subject is that concurrent child work cannot oversubscribe an ancestor.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.ancestor_chain"
+      }
+    }
   ]
 };
 
@@ -138626,4 +138859,10 @@ export function validateModelRouteCostComparisonV1(
   value: unknown,
 ): value is ModelRouteCostComparisonV1 {
   return validateArchitectureContract("schema://ioi/components/model-router/model-route-cost-comparison/v1", value).ok;
+}
+
+export function validateWorkDimensionReservationV1(
+  value: unknown,
+): value is WorkDimensionReservationV1 {
+  return validateArchitectureContract("schema://ioi/foundations/work-dimension-reservation/v1", value).ok;
 }

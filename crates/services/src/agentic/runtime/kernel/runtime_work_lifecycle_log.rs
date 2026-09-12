@@ -156,10 +156,185 @@ pub struct ResumedProjection {
     pub idempotency_record_hashes: BTreeMap<String, String>,
 }
 
+/// One ancestor's admitted ceiling on one dimension, as the reservation
+/// transaction sees it.
+///
+/// The bound is supplied BY THE CALLER rather than derived here, because the
+/// ceiling is the ancestor owner's truth and this kernel never acquires a domain
+/// object's write authority. What the kernel owns is the arithmetic that decides
+/// whether a claim fits inside the ceilings it was handed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReservationBound {
+    pub ancestor_ref: String,
+    pub bound_units: u64,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct WorkLifecycleLogCore;
 
 impl WorkLifecycleLogCore {
+    /// Decide whether one candidate reservation may be admitted.
+    ///
+    /// ACC-5 clause 8 in one transaction: a reservation is EXACT-HEAD,
+    /// PER-DIMENSION and DISJOINT, PRESERVES protected recovery/integration
+    /// capacity, and NARROWS EVERY ancestor bound. Those are properties of a
+    /// candidate together with its siblings, so no record can carry them and no
+    /// schema can assert them; they are decided here, once, over the set.
+    ///
+    /// EVERY REFUSAL IS FAIL-CLOSED AND TYPED, and the order matters. The head is
+    /// checked first because a stale read makes every later sum an answer about a
+    /// capacity picture that has already moved — admitting on it is precisely the
+    /// sibling race clause 8 names. An ancestor named in the chain but MISSING
+    /// from the bounds refuses rather than being skipped: an unchecked ancestor is
+    /// an unbounded one, and skipping it silently is how a grandchild
+    /// oversubscribes a grandparent through a parent that had room.
+    ///
+    /// Disjointness is not a separate test. It is what the per-ancestor sum MEANS:
+    /// siblings' held units plus this claim plus the protected floor must fit
+    /// under the ceiling, so two claims cannot both be admitted for the same
+    /// units. Arithmetic is checked — an overflowing sum refuses rather than
+    /// wrapping into apparent headroom.
+    pub fn plan_reservation(
+        &self,
+        candidate: &Value,
+        stream_head: Option<&str>,
+        bounds: &[ReservationBound],
+        siblings: &[Value],
+    ) -> LogResult<()> {
+        let expected = candidate
+            .get("expected_ancestor_head")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if expected.is_empty() {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_expected_head_required",
+                "a reservation names the exact head its available capacity was computed against",
+            ));
+        }
+        if stream_head.unwrap_or_default() != expected {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_head_moved",
+                format!(
+                    "the reservation stream is at {} and this claim was computed against {expected}; a sibling was admitted in between, so its capacity picture is stale",
+                    stream_head.unwrap_or("<genesis>"),
+                ),
+            ));
+        }
+
+        let dimension = candidate
+            .get("dimension")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if dimension.is_empty() {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_dimension_required",
+                "a reservation claims exactly one named resource dimension",
+            ));
+        }
+        let Some(units) = candidate.get("reserved_units").and_then(Value::as_u64) else {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_units_invalid",
+                "reserved_units must be a positive integer",
+            ));
+        };
+        if units == 0 {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_units_invalid",
+                "a zero-unit reservation reserves nothing while occupying a slot that reads as a claim",
+            ));
+        }
+        let protected = candidate
+            .get("protected_capacity")
+            .map(|block| {
+                block
+                    .get("recovery_units")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default()
+                    .saturating_add(
+                        block
+                            .get("integration_units")
+                            .and_then(Value::as_u64)
+                            .unwrap_or_default(),
+                    )
+            })
+            .unwrap_or_default();
+
+        let chain: Vec<&str> = candidate
+            .get("ancestor_chain")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        if chain.is_empty() {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_narrows_nothing",
+                "a reservation narrows at least one ancestor bound",
+            ));
+        }
+
+        for ancestor in &chain {
+            let Some(bound) = bounds.iter().find(|b| b.ancestor_ref == *ancestor) else {
+                return Err(WorkLifecycleLogError::new(
+                    "work_reservation_ancestor_bound_unavailable",
+                    format!(
+                        "no admitted bound was supplied for ancestor {ancestor}; an ancestor this transaction cannot check is an unbounded one, and skipping it is how a descendant oversubscribes it"
+                    ),
+                ));
+            };
+            // Only ACTIVE siblings hold units. A released, expired or transferred
+            // claim has returned them — and a transferred one is counted at its
+            // successor instead, which is why the transfer is required to name one.
+            let mut held: u64 = 0;
+            for sibling in siblings {
+                if sibling.get("status").and_then(Value::as_str) != Some("active") {
+                    continue;
+                }
+                if sibling.get("dimension").and_then(Value::as_str) != Some(dimension) {
+                    continue;
+                }
+                let narrows = sibling
+                    .get("ancestor_chain")
+                    .and_then(Value::as_array)
+                    .map(|items| items.iter().any(|item| item.as_str() == Some(*ancestor)))
+                    .unwrap_or(false);
+                if !narrows {
+                    continue;
+                }
+                let Some(sibling_units) = sibling.get("reserved_units").and_then(Value::as_u64)
+                else {
+                    return Err(WorkLifecycleLogError::new(
+                        "work_reservation_sibling_unreadable",
+                        "an admitted sibling reservation carries no readable unit count; refusing rather than treating it as zero",
+                    ));
+                };
+                held = held.checked_add(sibling_units).ok_or_else(|| {
+                    WorkLifecycleLogError::new(
+                        "work_reservation_arithmetic_overflow",
+                        "the held-unit sum exceeds the safe integer domain",
+                    )
+                })?;
+            }
+            let demand = held
+                .checked_add(units)
+                .and_then(|total| total.checked_add(protected))
+                .ok_or_else(|| {
+                    WorkLifecycleLogError::new(
+                        "work_reservation_arithmetic_overflow",
+                        "held + claimed + protected exceeds the safe integer domain",
+                    )
+                })?;
+            if demand > bound.bound_units {
+                return Err(WorkLifecycleLogError::new(
+                    "work_reservation_would_oversubscribe",
+                    format!(
+                        "ancestor {ancestor} bounds {dimension} at {} and this claim would commit {demand} ({held} held + {units} claimed + {protected} protected)",
+                        bound.bound_units
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Content commitment over every field except the two excluded ones.
     pub fn commitment(&self, record: &Value) -> LogResult<String> {
         let object = record.as_object().ok_or_else(|| {
@@ -2074,5 +2249,232 @@ mod tests {
         assert!(actions.contains(&"preserve_receipt_lineage"));
         assert!(!plan.to_string().contains("succeeded"));
         assert!(!plan.to_string().contains("completed"));
+    }
+
+    // ------------------------------------------------ the reservation transaction (M04.10)
+    //
+    // ACC-5 clause 8's properties are properties of a SET, so they are tested over sets. The
+    // positive case comes first: a battery that only proves refusals can pass because nothing
+    // works at all, which this estate has already paid for once.
+
+    const HEAD: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+
+    fn claim(units: u64, chain: &[&str], protected: (u64, u64)) -> Value {
+        json!({
+            "dimension": "compute_seconds",
+            "reserved_units": units,
+            "ancestor_chain": chain,
+            "expected_ancestor_head": HEAD,
+            "protected_capacity": {
+                "recovery_units": protected.0,
+                "integration_units": protected.1
+            },
+            "status": "active",
+        })
+    }
+
+    fn held(units: u64, chain: &[&str], status: &str) -> Value {
+        json!({
+            "dimension": "compute_seconds",
+            "reserved_units": units,
+            "ancestor_chain": chain,
+            "status": status,
+        })
+    }
+
+    fn bounds(pairs: &[(&str, u64)]) -> Vec<ReservationBound> {
+        pairs
+            .iter()
+            .map(|(ancestor_ref, bound_units)| ReservationBound {
+                ancestor_ref: (*ancestor_ref).to_string(),
+                bound_units: *bound_units,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_claim_that_fits_every_ancestor_is_admitted() {
+        let core = WorkLifecycleLogCore;
+        let result = core.plan_reservation(
+            &claim(100, &["work://parent", "work://root"], (0, 0)),
+            Some(HEAD),
+            &bounds(&[("work://parent", 500), ("work://root", 1000)]),
+            &[held(50, &["work://parent", "work://root"], "active")],
+        );
+        assert!(
+            result.is_ok(),
+            "{:?}",
+            result.err().map(|e| e.message().to_string())
+        );
+    }
+
+    /// THE SIBLING RACE. A claim computed against a head another sibling has since moved is
+    /// refused, because every capacity sum behind it describes a picture that no longer exists.
+    #[test]
+    fn a_claim_computed_against_a_moved_head_is_refused_before_any_arithmetic() {
+        let core = WorkLifecycleLogCore;
+        let error = core
+            .plan_reservation(
+                &claim(1, &["work://root"], (0, 0)),
+                Some("sha256:2222222222222222222222222222222222222222222222222222222222222222"),
+                // Deliberately enormous headroom: if the head were checked after the sums, this
+                // would be admitted, so the assertion is about ORDER and not about capacity.
+                &bounds(&[("work://root", u64::MAX)]),
+                &[],
+            )
+            .expect_err("a stale head refuses");
+        assert_eq!(error.code(), "work_reservation_head_moved");
+    }
+
+    /// THE GRANDPARENT. A claim can fit its parent and still oversubscribe a grandparent, which
+    /// is why the whole chain is narrowed rather than the nearest bound alone.
+    #[test]
+    fn a_claim_that_fits_its_parent_but_not_its_grandparent_is_refused_and_names_the_grandparent() {
+        let core = WorkLifecycleLogCore;
+        let error = core
+            .plan_reservation(
+                &claim(100, &["work://parent", "work://root"], (0, 0)),
+                Some(HEAD),
+                &bounds(&[("work://parent", 500), ("work://root", 120)]),
+                &[held(50, &["work://parent", "work://root"], "active")],
+            )
+            .expect_err("the grandparent bound is exceeded");
+        assert_eq!(error.code(), "work_reservation_would_oversubscribe");
+        assert!(
+            error.message().contains("work://root"),
+            "{}",
+            error.message()
+        );
+    }
+
+    /// FAIL CLOSED. An ancestor this transaction cannot check is an unbounded one; skipping it
+    /// silently is exactly how a descendant oversubscribes it.
+    #[test]
+    fn an_ancestor_with_no_supplied_bound_refuses_rather_than_being_skipped() {
+        let core = WorkLifecycleLogCore;
+        let error = core
+            .plan_reservation(
+                &claim(1, &["work://parent", "work://root"], (0, 0)),
+                Some(HEAD),
+                &bounds(&[("work://parent", 500)]),
+                &[],
+            )
+            .expect_err("an unchecked ancestor refuses");
+        assert_eq!(error.code(), "work_reservation_ancestor_bound_unavailable");
+        assert!(error.message().contains("work://root"));
+    }
+
+    /// The protected floor is capacity the claim may not eat. The same claim is admitted without
+    /// it and refused with it, so the assertion is about the floor rather than about the ceiling.
+    #[test]
+    fn protected_recovery_and_integration_capacity_is_preserved() {
+        let core = WorkLifecycleLogCore;
+        let fits = core.plan_reservation(
+            &claim(100, &["work://root"], (0, 0)),
+            Some(HEAD),
+            &bounds(&[("work://root", 100)]),
+            &[],
+        );
+        assert!(fits.is_ok(), "the claim alone fits exactly");
+
+        let error = core
+            .plan_reservation(
+                &claim(100, &["work://root"], (30, 20)),
+                Some(HEAD),
+                &bounds(&[("work://root", 100)]),
+                &[],
+            )
+            .expect_err("the protected floor no longer fits");
+        assert_eq!(error.code(), "work_reservation_would_oversubscribe");
+    }
+
+    /// Only ACTIVE siblings hold units. A transferred claim is counted at its successor — which is
+    /// why the contract requires a transfer to name one — and released or expired claims have
+    /// returned theirs. Counting them twice would starve an ancestor that actually has room.
+    #[test]
+    fn released_expired_and_transferred_siblings_hold_no_units() {
+        let core = WorkLifecycleLogCore;
+        let result = core.plan_reservation(
+            &claim(100, &["work://root"], (0, 0)),
+            Some(HEAD),
+            &bounds(&[("work://root", 100)]),
+            &[
+                held(500, &["work://root"], "released"),
+                held(500, &["work://root"], "expired"),
+                held(500, &["work://root"], "transferred"),
+            ],
+        );
+        assert!(result.is_ok(), "only active claims hold units");
+    }
+
+    /// A sibling on a DIFFERENT dimension does not narrow this one: per-dimension means a claim on
+    /// compute is not bounded by a claim on storage.
+    #[test]
+    fn a_sibling_on_another_dimension_does_not_narrow_this_one() {
+        let core = WorkLifecycleLogCore;
+        let mut other = held(500, &["work://root"], "active");
+        other["dimension"] = json!("storage_gibibytes");
+        let result = core.plan_reservation(
+            &claim(100, &["work://root"], (0, 0)),
+            Some(HEAD),
+            &bounds(&[("work://root", 100)]),
+            &[other],
+        );
+        assert!(result.is_ok(), "dimensions are independent");
+    }
+
+    /// Arithmetic REFUSES rather than wrapping into apparent headroom.
+    #[test]
+    fn an_overflowing_sum_refuses_rather_than_wrapping() {
+        let core = WorkLifecycleLogCore;
+        let error = core
+            .plan_reservation(
+                &claim(u64::MAX, &["work://root"], (0, 0)),
+                Some(HEAD),
+                &bounds(&[("work://root", u64::MAX)]),
+                &[held(u64::MAX, &["work://root"], "active")],
+            )
+            .expect_err("an overflowing sum refuses");
+        assert_eq!(error.code(), "work_reservation_arithmetic_overflow");
+    }
+
+    /// A sibling whose units cannot be read is refused rather than treated as zero — reading an
+    /// absence as nought is how an ancestor appears to have room it does not have.
+    #[test]
+    fn an_unreadable_sibling_refuses_rather_than_counting_as_zero() {
+        let core = WorkLifecycleLogCore;
+        let mut broken = held(1, &["work://root"], "active");
+        broken["reserved_units"] = Value::Null;
+        let error = core
+            .plan_reservation(
+                &claim(1, &["work://root"], (0, 0)),
+                Some(HEAD),
+                &bounds(&[("work://root", 1000)]),
+                &[broken],
+            )
+            .expect_err("an unreadable sibling refuses");
+        assert_eq!(error.code(), "work_reservation_sibling_unreadable");
+    }
+
+    #[test]
+    fn a_zero_unit_claim_and_a_claim_narrowing_nothing_both_refuse() {
+        let core = WorkLifecycleLogCore;
+        assert_eq!(
+            core.plan_reservation(
+                &claim(0, &["work://root"], (0, 0)),
+                Some(HEAD),
+                &bounds(&[("work://root", 10)]),
+                &[]
+            )
+            .expect_err("zero units")
+            .code(),
+            "work_reservation_units_invalid"
+        );
+        assert_eq!(
+            core.plan_reservation(&claim(1, &[], (0, 0)), Some(HEAD), &bounds(&[]), &[])
+                .expect_err("narrows nothing")
+                .code(),
+            "work_reservation_narrows_nothing"
+        );
     }
 }

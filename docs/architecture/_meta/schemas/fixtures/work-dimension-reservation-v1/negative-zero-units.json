@@ -1,0 +1,15 @@
+{
+  "schema_version": "ioi.foundations.work-dimension-reservation.v1",
+  "reservation_ref": "work-reservation://acme/w1/compute/zero",
+  "work_ref": "work-run://acme/w1/child-3",
+  "holder_ref": "session://acme/operator-7",
+  "dimension": "compute_seconds",
+  "reserved_units": 0,
+  "ancestor_chain": ["work-run://acme/w1"],
+  "expected_ancestor_head": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "protected_capacity": { "recovery_units": 0, "integration_units": 0 },
+  "status": "active",
+  "transferred_to_ref": null,
+  "created_at_ms": 1757635200000,
+  "expires_at_ms": 1757638800000
+}

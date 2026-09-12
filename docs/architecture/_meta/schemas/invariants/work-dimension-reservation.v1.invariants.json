@@ -1,0 +1,33 @@
+{
+  "$id": "invariant://ioi/foundations/work-dimension-reservation/atomic-transfer/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+  "rules": [
+    {
+      "rule_id": "work_dimension_reservation.transfer_names_its_successor",
+      "description": "A TRANSFERRED reservation names the claim its units moved to. Reassignment must be atomic, and the way a transfer leaks is precisely this: the source is marked transferred, the successor is never recorded, and the units belong to nobody while still counting against the ancestor. A record in that state cannot be admitted.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.status",
+        "values": ["transferred"],
+        "path": "$.transferred_to_ref"
+      }
+    },
+    {
+      "rule_id": "work_dimension_reservation.window",
+      "description": "A reservation has a finite non-empty lifetime. An unbounded claim never returns its units to the ancestor, which is oversubscription arriving slowly rather than at once.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.created_at_ms", "$.expires_at_ms"]
+      }
+    },
+    {
+      "rule_id": "work_dimension_reservation.narrows_an_ancestor",
+      "description": "A reservation narrows at least one ancestor bound. A claim that narrows nothing is not bounded by anything, and clause 8's whole subject is that concurrent child work cannot oversubscribe an ancestor.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.ancestor_chain"
+      }
+    }
+  ]
+}
