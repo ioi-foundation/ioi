@@ -550,7 +550,16 @@ const PINNED = {
   // battery earlier in this program.
   modules: 116,
   familyMentions: 285,
-  tokenMentions: 148021,
+  //
+  // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
+  // is the `goal_run_collective_topology_unresolved` refusal in goalrun_routes.rs, which now
+  // carries the selection's own `excluded_implementers` and the refs it DID select instead of a
+  // bare count. Three new literal keys plus the reused one is the whole delta. NO module joined
+  // and no writer moved; every other pin in this census held on the same run, which is the
+  // evidence for that rather than an assertion of it. Moved in the SAME COMMIT as the daemon
+  // change, which is the discipline this pin exists to enforce and which M08.8 skipped two
+  // commits before it.
+  tokenMentions: 148025,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
   productionFsCalls: 234,

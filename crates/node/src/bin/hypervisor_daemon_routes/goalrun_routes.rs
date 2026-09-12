@@ -4868,11 +4868,30 @@ pub(crate) async fn handle_goal_runs_create(
             return response;
         }
         if !collective_topology {
+            // THE REFUSAL CARRIES WHY, NOT JUST HOW MANY (2026-09-12). This reported only the
+            // count, and a count cannot distinguish the two things it can mean: the estate
+            // provisioned one implementer harness, or it provisioned both and the topology
+            // selection DROPPED one as ineligible. Those have different owners and different
+            // fixes, and the selection already knows — it returns `excluded_implementers` with a
+            // profile ref, a harness and a reason code per candidate it declined, and that was
+            // being discarded here. A caller then saw "requires at least two" and had no way
+            // forward but to guess. Carried through verbatim, alongside the refs that WERE
+            // selected so the two sets can be read against each other.
             return bad_with_details(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "goal_run_collective_topology_unresolved",
                 "The hosted collective path requires at least two daemon-admitted implementer contexts.",
-                json!({ "implementer_count": implementer_count }),
+                json!({
+                    "implementer_count": implementer_count,
+                    "implementer_refs": preflight_topology
+                        .get("implementer_refs")
+                        .cloned()
+                        .unwrap_or_else(|| json!([])),
+                    "excluded_implementers": preflight_topology
+                        .get("excluded_implementers")
+                        .cloned()
+                        .unwrap_or_else(|| json!([])),
+                }),
             );
         }
         let decided_at = iso_now();
