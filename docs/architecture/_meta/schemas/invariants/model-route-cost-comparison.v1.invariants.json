@@ -1,0 +1,43 @@
+{
+  "$id": "invariant://ioi/components/model-router/model-route-cost-comparison/one-route-one-verdict/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+  "rules": [
+    {
+      "rule_id": "model_route_cost_comparison.ranked.unique_route",
+      "description": "A route appears at most once in the ranking. The same route listed twice would be counted twice by any consumer that aggregates the list, and a duplicate carrying two different costs would let a reader pick the flattering one.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ranked_candidates",
+        "fields": ["route_ref"]
+      }
+    },
+    {
+      "rule_id": "model_route_cost_comparison.ranked.unique_rank",
+      "description": "Two routes cannot hold the same rank. A ranking with a tie recorded as one position is not an ordering, and the consumer that reads position 1 would get an arbitrary winner.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ranked_candidates",
+        "fields": ["rank"]
+      }
+    },
+    {
+      "rule_id": "model_route_cost_comparison.unranked.unique_route",
+      "description": "A route appears at most once among the typed gaps, so one missing-evidence route cannot be reported as several.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.unranked_candidates",
+        "fields": ["route_ref"]
+      }
+    },
+    {
+      "rule_id": "model_route_cost_comparison.excluded.unique_route",
+      "description": "A route appears at most once among the exclusions, so one ineligible route cannot be reported as several refusals.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.excluded_candidates",
+        "fields": ["route_ref"]
+      }
+    }
+  ]
+}

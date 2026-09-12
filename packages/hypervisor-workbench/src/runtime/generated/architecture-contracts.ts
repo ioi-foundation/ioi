@@ -11839,6 +11839,47 @@ export type ModelRoutePriceScheduleV1 = {
   expires_at_ms: number;
 };
 
+export type ModelRouteCostComparisonV1 = {
+  schema_version: "ioi.components.model-router.model-route-cost-comparison.v1";
+  comparison_ref: string;
+  workload_ref: string;
+  currency_code: string;
+  ranked_candidates: Array<{
+        route_ref: string;
+        rank: number;
+        cost_per_successful_unit: {
+                currency_code: string;
+                minor_units: number;
+              };
+        successful_unit_count: number;
+        attempted_unit_count: number;
+        explanatory_effective_cost_per_token_minor?: number | null;
+        break_even_range: {
+                low_meter_units: number;
+                high_meter_units: number;
+              };
+        evidence: {
+                price_schedule_ref: string;
+                price_schedule_body_hash: string;
+                evidence_age_ms: number;
+                confidence: "observed" | "published" | "estimated";
+                attempt_receipt_refs: Array<string>;
+              };
+        reason_codes: Array<string>;
+      }>;
+  unranked_candidates: Array<{
+        route_ref: string;
+        gap_reason_code: "no_outcome_evidence" | "no_price_schedule" | "price_schedule_expired" | "attempt_evidence_gap" | "no_successful_unit_observed";
+        evidence_age_ms?: number | null;
+      }>;
+  excluded_candidates: Array<{
+        route_ref: string;
+        exclusion_reason_code: "route_rights_prohibited_use" | "route_rights_unresolved" | "quality_floor" | "privacy_posture" | "residency" | "latency_ceiling" | "availability";
+      }>;
+  advisory_only: true;
+  computed_at_ms: number;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -22224,6 +22265,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-claims-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-synthesized-success-rate.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -26174,6 +26247,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-born-stale.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-born-stale.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-claims-authority.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-claims-authority.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-floating-price.json","contract_id":"schema://ioi/components/model-router/model-route-price-schedule/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-price-schedule-v1/negative-floating-price.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/positive-complete.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-claims-authority.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-claims-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-synthesized-success-rate.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-synthesized-success-rate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27507,7 +27584,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": "sha256:175805eb63f09cbde5e976c4c35e4f44430ba8e7dae9ecc146b38522c6dafa64",
   "schema://ioi/domains/aiagent/vertical-ontology-pack/v1": "sha256:2590a073ea9384efcba39b69e6a39a6f112d5b0996b3c509221fca18575ecee7",
   "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1": "sha256:969ea0579666b16df0a2f3c8f7b96153e896a1d0a927cd336a13b7023a0a60b8",
-  "schema://ioi/components/model-router/model-route-price-schedule/v1": "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146"
+  "schema://ioi/components/model-router/model-route-price-schedule/v1": "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146",
+  "schema://ioi/components/model-router/model-route-cost-comparison/v1": "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -119435,6 +119513,277 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/model-router/model-route-cost-comparison/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+    "title": "ModelRouteCostComparison",
+    "description": "AN ADVISORY RANKING OVER ROUTES THAT ALREADY QUALIFY. Canon puts eligibility first and price second — quality, privacy, residency, latency and availability are ADMISSION FILTERS, not context displayed beside a price — so this record keeps three populations apart in the bytes rather than in a renderer's discretion. `ranked_candidates` holds routes that were eligible AND had the outcome evidence the decision metric needs. `excluded_candidates` holds routes that never reached ranking because they failed admission, each with a typed reason; a cheaper ineligible route is a rights violation with a price attached, and it is recorded as excluded rather than shown as a bargain. `unranked_candidates` holds routes that ARE eligible but lack outcome evidence, each with a typed gap code — because canon is explicit that a success rate is never synthesized to complete a ranking, and the shape that enforces it is a third bucket rather than an optional field a ranker can leave null and then treat as zero. THE DECISION METRIC IS COST PER SUCCESSFUL WORKLOAD UNIT, carried as integer minor units. Effective cost per token is present only as `explanatory_effective_cost_per_token_minor` and is named so it cannot be mistaken for a winner metric: tokenizers differ across models, so it is not cross-route comparable. A recommendation states a break-even RANGE rather than a point, carries its evidence age and confidence, and cites the exact price-schedule bytes it priced from. `advisory_only` is a const true: price evidence never independently authorizes placement or migration.",
+    "x-ioi-schema-version": "ioi.components.model-router.model-route-cost-comparison.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "comparison_ref",
+      "workload_ref",
+      "currency_code",
+      "ranked_candidates",
+      "unranked_candidates",
+      "excluded_candidates",
+      "advisory_only",
+      "computed_at_ms"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.components.model-router.model-route-cost-comparison.v1"
+      },
+      "comparison_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "currency_code": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+      },
+      "ranked_candidates": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ranked_candidate"
+        }
+      },
+      "unranked_candidates": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/unranked_candidate"
+        }
+      },
+      "excluded_candidates": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/excluded_candidate"
+        }
+      },
+      "advisory_only": {
+        "type": "boolean",
+        "const": true,
+        "description": "Economic comparison neither grants route rights nor independently authorizes placement or migration. A comparison claiming otherwise is refused offline."
+      },
+      "computed_at_ms": {
+        "$ref": "#/$defs/safe_integer"
+      }
+    },
+    "$defs": {
+      "safe_integer": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positive_safe_integer": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "minor_amount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "currency_code",
+          "minor_units"
+        ],
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "minor_units": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      },
+      "break_even_range": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A range, never a point. A break-even stated as a single number claims a precision the inputs do not have, and canon requires the range explicitly.",
+        "required": [
+          "low_meter_units",
+          "high_meter_units"
+        ],
+        "properties": {
+          "low_meter_units": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "high_meter_units": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      },
+      "evidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "What the figure was computed from, and how old and how trustworthy that was. A ranking that cannot state its evidence age is not auditable against the receipts it claims to derive from.",
+        "required": [
+          "price_schedule_ref",
+          "price_schedule_body_hash",
+          "evidence_age_ms",
+          "confidence",
+          "attempt_receipt_refs"
+        ],
+        "properties": {
+          "price_schedule_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "price_schedule_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "evidence_age_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "published",
+              "estimated"
+            ]
+          },
+          "attempt_receipt_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
+      },
+      "ranked_candidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "An eligible route with outcome evidence, ranked by cost per successful workload unit.",
+        "required": [
+          "route_ref",
+          "rank",
+          "cost_per_successful_unit",
+          "successful_unit_count",
+          "attempted_unit_count",
+          "break_even_range",
+          "evidence",
+          "reason_codes"
+        ],
+        "properties": {
+          "route_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "rank": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "cost_per_successful_unit": {
+            "$ref": "#/$defs/minor_amount"
+          },
+          "successful_unit_count": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "attempted_unit_count": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "explanatory_effective_cost_per_token_minor": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/safe_integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Diagnostic only. Tokenizers differ across models, so this is not cross-route comparable and never decides a ranking."
+          },
+          "break_even_range": {
+            "$ref": "#/$defs/break_even_range"
+          },
+          "evidence": {
+            "$ref": "#/$defs/evidence"
+          },
+          "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "unranked_candidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "ELIGIBLE, but not rankable. A success rate is never synthesized to complete a ranking, so a route whose outcome evidence is missing or whose price schedule has expired is carried here with a typed gap instead of being given an invented figure.",
+        "required": [
+          "route_ref",
+          "gap_reason_code"
+        ],
+        "properties": {
+          "route_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "gap_reason_code": {
+            "type": "string",
+            "enum": [
+              "no_outcome_evidence",
+              "no_price_schedule",
+              "price_schedule_expired",
+              "attempt_evidence_gap",
+              "no_successful_unit_observed"
+            ]
+          },
+          "evidence_age_ms": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/safe_integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "excluded_candidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "INELIGIBLE, so never ranked and never priced. Eligibility resolves first; a cheaper ineligible route is a rights violation with a price attached, and carrying it here keeps it out of the ranked list entirely rather than showing it as a bargain with a caveat.",
+        "required": [
+          "route_ref",
+          "exclusion_reason_code"
+        ],
+        "properties": {
+          "route_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "exclusion_reason_code": {
+            "type": "string",
+            "enum": [
+              "route_rights_prohibited_use",
+              "route_rights_unresolved",
+              "quality_floor",
+              "privacy_posture",
+              "residency",
+              "latency_ceiling",
+              "availability"
+            ]
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -135770,6 +136119,52 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.price_components"
       }
     }
+  ],
+  "schema://ioi/components/model-router/model-route-cost-comparison/v1": [
+    {
+      "rule_id": "model_route_cost_comparison.ranked.unique_route",
+      "description": "A route appears at most once in the ranking. The same route listed twice would be counted twice by any consumer that aggregates the list, and a duplicate carrying two different costs would let a reader pick the flattering one.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ranked_candidates",
+        "fields": [
+          "route_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_cost_comparison.ranked.unique_rank",
+      "description": "Two routes cannot hold the same rank. A ranking with a tie recorded as one position is not an ordering, and the consumer that reads position 1 would get an arbitrary winner.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ranked_candidates",
+        "fields": [
+          "rank"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_cost_comparison.unranked.unique_route",
+      "description": "A route appears at most once among the typed gaps, so one missing-evidence route cannot be reported as several.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.unranked_candidates",
+        "fields": [
+          "route_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_cost_comparison.excluded.unique_route",
+      "description": "A route appears at most once among the exclusions, so one ineligible route cannot be reported as several refusals.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.excluded_candidates",
+        "fields": [
+          "route_ref"
+        ]
+      }
+    }
   ]
 };
 
@@ -138225,4 +138620,10 @@ export function validateModelRoutePriceScheduleV1(
   value: unknown,
 ): value is ModelRoutePriceScheduleV1 {
   return validateArchitectureContract("schema://ioi/components/model-router/model-route-price-schedule/v1", value).ok;
+}
+
+export function validateModelRouteCostComparisonV1(
+  value: unknown,
+): value is ModelRouteCostComparisonV1 {
+  return validateArchitectureContract("schema://ioi/components/model-router/model-route-cost-comparison/v1", value).ok;
 }

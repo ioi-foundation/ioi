@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.components.model-router.model-route-cost-comparison.v1",
+  "comparison_ref": "route-cost-comparison://workload-1/authorizing",
+  "workload_ref": "workload://acme/summarize-contracts",
+  "currency_code": "USD",
+  "ranked_candidates": [],
+  "unranked_candidates": [],
+  "excluded_candidates": [],
+  "advisory_only": false,
+  "computed_at_ms": 1757635200000
+}

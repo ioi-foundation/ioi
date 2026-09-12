@@ -15200,6 +15200,62 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+      "canonical_name": "ModelRouteCostComparison",
+      "canonical_owner_ref": "canon://docs/architecture/components/model-router/doctrine.md#route-economic-comparison",
+      "schema_version": "ioi.components.model-router.model-route-cost-comparison.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "model-route-cost-comparison.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/model-router/model-route-cost-comparison/one-route-one-verdict/v1",
+          "path": "invariants/model-route-cost-comparison.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ModelRouteCostComparisonV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ModelRouteCostComparisonV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/model-route-cost-comparison-v1/positive-complete.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/model-route-cost-comparison-v1/negative-claims-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-cost-comparison-v1/negative-synthesized-success-rate.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json",
+          "expected_failure": "invariant"
+        }
+      ]
     }
   ]
 }

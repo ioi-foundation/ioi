@@ -1,0 +1,29 @@
+{
+  "schema_version": "ioi.components.model-router.model-route-cost-comparison.v1",
+  "comparison_ref": "route-cost-comparison://workload-1/synthesized",
+  "workload_ref": "workload://acme/summarize-contracts",
+  "currency_code": "USD",
+  "ranked_candidates": [
+    {
+      "route_ref": "model-route://provider-gamma/local/1",
+      "rank": 1,
+      "cost_per_successful_unit": { "currency_code": "USD", "minor_units": 5 },
+      "successful_unit_count": 0,
+      "attempted_unit_count": 100,
+      "explanatory_effective_cost_per_token_minor": 0,
+      "break_even_range": { "low_meter_units": 0, "high_meter_units": 0 },
+      "evidence": {
+        "price_schedule_ref": "price-schedule://provider-gamma/route-1/v1",
+        "price_schedule_body_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "evidence_age_ms": 1000,
+        "confidence": "estimated",
+        "attempt_receipt_refs": []
+      },
+      "reason_codes": ["cheapest"]
+    }
+  ],
+  "unranked_candidates": [],
+  "excluded_candidates": [],
+  "advisory_only": true,
+  "computed_at_ms": 1757635200000
+}

@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/model-router/model-route-cost-comparison/v1",
+  "title": "ModelRouteCostComparison",
+  "description": "AN ADVISORY RANKING OVER ROUTES THAT ALREADY QUALIFY. Canon puts eligibility first and price second — quality, privacy, residency, latency and availability are ADMISSION FILTERS, not context displayed beside a price — so this record keeps three populations apart in the bytes rather than in a renderer's discretion. `ranked_candidates` holds routes that were eligible AND had the outcome evidence the decision metric needs. `excluded_candidates` holds routes that never reached ranking because they failed admission, each with a typed reason; a cheaper ineligible route is a rights violation with a price attached, and it is recorded as excluded rather than shown as a bargain. `unranked_candidates` holds routes that ARE eligible but lack outcome evidence, each with a typed gap code — because canon is explicit that a success rate is never synthesized to complete a ranking, and the shape that enforces it is a third bucket rather than an optional field a ranker can leave null and then treat as zero. THE DECISION METRIC IS COST PER SUCCESSFUL WORKLOAD UNIT, carried as integer minor units. Effective cost per token is present only as `explanatory_effective_cost_per_token_minor` and is named so it cannot be mistaken for a winner metric: tokenizers differ across models, so it is not cross-route comparable. A recommendation states a break-even RANGE rather than a point, carries its evidence age and confidence, and cites the exact price-schedule bytes it priced from. `advisory_only` is a const true: price evidence never independently authorizes placement or migration.",
+  "x-ioi-schema-version": "ioi.components.model-router.model-route-cost-comparison.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "comparison_ref",
+    "workload_ref",
+    "currency_code",
+    "ranked_candidates",
+    "unranked_candidates",
+    "excluded_candidates",
+    "advisory_only",
+    "computed_at_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.components.model-router.model-route-cost-comparison.v1"
+    },
+    "comparison_ref": { "$ref": "#/$defs/ref" },
+    "workload_ref": { "$ref": "#/$defs/ref" },
+    "currency_code": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "ranked_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ranked_candidate" }
+    },
+    "unranked_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/unranked_candidate" }
+    },
+    "excluded_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/excluded_candidate" }
+    },
+    "advisory_only": {
+      "type": "boolean",
+      "const": true,
+      "description": "Economic comparison neither grants route rights nor independently authorizes placement or migration. A comparison claiming otherwise is refused offline."
+    },
+    "computed_at_ms": { "$ref": "#/$defs/safe_integer" }
+  },
+  "$defs": {
+    "safe_integer": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "positive_safe_integer": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://\\S+$" },
+    "minor_amount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency_code", "minor_units"],
+      "properties": {
+        "currency_code": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "minor_units": { "$ref": "#/$defs/safe_integer" }
+      }
+    },
+    "break_even_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A range, never a point. A break-even stated as a single number claims a precision the inputs do not have, and canon requires the range explicitly.",
+      "required": ["low_meter_units", "high_meter_units"],
+      "properties": {
+        "low_meter_units": { "$ref": "#/$defs/safe_integer" },
+        "high_meter_units": { "$ref": "#/$defs/safe_integer" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the figure was computed from, and how old and how trustworthy that was. A ranking that cannot state its evidence age is not auditable against the receipts it claims to derive from.",
+      "required": [
+        "price_schedule_ref",
+        "price_schedule_body_hash",
+        "evidence_age_ms",
+        "confidence",
+        "attempt_receipt_refs"
+      ],
+      "properties": {
+        "price_schedule_ref": { "$ref": "#/$defs/ref" },
+        "price_schedule_body_hash": { "$ref": "#/$defs/hash" },
+        "evidence_age_ms": { "$ref": "#/$defs/safe_integer" },
+        "confidence": {
+          "type": "string",
+          "enum": ["observed", "published", "estimated"]
+        },
+        "attempt_receipt_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ref" }
+        }
+      }
+    },
+    "ranked_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An eligible route with outcome evidence, ranked by cost per successful workload unit.",
+      "required": [
+        "route_ref",
+        "rank",
+        "cost_per_successful_unit",
+        "successful_unit_count",
+        "attempted_unit_count",
+        "break_even_range",
+        "evidence",
+        "reason_codes"
+      ],
+      "properties": {
+        "route_ref": { "$ref": "#/$defs/ref" },
+        "rank": { "$ref": "#/$defs/positive_safe_integer" },
+        "cost_per_successful_unit": { "$ref": "#/$defs/minor_amount" },
+        "successful_unit_count": { "$ref": "#/$defs/positive_safe_integer" },
+        "attempted_unit_count": { "$ref": "#/$defs/positive_safe_integer" },
+        "explanatory_effective_cost_per_token_minor": {
+          "anyOf": [{ "$ref": "#/$defs/safe_integer" }, { "type": "null" }],
+          "description": "Diagnostic only. Tokenizers differ across models, so this is not cross-route comparable and never decides a ranking."
+        },
+        "break_even_range": { "$ref": "#/$defs/break_even_range" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "unranked_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "ELIGIBLE, but not rankable. A success rate is never synthesized to complete a ranking, so a route whose outcome evidence is missing or whose price schedule has expired is carried here with a typed gap instead of being given an invented figure.",
+      "required": ["route_ref", "gap_reason_code"],
+      "properties": {
+        "route_ref": { "$ref": "#/$defs/ref" },
+        "gap_reason_code": {
+          "type": "string",
+          "enum": [
+            "no_outcome_evidence",
+            "no_price_schedule",
+            "price_schedule_expired",
+            "attempt_evidence_gap",
+            "no_successful_unit_observed"
+          ]
+        },
+        "evidence_age_ms": {
+          "anyOf": [{ "$ref": "#/$defs/safe_integer" }, { "type": "null" }]
+        }
+      }
+    },
+    "excluded_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "INELIGIBLE, so never ranked and never priced. Eligibility resolves first; a cheaper ineligible route is a rights violation with a price attached, and carrying it here keeps it out of the ranked list entirely rather than showing it as a bargain with a caveat.",
+      "required": ["route_ref", "exclusion_reason_code"],
+      "properties": {
+        "route_ref": { "$ref": "#/$defs/ref" },
+        "exclusion_reason_code": {
+          "type": "string",
+          "enum": [
+            "route_rights_prohibited_use",
+            "route_rights_unresolved",
+            "quality_floor",
+            "privacy_posture",
+            "residency",
+            "latency_ceiling",
+            "availability"
+          ]
+        }
+      }
+    }
+  }
+}

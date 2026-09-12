@@ -1,0 +1,46 @@
+{
+  "schema_version": "ioi.components.model-router.model-route-cost-comparison.v1",
+  "comparison_ref": "route-cost-comparison://workload-1/duplicate-rank",
+  "workload_ref": "workload://acme/summarize-contracts",
+  "currency_code": "USD",
+  "ranked_candidates": [
+    {
+      "route_ref": "model-route://provider-alpha/opus-class/1",
+      "rank": 1,
+      "cost_per_successful_unit": { "currency_code": "USD", "minor_units": 84 },
+      "successful_unit_count": 96,
+      "attempted_unit_count": 100,
+      "explanatory_effective_cost_per_token_minor": 3,
+      "break_even_range": { "low_meter_units": 12000, "high_meter_units": 19000 },
+      "evidence": {
+        "price_schedule_ref": "price-schedule://provider-alpha/route-1/v1",
+        "price_schedule_body_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "evidence_age_ms": 3600000,
+        "confidence": "observed",
+        "attempt_receipt_refs": ["receipt://model-invocation/alpha/0001"]
+      },
+      "reason_codes": ["lowest_cost_per_successful_unit"]
+    },
+    {
+      "route_ref": "model-route://provider-beta/sonnet-class/1",
+      "rank": 1,
+      "cost_per_successful_unit": { "currency_code": "USD", "minor_units": 131 },
+      "successful_unit_count": 61,
+      "attempted_unit_count": 100,
+      "explanatory_effective_cost_per_token_minor": 1,
+      "break_even_range": { "low_meter_units": 31000, "high_meter_units": 58000 },
+      "evidence": {
+        "price_schedule_ref": "price-schedule://provider-beta/route-1/v1",
+        "price_schedule_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_age_ms": 7200000,
+        "confidence": "published",
+        "attempt_receipt_refs": ["receipt://model-invocation/beta/0001"]
+      },
+      "reason_codes": ["tied"]
+    }
+  ],
+  "unranked_candidates": [],
+  "excluded_candidates": [],
+  "advisory_only": true,
+  "computed_at_ms": 1757635200000
+}
