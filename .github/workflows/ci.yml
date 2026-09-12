@@ -749,47 +749,8 @@ jobs:
             ${{ runner.os }}-m4-plane-cargo-${{ matrix.verifier_id }}-
             ${{ runner.os }}-cargo-
 
-      - name: Prebuild the daemon, signer, and wallet fixture binaries
-        run: |
-          cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant
-          cargo test --locked --release -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
-          # The fixture builds this exact feature set in a separate FNV-1a-keyed
-          # target directory during readiness. Populate it before the verifier
-          # starts so a cold compile cannot consume its readiness ceiling.
-          NODE_FEATURES="validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm"
-          NODE_DIR="target/test-node-builds/release-$(python3 - "$NODE_FEATURES" <<'PYEOF'
-          import sys
-          value = 0xcbf29ce484222325
-          for byte in sys.argv[1].encode():
-              value ^= byte
-              value = (value * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
-          print(f"{value:016x}")
-          PYEOF
-          )"
-          CARGO_TARGET_DIR="$NODE_DIR" cargo build --locked --release -p ioi-node \
-            --no-default-features --features "$NODE_FEATURES"
-          # AND WRITE THE MARKER, or the prebuild above buys nothing (2026-09-12, private register
-          # R-34's recorded second cause, now fixed). The harness does not decide reuse by "are the
-          # binaries present" — `node_profile_needs_build` reads `.ioi-source-revision` from this
-          # directory and rebuilds unless it equals the checkout's source identity. This step
-          # populated the directory and never wrote the marker, so the fixture rebuilt all four node
-          # binaries INSIDE its 20-minute readiness window every run: the failing logs show it still
-          # Compiling when the window closed. The prebuild was real and entirely wasted.
-          #
-          # On a clean checkout that identity is exactly HEAD (validator.rs `checkout_source_revision`
-          # returns the bare sha when the diff, the porcelain status and the untracked set are all
-          # empty), so this is reproducible here without duplicating the hashing path. If the tree is
-          # NOT clean the marker is deliberately left unwritten and the fixture rebuilds — reusing
-          # binaries built from different source is exactly what the marker exists to prevent, and a
-          # wrong marker would be worse than none.
-          if [ -z "$(git status --porcelain)" ]; then
-            git rev-parse HEAD > "$NODE_DIR/.ioi-source-revision"
-            echo "node-profile source revision marker: $(cat "$NODE_DIR/.ioi-source-revision")"
-          else
-            echo "working tree is not clean; leaving the marker unwritten so the fixture rebuilds"
-            git status --porcelain | head -20
-          fi
-
+      - name: Prebuild the wallet-fixture node profile
+        uses: ./.github/actions/prebuild-node-profile
       - name: Install the exact Outcome adapter
         if: matrix.verifier_id == 'outcome-room-system-spine'
         run: |
@@ -1270,7 +1231,10 @@ jobs:
   m038_device_held_principal:
     name: M03.8 device-held wallet-principal seam
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # 90 -> 150 to match the other fixture lanes (2026-09-12). This job now prebuilds the node
+    # profile its composed check boots, which is a release build of four binaries; the two M04
+    # plane jobs were cancelled at 90 minutes for the same reason and were raised the same way.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
@@ -1316,9 +1280,15 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # A restored target/ is a cache, never proof that the runnable daemon matches this revision.
-      - name: Build the daemon this verifier boots
+      #
+      # THIS LANE BOOTS THE WALLET FIXTURE TOO, through the composed check (2026-09-12). The seam's
+      # sixth proof runs check:passkey-only-authority, which starts the real wallet.network fixture,
+      # so this job needs the same node profile every other fixture lane prebuilds — and it had none
+      # at all, exactly the shape that made the M04.8 soak fail every scheduled run for five days.
+      # The action builds the daemon this job's own steps need as well.
+      - name: Prebuild the wallet-fixture node profile
         id: m038_daemon
-        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+        uses: ./.github/actions/prebuild-node-profile
 
       - name: Verify a ceremony provisions a device-held wallet principal and STOPS
         if: ${{ !cancelled() && steps.m038_daemon.outcome == 'success' }}

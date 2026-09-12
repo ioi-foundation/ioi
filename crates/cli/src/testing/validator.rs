@@ -1321,6 +1321,107 @@ mod node_profile_build_tests {
         checkout_source_revision, node_profile_needs_build, NODE_PROFILE_SOURCE_REVISION_MARKER,
     };
 
+    use super::BinaryFeatureConfig;
+
+    /// The node-profile DIRECTORY is keyed by an FNV-1a hash of the resolved feature string, so a
+    /// prebuild that names a different feature set does not merely build something slightly wrong —
+    /// it populates a directory nothing will ever read, and the fixture then rebuilds every node
+    /// binary inside its own readiness ceiling. That failure is SILENT at the prebuild step: it
+    /// succeeds, prints a marker, and the waste only surfaces twenty minutes later as a readiness
+    /// timeout in a different job.
+    ///
+    /// The CI workflows restate this feature string in YAML because a shell step cannot call into
+    /// this crate. A restatement of a derivation owned here is exactly the kind of second spine that
+    /// drifts, and it did: the fixture's default ordering profile became Solo, `resolve` stopped
+    /// emitting a consensus feature for it, and the workflows went on naming `consensus-aft`. This
+    /// test makes the restatement ENTAILED rather than trusted — it reads the workflow files and the
+    /// fixture library that sets the default, and fails here, in the owner of the derivation, the
+    /// next time they disagree.
+    #[test]
+    fn workflow_node_feature_prebuild_matches_the_fixture() {
+        let root = crate::testing::build::workspace_root();
+
+        // The DEFAULT is read from the fixture library rather than assumed, so that changing the
+        // default without changing the workflows fails this test instead of wasting a prebuild.
+        let fixture = std::fs::read_to_string(
+            root.join("apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs"),
+        )
+        .expect("wallet fixture library");
+        let default_profile = fixture
+            .lines()
+            .find_map(|line| {
+                let rest = line
+                    .trim()
+                    .strip_prefix("spawnEnv.IOI_M049_ORDERING_PROFILE = \"")?;
+                rest.split('"').next()
+            })
+            .expect("the fixture library sets a default ordering profile");
+        assert_eq!(
+            default_profile, "Solo",
+            "the fixture's default ordering profile changed; the workflow prebuild below and this \
+             test both encode it, and both must move with it"
+        );
+
+        let consensus_type = match default_profile {
+            "Solo" => "Solo",
+            "Aft" => "Aft",
+            other => panic!("unrecognised ordering profile default: {other}"),
+        };
+        let expected = BinaryFeatureConfig {
+            consensus_type,
+            state_tree_type: "IAVL",
+            commitment_scheme_type: "Hash",
+            use_malicious_workload: false,
+            extra_features: &[],
+        }
+        .resolve()
+        .expect("resolve the fixture's feature set");
+
+        // ONE DECLARATION, and it lives in the composite action every fixture lane calls. Three
+        // workflows used to restate it, which is how they drifted apart; the assertion below is
+        // therefore two-sided — the action must name the fixture's feature set, and no workflow may
+        // name one at all, because a workflow that reintroduces its own restatement is the exact
+        // regression this collapse was for.
+        let action_path = ".github/actions/prebuild-node-profile/action.yml";
+        let action = std::fs::read_to_string(root.join(action_path))
+            .unwrap_or_else(|_| panic!("read {action_path}"));
+        let declarations: Vec<&str> = action
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("NODE_FEATURES=\""))
+            .filter_map(|rest| rest.split('"').next())
+            .collect();
+        assert_eq!(
+            declarations.len(),
+            1,
+            "{action_path} must declare the node feature set exactly once, found {}",
+            declarations.len()
+        );
+        assert_eq!(
+            declarations[0], expected,
+            "{action_path} prebuilds the node profile for feature set `{}`, but the fixture \
+             resolves `{expected}`. These key DIFFERENT directories, so the prebuild would \
+             populate one the fixture never reads and the fixture would rebuild inside its \
+             readiness window.",
+            declarations[0]
+        );
+
+        let workflow_dir = root.join(".github/workflows");
+        for entry in std::fs::read_dir(&workflow_dir).expect("read workflow dir") {
+            let path = entry.expect("workflow entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("yml") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("read workflow");
+            assert!(
+                !text.contains("NODE_FEATURES=\""),
+                "{} declares its own NODE_FEATURES; the node feature set has one owner in this \
+                 crate and one restatement in {action_path}, and a workflow-local copy is the \
+                 drift this test exists to prevent — call the composite action instead",
+                path.display()
+            );
+        }
+    }
+
     #[test]
     fn a_prebuilt_profile_without_source_identity_requires_a_build() {
         let dir = tempfile::tempdir().expect("profile dir");

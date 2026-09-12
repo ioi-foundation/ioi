@@ -56,29 +56,7 @@ jobs:
       # rebuilds unless `.ioi-source-revision` equals the checkout's source identity, which on a
       # clean checkout is exactly HEAD. A dirty tree leaves the marker unwritten and the fixture
       # rebuilds, because reusing binaries built from different source is what the marker prevents.
-      - name: Prebuild the fixture and node binaries, and record their source identity
-        run: |
-          cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant
-          cargo test --locked --release -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
-          NODE_FEATURES="validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm"
-          NODE_DIR="target/test-node-builds/release-$(python3 - "$NODE_FEATURES" <<'PYEOF'
-          import sys
-          value = 0xcbf29ce484222325
-          for byte in sys.argv[1].encode():
-              value ^= byte
-              value = (value * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
-          print(f"{value:016x}")
-          PYEOF
-          )"
-          CARGO_TARGET_DIR="$NODE_DIR" cargo build --locked --release -p ioi-node \
-            --no-default-features --features "$NODE_FEATURES"
-          if [ -z "$(git status --porcelain)" ]; then
-            git rev-parse HEAD > "$NODE_DIR/.ioi-source-revision"
-            echo "node-profile source revision marker: $(cat "$NODE_DIR/.ioi-source-revision")"
-          else
-            echo "working tree is not clean; leaving the marker unwritten so the fixture rebuilds"
-            git status --porcelain | head -20
-          fi
-
+      - name: Prebuild the wallet-fixture node profile
+        uses: ./.github/actions/prebuild-node-profile
       - name: Run the full release-profile authority soak
         run: npm --prefix apps/hypervisor run soak:m4-room-participation-contribution-wallet-authority

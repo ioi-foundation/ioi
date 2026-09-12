@@ -440,9 +440,25 @@ try {
       env: { ...process.env },
     });
     const composedOut = `${composed.stdout || ""}${composed.stderr || ""}`;
+    // A COMPOSED FAILURE MUST NAME ITSELF. The first cut reported the sub-check's LAST output line,
+    // which on a failing `npm run --silent` is npm's own trailing brace: CI recorded
+    // `exit 1 · })` and no one could act on it without re-running the job. The last line is the
+    // wrong line — the findings are the `FAIL`/`BLOCKED` lines wherever they fall — so they are
+    // what is carried up, with the tail kept only as a fallback for a sub-check that died before
+    // printing one (a timeout, which spawnSync reports as a null status and a signal, or a crash).
+    const composedFindings = composedOut
+      .split("\n")
+      .filter((line) => /^\s*(FAIL|BLOCKED)\b/u.test(line))
+      .map((line) => line.trim().slice(0, 220));
+    const composedTail = composedOut.trim().split("\n").filter(Boolean).slice(-3).join(" ⏎ ");
+    const composedWhy = composedFindings.length
+      ? `${composedFindings.length} finding(s): ${composedFindings.join(" ⏎ ")}`
+      : composed.error
+        ? `no finding printed — ${composed.signal ? `killed by ${composed.signal}` : composed.error.message}; tail: ${composedTail.slice(0, 220)}`
+        : `no finding printed; tail: ${composedTail.slice(0, 220)}`;
     ok("the sixth proof is COMPOSED, not restated: check:passkey-only-authority runs here and passes, carrying forward that a passkey-only account needs no plaintext credential AND its typed absence that no account-recovery route exists",
       composed.status === 0 && /account-recovery|account_recovery/u.test(composedOut),
-      `exit ${composed.status} · ${composedOut.trim().split("\n").slice(-1)[0]?.slice(0, 160)}`);
+      `exit ${composed.status} · ${composedWhy}`);
     observations.composed_supplementary = "check:passkey-only-authority";
   }
 

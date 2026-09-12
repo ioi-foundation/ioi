@@ -1,0 +1,60 @@
+name: Prebuild the wallet-fixture node profile
+description: >-
+  Build the daemon, the signer, the wallet.network fixture test binary and the four node binaries
+  the fixture launches, and record their source identity, BEFORE any verifier opens its readiness
+  window. Every lane that boots the real wallet.network fixture needs this; a lane that skips it
+  pays for the whole node build inside a readiness ceiling and times out.
+
+runs:
+  using: composite
+  steps:
+    - name: Prebuild the daemon, signer, and wallet fixture binaries
+      shell: bash
+      run: |
+        cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant
+        cargo test --locked --release -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
+        # THE ONE PLACE THIS FEATURE SET IS NAMED IN CI (2026-09-12). The harness keys the node
+        # profile directory by an FNV-1a hash OF THIS EXACT STRING, so a string that disagrees with
+        # the fixture does not build something slightly wrong — it populates a directory nothing
+        # ever reads, and the fixture rebuilds all four binaries inside its readiness window. That
+        # is R-34's third cause: three workflows each restated the four-validator AFT profile while
+        # the fixture's default became Solo, and `BinaryFeatureConfig::resolve` emits NO consensus
+        # feature for Solo, so the prebuild filled release-0b7414797d7f2187 and the fixture read
+        # release-04c2586c16f7695a. Collapsing three restatements into one is what keeps them from
+        # drifting apart again; that the remaining one still agrees with the fixture is entailed by
+        # `workflow_node_feature_prebuild_matches_the_fixture` in crates/cli/src/testing/validator.rs,
+        # the file that owns the derivation, which also fails if a workflow starts declaring its own.
+        NODE_FEATURES="validator-bins,state-iavl,commitment-hash,vm-wasm"
+        NODE_DIR="target/test-node-builds/release-$(python3 - "$NODE_FEATURES" <<'PYEOF'
+        import sys
+        value = 0xcbf29ce484222325
+        for byte in sys.argv[1].encode():
+            value ^= byte
+            value = (value * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+        print(f"{value:016x}")
+        PYEOF
+        )"
+        CARGO_TARGET_DIR="$NODE_DIR" cargo build --locked --release -p ioi-node \
+          --no-default-features --features "$NODE_FEATURES"
+        # AND WRITE THE MARKER, or the build above buys nothing (R-34's second cause). The harness
+        # does not decide reuse by "are the binaries present" — `node_profile_needs_build` reads
+        # `.ioi-source-revision` from this directory and rebuilds unless it equals the checkout's
+        # source identity. On a clean checkout that identity is exactly HEAD, because
+        # `checkout_source_revision` returns the bare sha when the diff, the porcelain status and
+        # the untracked set are all empty. If the tree is NOT clean the marker is deliberately left
+        # unwritten and the fixture rebuilds: reusing binaries built from different source is
+        # precisely what the marker exists to prevent, and a wrong marker is worse than none.
+        if [ -z "$(git status --porcelain)" ]; then
+          git rev-parse HEAD > "$NODE_DIR/.ioi-source-revision"
+          echo "node-profile source revision marker: $(cat "$NODE_DIR/.ioi-source-revision")"
+        else
+          echo "working tree is not clean; leaving the marker unwritten so the fixture rebuilds"
+          git status --porcelain | head -20
+        fi
+        # THE PREBUILD ASSERTS ITS OWN POINT. Populating a directory is not evidence that the
+        # fixture will find it; the two previous failures both LOOKED like successful prebuilds.
+        for binary in orchestration workload guardian ioi-signer; do
+          test -x "$NODE_DIR/release/$binary" \
+            || { echo "prebuild populated no $binary in $NODE_DIR/release"; exit 1; }
+        done
+        echo "node profile ready at $NODE_DIR/release (orchestration, workload, guardian, ioi-signer)"
