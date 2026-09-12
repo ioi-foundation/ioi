@@ -129,7 +129,11 @@ const CLAUSES = [
     negative: true,
     clause: "No credential is present in the session's environment at any point a probe can observe (non-possession holds even mid-run)",
     unit: "M03.13",
-    absences: [{ what: "check:worker-secret-non-possession is named by M03's acceptance and DOES NOT EXIST", owner: "M03.13" }],
+    // M03.13 at the supported profile's depth (2026-09-11): a harness that only LOOKS runs on the
+    // real host_spawn lane under a real standing envelope and probes its environment, the daemon's
+    // /proc environment block (scrubbed at boot), the state tree for planted needles, the brokered
+    // surfaces and the host's ptrace scope.
+    checks: [app("check:worker-secret-non-possession")],
   },
   {
     id: "N4",

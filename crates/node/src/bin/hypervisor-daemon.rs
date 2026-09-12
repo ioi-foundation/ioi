@@ -438,7 +438,75 @@ fn hypervisor_daemon_thread_stack_size_bytes() -> usize {
         .unwrap_or(32 * 1024 * 1024)
 }
 
+/// M03.13 / ACC-15 N3 — secret-bearing variables leave the daemon's ENVIRONMENT BLOCK at boot.
+///
+/// On the supported profile the harness child runs under the daemon's own uid, and Linux lets a
+/// same-uid process read `/proc/<pid>/environ` — the initial environment block the kernel keeps
+/// for a process — without ptrace attach rights. Every value the daemon was started with (the
+/// sealing pass, a refused-by-default provider key) would therefore be observable from inside a
+/// session. Each secret-shaped variable is read once through the ordinary API, its bytes in the
+/// initial block are zeroed in place, and the variable is re-established through the C library's
+/// own storage, which lives outside the block: `getenv` keeps answering, `/proc/<pid>/environ` no
+/// longer carries the value. Runs BEFORE the runtime's threads exist, so the process is still
+/// single-threaded while the environment is rewritten. The names (never the values) are logged.
+fn scrub_secret_environment() -> Vec<String> {
+    // The C library's environment array (POSIX `environ`); the libc crate binds no symbol for it.
+    unsafe extern "C" {
+        static mut environ: *const *const libc::c_char;
+    }
+    fn secret_shaped(name: &str) -> bool {
+        name.ends_with("API_KEY")
+            || name.ends_with("_SECRET")
+            || name.ends_with("_PASS")
+            || name.ends_with("_PASSWORD")
+            || name.ends_with("_TOKEN")
+            || name.ends_with("PRIVATE_KEY")
+            || name.ends_with("SEED")
+    }
+    let kept: Vec<(String, String)> = std::env::vars_os()
+        .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
+        .filter(|(k, _)| secret_shaped(k))
+        .collect();
+    if kept.is_empty() {
+        return Vec::new();
+    }
+    // SAFETY: `environ` is the process's own environment array; the entries zeroed here are the
+    // strings the kernel placed in the initial block at exec, which is ordinary writable memory of
+    // this process. No other thread exists yet (this runs before the runtime is built), and every
+    // zeroed entry becomes an empty string the C library ignores when it scans for a name.
+    unsafe {
+        let mut cursor: *const *const libc::c_char = std::ptr::addr_of!(environ).read();
+        while !cursor.is_null() && !(*cursor).is_null() {
+            let entry = *cursor;
+            let len = libc::strlen(entry);
+            let bytes = std::slice::from_raw_parts(entry as *const u8, len);
+            if let Some(eq) = bytes.iter().position(|b| *b == b'=') {
+                if std::str::from_utf8(&bytes[..eq])
+                    .map(secret_shaped)
+                    .unwrap_or(false)
+                {
+                    std::ptr::write_bytes(entry as *mut u8, 0, len);
+                }
+            }
+            cursor = cursor.add(1);
+        }
+    }
+    let mut names = Vec::with_capacity(kept.len());
+    for (k, v) in kept {
+        std::env::set_var(&k, &v);
+        names.push(k);
+    }
+    names
+}
+
 fn main() -> anyhow::Result<()> {
+    let scrubbed = scrub_secret_environment();
+    if !scrubbed.is_empty() {
+        eprintln!(
+            "secret-bearing environment variables scrubbed from the process environment block at boot (names only): {}",
+            scrubbed.join(", ")
+        );
+    }
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_stack_size(hypervisor_daemon_thread_stack_size_bytes())

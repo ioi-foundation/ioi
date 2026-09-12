@@ -87,6 +87,7 @@
     "check:source-neutral": "node scripts/check-source-neutral.mjs",
     "check:standing-authority-broker-contract": "node scripts/verify-standing-authority-broker-contract.mjs",
     "check:studio-journey": "node scripts/verify-hypervisor-studio-journey.mjs",
+    "check:worker-secret-non-possession": "node scripts/verify-hypervisor-worker-secret-non-possession.mjs",
     "check:u1-campaign-certificate": "node scripts/verify-u1-campaign-certificate.mjs --self-test",
     "check:u1-placement-attestation": "node scripts/verify-u1-placement-attestation.mjs",
     "check:u1-real-campaign-relying-party": "node scripts/verify-u1-real-campaign-relying-party.mjs --self-test",

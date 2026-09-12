@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.leg_run.v1",
+  "program": "MVP finish-line program (2026-09-11, owner's goal prompt; ADR 0053)",
+  "leg": "1 — ACC-15 at MVP depth",
+  "title": "Three rulings made as MVP owner (worker-construction track; the browser head at MVP depth; Automations owns machinery), M03.13's non-possession battery at the supported profile's depth, and ACC-15's composed runner green at MVP depth",
+  "basis": {
+    "head": "f1c93db02",
+    "tree": "dirty (this leg's own files)"
+  },
+  "recorded_at": "2026-09-11",
+  "runs": {
+    "npm run check:worker-secret-non-possession --workspace=@ioi/hypervisor-app": {
+      "verdict": "11/11 (run 2, 2026-09-11; run 1 8/11 on the drill's own construction)",
+      "note": "a harness that only looks, spawned by the real host_spawn lane under a real standing envelope on the Solo wallet fixture; three planted needles (the sealing pass, a refused-by-default env provider key, a key sealed to a route through the custody crossing); the daemon scrubs its secret-shaped environment variables from its /proc environment block at boot; run 1 (8/11) failed on the drill's own construction (needles read from the wrong place, the fake upstream probed instead of the daemon, an order-sensitive comparison), recorded as it happened"
+    },
+    "npm run check:acceptance-consumer-afternoon -- --with-alpha-journey": {
+      "verdict": "PASS at MVP depth on 2026-09-11: 11 executed clause checks green · 0 typed absences · 1 clause ruled out on record (clause 7, R-28) · alpha journey executed (fixture authority) · basis f1c93db02 with this leg's uncommitted files",
+      "note": "clause 7 recorded as RULED OUT AT MVP DEPTH on record (R-28), never as a pass; every other clause executed or composed on one basis"
+    },
+    "npm run check:machinery-surface-owner": {
+      "verdict": "6/6 (M08.5; OQ-2 ruled R-29)"
+    },
+    "cargo test --locked -p ioi-node --bin hypervisor-daemon": {
+      "verdict": "pass",
+      "assertions": "cargo test --locked -p ioi-node --bin hypervisor-daemon: 1148 passed; 0 failed; 8 ignored (105.9 s)"
+    },
+    "check:studio-journey": {
+      "verdict": "28/33 — a PRE-EXISTING red on five ODK descriptor clauses (odk_descriptor_request_field_unknown: 'description'); the re-aimed machinery assertion passes; recorded for leg 2's queue, not this leg's"
+    }
+  },
+  "rulings": {
+    "R-27": "ACC-16, ACC-18, M01.9, M13.6, M13.8, M10.7 → product_track (the worker-construction track); ACC-R drops the two gates; ADR 0053 Amendment 1",
+    "R-28": "ACC-15 clause 7 ruled out at MVP depth (no browser/computer-use tool family in the supported profile); the runner's ruled_out category",
+    "R-29": "OQ-2: Automations owns the machinery surface; five sites re-aimed; check:machinery-surface-owner holds the line"
+  },
+  "mechanism": {
+    "environment_scrub": "hypervisor-daemon main(): before the runtime exists, every secret-shaped variable (…API_KEY, _SECRET, _PASS, _PASSWORD, _TOKEN, PRIVATE_KEY, SEED) is read once, its bytes in the initial environment block are zeroed in place, and it is re-established through the C library's own storage; getenv keeps answering, /proc/<pid>/environ no longer carries the value; names are logged, never values",
+    "drill": "packages/hypervisor-harness-shims/non-possession-drill.mjs — probes env names, /proc/<ppid>/environ, a bounded walk of the data dir for planted needles (the needles reach it only through a verifier-written file in its own workspace), the daemon's brokered surfaces (address taken from the parent's environ, as an adversarial harness would), and yama ptrace_scope",
+    "measured_precondition": "yama ptrace_scope = 1 on the qualification host: a same-uid child cannot read its parent's memory; 0 would be a named gap"
+  },
+  "typed_absences": [
+    "M03.13's distinct protection domain for the wallet authority service (an OS principal or process namespace) is not built; the supported profile's honesty is the scrub plus the measured ptrace scope, and M13.10's isolated venue is the wider closure",
+    "check:studio-journey's five ODK descriptor clauses are red before this leg (leg 2 queue)"
+  ]
+}
