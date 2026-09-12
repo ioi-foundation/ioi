@@ -1,0 +1,79 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-8-device-held-wallet-principal",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.8"
+  ],
+  "status": "verified",
+  "objective": "Identity bootstraps custody and never authority. A completed, user-verified local ceremony provisions a device-held wallet principal as one explicit receipted event; the daemon proposes that binding and STOPS, because issuing it requires the wallet control root's signature and a daemon that could mint its own principal bindings would be a second authority spine. Only public credential material and device/account metadata are stored, a spend still requires its own consent ceremony bound to the exact request facets, and a local deployment remains fully operable with no IdP account.",
+  "falsifiable_claim": "A session alone cannot provision: the route requires the exact auth_factor_receipt_id of a completed ceremony and refuses its absence by its own code, refuses a receipt that does not exist, refuses one belonging to another principal, refuses one that was not user-verified, and refuses one recorded for standing_effect_authority because consenting to an effect is a different act from enrolling the custody that may later consent. On the happy path a 201 carries an operation ref, a receipt ref and an immutable record citing the ceremony by receipt id AND that receipt's own hash. Presenting the same receipt under a second idempotency key is refused as a consumed ceremony. Every other family the daemon serves is byte-identical across the admission, with every watched route asserted to have answered 200, and the module holds zero record, grant, envelope or mint writers in production source. A field naming secret material and a field naming consent are each refused by their own code rather than as an unknown field. A principal_ref outside wallet.network's canonical grammar is refused. A successor names its predecessor on the same principal; a successor naming a predecessor on a different principal is refused. Binding state is read back through resolve_principal_authority and answers unresolvable rather than bound when no wallet capability is configured.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/device_held_principal_routes.rs",
+      "literal": "a ceremony provisions custody, and STOPS",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/device_held_principal_routes.rs",
+      "literal": "device_held_principal_secret_material_field",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/device_held_principal_routes.rs",
+      "literal": "device_held_principal_consent_field",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/device_held_principal_routes.rs",
+      "literal": "device_held_principal_ceremony_already_consumed",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/device_held_principal_routes.rs",
+      "literal": "CANONICAL_PRINCIPAL_SCHEMES",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/device_held_principal_routes.rs",
+      "literal": "admit_owner_scoped_mutation(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "device_held_principal_routes::handle_device_held_principal_admit",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-device-held-wallet-principal.mjs",
+      "literal": "provisioning had NO EFFECT ANYWHERE, measured rather than asserted",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "check:device-held-wallet-principal",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "npm run check:device-held-wallet-principal",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The negatives are the unit. Eleven refusals are driven against a live daemon with a real virtual authenticator: no ceremony named, a ceremony that never happened, four consent-shaped fields, four secret-shaped fields, and four malformed principal references. Each is required to refuse by ITS OWN code, because a caller told 'unknown field' about recovery_phrase receives a refusal that is true and useless and never learns that this plane stores no secret at all. The non-authority claim is measured two ways rather than asserted: every other observable family is read before and after the admission and required byte-identical with every watched route asserted to have answered 200 (a route that does not exist compares equal to itself), and the module's production source is required to contain zero record-writer, mint, issue-binding, seal-envelope or grant-consumption CALL. Four mutation drills prove each of those can go red: a foreign receipt, a real write to a watched family that the envelope-stamp normalisation must still detect, a planted record writer, and an ordinary unknown field that must be refused as unknown rather than caught by the consent or secret class.",
+  "remaining_nonclaims": [
+    "The daemon PROPOSES and stops. This unit does not issue the principal-authority binding, which requires the wallet control root's signature; until the root issues it the recorded state is proposed and nothing downstream may treat it as authority.",
+    "A provisioning proves that a user-verified ceremony asked for this binding. It does not prove the key is held in a secure element rather than in software, and it does not prove the person at the device is the account's owner.",
+    "TYPED ABSENCE, corrected rather than claimed: the registered IdP lane EXISTS on this daemon (/v1/hypervisor/auth/oidc/start and /callback). The first draft of this check asserted that no IdP ceremony was registered, which is simply false. What is proven is the narrower and true claim the unit actually requires: the lane resolves an admitted SSO configuration, a local deployment admits none, the lane refuses when called, and the whole ceremony completes anyway.",
+    "The no-reusable-password half is COMPOSED from check:passkey-only-authority rather than restated, and inherits that check's own typed absence: there is no account-recovery route on the daemon, so retiring the development plaintext credential remains irreversible and is not authorised by this unit."
+  ],
+  "source_provenance": "Landed 2026-09-12 by the MVP finish-line program, leg 1. Recorded in canon-to-code-delta.md. The verifier's own construction was corrected five times before it measured anything: run 1 asserted a false claim about the IdP surface, sent an undefined idempotency key, pinned bare NAMES that matched the module's own refusal allowlists rather than writers, and opened a second virtual authenticator on an origin the daemon's relying party does not accept; run 2 re-registered on the same authenticator and was correctly refused by the server's own exclusion. Each is recorded in the check's comments beside the assertion it produced. The canonical-principal-grammar refusal exists because the first draft accepted wallet:// and would have recorded a provisioning for a principal the binding plane can never resolve.",
+  "last_status_transaction": "2026-09-12"
+}

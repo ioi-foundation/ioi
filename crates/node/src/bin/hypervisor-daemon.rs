@@ -66,6 +66,8 @@ mod data_transformation_routes;
 mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
 mod device_custody_routes;
+#[path = "hypervisor_daemon_routes/device_held_principal_routes.rs"]
+mod device_held_principal_routes;
 #[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/download_intent_routes.rs"]
@@ -4597,6 +4599,23 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/auth/passkeys/:credential_ref_id",
             delete(device_custody_routes::handle_passkey_revoke),
+        )
+        // M03.8's seam. Mounted beside the identity ceremonies it cites, because the whole unit is
+        // the boundary between them: the ceremony authenticates, and this records — explicitly and
+        // once — that a ceremony asked for one portable principal to be bound to one device-held
+        // approval key. The daemon proposes and stops; the wallet control root issues the binding.
+        .route(
+            "/v1/hypervisor/auth/device-held-principals",
+            get(device_held_principal_routes::handle_device_held_principal_list)
+                .post(device_held_principal_routes::handle_device_held_principal_admit),
+        )
+        .route(
+            "/v1/hypervisor/auth/device-held-principals/:id",
+            get(device_held_principal_routes::handle_device_held_principal_get),
+        )
+        .route(
+            "/v1/hypervisor/auth/device-held-principals/:id/binding-state",
+            get(device_held_principal_routes::handle_device_held_principal_binding_state),
         )
         .route(
             "/v1/hypervisor/auth/portal-session-exchange",

@@ -525,11 +525,20 @@ const PINNED = {
   // production filesystem calls 234 are unchanged; the recorded admitter map is unchanged. A
   // rustfmt pass over nine daemon files in the same commit moved none of these numbers (measured
   // before and after; the extractor tokenises, so layout is invisible to it).
-  modules: 115,
-  familyMentions: 285,
-  tokenMentions: 147533,
-  judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
+  //
+  // Re-pinned 2026-09-12 (leg 1, M03.8) from 115 / 147533 / 4556 / 2779 / 536. One module joined the
+  // reachable graph — device_held_principal_routes.rs, the device-held wallet-principal seam —
+  // bringing +470 tokens, +22 foreign-qualified names and +15 opaque initialisers. THE WRITER
+  // BUCKETS DID NOT MOVE: family 57, non-ODK literal 243 and runtime-parameter 311 are all
+  // unchanged, because the module holds no record writer at all — its one admission goes through
+  // the shared owner-scoped write path, which is the same reason its own check pins that absence in
+  // source. Family mentions, judged token positions, raw production filesystem calls and the
+  // recorded admitter map are unchanged; no family is admitted anywhere new.
+  modules: 116,
+  familyMentions: 286,
+  tokenMentions: 148004,
+  judgedTokenPositions: 282,
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 243, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -548,8 +557,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4556,
-    "opaque-initialiser": 2764,
+    "foreign-qualified": 4578,
+    "opaque-initialiser": 2779,
     "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

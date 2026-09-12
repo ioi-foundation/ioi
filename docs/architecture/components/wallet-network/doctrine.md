@@ -921,6 +921,72 @@ subtracts and never decides. Recovery, device transitions and idempotent
 re-recording of the same grant render the lease with usages and balances
 unchanged: nothing is reset, resurrected or widened.
 
+### Device-Held Wallet-Principal Provisioning
+
+An onboarding ceremony may provision a device-held wallet principal, and the
+provisioning is an **explicit receipted event**, never an implication drawn from
+identity. A successful passkey assertion issues a Hypervisor operator session; it
+does not bind a principal to an approval authority. The two are separate acts
+because the whole custody boundary rests on their being separate: a plane in
+which authenticating IS provisioning has no moment at which a person decided
+which key may approve on their behalf.
+
+The daemon **proposes and stops**. `issue_principal_authority_binding` requires
+the wallet control root's signature, so the daemon cannot and must not mint the
+binding; what it owns is the seam. On a completed, user-verified ceremony it
+records one immutable provisioning naming the exact portable principal, the
+device-held approval-authority public key, its signature suite, the approval-
+authority snapshot hash the binding will freeze, and the device and account
+metadata — citing the ceremony by its auth-factor receipt id **and** that
+receipt's own hash, so a provisioning cannot outlive a rewritten attestation.
+The principal reference is validated against the canonical grammar above rather
+than echoed: recording a provisioning for a principal the binding plane can
+never resolve would be a durable statement that custody was arranged when it was
+not. Until the control root issues the binding the recorded state is `proposed`,
+and the daemon reports binding state by **reading it back** through
+`resolve_principal_authority` — `bound` only when wallet.network resolves that
+principal to the exact key the provisioning named, `diverged` when it resolves to
+a different one, `unresolvable` when no wallet capability answers. A daemon that
+reported its own proposal as bound would be answering the question this seam
+exists to hand to the control root.
+
+**One ceremony provisions at most one principal.** An auth-factor receipt attests
+one ceremony; presenting it again under another key is refused as consumed, not
+treated as a fresh ceremony, because a receipt that could back many provisionings
+would turn one user-verified touch into unbounded custody.
+
+**Only public material is stored.** The record carries public key material and
+device/account metadata. Every field that would carry a private key, seed,
+mnemonic, recovery phrase, recovery file, password or passphrase is refused by
+its own name rather than as a generic unknown field, so the refusal teaches the
+boundary. The production profile emits no reusable operator password and no
+plaintext recovery file because this plane has nowhere to put one.
+
+**Custody is not consent.** Provisioning binds *which* key may approve. It
+approves nothing, pre-authorizes no spend, and carries no facets, ceiling, budget
+or expiry — those fields are refused by their own name too, because a
+provisioning that could carry a spend ceiling would be a standing envelope
+wearing a custody name. A spend still requires its own consent ceremony bound to
+the exact request facets.
+
+**Continuity is a successor, never a silent replacement.** A replaced or added
+device records a successor naming its predecessor on the same principal, so a
+device that is gone leaves a readable lineage rather than a gap. A successor
+naming a predecessor on a *different* principal is refused: continuity is per
+principal, and a cross-principal successor would be a transfer.
+
+**Standalone-local operation is unconditional.** The registered IdP lane resolves
+an admitted SSO configuration; a local deployment admits none, the lane refuses,
+and the whole ceremony completes anyway. A local deployment is fully operable
+with no IdP account, and that is measured from the running process rather than
+declared here.
+
+**Nonclaims.** A provisioning proves that a user-verified ceremony asked for this
+binding. It does not prove the key is held in a secure element rather than
+software, does not prove the person at the device is the account's owner, and
+does not make the principal resolvable. Nothing recorded by it grants, delegates,
+approves or spends.
+
 ## Account Recovery and Device Lifecycle
 
 Recovery restores account access. It never reconstructs, widens, or silently

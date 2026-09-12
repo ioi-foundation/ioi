@@ -150,7 +150,14 @@ check("R1_DERIVED_CLOSED_WORLD",
   // the owner-scoped write path), so the candidate count is unchanged at 45 and unresolved and
   // unclassified are still 0. Found by CI on 2026-09-12, not by the landing commit: the M09.1
   // session did not run this check, and this job's contract block masked it for four runs.
-  census.registered_route_handlers === 1114 && census.workspace_route_handlers === 38
+  //
+  // Re-pinned 2026-09-12 (leg 1, M03.8) from 1114: the device-held wallet-principal seam registers
+  // exactly four handlers — provisioning admit, list, get, and the binding-state read. None is an
+  // environment route and none is a create seam: the admit goes through the shared owner-scoped
+  // write path and the binding-state read calls wallet.network rather than writing anything, so the
+  // candidate count is unchanged at 45 and unresolved and unclassified are still 0. (Three routes
+  // are mounted; the list and admit share one path, which the census counts as two handlers.)
+  census.registered_route_handlers === 1118 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

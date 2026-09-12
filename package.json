@@ -61,6 +61,8 @@
     "mutate:approval-habituation": "node scripts/check-approval-habituation.mjs --mutation",
     "check:secret-free-unattended-authority": "node scripts/check-secret-free-unattended-authority.mjs",
     "check:passkey-only-authority": "node scripts/check-passkey-only-authority.mjs --mutation",
+    "check:device-held-wallet-principal": "node scripts/check-device-held-wallet-principal.mjs",
+    "mutate:device-held-wallet-principal": "node scripts/check-device-held-wallet-principal.mjs --mutation",
     "check:router-path-params": "node scripts/check-router-path-params.mjs",
     "mutate:router-path-params": "node scripts/check-router-path-params.mjs --mutation",
     "check:ioi-ai-vendor": "node scripts/generate-ioi-ai-vendor-manifest.mjs --check",

@@ -389,6 +389,27 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   const spawnEnv = {
     ...baseEnv,
   };
+  // SINGLE-NODE ORDERING IS THE FIXTURE'S DEFAULT (2026-09-12). The Rust fixture's
+  // `parse_ordering_profile(None)` answers `Aft`, i.e. a four-validator cluster, and on a loaded
+  // host or a two-vCPU runner that cluster stopped committing inside the callers' ceilings after
+  // the AFT/QUV engine series landed (2026-09-03 → 2026-09-07). The damage was not one verifier:
+  // fourteen callers of this library never named a profile at all and silently inherited it, which
+  // is how `check:m4-goalrun-activation-plane` spent nine master runs reporting a daemon 503 that
+  // was never about grants (private register R-34), and how `check:passkey-only-authority` stalls
+  // on this host.
+  //
+  // Authority semantics are IDENTICAL under Solo — the wallet still mints, records and consumes on
+  // chain, and every authority assertion these verifiers make is unchanged; what changes is how
+  // many validators order the same transactions. A default that cannot commit is not a stricter
+  // default, it is an unusable one, so the default moves and the four-validator profile stays
+  // available to any caller that is actually testing ordering, by naming it:
+  //
+  //     IOI_M049_ORDERING_PROFILE: "Aft"
+  //
+  // An explicit profile from the caller always wins; this only fills the blank.
+  if (!spawnEnv.IOI_M049_ORDERING_PROFILE) {
+    spawnEnv.IOI_M049_ORDERING_PROFILE = "Solo";
+  }
   // The durable-chain-state opt-in is explicit per fixture start: never let
   // an ambient IOI_TESTING_CLUSTER_STATE_DIR leak a foreign state dir into
   // this fixture's private cluster.
