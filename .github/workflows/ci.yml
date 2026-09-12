@@ -759,6 +759,7 @@ jobs:
 
       - name: Prebuild the wallet-fixture node profile
         uses: ./.github/actions/prebuild-node-profile
+
       - name: Install the exact Outcome adapter
         if: matrix.verifier_id == 'outcome-room-system-spine'
         run: |
@@ -819,7 +820,6 @@ jobs:
           IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
           IOI_WORKLOAD_GRPC_TIMEOUT_MS: 120000
           IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
-          IOI_WALLET_FIXTURE_RELEASE: "1"
         run: npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
 
       - name: Verify the OutcomeRoom/System spine
@@ -829,7 +829,6 @@ jobs:
           IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
           IOI_WORKLOAD_GRPC_TIMEOUT_MS: 120000
           IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
-          IOI_WALLET_FIXTURE_RELEASE: "1"
         run: |
           # Re-establish the loopback model route in the same step in case the
           # runner reaped a process backgrounded by the provisioning step.
@@ -1180,8 +1179,17 @@ jobs:
             fi
             sleep 1
           done
-          npm run check:app-runtime-safety --workspace=@ioi/hypervisor-app
-          npm run check:native-shell --workspace=@ioi/hypervisor-app
+          # THE LAST MASKING PAIR IN THIS FILE (2026-09-12). Every other multi-gate `run:` block was
+          # split one step per gate; this one cannot be, because both gates drive the daemon and
+          # serve started above and the trap that reaps them is bound to THIS shell. So the masking
+          # is removed without splitting: each gate runs, each failure is remembered, and the step
+          # fails at the end. Under `set -e` the first red aborted the block and check:native-shell
+          # never ran at all — which is how a crash in it stayed invisible while the step was
+          # reported red for the other gate.
+          status=0
+          npm run check:app-runtime-safety --workspace=@ioi/hypervisor-app || status=1
+          npm run check:native-shell --workspace=@ioi/hypervisor-app || status=1
+          exit "$status"
 
       - name: Publish the Node product verifier census
         if: ${{ !cancelled() }}

@@ -58,3 +58,15 @@ runs:
             || { echo "prebuild populated no $binary in $NODE_DIR/release"; exit 1; }
         done
         echo "node profile ready at $NODE_DIR/release (orchestration, workload, guardian, ioi-signer)"
+        # AND THE LANE RUNS THE PROFILE IT JUST BUILT. Everything above is the RELEASE profile:
+        # the fixture's cargo-test process, and the four node binaries under `release-<hash>/`.
+        # Which profile the fixture actually asks for is the CONSUMER's choice — the harness reads
+        # `IOI_WALLET_FIXTURE_RELEASE`, and with it unset it wants the debug test binary and a
+        # `debug-<hash>/` node directory that nothing here built. That is R-47's defect on the
+        # profile axis rather than the feature axis, and it cost M03.8 a ten-minute readiness
+        # window it spent compiling. Exporting it here makes the coupling STRUCTURAL: a lane
+        # cannot prebuild one profile and then run another, because prebuilding is what selects it.
+        # The harness's own note is that chain and authorization semantics are identical under
+        # either profile and only wall-clock changes, so this picks the fast one for every lane
+        # rather than leaving each to remember.
+        echo "IOI_WALLET_FIXTURE_RELEASE=1" >> "$GITHUB_ENV"

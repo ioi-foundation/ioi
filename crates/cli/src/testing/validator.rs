@@ -1419,6 +1419,21 @@ mod node_profile_build_tests {
                  drift this test exists to prevent — call the composite action instead",
                 path.display()
             );
+            // THE BUILD PROFILE IS SELECTED BY WHOEVER PREBUILDS IT, NOT BY EACH LANE. The
+            // prebuild action builds the RELEASE fixture process and a `release-<hash>` node
+            // directory, and the harness reads `IOI_WALLET_FIXTURE_RELEASE` to decide which it
+            // wants — so a lane that prebuilds and then leaves that unset asks for a debug test
+            // binary and a `debug-<hash>` directory nothing built, and spends its readiness window
+            // compiling. That is this file's other drift on a second axis, and it cost one lane a
+            // ten-minute window. The action now exports the variable, which makes the coupling
+            // structural; a workflow that sets it again is restating a decision it no longer owns.
+            assert!(
+                !text.contains("IOI_WALLET_FIXTURE_RELEASE"),
+                "{} sets IOI_WALLET_FIXTURE_RELEASE itself; the prebuild action exports the \
+                 profile it actually built, so a lane cannot prebuild one profile and run \
+                 another — remove the restatement and call the action",
+                path.display()
+            );
         }
     }
 
