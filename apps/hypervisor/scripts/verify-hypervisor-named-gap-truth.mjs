@@ -145,7 +145,16 @@ const PINNED = {
   // `MCP_ROUTE_CLASSIFICATIONS` count that commit also left at 36. Re-derived, not adjusted to
   // fit: 859 `.route(` occurrences, 859 with a path literal, 858 distinct paths, `/v1` still
   // among them, and the growth is exactly those two paths and nothing else.
-  registeredRoutes: 858,
+  // 858 -> 864 (2026-09-12, leg 0 CI truth, basis 5e2e01c99): exactly two commits since the previous
+  // basis touch a `.route(` line under the daemon, and each adds three. M09.1 (`a4f6987d9`)
+  // registered the project-discovery proposal lane — the collection, the item and its acceptances —
+  // and M03.8 (`2a736760c`) registered the device-held principal lane — the collection, the item and
+  // its binding-state. No registration was removed and none was rewritten, so the raw occurrence
+  // count moves in lockstep: 865 `.route(` occurrences, 865 with a path literal, 864 distinct paths,
+  // and the reconciliation between the three is what makes this a measurement rather than a tally.
+  // The defect being corrected is mine twice over: both commits registered routes and neither moved
+  // this pin in the same cut, which is what a pin exists to catch.
+  registeredRoutes: 864,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
@@ -160,7 +169,13 @@ const PINNED = {
   // standing-lease consumer loop and the standing-lease population drills among them — and two of
   // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
   // coverage count that lags its population stops being a closed world.
-  verifierAbsenceLabels: 106,
+  // 106 -> 107 (2026-09-12, leg 0 CI truth): exactly one absence-worded assertion joined, in
+  // verify-hypervisor-project-discovery-proposal.mjs (M09.1, `a4f6987d9`) — the typed absence that
+  // a proposal moves nothing anywhere. Attribution is EXACT rather than inferred: this gate's own
+  // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
+  // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
+  // second stage holds at 17 while the first moves.
+  verifierAbsenceLabels: 107,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

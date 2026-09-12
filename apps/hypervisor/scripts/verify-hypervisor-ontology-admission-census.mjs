@@ -534,9 +534,23 @@ const PINNED = {
   // the shared owner-scoped write path, which is the same reason its own check pins that absence in
   // source. Family mentions, judged token positions, raw production filesystem calls and the
   // recorded admitter map are unchanged; no family is admitted anywhere new.
+  //
+  // Re-pinned 2026-09-12 (leg 0, CI truth) from 148003. NO module joined and no writer moved: the
+  // sole daemon-source commit landing after the previous re-pin is 32c482d84 (M08.8), which added
+  // the seven dropped registration axes and the per-stage `disabled_reason_codes` to
+  // `handle_product_surface_projection` in the already-walked lifecycle_routes.rs. Attribution is
+  // EXACT rather than inferred: restoring that one file to 32c482d84^ returns this census to
+  // precisely 148003, and restoring it to HEAD returns 148021, so the +18 is that commit's and
+  // nothing else's. Every other pin here held on the same run, which is how the claim that modules
+  // 116, family mentions 285, judged token positions 281, the three writer buckets 57/243/311,
+  // production filesystem calls 234 and the whole unadjudicable vocabulary did not move is
+  // EVIDENCE rather than assertion — the run reported this one finding and no other. The defect
+  // being corrected is mine: M08.8 moved the daemon's literal population and did not move the pin
+  // in the same commit, which is the same class of miss as the census pins stranded by a mutation
+  // battery earlier in this program.
   modules: 116,
   familyMentions: 285,
-  tokenMentions: 148003,
+  tokenMentions: 148021,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 243, runtimeParameter: 311 },
   productionFsCalls: 234,
