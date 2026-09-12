@@ -3851,6 +3851,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/model-routes/price-schedules/:id",
             get(model_route_candidate_routes::handle_price_schedule_get),
         )
+        // Advisory only: it ranks routes that already qualify and authorizes none of them.
+        .route(
+            "/v1/hypervisor/model-routes/cost-comparison",
+            post(model_route_candidate_routes::handle_cost_comparison),
+        )
         .route(
             "/v1/hypervisor/economics/rate-cards",
             post(economics_routes::handle_rate_card_create),

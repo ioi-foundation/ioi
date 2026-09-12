@@ -49,6 +49,8 @@ const PRICE_SCHEDULE_CONTRACT_ID: &str =
     "schema://ioi/components/model-router/model-route-price-schedule/v1";
 const PRICE_SCHEDULE_SCHEMA_VERSION: &str =
     "ioi.components.model-router.model-route-price-schedule.v1";
+const COMPARISON_CONTRACT_ID: &str =
+    "schema://ioi/components/model-router/model-route-cost-comparison/v1";
 /// One year, matching the economics plane's ceiling. A schedule is advisory evidence; an
 /// unbounded one would never become the typed gap a stale schedule is supposed to become.
 const MAX_VALIDITY_SECONDS: u64 = 31_536_000;
@@ -364,6 +366,364 @@ pub(crate) async fn handle_price_schedule_get(
     )
 }
 
+// ---------------------------------------------------------------- the advisory comparison
+//
+// ELIGIBILITY RESOLVES FIRST AND PRICE RANKS ONLY WHAT ALREADY QUALIFIES. Canon is explicit that
+// quality, privacy, residency, latency and availability are ADMISSION FILTERS rather than
+// "context displayed beside a price", and that a cheaper ineligible route is a rights violation
+// with a price attached. So an ineligible route never enters the ranked list at all: it is
+// carried in `excluded_candidates` with a typed reason, where no reader can mistake it for a
+// bargain.
+//
+// THE RIGHTS CONTRACT COMES FROM THE CALLER, and that is the estate's shape rather than a
+// shortcut. A model route record does not cite a rights contract anywhere — the token appears in
+// exactly one module estate-wide — and M07.2's own resolver takes no route-use argument, so
+// per-use eligibility is necessarily the caller's to enforce. Inventing a route→rights join here
+// would have minted a second rights spine beside the one three consumer planes already use.
+// What this function DOES enforce is that the cited contract is live and actually permits the
+// declared use: a contract cited by hash is not a contract applied.
+//
+// AND THE RANKING FAILS CLOSED ON MISSING EVIDENCE. `TokenMix` keeps `None` distinct from zero
+// precisely so an unreported token class cannot be read as a free one, and the transport already
+// records what it could not observe in `evidence_gaps`. A route carrying any gap is UNRANKED with
+// a typed code rather than priced from a partial mix, because a partial reading as a total is
+// exactly how a route becomes cheapest by being least measured.
+
+const ROUTE_USE_DEFAULT: &str = "model_inference";
+
+/// Every model invocation this owner recorded against one route, newest first is irrelevant —
+/// what matters is that FAILED attempts are included. A failed attempt the provider metered is
+/// real cost, and pricing only the successes would make an unreliable route look cheap.
+fn invocations_for_route(data_dir: &str, owner_ref: &str, route_ref: &str) -> Vec<Value> {
+    read_record_dir(data_dir, "model-invocations")
+        .into_iter()
+        .filter(|record| {
+            record["owner_ref"].as_str() == Some(owner_ref)
+                && record["route_ref"].as_str() == Some(route_ref)
+        })
+        .collect()
+}
+
+/// The live schedule for a route, or the typed gap that stands in for it.
+fn schedule_for_route(
+    data_dir: &str,
+    owner_ref: &str,
+    route_ref: &str,
+    now: u64,
+) -> Result<Value, &'static str> {
+    let mut newest: Option<Value> = None;
+    for record in read_record_dir(data_dir, KIND_PRICE_SCHEDULE) {
+        if record["owner_ref"].as_str() != Some(owner_ref)
+            || record["object"]["route_ref"].as_str() != Some(route_ref)
+        {
+            continue;
+        }
+        let observed = record["object"]["observed_at_ms"].as_u64().unwrap_or(0);
+        if newest
+            .as_ref()
+            .and_then(|held| held["object"]["observed_at_ms"].as_u64())
+            .is_none_or(|held| observed >= held)
+        {
+            newest = Some(record);
+        }
+    }
+    let Some(schedule) = newest else {
+        return Err("no_price_schedule");
+    };
+    if schedule["object"]["expires_at_ms"]
+        .as_u64()
+        .is_none_or(|expires| expires <= now)
+    {
+        // Stale is a TYPED GAP, never a silently aged number.
+        return Err("price_schedule_expired");
+    }
+    Ok(schedule)
+}
+
+/// Price one observed token mix against a schedule's components, in integer minor units.
+///
+/// Only the classes the schedule prices and the mix REPORTS contribute. A class the provider did
+/// not report is already a recorded evidence gap upstream, which is what unranks the route — this
+/// function is never reached for a route carrying one, and it does not treat absence as zero on
+/// its own account either.
+fn price_mix(schedule: &Value, mix: &Value) -> Option<u64> {
+    const CLASS_FOR_MIX: &[(&str, &str)] = &[
+        ("input", "input_tokens"),
+        ("output", "output_tokens"),
+        ("cache_read", "cache_read_tokens"),
+        ("cache_write", "cache_write_tokens"),
+        ("reasoning", "reasoning_tokens"),
+    ];
+    let components = schedule["object"]["price_components"].as_array()?;
+    let mut total: u64 = 0;
+    for (mix_field, component_class) in CLASS_FOR_MIX {
+        let Some(observed) = mix.get(mix_field).and_then(Value::as_u64) else {
+            continue;
+        };
+        // The lowest-tier rate for the class; tiering is priced by the schedule's own bands and a
+        // component without a tier applies to the whole quantity.
+        let Some(rate) = components
+            .iter()
+            .filter(|component| component["component_class"].as_str() == Some(*component_class))
+            .filter_map(|component| component["minor_units_per_meter_unit"].as_u64())
+            .min()
+        else {
+            continue;
+        };
+        total = total.checked_add(observed.checked_mul(rate)?)?;
+    }
+    Some(total)
+}
+
+/// Build the advisory comparison. Returns the contract-valid record; the caller decides the
+/// status code.
+pub(crate) fn build_cost_comparison(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_ref: &str,
+    body: &Value,
+) -> Result<Value, Reply> {
+    let workload_ref = require_ref(body, "workload_ref")?;
+    let rights_revision_ref = require_ref(body, "model_route_rights_revision_ref")?;
+    let route_use = {
+        let declared = str_field(body, "route_use");
+        if declared.is_empty() {
+            ROUTE_USE_DEFAULT.to_string()
+        } else {
+            declared.to_string()
+        }
+    };
+    let Some(routes) = body.get("route_refs").and_then(Value::as_array) else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "model_route_candidate_routes_required",
+            "route_refs must be a non-empty array of candidate model-route refs",
+        ));
+    };
+    if routes.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "model_route_candidate_routes_required",
+            "route_refs must be non-empty",
+        ));
+    }
+    let currency = {
+        let declared = str_field(body, "currency_code");
+        if declared.len() == 3 && declared.chars().all(|c| c.is_ascii_uppercase()) {
+            declared.to_string()
+        } else {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "model_route_candidate_currency_invalid",
+                "currency_code must be a three-letter uppercase ISO code",
+            ));
+        }
+    };
+
+    // RESOLVED ONCE, AND APPLIED — not merely cited. A contract that is not live, or that does not
+    // permit the declared use, excludes every candidate: it is the caller's whole basis for
+    // eligibility, so its failure is not a per-route condition.
+    let rights = super::model_route_rights_routes::resolve_admitted_model_route_rights_contract(
+        data_dir,
+        identity,
+        Some(owner_ref),
+        &rights_revision_ref,
+    )?;
+    let contract_excludes = if !rights.is_live() {
+        Some("route_rights_unresolved")
+    } else if rights
+        .unresolved_route_uses()
+        .iter()
+        .any(|use_| use_ == &route_use)
+    {
+        Some("route_rights_unresolved")
+    } else if !rights
+        .permitted_route_uses()
+        .iter()
+        .any(|use_| use_ == &route_use)
+    {
+        Some("route_rights_prohibited_use")
+    } else {
+        None
+    };
+
+    let now = now_ms();
+    let mut ranked: Vec<Value> = Vec::new();
+    let mut unranked: Vec<Value> = Vec::new();
+    let mut excluded: Vec<Value> = Vec::new();
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
+    for entry in routes {
+        let Some(route_ref) = entry.as_str() else {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "model_route_candidate_ref_invalid",
+                "every route_refs entry must be a canonical scheme://ref",
+            ));
+        };
+        // One route, one verdict: the registered invariant forbids a route appearing twice, and a
+        // duplicated input must not become a duplicated row.
+        if !seen.insert(route_ref.to_string()) {
+            continue;
+        }
+        if let Some(code) = contract_excludes {
+            excluded.push(json!({ "route_ref": route_ref, "exclusion_reason_code": code }));
+            continue;
+        }
+        let schedule = match schedule_for_route(data_dir, owner_ref, route_ref, now) {
+            Ok(schedule) => schedule,
+            Err(code) => {
+                unranked.push(json!({
+                    "route_ref": route_ref,
+                    "gap_reason_code": code,
+                    "evidence_age_ms": Value::Null,
+                }));
+                continue;
+            }
+        };
+        let invocations = invocations_for_route(data_dir, owner_ref, route_ref);
+        if invocations.is_empty() {
+            unranked.push(json!({
+                "route_ref": route_ref,
+                "gap_reason_code": "no_outcome_evidence",
+                "evidence_age_ms": Value::Null,
+            }));
+            continue;
+        }
+        // FAIL CLOSED. A gap anywhere in this route's lineage means some cost was not observed,
+        // and pricing what remains would make the least-measured route the cheapest.
+        if invocations.iter().any(|record| {
+            record["evidence"]["evidence_gaps"]
+                .as_array()
+                .is_some_and(|gaps| !gaps.is_empty())
+        }) {
+            unranked.push(json!({
+                "route_ref": route_ref,
+                "gap_reason_code": "attempt_evidence_gap",
+                "evidence_age_ms": Value::Null,
+            }));
+            continue;
+        }
+        let mut total_minor: u64 = 0;
+        let mut successes: u64 = 0;
+        let mut priced_all = true;
+        for record in &invocations {
+            if record["outcome"].as_str() == Some("succeeded") {
+                successes += 1;
+            }
+            match price_mix(&schedule, &record["evidence"]["billed_token_mix"]) {
+                Some(cost) => total_minor = total_minor.saturating_add(cost),
+                None => priced_all = false,
+            }
+        }
+        if !priced_all {
+            unranked.push(json!({
+                "route_ref": route_ref,
+                "gap_reason_code": "attempt_evidence_gap",
+                "evidence_age_ms": Value::Null,
+            }));
+            continue;
+        }
+        if successes == 0 {
+            // A success rate is never synthesized to complete a ranking, and cost per successful
+            // unit is undefined with no successes — the contract's positive-integer floor refuses
+            // such a row anyway, so it is carried as the typed gap it is.
+            unranked.push(json!({
+                "route_ref": route_ref,
+                "gap_reason_code": "no_successful_unit_observed",
+                "evidence_age_ms": Value::Null,
+            }));
+            continue;
+        }
+        let observed_at = schedule["object"]["observed_at_ms"].as_u64().unwrap_or(now);
+        ranked.push(json!({
+            "route_ref": route_ref,
+            "rank": 1,
+            "cost_per_successful_unit": {
+                "currency_code": currency,
+                "minor_units": total_minor / successes,
+            },
+            "successful_unit_count": successes,
+            "attempted_unit_count": invocations.len() as u64,
+            "explanatory_effective_cost_per_token_minor": Value::Null,
+            "break_even_range": { "low_meter_units": 0, "high_meter_units": 0 },
+            "evidence": {
+                "price_schedule_ref": schedule["object"]["price_schedule_ref"],
+                "price_schedule_body_hash": schedule["object"]["body_hash"],
+                "evidence_age_ms": now.saturating_sub(observed_at),
+                "confidence": schedule["object"]["confidence"],
+                "attempt_receipt_refs": invocations
+                    .iter()
+                    .filter_map(|record| record["model_invocation_receipt"]["receipt_ref"].as_str())
+                    .collect::<Vec<_>>(),
+            },
+            "reason_codes": ["ranked_by_cost_per_successful_unit"],
+        }));
+    }
+
+    ranked.sort_by_key(|row| {
+        row["cost_per_successful_unit"]["minor_units"]
+            .as_u64()
+            .unwrap_or(0)
+    });
+    for (index, row) in ranked.iter_mut().enumerate() {
+        row["rank"] = json!(index as u64 + 1);
+    }
+
+    let comparison = json!({
+        "schema_version": "ioi.components.model-router.model-route-cost-comparison.v1",
+        "comparison_ref": format!(
+            "route-cost-comparison://{}",
+            &digest(format!("{workload_ref}|{now}").as_bytes())[7..23]
+        ),
+        "workload_ref": workload_ref,
+        "currency_code": currency,
+        "ranked_candidates": ranked,
+        "unranked_candidates": unranked,
+        "excluded_candidates": excluded,
+        // Never negotiable, and never from the caller.
+        "advisory_only": true,
+        "computed_at_ms": now,
+    });
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            COMPARISON_CONTRACT_ID,
+            &comparison,
+        )
+    {
+        return Err(bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "model_route_candidate_comparison_invalid",
+            format!("the assembled comparison violates its registered contract and is NOT served: {error}"),
+        ));
+    }
+    Ok(comparison)
+}
+
+/// POST /v1/hypervisor/model-routes/cost-comparison — advisory, and it authorizes nothing.
+pub(crate) async fn handle_cost_comparison(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Reply {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(refusal) => return scope_refusal_reply(refusal),
+    };
+    let Some(owner_ref) = identity.tenant_refs.iter().next().cloned() else {
+        return scope_refusal_reply(
+            super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
+        );
+    };
+    match build_cost_comparison(&st.data_dir, &identity, &owner_ref, &body) {
+        Ok(comparison) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "cost_comparison": comparison })),
+        ),
+        Err(response) => response,
+    }
+}
+
 #[cfg(test)]
 mod model_route_candidate_tests {
     use super::super::substrate_store::{request_identity_for_test, reset_handle_for_test};
@@ -513,6 +873,102 @@ mod model_route_candidate_tests {
             "a replay must not rejuvenate the window"
         );
         assert_eq!(first["object"]["body_hash"], second["object"]["body_hash"]);
+        reset_handle_for_test();
+    }
+
+    // ------------------------------------------------------------ the comparison's arithmetic
+    //
+    // The end-to-end comparison needs an admitted rights contract and real invocation receipts,
+    // which is a JOURNEY and belongs to this unit's verifier rather than to a unit test that
+    // would have to mint half the estate to reach one assertion. What IS unit-testable is the
+    // arithmetic and the gap selection, and those are where a silent wrong answer would live.
+
+    fn schedule_with(components: Value) -> Value {
+        json!({ "object": { "price_components": components } })
+    }
+
+    /// Only REPORTED classes contribute. `None` means unreported, never zero — the distinction
+    /// the whole meter is built on — so a mix that omits a class must not be priced as if the
+    /// provider had reported nought of it.
+    #[test]
+    fn price_mix_counts_only_what_was_reported_and_only_what_is_priced() {
+        let schedule = schedule_with(json!([
+            { "component_class": "input_tokens", "meter_unit": "per_token", "minor_units_per_meter_unit": 3 },
+            { "component_class": "output_tokens", "meter_unit": "per_token", "minor_units_per_meter_unit": 15 },
+        ]));
+        // 100 input at 3 + 10 output at 15 = 450. cache_read is REPORTED but unpriced, and
+        // reasoning is priced by nothing and reported as null: neither contributes.
+        let mix = json!({ "input": 100, "output": 10, "cache_read": 7, "reasoning": Value::Null });
+        assert_eq!(price_mix(&schedule, &mix), Some(450));
+
+        // The same mix with output UNREPORTED prices strictly less, rather than the same.
+        let partial = json!({ "input": 100, "output": Value::Null });
+        assert_eq!(price_mix(&schedule, &partial), Some(300));
+    }
+
+    /// Tiering: the lowest rate the schedule carries for a class is the one applied, so a volume
+    /// tier cannot be skipped by listing it second.
+    #[test]
+    fn price_mix_applies_the_lowest_rate_a_class_carries() {
+        let schedule = schedule_with(json!([
+            { "component_class": "input_tokens", "meter_unit": "per_token", "minor_units_per_meter_unit": 3,
+              "tier": { "from_meter_units": 0, "to_meter_units": 1000 } },
+            { "component_class": "input_tokens", "meter_unit": "per_token", "minor_units_per_meter_unit": 2,
+              "tier": { "from_meter_units": 1000, "to_meter_units": Value::Null } },
+        ]));
+        assert_eq!(price_mix(&schedule, &json!({ "input": 10 })), Some(20));
+    }
+
+    /// Arithmetic REFUSES rather than wraps, exactly as the billing chain does.
+    #[test]
+    fn price_mix_refuses_an_overflowing_charge_rather_than_wrapping() {
+        let schedule = schedule_with(json!([
+            { "component_class": "input_tokens", "meter_unit": "per_token",
+              "minor_units_per_meter_unit": u64::MAX },
+        ]));
+        assert_eq!(price_mix(&schedule, &json!({ "input": 2 })), None);
+    }
+
+    /// A missing schedule and an expired one are DIFFERENT typed gaps, because the operator's
+    /// next action differs: one is "publish a schedule", the other is "refresh it".
+    #[test]
+    fn a_missing_schedule_and_an_expired_one_are_distinct_typed_gaps() {
+        let fxt = fx();
+        let route = "model-route://provider-alpha/opus-class/1";
+        let now = now_ms();
+        assert_eq!(
+            schedule_for_route(&fxt.data_dir, TENANT, route, now),
+            Err("no_price_schedule")
+        );
+
+        mint_price_schedule(&fxt.data_dir, &caller("gap-1"), &declared()).unwrap();
+        assert!(
+            schedule_for_route(&fxt.data_dir, TENANT, route, now).is_ok(),
+            "a live schedule resolves"
+        );
+        // One second past its one-hour window.
+        let expired_at = now + 3_600_001;
+        assert_eq!(
+            schedule_for_route(&fxt.data_dir, TENANT, route, expired_at),
+            Err("price_schedule_expired")
+        );
+        reset_handle_for_test();
+    }
+
+    /// Another owner's schedule is not this owner's evidence.
+    #[test]
+    fn a_schedule_belonging_to_another_owner_does_not_resolve() {
+        let fxt = fx();
+        mint_price_schedule(&fxt.data_dir, &caller("owner-1"), &declared()).unwrap();
+        assert_eq!(
+            schedule_for_route(
+                &fxt.data_dir,
+                "org://someone-else",
+                "model-route://provider-alpha/opus-class/1",
+                now_ms(),
+            ),
+            Err("no_price_schedule")
+        );
         reset_handle_for_test();
     }
 }
