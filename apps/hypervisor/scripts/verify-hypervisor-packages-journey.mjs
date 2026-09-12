@@ -86,6 +86,19 @@ const PKG = "packages-journey-app";
 const INST = "primary";
 const LANE = "/__ioi/packages/registry";
 const SURFACE_REF = `surface://extensions/${PKG}`;
+const ODK_NAMESPACE = "packages-journey";
+const ODK_ONTOLOGY_NAME = "registry-surface";
+/// The six mandatory nonclaims of the registered v2 descriptor contract. A descriptor that does not
+/// disclaim one is read as claiming it by omission, which is why the route refuses an incomplete set
+/// rather than filling it in.
+const DESCRIPTOR_NONCLAIMS = [
+  "authority",
+  "capability_lease_crossing",
+  "runtime_truth",
+  "semantic_truth",
+  "permission_truth",
+  "marketplace_truth",
+];
 
 async function startDaemon() {
   daemon = spawn(daemonBinary, [], {
@@ -242,29 +255,109 @@ async function run() {
     seedListings.status === 200, `status ${seedListings.status}`);
 
   // -- ODK source mesh fixtures (direct daemon setup — the packaging lane's admission inputs) --
+  //
+  // THIS MESH IS AUTHORED AGAINST THE REGISTERED v2 DESCRIPTOR CONTRACT (2026-09-12). M05.5's
+  // descriptor convergence reached the daemon and the Studio surface (R-31) and did not reach this
+  // journey, which went on sending v1: a singular `ontology_ref`, `recipe_refs` under the
+  // unqualified name, a `name` v2 does not have, and no `schema_version` at all. v1 is REFUSED on
+  // authoring rather than translated — deliberately, because silently mapping it would keep two
+  // spellings alive for one fact — so the descriptor answered 422 and every step behind it failed
+  // on an empty ref. Eighteen findings, one cause.
   const ont = await jd("/v1/hypervisor/odk/domain-ontologies", {
     method: "POST",
-    body: JSON.stringify({ domain: "packages-journey", owner_ref: OWNER, idempotency_key: "packages-journey-ont-1" }),
+    body: JSON.stringify({ domain: ODK_NAMESPACE, owner_ref: OWNER, idempotency_key: "packages-journey-ont-1" }),
   });
   const ontRef = ont.body?.ontology?.ref || "";
+  // TWO DIFFERENT FAMILIES, NOT CONFLATED. The ODK DomainOntology above is the dev kit's authoring
+  // object and is what a manifest lists. A descriptor's `ontology_refs` are M05.1 OntologyVersion
+  // REVISIONS, each resolved through that family's own admission before a descriptor may bind it —
+  // a ref merely spelled correctly is refused, and so is a mutable family head. So the prerequisite
+  // is admitted here, through its owner route, and its exact revision id is what the descriptor binds.
+  const version = await jd("/v1/hypervisor/ontology-versions", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: OWNER,
+      idempotency_key: "packages-journey-ontology-version-1",
+      namespace: ODK_NAMESPACE,
+      name: ODK_ONTOLOGY_NAME,
+      governing_scope_ref: `domain://${ODK_NAMESPACE}/registry`,
+      policy_hash: `sha256:${"1a".repeat(32)}`,
+      entity_types: [{ term_id: `ontology://${ODK_NAMESPACE}/${ODK_ONTOLOGY_NAME}/term/package`, label: "package" }],
+      valid_time: { starts_at: "2026-01-01T00:00:00Z", ends_at: null },
+    }),
+  });
+  const revisionRef = version.body?.ontology_version?.ontology_id || "";
+  // All eight members of the invariant-11 binding set under their canonical names, and the six
+  // mandatory nonclaims declared. The zero-cardinality members are EMPTY LISTS rather than absent:
+  // an absent member and a declared "there are none" are different claims, and only the second is
+  // checkable.
   const sd = await jd("/v1/hypervisor/odk/surface-descriptors", {
     method: "POST",
-    body: JSON.stringify({ name: "Packages journey surface", composition_pattern: "domain_app", ontology_ref: ontRef, owner_ref: OWNER, idempotency_key: "packages-journey-sd-1" }),
+    body: JSON.stringify({
+      owner_ref: OWNER,
+      idempotency_key: "packages-journey-sd-1",
+      schema_version: "ioi.ontology-surface-descriptor.v2",
+      display_name: "Packages journey surface",
+      surface_ref: SURFACE_REF,
+      composition_pattern: "domain_app",
+      ontology_refs: [revisionRef],
+      canonical_object_model_refs: [`object-model://${ODK_NAMESPACE}/${ODK_ONTOLOGY_NAME}/package`],
+      data_recipe_refs: [],
+      policy_bound_data_view_refs: [`view://${ODK_NAMESPACE}/registry/reviewer`],
+      authority_requirement_refs: ["scope:packages.admit"],
+      daemon_api_refs: ["api://v1/hypervisor/packages"],
+      receipt_obligations: [`receipt://${ODK_NAMESPACE}/registry/admission`],
+      conformance_profile_refs: [`profile://${ODK_NAMESPACE}/packages-journey/v1`],
+      connector_mapping_refs: [],
+      ontology_projection_refs: [],
+      allowed_action_refs: [],
+      operator_contract_refs: [],
+      mcp_contract_refs: [],
+      generated_artifact_refs: [],
+      does_not_assert: [...DESCRIPTOR_NONCLAIMS],
+    }),
   });
-  const sdRef = sd.body?.surface_descriptor?.ref || "";
+  // THE CANONICAL IDENTITY IS `surface_descriptor_id`. v1's `ref` is not a field a v2 record carries,
+  // so reading it yields undefined and every downstream binding names nothing at all.
+  const sdRef = sd.body?.surface_descriptor?.surface_descriptor_id || "";
   const man = await jd("/v1/hypervisor/odk/manifests", {
     method: "POST",
-    body: JSON.stringify({ name: "Packages journey manifest", ontology_refs: [ontRef], recipe_refs: [], surface_descriptor_refs: [sdRef], owner_ref: OWNER, idempotency_key: "packages-journey-man-1" }),
+    body: JSON.stringify({
+      name: "Packages journey manifest",
+      version: "1.0.0",
+      ontology_refs: [ontRef],
+      data_recipe_refs: [],
+      surface_descriptor_refs: [sdRef],
+      evaluation_dataset_refs: [],
+      benchmark_profile_refs: [],
+      operator_contract_refs: [],
+      mcp_contract_refs: [],
+      owner_ref: OWNER,
+      idempotency_key: "packages-journey-man-1",
+    }),
   });
-  const manRef = man.body?.manifest?.ref || "";
+  const manRef = man.body?.manifest?.odk_manifest_id || man.body?.manifest?.ref || "";
   const dapp = await jd("/v1/hypervisor/domain-apps", {
     method: "POST",
     body: JSON.stringify({ name: "Packages journey app", surface_descriptor_ref: sdRef, odk_manifest_ref: manRef, owner_ref: OWNER, idempotency_key: "packages-journey-dapp-1" }),
   });
-  const dappRef = dapp.body?.domain_app?.domain_app_ref || "";
-  ok("the ODK source mesh admits (ontology → domain_app descriptor → manifest → draft DomainApp)",
-    ont.status === 201 && sd.status === 201 && man.status === 201 && dapp.status === 201 && !!dappRef,
-    dappRef || `statuses ${ont.status}/${sd.status}/${man.status}/${dapp.status}`);
+  // Same correction one object along: the v2 DomainApp record's identity is `domain_app_id`.
+  // v1's `domain_app_ref` is not a field it carries, so reading it named nothing and the
+  // candidate admission behind it refused for a missing `domain_app_ref` of its own.
+  const dappRef = dapp.body?.domain_app?.domain_app_id || "";
+  ok("the ODK source mesh admits on the REGISTERED v2 contract (ontology → M05.1 revision → v2 descriptor → manifest → draft DomainApp)",
+    ont.status === 201 && version.status === 201 && sd.status === 201 && man.status === 201 && dapp.status === 201
+      && revisionRef === `ontology://${ODK_NAMESPACE}/${ODK_ONTOLOGY_NAME}/revision/1`
+      && /^surface-descriptor:\/\/sd_[0-9a-f]{16}$/u.test(sdRef) && !!dappRef,
+    dappRef || `statuses ${ont.status}/${version.status}/${sd.status}/${man.status}/${dapp.status} · revision ${revisionRef || "—"} · sd ${sdRef || "—"}`);
+  // THE LEGACY SHAPE IS REFUSED, NOT TRANSLATED, and this journey witnesses that rather than merely
+  // avoiding it. Without this, re-accepting the v1 names would make the fix above invisible.
+  const legacySd = await jd("/v1/hypervisor/odk/surface-descriptors", {
+    method: "POST",
+    body: JSON.stringify({ name: "Packages journey legacy surface", composition_pattern: "domain_app", ontology_ref: ontRef, recipe_refs: [], owner_ref: OWNER, idempotency_key: "packages-journey-sd-legacy" }),
+  });
+  ok("and the RETIRED v1 descriptor shape is refused rather than translated, so this lane witnesses the convergence instead of only avoiding it",
+    legacySd.status === 422, `status ${legacySd.status}`);
 
   // -- identity-first refusal through the UI action lane ----------------------
   const anonAdmit = await act("/actions/admit-candidate", {

@@ -241,10 +241,16 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const selSet = sel.objectSet ? allSets.find((m) => m.id === sel.objectSet) || null : null;
   const selSetOnt = selSet ? ontologies.find((oo) => oo.ref === selSet.ontology_ref) || null : null;
   const withQ = (href) => (q ? `${href}${href.includes("?") ? "&" : "?"}q=${enc(q)}` : href);
+  // AN EMBEDDED ROW MUST STAY EMBEDDED. Both row builders below take their href from the shared
+  // ontology-context link helpers, and neither threaded the delivery mode, so clicking a row inside
+  // the app slot navigated the iframe to a NON-embedded page: the app chrome came back and the
+  // native shell's single slot was left holding a full page. This is the exact claim
+  // check:native-shell's embed-threading assertion is written to protect.
+  const embedExtra = opts && opts.embed ? { embed: "1" } : undefined;
 
   const typeRow = ({ oo, t }) => {
     const n = objectsOf(oo, t);
-    const href = withQ(objectTypeLink(oo.id, t.id));
+    const href = withQ(objectTypeLink(oo.id, t.id, embedExtra));
     const on = !!(selType && selOnt && oo.id === selOnt.id && t.id === selType.id);
     return `<tr class="oe-trow${on ? " oe-sel" : ""}" data-objecttype="${esc(t.id)}"${on ? ' aria-current="true"' : ""} onclick="location.href='${href}'">
       <td class="oe-tname"><span class="oe-tchip" style="color:${CHIP_COLORS[(t.id || "").length % 3]}">${bpIcon("cube", 14)}</span><a class="oe-tlink" href="${href}">${esc(t.name || t.id)}</a></td>
@@ -257,7 +263,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
   };
   const setRow = (m) => {
     const so = ontologies.find((oo) => oo.ref === m.ontology_ref) || {};
-    const href = withQ(objectSetLink(so.id || "", m.id));
+    const href = withQ(objectSetLink(so.id || "", m.id, embedExtra));
     const on = !!(selSet && m.id === selSet.id);
     return `<tr class="oe-trow${on ? " oe-sel" : ""}" data-objectset="${esc(m.id)}"${on ? ' aria-current="true"' : ""} onclick="location.href='${href}'">
     <td class="oe-tname"><span class="oe-tchip" style="color:#13c9ba">${bpIcon("layout-grid", 14)}</span><a class="oe-tlink" href="${href}">${esc(m.name || m.set_id || m.object_type_id)}</a></td>

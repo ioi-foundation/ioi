@@ -2196,7 +2196,7 @@ function renderPlacementVenues(venuesRes, policyRes, spendRecon) {
       ${v.status === "advisory" ? renderCandidateCards(v) : ""}
     </div>`;
   };
-  return `<div id="env-placement-venues"><h2>Placement</h2><p class="sub" style="margin:-4px 0 10px">Where governed work runs — an explicit choice, never hidden behind auto. Pick a venue in New Session; the chosen policy is daemon truth (<code>placement-venue-policy</code>). ${CX_ESC((venuesRes || {}).spend_rule || "")}</p>
+  return `<div id="env-placement-venues"><h2>Placement</h2><p class="sub" style="margin:-4px 0 10px">Where governed work runs — an explicit choice, never hidden behind auto. Pick a venue in New Session; the chosen policy is daemon truth (<code>placement-venue-policy</code>). ${CX_ESC((venuesRes || {}).spend_rule || "")} <a href="/__ioi/environments/map">Placement map &rarr;</a></p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">${venues.map(card).join("")}</div></div>`;
 }
 

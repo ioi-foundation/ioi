@@ -25,7 +25,7 @@
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
 
 import { execSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SURFACES, CAPABILITIES, OPERATIONAL_STATES, EMBEDDED_SHELL_STATES, EMBED_THREAD_ROUTES, embeddableRoutes, boundSurface } from "./surface-registry.mjs";
@@ -96,9 +96,34 @@ async function run() {
     const bad = unthreadedLinks(p.text);
     ok(`embedded thread route ${r} threads embed=1 through its embeddable links (journey stays embedded)`, p.status === 200 && !p.text.includes('<aside class="og-grail') && bad.length === 0, bad.length ? `unthreaded: ${bad.slice(0, 3).join(" ")}` : "");
   }
-  // 3. GET forms carry the embed field (explorer filter form is the canonical case).
+  // 3. The embedded explorer keeps every navigation it offers inside the embed.
+  //
+  // THIS WAS ONE ASSERTION OVER TWO SUBJECTS THAT DO NOT BOTH EXIST (2026-09-12). It conjoined the
+  // filter form, which the surface always emits, with row onclicks, which exist only once the
+  // estate holds object types — and this gate runs against a freshly created isolated daemon, so
+  // the row half had no subject and the conjunction could never be true. It was not a flake and it
+  // was not vacuous: it was UNPROVABLE, and it was invisible only because an earlier step in the
+  // same CI block aborted in front of it. Split, so each half names the population it measured and
+  // neither can pass over nothing.
   const ee = await page(`${SERVE}/__ioi/ontology/explorer?embed=1`);
-  ok("embedded explorer threads embed=1 through row onclicks AND the filter form", /location\.href='\/__ioi\/ontology\/explorer\?[^']*embed=1'/.test(ee.text) && ee.text.includes('<input type="hidden" name="embed" value="1">'));
+  const embedForms = (ee.text.match(/<form\b[^>]*method="[Gg][Ee][Tt]"/gu) || []).length;
+  const embedInputs = (ee.text.match(/<input type="hidden" name="embed" value="1">/gu) || []).length;
+  ok("every GET form the embedded explorer emits carries the embed field, over a population that must be non-empty — a surface that stopped emitting forms would otherwise satisfy this by emitting nothing",
+    embedForms > 0 && embedInputs >= embedForms, `${embedInputs} embed fields across ${embedForms} GET forms`);
+  // THE ROW HALF IS PROVEN AT THE BUILDER, AND THAT REDUCTION IS STATED RATHER THAN HIDDEN. With no
+  // object types and no materialized sets, the rendered row population is zero, so there is no row
+  // onclick to read; what IS decidable is that both row builders take their href from the shared
+  // ontology-context helper WITH the delivery mode threaded, and that the helper emits it. Both
+  // halves are required, because the helper silently dropped `embed` until this same cut — the
+  // documented `{embed: "1"}` extra was filtered out by a closed key list that did not contain it,
+  // so a builder that threaded the extra correctly still produced a link that left the embed.
+  const explorerSrc = readFileSync(join(HERE, "..", "surfaces", "object-explorer", "index.mjs"), "utf8");
+  const rowBuilders = (explorerSrc.match(/onclick="location\.href='\$\{href\}'"/gu) || []).length;
+  const threaded = (explorerSrc.match(/object(?:Type|Set)Link\([^)]*embedExtra\)/gu) || []).length;
+  const contextSrc = readFileSync(join(HERE, "..", "surfaces", "ontology-context.mjs"), "utf8");
+  ok("and every row the embedded explorer WOULD render stays inside the embed: both row builders thread the delivery mode through the shared link helper, and that helper emits it rather than dropping it as an unknown key",
+    rowBuilders === 2 && threaded === 2 && /known\.embed = "1"/u.test(contextSrc),
+    `${threaded}/${rowBuilders} row builders thread embed · helper emits embed: ${/known\.embed = "1"/u.test(contextSrc)}`);
 
   // 5. Suite catalogs route Ontology to the Manager, never the substrate.
   const apps = await page(`${SERVE}/__ioi/applications`);

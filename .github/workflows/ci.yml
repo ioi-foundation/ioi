@@ -124,7 +124,14 @@ jobs:
         # mint-approval-grant rides along for the systems journey: its refusal-ladder rung mints
         # a structurally real dcrypt-signed grant (no test-only bypass) and the product_surfaces
         # job installs no Rust toolchain, so the signer must arrive as a built artifact.
-        run: cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant
+        #
+        # mint-standing-approval-grant rides along for exactly the same reason (2026-09-12).
+        # check:session-authority-profile mints a standing envelope through it, and the helper
+        # builds the binary itself when it is absent — which in a Node-only job means a cargo
+        # invocation that cannot succeed: it died on libdbus-1-dev, a system library this job has
+        # no reason to carry. The gate was failing for its ENVIRONMENT rather than its subject, the
+        # same defect as M03.8's runner, and it passes 23/23 the moment the binary is present.
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant --bin mint-standing-approval-grant
 
       # Wired 2026-08-07, once the suite became deterministic. It previously varied run to run —
       # three runs of one tree gave 2, 3 and 4 failures — because fault injection was a
@@ -276,6 +283,7 @@ jobs:
           path: |
             target/debug/hypervisor-daemon
             target/debug/mint-approval-grant
+            target/debug/mint-standing-approval-grant
 
       - name: Smoke implementation-complete daemon paths
         id: smoke_daemon
@@ -886,7 +894,7 @@ jobs:
 
       - name: Make the downloaded daemon executable
         if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
-        run: chmod +x target/debug/hypervisor-daemon target/debug/mint-approval-grant
+        run: chmod +x target/debug/hypervisor-daemon target/debug/mint-approval-grant target/debug/mint-standing-approval-grant
 
       - name: Install browser runtime
         if: ${{ !cancelled() }}

@@ -662,7 +662,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
       <a class="og-editlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure model in substrate →</a>
       <div class="og-note" style="margin-top:8px">Named gaps (no surface control bound; the daemon contract may or may not exist — see each item): in-canvas schema editing · the 5-step create wizard (the New forms carry the same authority) · Proposals · Shared properties · Groups · Interfaces · Cleanup · action/function execution. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a>.</div>
     </div></section>
-  ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</main>`;
+  ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a> · <a class="og-explorerlink" href="/__ioi/ontology/explorer" title="Object Explorer — browse object types and materialized object sets (the symmetric #35 surface)">Object Explorer →</a></div>`}</main>`;
 
   const css = `@font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:400;font-display:block;src:url(/__ioi/fonts/source-sans-pro-400.woff2) format('woff2')}
     @font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:600;font-display:block;src:url(/__ioi/fonts/source-sans-pro-600.woff2) format('woff2')}

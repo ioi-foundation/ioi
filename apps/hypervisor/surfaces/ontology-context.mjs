@@ -38,6 +38,15 @@ export function parseOntologyContext(url) {
 export function ontologyContextQuery(route, ctx) {
   const known = {};
   for (const k of ONTOLOGY_CONTEXT_KEYS) if (ctx && ctx[k] !== undefined) known[k] = ctx[k];
+  // EMBED IS DELIVERY, NOT SELECTION, AND IT WAS BEING SILENTLY DROPPED (2026-09-12). The comment
+  // below has always said embed is preserved by passing `{embed: "1"}` in extra, and the Ontology
+  // Manager passes exactly that at three call sites — but `embed` is not one of
+  // ONTOLOGY_CONTEXT_KEYS, so the loop above filtered it out and every such link navigated OUT of
+  // the embed. It is handled here rather than added to that list on purpose: that list is the
+  // closed vocabulary `parseOntologyContext` reads back as the ontology SELECTION, and embed is a
+  // fact about how the surface is being delivered, not about what the user has selected. Putting
+  // it there would make a delivery mode part of a semantic context.
+  if (ctx && (ctx.embed === "1" || ctx.embed === 1 || ctx.embed === true)) known.embed = "1";
   return selectionQuery(route, known);
 }
 
