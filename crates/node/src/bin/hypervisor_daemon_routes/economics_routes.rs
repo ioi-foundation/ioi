@@ -72,6 +72,46 @@ const CHARGE_COMPONENTS: &[&str] = &[
     "ioi_managed_service",
     "non_billable_telemetry",
 ];
+/// ACC-11 clause 9 — NETWORK/OPEN WORK DRAWS A SEPARATE BUDGET FROM MANAGED WORK.
+///
+/// The registered `charge_component` vocabulary already draws this line, so the budget is
+/// partitioned by it rather than by a second classification that could disagree with it.
+/// `non_billable_telemetry` is deliberately in NEITHER list: it is zero-rate and fenced out
+/// of the billable chain at admission, so it can ride either class's card without funding
+/// either budget.
+const NETWORK_WORK_CHARGE_COMPONENTS: &[&str] = &["broker", "participant", "verifier"];
+const MANAGED_CHARGE_COMPONENTS: &[&str] =
+    &["managed_model", "managed_runtime", "ioi_managed_service"];
+
+/// The budget class one set of meter rates funds, or a refusal when it would fund both.
+///
+/// SEPARATION IS STRUCTURAL, NOT ARITHMETIC. One quote binds one rate card and resolves one
+/// billing account, so a card pricing both a managed and a network/open component could only
+/// ever draw ONE budget for both — which is precisely what clause 9 forbids. Choosing a class
+/// for such a card would make the separation a convention that the next caller can bend; the
+/// card is refused at admission instead, so no quote, hold, usage record or debit downstream
+/// can straddle the two budgets. A card with no billable meter at all funds the managed
+/// budget: it can charge nothing, and minting a third account for it would make the accounts
+/// describe cards rather than budgets.
+fn budget_class_of_meter_rates(meter_rates: &[Value]) -> Result<&'static str, Reply> {
+    let mut managed = false;
+    let mut network = false;
+    for rate in meter_rates {
+        let component = rate["charge_component"].as_str().unwrap_or_default();
+        managed |= MANAGED_CHARGE_COMPONENTS.contains(&component);
+        network |= NETWORK_WORK_CHARGE_COMPONENTS.contains(&component);
+    }
+    match (managed, network) {
+        (true, true) => Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "economics_budget_class_mixed",
+            "network/open work draws a separate budget from managed work, so one rate card cannot price both: put the broker/participant/verifier meters on their own card",
+        )),
+        (false, true) => Ok("network_work"),
+        _ => Ok("managed"),
+    }
+}
+
 const COMMERCIAL_POSTURES: &[&str] = &[
     "managed",
     "customer_byok",
@@ -405,6 +445,8 @@ fn mint_rate_card(
             "charge_component": component,
         }));
     }
+    // Refused at the SOURCE so no mixed card can exist to be quoted from later.
+    budget_class_of_meter_rates(&meter_rates)?;
     let id = replay_stable_id("erc", &caller.owner_ref, &caller.idempotency_key);
     let rate_card_ref = format!("rate-card://{id}");
     let admitted = json!({
@@ -714,7 +756,16 @@ fn mint_quote(data_dir: &str, caller: &WriteCaller, body: &Value) -> Result<(Val
         "owner_ref": caller.owner_ref,
         "object": object,
         "work_ref": work_ref,
-        "billing_account_ref": format!("billing-account://{}", &digest(caller.owner_ref.as_bytes())[7..23]),
+        // ONE OWNER, ONE ACCOUNT PER BUDGET CLASS (ACC-11 clause 9). The class is derived from
+        // the bound card's own meter rates rather than taken from the caller, so network/open
+        // work cannot be billed to the managed budget by asking for it.
+        "billing_account_ref": format!(
+            "billing-account://{}/{}",
+            &digest(caller.owner_ref.as_bytes())[7..23],
+            budget_class_of_meter_rates(
+                card_object["meter_rates"].as_array().map_or(&[][..], Vec::as_slice)
+            )?
+        ),
     });
     mint_record(
         data_dir,
@@ -2092,6 +2143,145 @@ mod economics_tests {
         )
         .unwrap();
         card["object"]["rate_card_ref"].as_str().unwrap().to_owned()
+    }
+
+    /// A card with caller-chosen meters and an explicit idempotency key, so one test can seed
+    /// TWO distinct cards for the same owner (the ids are replay-stable on that key).
+    fn seed_card_with(fxt: &Fx, key: &str, meter_rates: Value) -> String {
+        let (card, _) = mint_rate_card(
+            &fxt.data_dir,
+            &caller(key),
+            &json!({
+                "currency_code": "USD",
+                "ioi_fee_policy_ref": "policy://acme/fees",
+                "validity_seconds": 3600,
+                "meter_rates": meter_rates,
+            }),
+        )
+        .unwrap();
+        card["object"]["rate_card_ref"].as_str().unwrap().to_owned()
+    }
+
+    /// The billing account one card actually resolves to, taken from a real minted quote
+    /// rather than from the classifier, so the assertion is about the exported record.
+    fn billing_account_for(fxt: &Fx, key: &str, card_ref: &str) -> String {
+        let (plan, _) = mint_plan(
+            &fxt.data_dir,
+            &caller(&format!("{key}-plan")),
+            &json!({
+                "rate_card_ref": card_ref,
+                "included_work_credit_units": 0,
+                "reset_policy": "non_resetting",
+                "validity_seconds": 3600,
+            }),
+        )
+        .unwrap();
+        let plan_ref = plan["object"]["plan_ref"].as_str().unwrap().to_owned();
+        let (quote, _) = mint_quote(
+            &fxt.data_dir,
+            &caller(&format!("{key}-quote")),
+            &json!({
+                "rate_card_ref": card_ref,
+                "plan_ref": plan_ref,
+                "work_ref": "work://acme/w1",
+                "estimated_work_credit_units": 10,
+                "overrun_policy": "exact_additional_hold",
+                "max_attempt_count": 3,
+                "allowed_commercial_postures": ["managed", "local"],
+                "validity_seconds": 600,
+            }),
+        )
+        .unwrap();
+        quote["billing_account_ref"].as_str().unwrap().to_owned()
+    }
+
+    /// ACC-11 clause 9 — NETWORK/OPEN WORK DRAWS A SEPARATE BUDGET.
+    ///
+    /// Asserted on the `billing_account_ref` the bundle actually exports, for ONE owner, so
+    /// what is proved is the separation of the accounts rather than the behaviour of the
+    /// classifier in isolation. Both halves are asserted positively first: each card resolves
+    /// to the account its own class names, and only then are the two compared.
+    #[test]
+    fn network_work_draws_a_separate_budget_from_managed_work_for_one_owner() {
+        let fxt = fx();
+        let managed = billing_account_for(
+            &fxt,
+            "managed",
+            &seed_card_with(
+                &fxt,
+                "managed-card",
+                json!([
+                    { "meter_class": "model_tokens", "work_credit_micro_units_per_meter_unit": 5, "charge_component": "managed_model" },
+                ]),
+            ),
+        );
+        let network = billing_account_for(
+            &fxt,
+            "network",
+            &seed_card_with(
+                &fxt,
+                "network-card",
+                json!([
+                    { "meter_class": "verified_unit", "work_credit_micro_units_per_meter_unit": 7, "charge_component": "verifier" },
+                ]),
+            ),
+        );
+        assert!(
+            managed.ends_with("/managed"),
+            "managed card resolved {managed}"
+        );
+        assert!(
+            network.ends_with("/network_work"),
+            "network card resolved {network}"
+        );
+        assert_ne!(
+            managed, network,
+            "one owner's network and managed work must not share a budget"
+        );
+        reset_handle_for_test();
+    }
+
+    /// Telemetry is class-NEUTRAL, and this is the regression that would otherwise be silent:
+    /// a zero-rate coarse meter rides a managed card without moving it to the network budget
+    /// or making the card look mixed.
+    #[test]
+    fn a_zero_rate_telemetry_meter_does_not_move_a_card_between_budgets() {
+        let fxt = fx();
+        let with_telemetry = billing_account_for(&fxt, "mixed-telemetry", &seed_card(&fxt));
+        assert!(
+            with_telemetry.ends_with("/managed"),
+            "a managed card carrying a telemetry meter resolved {with_telemetry}"
+        );
+        reset_handle_for_test();
+    }
+
+    /// The separation is kept STRUCTURAL by refusing the card that would straddle it, at the
+    /// source — one quote binds one card and resolves one account, so a card pricing both
+    /// classes could only ever draw one budget for both.
+    #[test]
+    fn a_rate_card_pricing_both_classes_is_refused_at_admission() {
+        let fxt = fx();
+        let error = mint_rate_card(
+            &fxt.data_dir,
+            &caller("mixed-card"),
+            &json!({
+                "currency_code": "USD",
+                "ioi_fee_policy_ref": "policy://acme/fees",
+                "validity_seconds": 3600,
+                "meter_rates": [
+                    { "meter_class": "model_tokens", "work_credit_micro_units_per_meter_unit": 5, "charge_component": "managed_model" },
+                    { "meter_class": "verified_unit", "work_credit_micro_units_per_meter_unit": 7, "charge_component": "verifier" },
+                ],
+            }),
+        )
+        .unwrap_err();
+        assert_eq!(error.0, StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(error
+            .1
+             .0
+            .to_string()
+            .contains("economics_budget_class_mixed"));
+        reset_handle_for_test();
     }
 
     fn seed_plan(fxt: &Fx, card_ref: &str) -> String {
