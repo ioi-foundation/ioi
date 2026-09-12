@@ -4,7 +4,8 @@ Status: canonical architecture authority.
 Canonical owner: this file for AIIP, the boundary from pre-AIIP local-agent pairing into participation, bounded-execution-domain interop, work, collaborative-pursuit, and dispute packets, semantic-profile negotiation, AIIP profiles, and cross-system handoff/admission semantics.
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: planned for AIIP transport (the shared registered dispute schema, invariants, fixtures, and generated projections are contract substrate; dispute admission/allocation, local-agent pairing ingress, AIIP transport/binding, channel, collaboration-terms or semantic negotiation, collaborative-pursuit, cross-domain dispute exchange, and two-sovereign-system implementation remain planned)
 Last implementation audit: 2026-07-18
@@ -730,22 +731,20 @@ work claims, attempt and finding refs, verifier challenges, and proposed/
 admitted outcome deltas between domains. It does not own those objects, execute
 attempts, or become a global room database.
 
-Every persistent room declares one ordering and admission topology:
+The room's own contract — that every persistent room declares one hosted or
+federated ordering and admission topology, what each topology owns, and what
+retirement, expiry, quarantine and revocation must preserve — is owned by
+[`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md#collaborative-work-graph-and-shared-state-admission)
+and
+[`governed-autonomous-systems.md`](./governed-autonomous-systems.md#shared-state-ordering-and-admission)
+(the paragraphs that restated it here were deleted 2026-09-12 as duplicates,
+ADR 0052 Decision 4). This file owns only what AIIP must carry for them.
 
-1. **Hosted admission:** one named governed domain sequences and admits
-   room-level frontier, attempt, finding, evaluation, and decision updates.
-   This is the first conformance target.
-2. **Federated admission:** a versioned profile names member domains, sequence
-   or merge rules, quorum or adjudicator requirements, conflicts, failover,
-   recovery, and policy-version transitions. It is opt-in and planned, not an
-   implicit property of every AIIP channel.
-
-Both modes preserve local operational truth. The host or declared federation
-policy admits the shared-room projection; each participant separately admits
-its private work and outbound claims. AIIP packets are signed, sequenced,
-idempotent refs and permitted updates. Raw private context moves only through
-an authorized policy-bound view. A board, digest, inbox, leaderboard, and replay
-are projections over this state, not protocol authority.
+Both modes preserve local operational truth, and AIIP's obligations are the
+same under either. AIIP packets are signed, sequenced, idempotent refs and
+permitted updates. Raw private context moves only through an authorized
+policy-bound view. A board, digest, inbox, leaderboard, and replay are
+projections over this state, not protocol authority.
 
 Cross-domain/open discovery and admission use the shared
 [`OutcomeRoomDiscoveryEnvelope`](../domains/ioi-ai/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope)
@@ -758,23 +757,23 @@ context and grants no membership, authority, budget, or data access. Admission
 creates a `RoomParticipantLeaseEnvelope` only after the named host domain or
 federation policy accepts the same typed request and evidence.
 
-Retire, expiry, quarantine, and revoke transitions release or reassign live
-claims and terminate future access. They preserve policy-allowed contribution,
-receipt, acceptance, settlement, and dispute refs and may carry a signed
-[`ParticipantStateBundleEnvelope`](../domains/ioi-ai/collaborative-pursuit.md#participantstatebundleenvelope).
-The participant's home domain can retain that portable state without continued
-access to or trust in a hosted room database. Hosted and federated rooms use the
-same discovery, request, lease, exit, and export contracts; they differ only in
-the declared ordering/admission owner and watermark.
+An exit transition may carry a signed
+[`ParticipantStateBundleEnvelope`](../domains/ioi-ai/collaborative-pursuit.md#participantstatebundleenvelope)
+over AIIP. The participant's home domain can retain that portable state without
+continued access to or trust in a hosted room database. Hosted and federated
+rooms use the same discovery, request, lease, exit, and export packet
+contracts; they differ only in the declared ordering/admission owner and
+watermark.
 
-Open participation remains hostile-input territory. Membership and work packets
-must preserve provenance, taint, license/export, and trust labels; apply rate,
-resource, spend, context, and authority bounds; support quarantine; and prevent
-participant messages, artifacts, mappings, or evaluator suggestions from
-automatically entering durable memory, ontology, routing policy, authority, or
-production state. Sybil signals, affiliation disclosure, reviewer independence,
-anti-collusion policy, backpressure, and fair resource allocation are room
-admission concerns rather than optional UI moderation.
+Open participation remains hostile-input territory at the protocol boundary.
+Membership and work packets must preserve provenance, taint, license/export,
+and trust labels, and must not let participant messages, artifacts, mappings,
+or evaluator suggestions enter durable memory, ontology, routing policy,
+authority, or production state on arrival. The rate, resource, spend, context,
+authority, Sybil, affiliation, reviewer-independence, anti-collusion,
+backpressure, and fair-allocation controls those packets meet are room
+admission concerns owned by the room canon above, not optional UI moderation
+and not AIIP's to define.
 
 ## Hypervisor As Coordination Substrate
 

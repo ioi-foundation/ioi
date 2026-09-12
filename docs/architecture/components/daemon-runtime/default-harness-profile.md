@@ -13,14 +13,15 @@ owned by
 and this file does not redefine their state or ownership.
 Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
-Last alignment pass: 2026-07-22.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the harness-profile registry and default profile are built; canonical AgentHarnessAdapter immutable revision admission is live, but adapter selection/invocation and the gateway attach-to-run-on crossing remain unimplemented; registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; production information-flow derivation/effect compilation and enforcement across HTTP connectors, MCP, hosted models, browsers, memory, ContextCell, OutcomeRoom, inbound connectors/webhooks, and wider computer-use families remain planned)
 Implementation refs:
   - `crates/types/src/app/harness/core.rs`
   - `crates/types/src/app/harness/receipts.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/goal_profile_contract_routes.rs`
-Last implementation audit: 2026-07-18
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-18)
 
 ## Canonical Definition
 
@@ -819,50 +820,16 @@ Context pressure estimates are planning heuristics, not protocol law. They may
 use a Context Fit Ratio, but thresholds are policy defaults rather than
 universal invariants.
 
-### Default Harness ContextCell Profile
+### Application ContextCell Profiles
 
+A `ContextCell` is an application object. The loop-local execution state a
+harness carries for one — the `DefaultHarnessContextCellProfile` that extends
 [`ContextCellEnvelope`](../../domains/ioi-ai/goal-run-execution.md#contextcellenvelope)
-owns the shared cell identity, role, room/participant binding, harness/model
-route, leases, authority scopes, wake condition, and lifecycle. The Default
-Harness Profile extends that envelope with the following loop-local execution
-state; it does not define a second `ContextCell` object.
-
-```yaml
-DefaultHarnessContextCellProfile:
-  context_cell_ref: context_cell://...
-  run_ref: run://...
-  task_ref: task://...
-  resolution: coarse | medium | fine | forensic
-  goal: string
-  constraints: [string]
-  acceptance_criteria: [string]
-  authority_ref: grant://... | null
-  agentgres_refs:
-    - agentgres://operation/...
-    - agentgres://object/...
-  artifact_refs:
-    - artifact://...
-  receipt_refs:
-    - receipt://...
-  prior_observation_refs:
-    - observation://...
-  information_flow_label_refs:
-    - ifc-label://...
-  open_uncertainties:
-    - string
-  loop_policy:
-    current_iteration: integer
-    max_iterations: integer | null
-    model_reentry_required: boolean
-  memory_policy:
-    private_scratch_allowed: boolean
-    agent_wiki_retrieval_allowed: boolean
-    agentgres_memory_mutation_allowed: boolean
-  output_policy:
-    return_claims: true
-    return_uncertainty: true
-    return_state_patch: true
-```
+without defining a second `ContextCell` object — moved 2026-09-12 to
+[`harness-application-profile.md`](../../domains/ioi-ai/harness-application-profile.md#default-harness-contextcell-profile)
+under ADR 0052 Decision 4. A direct session with no application present opens
+no cell and needs no such profile; the rules below bind every HarnessInvocation
+either way.
 
 HarnessInvocation hot state and private scratch stay local unless admitted. Durable
 behavior-affecting memory goes through Agent Wiki / `ioi-memory` and crosses

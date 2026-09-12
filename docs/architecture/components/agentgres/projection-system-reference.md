@@ -4,10 +4,11 @@ Status: taxonomy reference; Agentgres state doctrine remains owned by [`doctrine
 Canonical owner: this file for the generic Canonical State and Projection System category above Agentgres/FQF-style state systems.
 Supersedes: `docs/specs/formal/canonical-state-and-projection-system-whitepaper.md`.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: reference
 Implementation status: mixed (CSPS/FQF taxonomy reference)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-05)
 
 **Status:** Working taxonomy  
 **Scope:** Category definition, not product spec  
@@ -219,23 +220,18 @@ That means:
 
 This is the conceptual shift that makes `CSPS` different from an `RDBMS` with extra features.
 
-### 7.1 OutcomeRoom graph and discussion projection binding
+### 7.1 Projection-native does not mean caller-writable
 
-For OutcomeRoom clients, projection-native does not mean caller-writable. A
-`CollaborativeWorkGraph` projection MUST bind one exact admitted room revision,
-room state root, reciprocal GoalRun membership set, source object refs, source
-admission receipts, and information-flow label set. A graph edge that cannot be
-resolved in both owning planes is unavailable, not zero and not best-effort.
-
-Messages, boards, inboxes, digests, feeds, and replay timelines use the
-`OutcomeRoomDiscussionProjectionEnvelope` shape owned by
-[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md).
-That envelope is a durable, versioned projection artifact: it contains
-policy-filtered message refs and redaction summaries, not copied private
-message bytes; it binds the source room revision/root, receipts, visibility
-policy, and labels; and it is explicitly non-authoritative and non-writable by
-clients. Canonical room and message transitions remain in their owning object
-planes.
+Projection-native does not mean caller-writable. Every projection a `CSPS`
+serves MUST bind the exact admitted canonical state it was compiled from — the
+source object revisions and state root, the source admission receipts, and the
+applicable information-flow labels — and an edge that cannot be resolved in
+every owning plane is typed-unavailable, not zero and not best-effort. Each
+application declares its own projection classes and their binding obligations
+against this rule; the ioi.ai `CollaborativeWorkGraph` and
+`OutcomeRoomDiscussionProjectionEnvelope` obligations moved 2026-09-12 to
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections)
+under ADR 0052 Decision 4.
 
 ## 8. Relationship to Agentic Systems
 

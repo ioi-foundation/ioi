@@ -3,20 +3,21 @@
 Status: canonical architecture authority.
 Doctrine status: canonical
 Implementation status: mixed (each enum states its code grounding)
-Last implementation audit: 2026-08-08 (three code anchors verified present with claimed symbols; remaining groundings self-mark as planned).
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains the 2026-08-08 pass, where three code anchors were verified present with claimed symbols and the remaining groundings self-mark as planned).
 Canonical owner: this file for the canonical member set and spelling of cross-component enumerations that previously drifted.
 Supersedes: divergent local redefinitions of risk classes, execution venues /
-privacy modes, provider account kinds, Goal Space controls, Hypervisor product-
-surface classification, collaborative-pursuit modes, provider-route rights,
+privacy modes, provider account kinds, Hypervisor product-surface
+classification, provider-route rights,
 assurance stages, bounded-improvement evidence claims, autonomous-system
 ordering/finality and node roles, native embodied runtime profiles and execution
-strata, and IOI Network enrollment.
+strata, and IOI Network enrollment. Goal Space controls and collaborative-
+pursuit modes are application-owned member sets and left this file on
+2026-09-12 (ADR 0052 Decision 4); they are indexed, not defined, here.
 Settlement-rail selection is also owned here; settlement trigger rules and
 rail-specific fields remain with their envelope/profile owners.
 Superseded by: none.
-Last alignment pass: 2026-08-28 (ordering/finality vocabulary versioned, exact
-compatibility map for proposed and legacy labels added, and the guarantees a
-profile does not decide separated).
+Last alignment pass: 2026-09-12 (Goal Space controls and collaborative-pursuit
+modes moved to their ioi.ai owners and reduced to index pointers).
 
 ## Purpose
 
@@ -263,35 +264,6 @@ such as `private_native`, `redacted_api`, `provider_trust`, and `unsafe` remain
 owned by the private-workspace/model-router contracts and are not extra product
 modes.
 
-## Goal Space Controls
-
-### Execution policy (`goal_execution_policy`)
-
-```text
-auto | pinned | compare
-```
-
-- `auto` is 1-of-N eligible routing, including a verified cheap-first cascade;
-- `pinned` uses a selected eligible route and fails closed unless fallback was
-  explicitly authorized;
-- `compare` is N-of-N execution under a declared verifier or synthesis rule.
-
-These are routing policies, not plan tiers.
-
-### Contributor scope (`contributor_scope`)
-
-```text
-my_workers | organization | network_open
-```
-
-Contributor scope selects which accountable worker/provider domains may
-participate. It never declassifies data, widens authority, weakens custody, or
-changes placement by itself.
-
-Implementation grounding: both fields are planned. Their product behavior is
-owned by the ioi.ai collaborative-outcome contract; model and worker routing
-owners apply them to eligible routes.
-
 ## Hypervisor Product-Surface Classification
 
 These axes classify catalog, shell, command-palette, API, and contextual-launch
@@ -444,42 +416,6 @@ Implementation grounding: these are canonical target enums for the planned
 surface compiler. The current application estate and shell still use several
 hard-coded catalogs and parity-derived classifications; that is migration
 evidence, not proof that this target compiler is built.
-
-## Collaborative-Pursuit Modes
-
-### Room mode (`room_mode`)
-
-```text
-private_goal | permissioned_team | cross_org | open_challenge
-```
-
-### Shared-state coordination topology (`coordination_topology`)
-
-```text
-hosted_admission | federated_admission
-```
-
-`hosted_admission` names one governed domain as the shared-room ordering and
-admission owner. `federated_admission` names a versioned ordering, merge,
-quorum/adjudication, conflict, failover, and dispute policy. Neither value
-creates a global mutable Agentgres graph.
-
-### Attempt and result outcome class (`outcome_class`)
-
-```text
-positive | negative | inconclusive | invalid | exploit_found | superseded
-```
-
-`outcome_class` is the canonical wire key on both `Attempt` and `WorkResult`.
-Negative and inconclusive attempts remain durable when they contribute
-information, reproduction evidence, debugging, review, integrity findings,
-resource provision, or synthesis.
-
-Implementation grounding: these values are planned contract fields on the
-`OutcomeRoom`, `Attempt`, and generic `WorkResult` families in
-[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md).
-Object-local participant, frontier, claim, finding, challenge, and room lifecycle
-states remain owned by their envelope schemas there.
 
 ## Improvement Evidence Claim Classes (`claim_class`)
 
@@ -925,6 +861,27 @@ authority, creates no claim, and never substitutes for eligibility: a
 participant at the front of any queue still passes admission on its own
 evidence.
 
+## Application-Owned Member Sets
+
+These sets left this file on 2026-09-12 under ADR 0052 Decision 4: they are
+member sets of one application's contract, not cross-component enumerations.
+One line each keeps this registry total by index; the member spelling and its
+meaning live with the owner.
+
+- `goal_execution_policy` (`auto | pinned | compare`) — owned by
+  [`../domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md#goal-space-product-contract).
+- `contributor_scope` (`my_workers | organization | network_open`) — owned by
+  [`../domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md#goal-space-product-contract).
+- `room_mode` (`private_goal | permissioned_team | cross_org | open_challenge`)
+  — owned by
+  [`../domains/ioi-ai/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md#outcomeroomenvelope).
+- `coordination_topology` (`hosted_admission | federated_admission`) — owned by
+  [`../domains/ioi-ai/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md#collaborative-pursuit-mode-semantics).
+- `outcome_class`
+  (`positive | negative | inconclusive | invalid | exploit_found | superseded`)
+  — owned by
+  [`../domains/ioi-ai/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md#collaborative-pursuit-mode-semantics).
+
 ## Ownership Pointers (enums owned elsewhere)
 
 - **RuntimeToolContract field set** — owned by
@@ -939,8 +896,11 @@ evidence.
   adapter_orchestration_fee | routing_fee | managed_margin`) — owned by
   [`../components/hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md).
 - **OutcomeRoom object-local lifecycle states** — owned by
-  [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md). This
-  file owns only the cross-component room, topology, and outcome sets above.
+  [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md) and
+  the envelope sections of
+  [`../domains/ioi-ai/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md).
+  This file owns no room, topology, or outcome member set: they are indexed
+  under § *Application-Owned Member Sets* above.
 
 ## Related Canon
 

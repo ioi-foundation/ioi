@@ -4,7 +4,8 @@ Status: canonical low-level reference.
 Canonical owner: this file for the object shapes of OutcomeRoom discovery and participation requests, OutcomeRooms, room participant leases, participant state bundles, resource and capability offers, work frontier items, work claim leases, attempts, findings, and verifier challenges.
 Supersedes: none.
 Superseded by: none.
-Last alignment pass: 2026-08-26.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
 
@@ -347,7 +348,12 @@ room revision and state root, the exact reciprocal GoalRun membership set, the
 participant/frontier/claim/attempt/finding/challenge/result/delta refs used to
 compile it, the source admission receipts, and the applicable information-flow
 labels. Clients cannot write it directly; stale or inconsistent source edges
-make the affected projection typed-unavailable rather than partially true.
+make the affected projection typed-unavailable rather than partially true. A
+graph edge that cannot be resolved in both owning planes is unavailable, not
+zero and not best-effort (moved here from `projection-system-reference.md`
+§ 7.1 on 2026-09-12, ADR 0052 Decision 4; the generic CSPS rule those MUSTs
+instantiate stays with
+[`../../components/agentgres/projection-system-reference.md`](../../components/agentgres/projection-system-reference.md#71-projection-native-does-not-mean-caller-writable)).
 
 `OutcomeRoomDiscussionProjectionEnvelope` is the durable form for a room's
 messages, board, inbox, digest, feed, or replay discussion lens. It contains
@@ -924,3 +930,389 @@ VerifierChallengeEnvelope:
     proposed | admitted | investigating | upheld | rejected |
     rule_changed | reverifying | resolved | withdrawn
 ```
+
+## Collaborative-Pursuit Mode Semantics
+
+> Moved here from
+> [`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md#application-owned-member-sets)
+> § *Collaborative-Pursuit Modes* on 2026-09-12 (ADR 0052 Decision 4): these
+> are this application's member sets, not cross-component enums. The `room_mode`,
+> `coordination_topology`, and `outcome_class` member sets were deleted rather
+> than moved — the envelope sections above already spell all three — and only
+> the semantics that had no owner here moved. The enum registry keeps one
+> pointer line per set so it stays total by index.
+
+`coordination_topology` (spelled on `OutcomeRoomEnvelope` above):
+`hosted_admission` names one governed domain as the shared-room ordering and
+admission owner. `federated_admission` names a versioned ordering, merge,
+quorum/adjudication, conflict, failover, and dispute policy. Neither value
+creates a global mutable Agentgres graph.
+
+`outcome_class` (spelled on `AttemptEnvelope` above) is the canonical wire key
+on both `Attempt` and `WorkResult`. Negative and inconclusive attempts remain
+durable when they contribute information, reproduction evidence, debugging,
+review, integrity findings, resource provision, or synthesis.
+
+`room_mode` (spelled on `OutcomeRoomEnvelope` above) selects the room's
+visibility and participation posture. Object-local participant, frontier,
+claim, finding, challenge, and room lifecycle states remain owned by their
+envelope sections in this file.
+
+## Agentgres persistence of the room graph
+
+> Moved here from `api-object-model.md` § *OutcomeRoom And Collaborative Work
+> Graph Shapes* on 2026-09-12 (ADR 0052 Decision 4): the persisted shapes are
+> this application's, not Agentgres's. The generic persistence, admission and
+> federation policy stayed with Agentgres and is referenced, not restated. The
+> text is unchanged apart from link paths.
+
+Agentgres persists these objects inside the domain that owns each operation
+under the rules in
+[`../../components/agentgres/api-object-model.md`](../../components/agentgres/api-object-model.md#application-graph-shapes).
+A room declares one of two admission shapes:
+
+```text
+hosted_admission
+  one named Agentgres domain owns room ordering and admission
+
+federated_admission
+  each domain retains local truth; a versioned federation policy owns
+  signed update ordering, merge, quorum/adjudication, conflicts, and failover
+```
+
+Minimum persisted room graph:
+
+```json
+{
+  "outcome_room_id": "outcome-room://research-123",
+  "object_class": "OutcomeRoom",
+  "system_id": "system://outcome-room/research-123",
+  "genesis_ref": "genesis://outcome-room/research-123",
+  "package_id": "package://ioi/outcome-room",
+  "manifest_ref": "package://ioi/outcome-room/release/1.0.0",
+  "constitution_ref": "constitution://outcome-room/research-123/v1",
+  "active_profile_refs": {
+    "deployment": "deployment-profile://...",
+    "ordering_admission_finality": "ordering-profile://...",
+    "oracle_evidence": [],
+    "lifecycle_continuity": "lifecycle-profile://...",
+    "network_enrollment": null
+  },
+  "goal_ref": "goal://research-123",
+  "room_mode": "private_goal | permissioned_team | cross_org | open_challenge",
+  "coordination_topology": "hosted_admission | federated_admission",
+  "host_domain_ref": "agentgres://domain/ioi-ai | null",
+  "coordination_policy_ref": "policy://room-admission-v1",
+  "multi_party_collaboration_ref": "collaboration://research-123 | null",
+  "ontology_profile_refs": [],
+  "acceptance_stop_privacy_participation_contribution_and_export_policy_refs": [],
+  "scorecard_guardrail_verifier_resource_budget_and_settlement_refs": [],
+  "network_goal_budget_ref": "goal-budget://research-123 | order://... | null",
+  "participant_lease_refs": [],
+  "member_goal_run_refs": [],
+  "frontier_item_refs": [],
+  "attempt_refs": [],
+  "finding_refs": [],
+  "verifier_challenge_refs": [],
+  "contribution_refs": [],
+  "latest_sequence": 42,
+  "latest_transition_commitment_ref": "commitment://outcome-room/research-123/42",
+  "room_state_root": "sha256:...",
+  "room_receipt_root": "sha256:...",
+  "status": "proposed | open | active | paused | blocked | verifying | accepted | disputed | settled | closed | revoked | archived"
+}
+```
+
+The room relation graph must preserve:
+
+```text
+OutcomeRoom
+  -> OutcomeRoomDiscovery
+       -> policy-filtered objective / category / semantic profile / eligibility
+       -> privacy / visibility / budget / verifier / settlement posture
+  -> RoomParticipationRequest
+       -> applicant / operator / home domain / affiliations / eligibility
+       -> requested role / capabilities / leases / accepted policy versions
+  -> RoomParticipantLease
+       -> identity / operator / home domain / affiliations
+       -> worker / model route / harness / runtime dependencies
+       -> context / resource / budget / authority leases
+       -> current WorkClaimLease / heartbeat / wake condition / quarantine
+       -> ParticipantStateBundle
+            -> released claims / included lineage / exclusions / redactions
+            -> export / acknowledgement / supersession / revocation
+  -> WorkFrontierItem
+       -> dependencies / related attempts and findings
+       -> required capabilities / context / resources / authority / evidence
+       -> expected value / uncertainty / priority / duplication policy
+       -> WorkClaimLease
+  -> ResourceOffer / CapabilityOffer
+       -> ResourceAllocationDecision / spend / contribution refs
+  -> NetworkGoalBudget
+       -> separate funding / cap / allocation / contribution / settlement refs
+       -> never an implicit draw on ordinary Goal Space Work Credits
+  -> Attempt
+       -> declared method / lineage / environment and version refs
+       -> positive / negative / inconclusive / invalid / exploit / superseded
+       -> WorkResult / OutcomeDelta / artifacts / evidence / costs
+       -> reproduction / verifier / license / export / contribution refs
+  -> Finding
+       -> uncertainty / time / provenance / applicability
+       -> supporting and contradicting evidence / supersession / dispute
+  -> VerifierChallenge
+       -> rule versions / adjudication / affected attempts / re-verification
+  -> CollaborativeWorkGraph projection
+       -> exact room revision/root and reciprocal GoalRun membership
+       -> participant/frontier/claim/attempt/finding/challenge/result/delta refs
+  -> OutcomeRoomDiscussionProjection
+       -> policy-filtered message refs / redaction summaries / replay cursor
+       -> exact information-flow labels and source admission receipts
+```
+
+Room messages, boards, inboxes, digests, feeds, taskforce lists, leaderboards,
+and replay timelines are projection definitions over those objects. They are
+not canonical state classes. Their durable room-specific form is the
+`OutcomeRoomDiscussionProjectionEnvelope` defined above in
+§ *CollaborativeWorkGraph and discussion projections*: it binds one exact room
+revision/root, source receipts, visibility policy, and information-flow labels,
+and is neither authoritative nor client-writable. Every room-scoped typed
+payload binds the exact room System, OutcomeRoom, participant lease or
+room-System issuer, and payload root through `SystemScopedObjectBinding`.
+
+## OutcomeRoom event kinds
+
+> Moved here from `events-receipts-delivery-bundles.md` § *Runtime Events* on
+> 2026-09-12 (ADR 0052 Decision 4): the `outcome_room.*` namespace is declared
+> by this application, not by the shared core event registry. The core registry
+> keeps one line naming this owner. The names are unchanged.
+
+The `outcome_room.*` namespace is this application's own. The shared event
+shape, class rules, and delivery semantics stay with
+[`../../components/daemon-runtime/events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md#event-shape);
+this file declares only which kinds exist:
+
+```text
+outcome_room.created
+outcome_room.opened
+outcome_room.paused
+outcome_room.closed
+outcome_room.discovery_published
+outcome_room.discovery_paused
+outcome_room.discovery_withdrawn
+outcome_room.coordination_policy_changed
+outcome_room.frontier_item_created
+outcome_room.frontier_item_updated
+outcome_room.participant_join_requested
+outcome_room.participant_admitted
+outcome_room.participant_rejected
+outcome_room.participant_request_withdrawn
+outcome_room.participant_sleeping
+outcome_room.participant_quarantined
+outcome_room.participant_retired
+outcome_room.participant_state_prepared
+outcome_room.participant_state_exported
+outcome_room.participant_state_acknowledged
+outcome_room.participant_state_superseded
+outcome_room.participant_state_revoked
+outcome_room.work_claim_issued
+outcome_room.work_claim_released
+outcome_room.work_claim_expired
+outcome_room.resource_offered
+outcome_room.resource_allocated
+outcome_room.attempt_submitted
+outcome_room.attempt_admitted
+outcome_room.finding_proposed
+outcome_room.finding_admitted
+outcome_room.verifier_challenge_opened
+outcome_room.verifier_rule_changed
+outcome_room.reverification_started
+outcome_room.outcome_delta_admitted
+outcome_room.frontier_course_corrected
+```
+
+## OutcomeRoom And Collective-Pursuit Receipts
+
+> Moved here from `events-receipts-delivery-bundles.md` on 2026-09-12
+> (ADR 0052 Decision 4): these receipts are application contracts of the ioi.ai
+> orchestration application, not shared daemon receipt definitions. The text is
+> unchanged apart from link paths. The core registry keeps the receipt names as
+> index rows and points here; `WorkResultReceipt` and
+> `OutcomeDeltaAdmissionReceipt` remain generic and stay with the core owner.
+
+OutcomeRoom receipts make a persistent shared work frontier inspectable without
+turning board messages, self-reported results, or participant consensus into
+truth. Every participant message, artifact, finding, ontology mapping, verifier
+suggestion, and executable result remains untrusted input until the named room
+host or federated admission policy admits the relevant state change.
+
+```json
+{
+  "receipt_id": "receipt://outcome_room_123",
+  "receipt_type": "outcome_room_admission | outcome_room_discovery_publication | room_participation_decision | participant_state_export | room_participant_lease | work_frontier_mutation | work_eligibility_match | work_claim_lease | resource_offer_allocation | attempt_admission | finding_admission | verifier_challenge | work_result | outcome_delta_admission | contribution_admission",
+  "system_id": "system://outcome-room/research-123",
+  "outcome_room_ref": "outcome-room://research-123",
+  "package_id": "package://ioi/outcome-room",
+  "manifest_ref": "package://ioi/outcome-room/release/1.0.0",
+  "genesis_ref": "genesis://outcome-room/research-123",
+  "constitution_ref": "constitution://outcome-room/research-123/v1",
+  "active_profile_refs": {
+    "deployment": "deployment-profile://...",
+    "ordering_admission_finality": "ordering-profile://...",
+    "oracle_evidence": ["oracle-evidence-profile://..."],
+    "lifecycle_continuity": "lifecycle-profile://...",
+    "network_enrollment": null
+  },
+  "coordination_topology": "hosted_admission | federated_admission",
+  "admission_owner_or_policy_ref": "system://room-host | domain://room-host | policy://federated-admission-v1",
+  "subject_refs": [
+    "room-discovery://research-123",
+    "participation-request://worker-a",
+    "participant-state://worker-a/export-1",
+    "participant-lease://worker-a",
+    "frontier://question-7",
+    "work-claim://claim-9",
+    "attempt://attempt-12",
+    "finding://finding-4",
+    "verifier-challenge://challenge-2",
+    "work-result://result-12",
+    "outcome-delta://delta-8",
+    "contribution://contribution-12"
+  ],
+  "actor_and_affiliation_refs": [
+    "participant-lease://worker-a",
+    "system://operator-a",
+    "worker://worker-a",
+    "org://operator-a",
+    "domain://operator-a",
+    "model_route://route-3",
+    "runtime://node-8"
+  ],
+  "policy_refs": [
+    "policy://participation-v1",
+    "policy://privacy-v2",
+    "policy://contribution-v1",
+    "policy://artifact-export-v1"
+  ],
+  "context_resource_authority_and_budget_lease_refs": [
+    "context_lease://lease-3",
+    "resource-lease://gpu-2",
+    "grant://bounded-tools",
+    "budget://goal-123"
+  ],
+  "evidence_and_artifact_refs": [
+    "evidence://bundle-12",
+    "artifact://candidate-12"
+  ],
+  "verifier_rule_version_ref": "rubric://research-v3",
+  "expected_agentgres_heads": {
+    "frontier://question-7": "sha256:..."
+  },
+  "accepted_agentgres_sequence": 42,
+  "resulting_agentgres_heads": {
+    "frontier://question-7": "sha256:..."
+  },
+  "operation_or_batch_commitment": "sha256:...",
+  "policy_decision_ref": "decision://agentgres/42",
+  "agentgres_operation_ref": "agentgres://operation/...",
+  "agentgres_receipt_refs": ["receipt://agentgres/..."],
+  "bounded_system_predecessor_transition_ref": "commitment://system/research-123/41",
+  "bounded_system_transition_ref": "commitment://system/research-123/42",
+  "bounded_system_transition_receipt_ref": "receipt://system/research-123/42",
+  "status": "proposed | admitted | challenged | superseded | rejected | revoked"
+}
+```
+
+Receipt-specific obligations:
+
+- `OutcomeRoomAdmissionReceipt` binds the package/release root, genesis ref,
+  stable system identity, constitution root, active deployment/ordering/oracle/
+  lifecycle/enrollment refs, authority decision, sequence-zero origin
+  commitment, initial state and receipt roots, room mode, objective,
+  acceptance/stop policies, coordination topology, shared-state admission
+  owner, ontology profiles, privacy, contribution, artifact/export, verifier,
+  budget, and settlement policies.
+- `OutcomeRoomDiscoveryPublicationReceipt` binds the public or permissioned
+  discovery projection, objective/category, semantic profiles, eligibility,
+  privacy/visibility, budget/quote, verifier/settlement posture, publication
+  version, expiry, and publish/pause/withdraw decision without exposing private
+  room context.
+- `RoomParticipationDecisionReceipt` binds the participation request, applicant
+  identity/affiliations, eligibility evidence, requested role/capabilities,
+  policy/version, admitted/rejected/withdrawn decision, participant lease when
+  admitted, and denial reason without transferring ambient authority.
+- `ParticipantStateExportReceipt` binds claim release/reassignment, access
+  revocation, the policy-filtered portable participant-state bundle, included
+  contribution/evidence/receipt/dispute refs, exclusions/redactions, export and
+  acknowledgement state, and supersession/revocation. The bundle must remain
+  usable without continued access to the hosted room database. Revocation is
+  append-only: it may revoke future access or restricted-view keys, or
+  supersede an erroneous export, but cannot erase already permitted historical
+  contribution, receipt, acceptance, settlement, or dispute lineage.
+- `RoomParticipantLeaseReceipt` binds identity/eligibility evidence,
+  affiliation and dependency disclosure, exact collaboration terms root and
+  terms-acceptance receipt, visibility, context, resource, authority and budget
+  leases, TTL, heartbeat, wake condition, quarantine, and revocation.
+- `WorkFrontierMutationReceipt` binds the predecessor and resulting frontier,
+  dependencies, priority/uncertainty, duplication policy, admission decision,
+  and reason for course correction.
+- `WorkEligibilityMatchReceipt` freezes the exact input coordinates a later
+  claim must revalidate: frontier item, participant lease, resource and
+  capability offers with their revisions and control hashes, context and
+  authority/resource/budget/tool leases, requirement coverage, and offer
+  prerequisite coverage. It is **evidence admission only**. It creates no
+  allocation, no claim, and no execution authority — `allocation_created`,
+  `claim_created`, and `execution_authority_granted` are all structurally
+  `false`. Offer-side requirements are constraints that require independent
+  proof and never count as evidence of their own satisfaction; where the owner
+  plane cannot resolve a prerequisite, matching refuses typed-unavailable
+  rather than admitting a match. Claim admission recomputes the exact
+  prerequisite coverage and rechecks resource-offer expiry against freshly
+  committed wallet.network `resolved_at_ms` immediately before linearization,
+  so a stale match receipt can never stand in for a live claim check. The
+  canonical shape is owned by
+  [`collaborative-pursuit.md`](./collaborative-pursuit.md#resourceofferenvelope-and-capabilityofferenvelope).
+- `WorkClaimLeaseReceipt` binds bounded scope, claimant, exact collaboration
+  terms root and acceptance receipt, task offer/response and routing decision
+  when selected, quote, budget reservation, settlement profile, concurrency,
+  independent-replication policy, TTL, heartbeat, release, expiry,
+  reassignment, and quarantine. The claim receipt cannot outlive the accepted
+  terms or acceptance receipt unless their already accepted continuation policy
+  permits it.
+- `ResourceOfferAllocationReceipt` binds the offered capacity or capability,
+  locality/custody, trust, price, eligibility, queue/preemption/fairness policy,
+  allocation, spend, and contribution refs.
+- `AttemptAdmissionReceipt` preserves method, lineage, environment and version
+  refs, outcome class—including negative, inconclusive, invalid, exploit-found,
+  or superseded—cost, artifacts, evidence, reproduction, license/export, and
+  contribution refs.
+- `FindingAdmissionReceipt` preserves proposition, uncertainty, time, source,
+  applicability, supporting and contradicting evidence, supersession, dispute,
+  and any proposed frontier, ontology, policy, capability, or routing effect.
+- `VerifierChallengeReceipt` binds the challenged metric, rule, verifier,
+  evidence, eligibility, result, independence, or mapping decision; rule
+  versions; adjudicator; affected attempts; and required re-verification.
+- `ContributionAdmissionReceipt` binds the exact participant lease, accountable
+  contributor/operator/affiliation, attempt/finding/result lineage, assurance
+  stage, and room admission spine before a contribution enters shared room
+  attribution, reputation, or reward projections.
+
+The generic `WorkResultReceipt` and `OutcomeDeltaAdmissionReceipt` obligations
+stay with the shared core owner
+([`../../components/daemon-runtime/events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md#outcomeroom-receipt-owners)):
+they are the cross-domain result seam and are not room-specific.
+
+Room replay must reconstruct who joined, what each participant could see and
+do, which work was open or claimed, why resources were allocated, all positive
+and negative attempts, which findings were admitted or contradicted, verifier
+rule changes, affected re-verification, spend, authority, contribution lineage,
+and why the room changed direction.
+
+Every room-child receipt is the canonical receipt of the enclosing System's
+Agentgres operation. The typed payload contributes `SystemScopedObjectBinding`:
+exact room System, OutcomeRoom, participant lease or room-System issuer, and
+payload root. Agentgres owns expected-head comparison, resolved policy and
+decision, accepted sequence/head, and receipt refs; the bounded-System
+transition owns predecessor continuity, transition commitment, state root, and
+receipt root. No room-specific receipt family may duplicate those facts as a
+parallel chain. Dependency refs to a worker, model, runtime, organization, or
+provider never replace the participant lease that accepted the room obligation.

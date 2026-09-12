@@ -9,7 +9,8 @@ Supersedes: product prose that treats multi-model goal pursuit as a separate
 Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
-Last alignment pass: 2026-08-29.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
 Implementation refs:
@@ -24,7 +25,7 @@ federated and cross-domain admission, local-agent pairing,
 acceptance/verdict/settlement, product-level attempt comparison, and the
 complete visible ioi.ai Goal Space client, Collective mode, and persistent
 artifact-ecology projection remain planned.)
-Last implementation audit: 2026-07-30
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-30)
 
 ## Canonical Definition
 
@@ -365,6 +366,39 @@ Three orthogonal controls must remain distinct:
 | Execution/custody | `Standard` or `Private` | provider-trust disclosure and custody/proof posture |
 | Contributor scope | `My workers`, `Organization`, or `Network / Open` | which accountable worker/provider domains may participate |
 | Placement | local, customer infrastructure, selected provider, or Hypervisor-selected | where eligible work executes |
+
+> The two member sets below moved here from
+> [`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md#application-owned-member-sets)
+> § *Goal Space Controls* on 2026-09-12 (ADR 0052 Decision 4): they are this
+> application's product contract, not a cross-component enum. The enum registry
+> keeps one pointer line per set so it stays total by index. The text is
+> unchanged apart from link paths.
+
+Execution policy (`goal_execution_policy`):
+
+```text
+auto | pinned | compare
+```
+
+- `auto` is 1-of-N eligible routing, including a verified cheap-first cascade;
+- `pinned` uses a selected eligible route and fails closed unless fallback was
+  explicitly authorized;
+- `compare` is N-of-N execution under a declared verifier or synthesis rule.
+
+These are routing policies, not plan tiers.
+
+Contributor scope (`contributor_scope`):
+
+```text
+my_workers | organization | network_open
+```
+
+Contributor scope selects which accountable worker/provider domains may
+participate. It never declassifies data, widens authority, weakens custody, or
+changes placement by itself.
+
+Implementation grounding: both fields are planned. Model and worker routing
+owners apply them to eligible routes.
 
 Contributor scope never declassifies data or widens authority. A candidate is
 eligible only when its policy intersects safely with the Goal Space privacy,
@@ -1025,6 +1059,27 @@ Work owns none of this room truth. Every Work row exposes a typed
 on OutcomeRoom, participant pursuit stays on GoalRun, and bounded execution
 stays on Session/WorkRun.
 
+### The application-contributed Rooms view
+
+> Moved here from `core-clients-surfaces.md` on 2026-09-12 (ADR 0052
+> Decision 4): **Work / Rooms** is a surface this application contributes
+> through the product-surface registration family, so its catalog entry, route,
+> and product-term mapping are owned here rather than by Hypervisor core. The
+> core Work section keeps one line naming this owner.
+
+**Work / Rooms** is the Hypervisor navigation entry for this application's
+room-shaped work, served at the canonical route `/work/rooms`. Like every other
+Work view it is a policy-filtered read model: each row declares a typed
+`subject_kind` and canonical `subject_ref` and deep-links to the OutcomeRoom
+owner. The route mints no generic Mission id and no second room identity.
+
+Product-facing term mapping for these surfaces:
+
+| Protocol / owner term | Product-facing default |
+| --- | --- |
+| OutcomeRoom / CollaborativeWorkGraph | Goal Space in ioi.ai; Work / Room detail in Hypervisor |
+| RoomParticipantLease / WorkClaimLease | participant status/current work with advanced lease details |
+
 ## Learned Conductor Boundary
 
 ioi.ai may eventually consume a learned conductor as a planning and routing
@@ -1414,6 +1469,53 @@ projection status fields can never mutate those objects.
   claims, leases, spend, blockers, evidence, verification, contribution
   lineage, and replay; an invisible spawn tree or token stream is insufficient.
 
+The checks below are what an `outcome_room` assurance profile requires. They
+moved here from
+[`../../foundations/ecosystem-assurance-certification-liability.md`](../../foundations/ecosystem-assurance-certification-liability.md#collaborative-pursuit-profile)
+§ *Collaborative Pursuit Profile* on 2026-09-12 (ADR 0052 Decision 4); that
+file keeps a one-line index entry and the statement of what assurance does not
+become by certifying one. The text is unchanged apart from link paths.
+
+- An `outcome_room` assurance profile requires declared hosted or federated
+  shared-state admission and ordering.
+- It requires participant identity, operator, affiliation, model/runtime/
+  provider dependencies, and independent-party posture.
+- It requires participant/context/authority/resource/budget/work-claim leases
+  with TTL, heartbeat, quarantine, and revocation.
+- It requires privacy, retention, artifact license/export, contribution, and
+  settlement policies that contributor scope cannot widen.
+- It requires hostile-input taint and isolated execution before admission.
+- It requires positive, negative, inconclusive, invalid, exploit-finding, and
+  superseded attempt retention.
+- It requires verifier independence, rule versions, challenge/adjudication,
+  re-verification, and anti-collusion controls.
+- It requires Sybil/rate-limit/backpressure/fair-allocation posture.
+- It requires contribution/derivation lineage and an explicit assurance stage
+  for every claimed outcome or payout.
+- It requires room replay that reconstructs participation, claims, resources,
+  evidence, authority, spend, course correction, and admission.
+
+The four checks below moved here from `core-clients-surfaces.md` on 2026-09-12
+(ADR 0052 Decision 4); the exact duplicates that stood beside them there were
+deleted rather than moved:
+
+- A persistent collective outcome must be one underlying OutcomeRoom projected
+  as ioi.ai Goal Space and Hypervisor Work / Room detail, not duplicated product
+  state.
+- Goal Space and Work / Room UI must be graph-first and expose frontier, participants,
+  participant/claim leases, attempts, findings, verifier challenges, spend,
+  authority/privacy blockers, contribution lineage, and replay. Chat and live
+  feeds remain projections.
+- Network/Open discovery UI must query signed, versioned
+  `OutcomeRoomDiscoveryEnvelope` projections by category, semantic profile,
+  capability, eligibility/affiliation, privacy/locality, budget/quote,
+  verifier, and settlement posture. Joining creates a typed participation
+  request and shows the admission decision; it never silently mints membership.
+- Goal Space and Work / Room participant controls must expose claim release,
+  retirement/revocation, portable participant-state export, acknowledgement,
+  supersession, and future-access revocation while preserving historical
+  contribution, receipt, acceptance, and dispute lineage.
+
 ## Anti-Patterns
 
 Avoid:
@@ -1434,6 +1536,8 @@ collaborative outcome = hidden background process list
 collaborative outcome = child sessions with host admin power
 OutcomeRoom = peer runtime
 OutcomeRoom = globally mutable Agentgres graph
+OutcomeRoom = permanent Swarm application
+OutcomeRoom = duplicated Goal Space and Work / Room truth
 Connect local agent = broad organization or room-database access
 pairing completion = room admission, capability proof, or effect authority
 room guest = automatic My workers registration

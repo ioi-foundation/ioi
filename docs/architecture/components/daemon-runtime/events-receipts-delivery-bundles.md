@@ -1,14 +1,24 @@
 # Events, Receipts, and Delivery Bundles
 
 Status: canonical low-level reference.
-Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
+Canonical owner: this file for runtime events, receipts, delivery bundles,
+trace bundles, and quality records — the generic receipt shape, event shape,
+event-class rules, assurance ladder, checkpoint/proof contracts, and delivery
+semantics every family obeys, plus the exhaustive receipt-type and event-kind
+index. Application-owned receipt and event definitions are named here and
+defined by their owners: the ioi.ai goal and room families live in
+[`../../domains/ioi-ai/goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md)
+and
+[`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md).
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-08-30 (qualified live SCM v2 admission emission and
-revalidation status reconciled).
+Last alignment pass: 2026-09-12 (application-owned goal/room receipt and event
+definitions moved to their ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, physical-action, and GoalRun activation machine contracts have registered schemas and generated projections; the qualified live SCM path emits, persists, and revalidates `AuthorityEffectAdmissionReceiptV2` with exact wallet consumption before its finalizer; a portable admission-signature profile, public verifier CLI/package, broader exact-action emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full OutcomeRoom/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
-Last implementation audit: 2026-08-30
+Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, and physical-action machine contracts have registered schemas and generated projections, as do the application-owned goal contracts defined by their ioi.ai owners; the qualified live SCM path emits, persists, and revalidates `AuthorityEffectAdmissionReceiptV2` with exact wallet consumption before its finalizer; a portable admission-signature profile, public verifier CLI/package, broader exact-action emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full room/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052
+Decision 4; no implementation was re-derived — the substantive basis remains
+the 2026-08-30 pass)
 
 ## Purpose
 
@@ -580,42 +590,7 @@ collaboration.party_removed
 collaboration.view_granted
 collaboration.view_revoked
 collaboration.proof_bundle_generated
-outcome_room.created
-outcome_room.opened
-outcome_room.paused
-outcome_room.closed
-outcome_room.discovery_published
-outcome_room.discovery_paused
-outcome_room.discovery_withdrawn
-outcome_room.coordination_policy_changed
-outcome_room.frontier_item_created
-outcome_room.frontier_item_updated
-outcome_room.participant_join_requested
-outcome_room.participant_admitted
-outcome_room.participant_rejected
-outcome_room.participant_request_withdrawn
-outcome_room.participant_sleeping
-outcome_room.participant_quarantined
-outcome_room.participant_retired
-outcome_room.participant_state_prepared
-outcome_room.participant_state_exported
-outcome_room.participant_state_acknowledged
-outcome_room.participant_state_superseded
-outcome_room.participant_state_revoked
-outcome_room.work_claim_issued
-outcome_room.work_claim_released
-outcome_room.work_claim_expired
-outcome_room.resource_offered
-outcome_room.resource_allocated
-outcome_room.attempt_submitted
-outcome_room.attempt_admitted
-outcome_room.finding_proposed
-outcome_room.finding_admitted
-outcome_room.verifier_challenge_opened
-outcome_room.verifier_rule_changed
-outcome_room.reverification_started
-outcome_room.outcome_delta_admitted
-outcome_room.frontier_course_corrected
+# outcome_room.* (36 kinds) are declared by their owner application in domains/ioi-ai/collaborative-pursuit.md — moved 2026-09-12, ADR 0052 Decision 4
 workspace_trust.warning
 workspace_trust.acknowledged
 workspace_snapshot.created
@@ -811,6 +786,12 @@ run.completed
 run.failed
 run.cancelled
 ```
+
+Application namespaces declare their own event kinds in their owner canon:
+`outcome_room.*` →
+[`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#outcomeroom-event-kinds)
+(moved 2026-09-12, ADR 0052 Decision 4). This file keeps the shared event
+shape, event-class rules, and delivery semantics every namespace obeys.
 
 ## Event Shape
 
@@ -1075,6 +1056,20 @@ WorkspaceRestoreReceipt
 DiagnosticsRepairReceipt
 JobReceipt
 ```
+
+This list stays exhaustive as an index. Definitions live with the receipt's
+owner, and the rows below are owned by the ioi.ai orchestration application
+rather than by this file (moved 2026-09-12, ADR 0052 Decision 4):
+
+| Receipt type | Owner section |
+| --- | --- |
+| `OutcomeRoomAdmissionReceipt`, `OutcomeRoomDiscoveryPublicationReceipt`, `RoomParticipationDecisionReceipt`, `ParticipantStateExportReceipt`, `RoomParticipantLeaseReceipt`, `WorkFrontierMutationReceipt`, `WorkEligibilityMatchReceipt`, `WorkClaimLeaseReceipt`, `ResourceOfferAllocationReceipt`, `AttemptAdmissionReceipt`, `FindingAdmissionReceipt`, `VerifierChallengeReceipt`, `ContributionAdmissionReceipt` | [`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#outcomeroom-and-collective-pursuit-receipts) |
+| `GoalRunActivationReceipt` | [`../../domains/ioi-ai/goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrun-activation-receipts) |
+| `GoalRunProfileResolutionReceipt` | [`../../domains/ioi-ai/goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrun-profile-resolution-receipts) |
+
+`WorkResultReceipt` and `OutcomeDeltaAdmissionReceipt` are not on that list:
+they are the generic cross-domain result seam and stay with this file
+(§ *OutcomeRoom Receipt Owners*).
 
 ## Authority Review Receipt
 
@@ -2046,149 +2041,19 @@ decision and `transfer_status` must not claim
 receipt; it links forward through the applicable impact, recall, deletion, or
 access-rotation record.
 
-## GoalRun Activation Receipts
+## GoalRun Activation And Profile-Resolution Receipt Owners
 
-A `GoalRunActivationReceipt` is emitted only after the daemon admits one
-`GoalRunActivationEnvelope`. It proves the narrow crossing fact: the exact
-activation draft and typed source context were evaluated under the named
-authority, review, and admission decisions and admitted or joined the named
-`goal://` identity at the retained Agentgres state root. It does not prove the
-goal is correct or complete, widen authority, declassify carried context, grant
-room membership, create budget, or discharge any later work receipt.
-
-```yaml
-GoalRunActivationReceipt:
-  schema_version: ioi.goal-run-activation-receipt.v1
-  receipt_id: receipt://...
-  receipt_ref: receipt://...
-  receipt_type: goal_run_activation
-  receipt_profile_ref: schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1
-  activation_ref: goal-run-activation://...
-  activation_mode: create | join_existing
-  source_context:
-    source_kind:
-      ioi_goal_draft | hypervisor_session | work_run | work_item |
-      outcome_room_claim | automation_workflow_step | gateway_adapter_context
-    source_ref:
-      intent://... | prompt://... | session://... | work-run://... | run://... |
-      work-item://... | work-claim://... | action://goal-run/activate/... |
-      adapter://...
-    source_owner_ref: org://... | project://... | system://... | user://...
-  draft_activation_hash: sha256:...
-  source_context_hash: sha256:...
-  requesting_principal_ref: wallet://... | user://... | agent://... | system://...
-  authority_decision_ref: grant://... | approval://...
-  review_decision_ref: receipt://... | approval://... | null
-  admission_decision_ref: agentgres://... | decision://...
-  admission_receipt_ref: receipt://...
-  admitted_goal_ref: goal://...
-  existing_goal_ref: goal://... | null
-  goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null
-  goal_run_profile_content_hash: sha256:... | null
-  resolved_component_set_snapshot_ref: artifact://...
-  resolved_component_set_hash: sha256:...
-  profile_resolution_receipt_ref: receipt://...
-  receipt_obligations_hash: sha256:...
-  attested_boundary_fact_refs:
-    - goal-run-activation://... | intent://... | grant://... |
-      decision://... | goal://... | goal-run-profile://... |
-      artifact://... | receipt://... | agentgres://...
-  admitted_state_root_ref: agentgres://state-root/goal-run/...
-  admitted_at: timestamp
-  non_grants:
-    authority_widening: none
-    context_declassification: none
-    room_membership: none
-    budget_creation: none
-  receipt_root: sha256:...
-```
-
-`receipt_id` and `receipt_ref` are the same portable identity.
-`receipt_root` is SHA-256 over JCS of every field above except
-`receipt_root`. `source_context_hash` commits the complete source object the
-daemon resolved, while the typed `source_context` makes its kind, ref, and
-owner independently inspectable. The resolved-component tuple and profile-
-resolution receipt bind the admission-time dependency closure;
-`receipt_obligations_hash` commits the exact typed obligation set, and every
-required bound fact must appear in `attested_boundary_fact_refs`. In `create`
-mode the exact profile revision and content hash are required and
-`existing_goal_ref` is null. In
-`join_existing` mode the profile fields are null and `existing_goal_ref`
-names the same pre-existing goal identity the admission evaluator joins.
-
-## GoalRun Profile Resolution Receipts
-
-A `GoalRunProfileResolutionReceipt` proves which immutable pursuit definition,
-overrides, and transitive component set daemon admission froze before a
-GoalRun became active. It proves resolution and admission, not that the profile
-is good, that later work is correct, or that any effect was authorized.
-
-```yaml
-GoalRunProfileResolutionReceipt:
-  receipt_id: receipt://...
-  receipt_type: goal_run_profile_resolution
-  goal_ref: goal://...
-  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
-  goal_run_profile_content_hash: hash
-  goal_run_execution_ceiling_revision_ref: goal-run-execution-ceiling://.../revision/sha256:... | omitted
-  goal_run_execution_ceiling_content_hash: sha256:... | omitted
-  declared_invocation_budget:
-    max_total_invocations: integer
-    max_parallel_invocations: integer
-    # the complete tuple is omitted only for predecessor lanes that have not
-    # yet adopted the execution-ceiling contract
-  admitted_override_set_ref: artifact://... | null
-  admitted_override_set_hash: hash | null
-  effective_constraint_envelope_ref: constraint://...
-  effective_constraint_envelope_hash: hash
-  orchestration_policy_ref: orchestration_policy://...
-  orchestration_policy_version_or_hash: semver_or_hash
-  workflow_template_resolutions:
-    - revision_ref: workflow-template://.../revision/...
-      content_hash: hash
-  resolved_skill_bindings:
-    - skill_entry_ref: skill-entry://...
-      skill_entry_binding_revision_ref: skill-entry://.../revision/...
-      skill_entry_binding_hash: hash
-      skill_manifest_revision_ref: skill://.../revision/...
-      skill_manifest_content_hash: hash
-  active_skill_set_snapshot_ref: active-skill-set://...
-  active_skill_set_hash: hash
-  resolved_harness_profile_revisions:
-    - revision_ref: harness-profile://.../revision/...
-      content_hash: hash
-  resolved_runtime_tool_contracts:
-    - revision_ref: tool://.../revision/...
-      content_hash: hash
-  role_topology_requirement_refs: []
-  worker_model_service_and_verifier_requirement_refs: []
-  primitive_capability_requirement_refs: []
-  initial_role_topology_revision_ref: role_topology://.../revision/... | null
-  initial_role_topology_content_hash: hash | null
-  initial_role_topology_decision_ref: decision://... | receipt://... | null
-  unresolved_late_binding_requirement_refs: []
-  effective_learning_boundary_profile_ref: learning-boundary://... | null
-  effective_learning_policy_hash: hash | null
-  compatibility_revocation_and_admission_decision_refs: []
-  resolved_component_set_snapshot_ref: artifact://...
-  resolved_component_set_hash: hash
-  agentgres_operation_refs: []
-  assurance_stage: attested
-  receipt_root: hash
-  signature: optional
-```
-
-When the override ref is null its hash is null; otherwise both are required.
-When any execution-ceiling field is present, all three ceiling revision/hash
-and declared-budget fields are required together, the ceiling revision is part
-of the resolved-component closure, and the receipt never fills a missing value
-from a default. The M4 `ioi_goal_draft` lane carries the exact immutable
-zero-execution ceiling and a `{0, 0}` declared budget; older partial lanes may
-omit the complete tuple until their own owner-approved adoption cut.
-Late-binding predicates may remain unresolved at run admission only when the
-profile permits them. Each actual worker, model, HarnessProfile, tool, runtime,
-context, and authority selection is then frozen by its owning
-`OrchestrationPlan`, `HarnessInvocation`, lease, decision, and receipt.
+The `GoalRunActivationReceipt` and `GoalRunProfileResolutionReceipt`
+definitions moved 2026-09-12 to
+[`../../domains/ioi-ai/goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrun-activation-receipts)
+and
+[`../../domains/ioi-ai/goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrun-profile-resolution-receipts)
+under ADR 0052 Decision 4: they are application contracts of the ioi.ai
+orchestration application and belong beside the activation and profile
+envelopes they admit and freeze. This registry keeps their names as index rows
+in § *Receipt Types* and owns the generic receipt shape, class rules, assurance
+ladder, checkpoint/proof contracts, and delivery semantics every receipt family
+including these obeys.
 
 ## AutomationRun Resolution Receipts
 
@@ -2232,11 +2097,13 @@ AutomationRunResolutionReceipt:
   signature: optional
 ```
 
-Routine automations leave `goal_run_activation_resolutions` empty. A
-goal-shaped step may create or join a GoalRun only through a declared
-GoalRunActivationContract; that child GoalRun performs its own profile
-resolution and retains its own resolution receipt. The Automation receipt
-binds the bridge without collapsing the two run identities.
+`AutomationRunResolutionReceipt` is a registered contract and its field set is
+unchanged, `goal_run_activation_resolutions` included. What that field means
+for the child pursuit — when an automation step may create or join a GoalRun,
+and why the two run identities stay separate — moved 2026-09-12 to
+[`../../domains/ioi-ai/goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#activation-from-an-automation-workflow-step)
+under ADR 0052 Decision 4. Routine automations leave the list empty; this
+receipt binds the bridge and owns no goal semantics.
 
 ## Orchestration Decision Receipts
 
@@ -3573,188 +3440,28 @@ model-route, runtime-node, infrastructure-provider, verifier, and settlement
 affiliations separately so a first-party seed fleet cannot be presented as
 independent multi-party verification.
 
-## OutcomeRoom And Collective-Pursuit Receipts
+## OutcomeRoom Receipt Owners
 
-OutcomeRoom receipts make a persistent shared work frontier inspectable without
-turning board messages, self-reported results, or participant consensus into
-truth. Every participant message, artifact, finding, ontology mapping, verifier
-suggestion, and executable result remains untrusted input until the named room
-host or federated admission policy admits the relevant state change.
+The OutcomeRoom and collective-pursuit receipt definitions — room admission,
+discovery publication, participation decision, participant-state export,
+participant lease, work-frontier mutation, work-eligibility match, work-claim
+lease, resource-offer allocation, attempt admission, finding admission,
+verifier challenge, and contribution admission — moved 2026-09-12 to
+[`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#outcomeroom-and-collective-pursuit-receipts)
+under ADR 0052 Decision 4: they are application contracts of the ioi.ai
+orchestration application. This registry keeps their names as index rows in
+§ *Receipt Types* and owns the generic receipt shape every one of them obeys.
 
-```json
-{
-  "receipt_id": "receipt://outcome_room_123",
-  "receipt_type": "outcome_room_admission | outcome_room_discovery_publication | room_participation_decision | participant_state_export | room_participant_lease | work_frontier_mutation | work_eligibility_match | work_claim_lease | resource_offer_allocation | attempt_admission | finding_admission | verifier_challenge | work_result | outcome_delta_admission | contribution_admission",
-  "system_id": "system://outcome-room/research-123",
-  "outcome_room_ref": "outcome-room://research-123",
-  "package_id": "package://ioi/outcome-room",
-  "manifest_ref": "package://ioi/outcome-room/release/1.0.0",
-  "genesis_ref": "genesis://outcome-room/research-123",
-  "constitution_ref": "constitution://outcome-room/research-123/v1",
-  "active_profile_refs": {
-    "deployment": "deployment-profile://...",
-    "ordering_admission_finality": "ordering-profile://...",
-    "oracle_evidence": ["oracle-evidence-profile://..."],
-    "lifecycle_continuity": "lifecycle-profile://...",
-    "network_enrollment": null
-  },
-  "coordination_topology": "hosted_admission | federated_admission",
-  "admission_owner_or_policy_ref": "system://room-host | domain://room-host | policy://federated-admission-v1",
-  "subject_refs": [
-    "room-discovery://research-123",
-    "participation-request://worker-a",
-    "participant-state://worker-a/export-1",
-    "participant-lease://worker-a",
-    "frontier://question-7",
-    "work-claim://claim-9",
-    "attempt://attempt-12",
-    "finding://finding-4",
-    "verifier-challenge://challenge-2",
-    "work-result://result-12",
-    "outcome-delta://delta-8",
-    "contribution://contribution-12"
-  ],
-  "actor_and_affiliation_refs": [
-    "participant-lease://worker-a",
-    "system://operator-a",
-    "worker://worker-a",
-    "org://operator-a",
-    "domain://operator-a",
-    "model_route://route-3",
-    "runtime://node-8"
-  ],
-  "policy_refs": [
-    "policy://participation-v1",
-    "policy://privacy-v2",
-    "policy://contribution-v1",
-    "policy://artifact-export-v1"
-  ],
-  "context_resource_authority_and_budget_lease_refs": [
-    "context_lease://lease-3",
-    "resource-lease://gpu-2",
-    "grant://bounded-tools",
-    "budget://goal-123"
-  ],
-  "evidence_and_artifact_refs": [
-    "evidence://bundle-12",
-    "artifact://candidate-12"
-  ],
-  "verifier_rule_version_ref": "rubric://research-v3",
-  "expected_agentgres_heads": {
-    "frontier://question-7": "sha256:..."
-  },
-  "accepted_agentgres_sequence": 42,
-  "resulting_agentgres_heads": {
-    "frontier://question-7": "sha256:..."
-  },
-  "operation_or_batch_commitment": "sha256:...",
-  "policy_decision_ref": "decision://agentgres/42",
-  "agentgres_operation_ref": "agentgres://operation/...",
-  "agentgres_receipt_refs": ["receipt://agentgres/..."],
-  "bounded_system_predecessor_transition_ref": "commitment://system/research-123/41",
-  "bounded_system_transition_ref": "commitment://system/research-123/42",
-  "bounded_system_transition_receipt_ref": "receipt://system/research-123/42",
-  "status": "proposed | admitted | challenged | superseded | rejected | revoked"
-}
-```
-
-Receipt-specific obligations:
-
-- `OutcomeRoomAdmissionReceipt` binds the package/release root, genesis ref,
-  stable system identity, constitution root, active deployment/ordering/oracle/
-  lifecycle/enrollment refs, authority decision, sequence-zero origin
-  commitment, initial state and receipt roots, room mode, objective,
-  acceptance/stop policies, coordination topology, shared-state admission
-  owner, ontology profiles, privacy, contribution, artifact/export, verifier,
-  budget, and settlement policies.
-- `OutcomeRoomDiscoveryPublicationReceipt` binds the public or permissioned
-  discovery projection, objective/category, semantic profiles, eligibility,
-  privacy/visibility, budget/quote, verifier/settlement posture, publication
-  version, expiry, and publish/pause/withdraw decision without exposing private
-  room context.
-- `RoomParticipationDecisionReceipt` binds the participation request, applicant
-  identity/affiliations, eligibility evidence, requested role/capabilities,
-  policy/version, admitted/rejected/withdrawn decision, participant lease when
-  admitted, and denial reason without transferring ambient authority.
-- `ParticipantStateExportReceipt` binds claim release/reassignment, access
-  revocation, the policy-filtered portable participant-state bundle, included
-  contribution/evidence/receipt/dispute refs, exclusions/redactions, export and
-  acknowledgement state, and supersession/revocation. The bundle must remain
-  usable without continued access to the hosted room database. Revocation is
-  append-only: it may revoke future access or restricted-view keys, or
-  supersede an erroneous export, but cannot erase already permitted historical
-  contribution, receipt, acceptance, settlement, or dispute lineage.
-- `RoomParticipantLeaseReceipt` binds identity/eligibility evidence,
-  affiliation and dependency disclosure, exact collaboration terms root and
-  terms-acceptance receipt, visibility, context, resource, authority and budget
-  leases, TTL, heartbeat, wake condition, quarantine, and revocation.
-- `WorkFrontierMutationReceipt` binds the predecessor and resulting frontier,
-  dependencies, priority/uncertainty, duplication policy, admission decision,
-  and reason for course correction.
-- `WorkEligibilityMatchReceipt` freezes the exact input coordinates a later
-  claim must revalidate: frontier item, participant lease, resource and
-  capability offers with their revisions and control hashes, context and
-  authority/resource/budget/tool leases, requirement coverage, and offer
-  prerequisite coverage. It is **evidence admission only**. It creates no
-  allocation, no claim, and no execution authority — `allocation_created`,
-  `claim_created`, and `execution_authority_granted` are all structurally
-  `false`. Offer-side requirements are constraints that require independent
-  proof and never count as evidence of their own satisfaction; where the owner
-  plane cannot resolve a prerequisite, matching refuses typed-unavailable
-  rather than admitting a match. Claim admission recomputes the exact
-  prerequisite coverage and rechecks resource-offer expiry against freshly
-  committed wallet.network `resolved_at_ms` immediately before linearization,
-  so a stale match receipt can never stand in for a live claim check. The
-  canonical shape is owned by
-  [`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#resourceofferenvelope-and-capabilityofferenvelope).
-- `WorkClaimLeaseReceipt` binds bounded scope, claimant, exact collaboration
-  terms root and acceptance receipt, task offer/response and routing decision
-  when selected, quote, budget reservation, settlement profile, concurrency,
-  independent-replication policy, TTL, heartbeat, release, expiry,
-  reassignment, and quarantine. The claim receipt cannot outlive the accepted
-  terms or acceptance receipt unless their already accepted continuation policy
-  permits it.
-- `ResourceOfferAllocationReceipt` binds the offered capacity or capability,
-  locality/custody, trust, price, eligibility, queue/preemption/fairness policy,
-  allocation, spend, and contribution refs.
-- `AttemptAdmissionReceipt` preserves method, lineage, environment and version
-  refs, outcome class—including negative, inconclusive, invalid, exploit-found,
-  or superseded—cost, artifacts, evidence, reproduction, license/export, and
-  contribution refs.
-- `FindingAdmissionReceipt` preserves proposition, uncertainty, time, source,
-  applicability, supporting and contradicting evidence, supersession, dispute,
-  and any proposed frontier, ontology, policy, capability, or routing effect.
-- `VerifierChallengeReceipt` binds the challenged metric, rule, verifier,
-  evidence, eligibility, result, independence, or mapping decision; rule
-  versions; adjudicator; affected attempts; and required re-verification.
-- `WorkResultReceipt` binds the generic result profile and outcome class. A
-  software implementation may additionally bind changed files and tests, but
-  research, ontology, incident, service, physical mission, review, and
-  evaluation results do not need to masquerade as patches.
-- `OutcomeDeltaAdmissionReceipt` binds preconditions, invariants, expected
-  effect, verifier/acceptance refs, and the admitted, rejected, superseded, or
-  rolled-back change to frontier, finding, ontology, state, capability, policy,
-  route prior, or service outcome.
-- `ContributionAdmissionReceipt` binds the exact participant lease, accountable
-  contributor/operator/affiliation, attempt/finding/result lineage, assurance
-  stage, and room admission spine before a contribution enters shared room
-  attribution, reputation, or reward projections.
-
-Room replay must reconstruct who joined, what each participant could see and
-do, which work was open or claimed, why resources were allocated, all positive
-and negative attempts, which findings were admitted or contradicted, verifier
-rule changes, affected re-verification, spend, authority, contribution lineage,
-and why the room changed direction.
-
-Every room-child receipt is the canonical receipt of the enclosing System's
-Agentgres operation. The typed payload contributes `SystemScopedObjectBinding`:
-exact room System, OutcomeRoom, participant lease or room-System issuer, and
-payload root. Agentgres owns expected-head comparison, resolved policy and
-decision, accepted sequence/head, and receipt refs; the bounded-System
-transition owns predecessor continuity, transition commitment, state root, and
-receipt root. No room-specific receipt family may duplicate those facts as a
-parallel chain. Dependency refs to a worker, model, runtime, organization, or
-provider never replace the participant lease that accepted the room obligation.
+Two of the receipts that appear in room work stay here because they are not
+room-specific. `WorkResultReceipt` binds the generic result profile and outcome
+class. A software implementation may additionally bind changed files and tests,
+but research, ontology, incident, service, physical mission, review, and
+evaluation results do not need to masquerade as patches.
+`OutcomeDeltaAdmissionReceipt` binds preconditions, invariants, expected
+effect, verifier/acceptance refs, and the admitted, rejected, superseded, or
+rolled-back change to frontier, finding, ontology, state, capability, policy,
+route prior, or service outcome. Both are the cross-domain result seam and are
+emitted with or without a room.
 
 ## Direct Improvement Gate Receipts
 

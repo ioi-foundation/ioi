@@ -11,7 +11,7 @@ Implementation refs:
   - `crates/types/src/app/generated/architecture_contracts.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs`
   - `crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs`
-Last implementation audit: 2026-08-25 (integrated range 704c4d0dd..5e503b055)
+Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-08-25 (integrated range 704c4d0dd..5e503b055))
 
 ## Purpose
 
@@ -305,14 +305,20 @@ The kind-specific phase owners remain:
 
 | Kind | Canonical phase family | Ordinary transition authority |
 |---|---|---|
-| GoalRun | `draft`, `active`, `paused`, `complete`, `superseded`, `revoked` | Goal Kernel; owner on declared pause/resume/revoke edges; governance on declared pause/revoke/supersede edges |
-| OutcomeRoom | `proposed`, `open`, `active`, `paused`, `blocked`, `verifying`, `accepted`, `disputed`, `settled`, `closed`, `revoked`, `archived` | the OutcomeRoom application owner under the room System's admitted policy; M04.7 exposes only daemon-derived `proposed -> open` after System genesis, while later edges remain unavailable until their authority owners land |
-| GoalGroundingLoop | the canonical receive → ground → inspect → constrain → allocate → execute → verify → repair/reconcile → continue loop phases | Goal Kernel/conductor; verifier only on declared verify/challenge edges |
 | WorkRun | `pending`, `running`, `waiting_for_input`, `ready_for_review`, `stopped`, `completed`, `failed`, `canceled` | daemon/operator; reviewer only on declared review exits |
 | AutomationRun | `queued`, `running`, `waiting_for_approval`, `blocked`, `succeeded`, `failed`, `canceled`, `archived` | Automation controller/daemon; governance on declared cancellation edges |
 | HarnessInvocation | `queued`, `running`, `waiting_on_harness`, `waiting_on_conductor`, `completed`, `failed`, `cancelled`, `superseded` | daemon, selected adapter, or conductor on the declared edge |
-| ContextCell | `open`, `active`, `sleeping`, `waiting`, `handed_off`, `summarized`, `quarantined`, `closed`, `revoked` | conductor/daemon; governance on declared revocation edges |
 | external handle | `requested`, `acknowledged`, `running`, `waiting`, `succeeded`, `failed`, `cancelled`, `expired`, `ambiguous`, `reconciled` | exact external-protocol adapter/daemon; reconciler on ambiguous settlement |
+
+The `GoalRun`, `OutcomeRoom`, `GoalGroundingLoop`, and `ContextCell` rows were
+deleted 2026-09-12 as duplicates of their owners (ADR 0052 Decision 4): their
+member sets are spelled by
+[`../../domains/ioi-ai/goal-run-execution.md`](../../domains/ioi-ai/goal-run-execution.md)
+and
+[`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md).
+The shared kernel still binds those kinds exactly as it binds the rows above —
+each keeps its own phase and authority table, and the mechanism owns none of
+them.
 
 These rows name phase families, not permission to jump between arbitrary
 members. The versioned legal-edge table is normative. Reference mutations have

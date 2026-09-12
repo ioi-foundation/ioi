@@ -9,7 +9,8 @@ Supersedes: plan prose that scatters certification, compliance, insurance,
 abuse response, billing assurance, or customer audit exports across runtime,
 wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: planned (the assurance/certification/liability layer and deterministic deployment-policy obligation projection are not implemented on current master; any future projection must deliberately return no legal-conformity decision)
 Last implementation audit: 2026-07-18
@@ -776,28 +777,14 @@ and evidence shape.
 
 ### Collaborative Pursuit Profile
 
-An `outcome_room` assurance profile should require:
-
-- declared hosted or federated shared-state admission and ordering;
-- participant identity, operator, affiliation, model/runtime/provider
-  dependencies, and independent-party posture;
-- participant/context/authority/resource/budget/work-claim leases with TTL,
-  heartbeat, quarantine, and revocation;
-- privacy, retention, artifact license/export, contribution, and settlement
-  policies that contributor scope cannot widen;
-- hostile-input taint and isolated execution before admission;
-- positive, negative, inconclusive, invalid, exploit-finding, and superseded
-  attempt retention;
-- verifier independence, rule versions, challenge/adjudication,
-  re-verification, and anti-collusion controls;
-- Sybil/rate-limit/backpressure/fair-allocation posture;
-- contribution/derivation lineage and an explicit assurance stage for every
-  claimed outcome or payout;
-- room replay that reconstructs participation, claims, resources, evidence,
-  authority, spend, course correction, and admission.
-
-This profile does not make the assurance layer the room coordinator, verifier,
-authority provider, truth substrate, or settlement judge.
+The `outcome_room` assurance profile's required elements moved 2026-09-12 to
+[`../domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md#conformance-checks)
+§ *Conformance Checks* under ADR 0052 Decision 4: what a room must declare,
+lease, retain, verify and replay is the room owner's contract, and this file
+states only that an `outcome_room` profile exists and what assurance does not
+become by having one. Certifying against that profile does not make the
+assurance layer the room coordinator, verifier, authority provider, truth
+substrate, or settlement judge.
 
 ## Jurisdiction And Compliance Packs
 
