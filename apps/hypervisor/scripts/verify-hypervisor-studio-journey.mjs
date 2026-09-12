@@ -14,6 +14,21 @@
 // constant the verifier picked: hardcoding an owner would keep passing against a deployment
 // where this session owns nothing.
 //
+// KNOWN RED, NAMED AT ITS SITE (R-31, 2026-09-11; measured 28/33 on b553939cf). The five descriptor
+// clauses below fail with `odk_descriptor_request_field_unknown: 'description'`. They are ONE defect:
+// the Studio descriptor lane still speaks the RETIRED v1 descriptor contract, while the daemon's
+// registered contract moved to `ioi.ontology-surface-descriptor.v2` (M05.5's convergence, which
+// landed on the daemon and never reached the surface). THREE deltas, not one — `description` has no
+// v2 field at all, `name` is spelled `display_name`, and `ontology_ref` is a v1 name the daemon
+// refuses rather than translates; serde_json orders object keys, so `description` is only the first
+// of the three to be reached. Surface: ../surfaces/studio/index.mjs:115,116 (declared action fields)
+// and :166-169, :174-176 (the forwarded body). Contract: odk_routes.rs DESCRIPTOR_CREATE_REQUEST_FIELDS
+// (:4315), DESCRIPTOR_PATCH_REQUEST_FIELDS (:4349), LEGACY_DESCRIPTOR_FIELDS (:3235). This file's own
+// v1 expectations are at :296, :310, :314, :323, :338. Owner M05.5; closure is a re-authored surface
+// packet, because v2 also requires `schema_version`, `surface_ref` and eight member ref-sets this
+// four-field form does not collect. NOT suppressed and NOT excused: the clauses stay red and this
+// verifier keeps failing until the surface speaks v2.
+//
 // Exit: 0 pass · 1 fail · 2 blocked (daemon binary missing).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
 

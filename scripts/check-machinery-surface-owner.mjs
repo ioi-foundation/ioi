@@ -46,8 +46,15 @@ ok("5. core-clients-surfaces.md: the Automations ownership entry lists process/s
 
 const manifestPath = path.join(ROOT, "internal-docs/implementation/program/manifest.v1.json");
 if (fs.existsSync(manifestPath)) {
-  const oq = (JSON.parse(fs.readFileSync(manifestPath, "utf8")).open_questions || []).find((q) => q.id === "OQ-2");
-  ok("private register (present on this host): OQ-2 reads resolved with the same owner", !oq || (oq.status === "resolved" && /Automations owns/u.test(String(oq.ruling || ""))), oq ? oq.status : "no OQ-2 row");
+  // A CLOSED question leaves `open_questions` entirely, so looking only there passed vacuously the
+  // moment R-29 landed — the assertion claimed the register agreed while reading nothing at all.
+  // Both lists are searched, and an OQ-2 that is in NEITHER is a failure: the row is the record.
+  const register = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const open = (register.open_questions || []).find((q) => q.id === "OQ-2");
+  const resolved = (register.resolved_questions || []).find((q) => q.id === "OQ-2");
+  ok("private register (present on this host): OQ-2 reads RESOLVED with the same owner, and is not merely absent",
+    !open && !!resolved && /Automations owns/u.test(String(resolved.ruling || "")),
+    open ? `still open (${open.status})` : resolved ? `resolved ${resolved.resolved}` : "OQ-2 is in neither list");
 }
 
 const failed = results.filter((r) => !r.pass).length;

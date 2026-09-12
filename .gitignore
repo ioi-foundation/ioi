@@ -114,6 +114,9 @@ internal-docs/reverse-engineering
 # must remain independently buildable without these private working records.
 /internal-docs/implementation/
 /scripts/implementation-program.mjs
+# Its verifier reads the same private guide and asserts over nothing else, so it travels with it
+# rather than shipping a tracked check that is BLOCKED on every clone.
+/scripts/check-release-readiness-scope.mjs
 
 
 
