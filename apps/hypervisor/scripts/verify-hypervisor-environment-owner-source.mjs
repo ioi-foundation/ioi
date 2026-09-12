@@ -129,6 +129,14 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
+  // Re-pinned 2026-09-12 (M07.4 items 2b and 2c) from 1122, +3. The model-route CANDIDATE lane
+  // registered three handlers: `POST /model-routes/price-schedules` and
+  // `GET /model-routes/price-schedules/:id` admit and read expiring advisory price evidence, and
+  // `POST /model-routes/cost-comparison` returns an advisory ranking. NONE is a new environment
+  // owner and none is a policy-context read of the environment plane: the lane carries evidence a
+  // ranking may read and authorizes nothing, which is a const `advisory_only: true` in both of its
+  // registered contracts rather than a claim made here. `workspace` (38) and `candidates` (45) are
+  // unchanged, which is the evidence that only the registered-handler bucket moved.
   // Re-pinned 2026-09-08 (basis 1f6c5ac3e) from 1097/44 at 7c63a63ec: eleven registered handlers
   // were added by 49eecf0bc (decentralized-cloud job primitive: cloud-jobs list/create/get/execute
   // — execute is a POLICY_CONTEXT read of the environment plane, classified by its own marker),
@@ -160,7 +168,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // 1118 -> 1122 (2026-09-12, M07.3). The provider-spend reconciliation plane registers three
   // paths, one of which carries two methods, and the router counts handlers rather than paths —
   // so four. Moved in the SAME COMMIT as the routes, like every other pin this program touched.
-  census.registered_route_handlers === 1122 && census.workspace_route_handlers === 38
+  census.registered_route_handlers === 1125 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

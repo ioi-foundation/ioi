@@ -565,7 +565,21 @@ const PINNED = {
   // so the replacement string read to it as a family leaf it could not resolve, and the run said
   // so by name. The fix was to bind the id first, which is clearer code and leaves the write call's
   // arguments as exactly what they are. The gate found it; the pin is only the bookkeeping after.
-  modules: 117,
+  // Re-pinned 2026-09-12 (M07.4 item 2b, the model-route candidate lane). ONE MODULE JOINED the
+  // reachable graph — model_route_candidate_routes.rs, the expiring advisory price evidence a
+  // route ranking reads and nothing charges from — and it moved FOUR pins at once, which is the
+  // thing this block exists to make unmissable: modules 117 -> 118, tokens 148420 -> 149000,
+  // opaque initialisers 2790 -> 2800, foreign-qualified names 4587 -> 4613, and the non-ODK
+  // literal writer bucket 244 -> 245. The writer move is exactly one and it is the module's single
+  // `persist_record`, whose kind is a constant this census resolves and which is not an ontology
+  // family. Family writers stay at 57 and runtime-parameter writers at 311, because nothing in
+  // that module admits an ontology family.
+  //
+  // THE PIN DID NOT MOVE IN THE SAME COMMIT AS THE MODULE, AND CI CAUGHT IT. That is the fourth
+  // time in this program's legs and the second time it is mine; the discipline is written three
+  // paragraphs above and was still skipped. Recording it here rather than only in the register,
+  // because this is the file a future re-pin reads.
+  modules: 118,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -583,9 +597,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 148420,
+  tokenMentions: 149000,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 244, runtimeParameter: 311 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 245, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -604,8 +618,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4587,
-    "opaque-initialiser": 2790,
+    "foreign-qualified": 4613,
+    "opaque-initialiser": 2800,
     "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
