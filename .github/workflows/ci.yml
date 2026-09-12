@@ -464,6 +464,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # THE RUNNER RAN OUT OF DISK, AND THE CRATE IT BLAMED WAS INNOCENT (2026-09-12).
+      #
+      # This job's first full run reported `Library suite — ioi-services` as FAILED after 35m57s.
+      # That suite is GREEN: 3635 passed, 0 failed, 368 s, measured on the qualification host at
+      # the same commit. The job's own annotation carries the real cause —
+      # `System.IO.IOException: No space left on device` — raised inside the RUNNER's worker while
+      # writing its diagnostic log, which is what a disk exhaustion looks like from the outside:
+      # not a test failure, not a timeout, and reported against whichever step happened to be
+      # running when the volume filled.
+      #
+      # The cause is structural rather than incidental. This job compiles the TEST TARGET of 25
+      # crates into one cached `target` on a standard runner with ~14 GB free, and it was the
+      # one-step-per-crate split landed earlier the same day that made it reach crates it had
+      # never compiled before — so the floor only became large enough to exhaust the volume once
+      # it stopped aborting at the first red. Freeing space is therefore part of the floor's
+      # design, not a workaround bolted onto it.
+      #
+      # MEASURED, NOT ASSUMED: `df -h /` is printed before and after, so the next run states its
+      # own headroom and a future exhaustion names itself instead of crashing the worker and
+      # accusing a crate.
+      - name: Free runner disk for the 25-crate floor
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /usr/local/share/powershell \
+                      /usr/share/swift "$AGENT_TOOLSDIRECTORY" || true
+          echo "after:"; df -h / | tail -1
+
       - name: Install native deps for kernel build
         run: |
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
@@ -490,6 +518,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Headroom after the cache restore, which is where the target dir actually lands. A floor
+      # that fails for disk must say so in its own output rather than in a worker stack trace.
+      - name: Disk headroom after cache restore
+        run: df -h / | tail -1
 
       # ONE STEP PER CRATE (2026-09-12). The 25 commands ran in one `set -euo pipefail` block, so
       # the first red crate aborted the block and every crate AFTER it stopped running: on
