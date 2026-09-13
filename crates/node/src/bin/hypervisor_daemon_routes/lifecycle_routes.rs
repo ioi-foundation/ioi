@@ -24906,6 +24906,29 @@ pub(crate) async fn handle_session_execute(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    // M13.10 — THE EXECUTION VENUE, RESOLVED FROM THE ENVIRONMENT'S OWN SUBSTRATE. ADR 0053 § 2
+    // requires receipts to name the venue, and a receipt that took the venue from the request would
+    // be recording what the caller wanted rather than where the run happened. The environment
+    // record's `status.substrate` is set by the provider that actually started it —
+    // `provision_microvm` writes `microvm` beside `minimum_isolation: vm_kernel` only after a real
+    // KVM boundary exists — so reading it here is reading the boundary rather than the intent.
+    //
+    // Absent environment or absent substrate yields `local_host`, which is what an unrecorded
+    // substrate has always meant on this plane; it is never left null, because a receipt with no
+    // venue is indistinguishable from one whose venue nobody looked up.
+    let execution_venue = record
+        .get("environment_id")
+        .and_then(Value::as_str)
+        .and_then(|environment_id| {
+            super::environment_routes::load_env(&st.data_dir, environment_id)
+        })
+        .and_then(|environment| {
+            environment
+                .pointer("/status/substrate")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| "local_host".to_string());
     let lane = body
         .get("lane")
         .and_then(Value::as_str)
@@ -25235,6 +25258,8 @@ pub(crate) async fn handle_session_execute(
         "memory_projection_refs": session_memory_projection_refs(&st.data_dir, &session_id),
         "harness": harness_label,
         "harness_profile_ref": harness_profile_ref,
+        // ADR 0053 § 2: the receipt names the venue the run executed in.
+        "execution_venue": execution_venue,
         "adapter_event_count": outcome.adapter_events.len(),
         "adapter_event_refs": adapter_event_refs,
         "implementation_result": outcome.implementation_result,

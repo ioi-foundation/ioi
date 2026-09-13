@@ -82,6 +82,17 @@ const MODEL_UPSTREAM = process.env.IOI_ALPHA_MODEL_UPSTREAM || "http://127.0.0.1
 // provider only from inside the daemon's model-mount proxy. Without a key the lane records a TYPED
 // ABSENCE and the journey runs on the local route.
 const MODEL_ROUTE_LANE = process.env.IOI_ALPHA_MODEL_ROUTE === "remote" ? "remote" : "local";
+
+// M13.10 — THE EXECUTION VENUE. ADR 0053 § 2 asks for the essential journey with the microVM venue
+// selected, the harness inside the guest and the host checkout untouched.
+//
+// The class id is `microvm` and DELIBERATELY NOT `vm`. The daemon seeds BOTH: a legacy `vm` class
+// whose backing reads "no real provider/account path yet" and never starts, and `microvm`, whose
+// `enabled` is computed at read time from a real toolchain probe (pinned supply manifest plus a
+// sha256 re-hash of the monitor binaries). The disabled one sorts FIRST in the catalog, so a venue
+// selector that took the first vm-ish class would pick the one that cannot run.
+const EXECUTION_VENUE = process.env.IOI_ALPHA_EXECUTION_VENUE === "microvm" ? "microvm" : "local";
+const VENUE_CLASS_ID = EXECUTION_VENUE === "microvm" ? "microvm" : "local-workspace-v0";
 const PROVIDER_BASE_URL = (process.env.IOI_ALPHA_PROVIDER_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/u, "");
 const PROVIDER_MODEL = process.env.IOI_ALPHA_PROVIDER_MODEL || "gpt-4o-mini";
 const PROVIDER_KEY = String(process.env.IOI_ALPHA_PROVIDER_KEY || "");
@@ -633,7 +644,7 @@ async function run() {
 
   // ---- 6. start useful work: composer → parked on approval → approve → execute ----------------
   const intent = "Create a file named ALPHA_JOURNEY.md whose first line is exactly: hello from the alpha journey";
-  const composerBody = { initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: "local-workspace-v0", ...(STANDING ? { authorityProfile: { connectionRefs: [`connector:${A}`] } } : {}), ...(remoteRoute ? { modelRouteRef: remoteRoute.routeRef } : {}) };
+  const composerBody = { initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: VENUE_CLASS_ID, ...(STANDING ? { authorityProfile: { connectionRefs: [`connector:${A}`] } } : {}), ...(remoteRoute ? { modelRouteRef: remoteRoute.routeRef } : {}) };
   const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody) });
   const runId = create.body?.agentExecutionId || "";
   const envId = create.body?.environment?.id || create.body?.environment?.environmentId || "";
@@ -726,6 +737,36 @@ async function run() {
   let writtenFiles = [];
   try { writtenFiles = fs.readdirSync(workspaceRoot).filter((f) => !f.startsWith(".")); } catch { /* none */ }
   ok("7-inspect", "the written artifacts are in the session's workspace on disk", workspaceRoot && writtenFiles.length > 0, `${workspaceRoot} · ${writtenFiles.slice(0, 8).join(", ")}`);
+
+  // ---- 7v. THE VENUE (M13.10 / ADR 0053 § 2) ---------------------------------------------------
+  // Asserted only when the microVM venue was SELECTED. On the local venue these would be false and
+  // saying nothing is the honest answer — a journey that claimed a venue it did not run in would be
+  // exactly the defect this program keeps finding.
+  if (EXECUTION_VENUE === "microvm") {
+    const st = env.body?.environment?.status || {};
+    ok("7v-venue", "the environment really ran on the microVM venue, and says so with the boundary rather than with a label",
+      st.substrate === "microvm" && st.minimum_isolation === "vm_kernel",
+      `substrate ${st.substrate} · minimum_isolation ${st.minimum_isolation} · provider ${st.provider}`);
+    // ADR 0053 § 2: the guest has NO NETWORK DEVICE. The provider refuses one by name
+    // (`workload_boundary_network_device_refused`), so what is asserted here is the declaration the
+    // run actually carried, not that a probe happened to find nothing.
+    const decl = st.vm_enforcement || st.enforcement_declaration || {};
+    ok("7v-venue", "the run declares no network device and a bounded host-initiated guest channel — the boundary ADR 0053 § 2 names",
+      decl.network_device_count === 0 && String(decl.guest_channel || "").startsWith("host_initiated_vsock"),
+      `network_device_count ${decl.network_device_count} · channel ${decl.guest_channel}`);
+    // THE HOST CHECKOUT IS UNTOUCHED. The workspace the harness wrote is the guest's, imported and
+    // exported over vsock; the repo this verifier runs from must carry none of it.
+    const hostArtifact = path.join(ROOT, "ALPHA_JOURNEY.md");
+    ok("7v-venue", "the host checkout is untouched: the file the run wrote exists in the session workspace and NOT in the repository the journey runs from",
+      writtenFiles.includes("ALPHA_JOURNEY.md") && !fs.existsSync(hostArtifact),
+      `${workspaceRoot} has it · repo ${fs.existsSync(hostArtifact) ? "ALSO HAS IT (leak)" : "clean"}`);
+    ok("7v-venue", "the receipts name the venue rather than leaving the reader to infer it",
+      execReceipts.some((r) => String(r.execution_venue || r.venue || r.substrate || "") === "microvm"),
+      execReceipts.map((r) => r.execution_venue || r.venue || r.substrate || "(unnamed)").join(","));
+    evidence.execution_venue = { selected: EXECUTION_VENUE, class_id: VENUE_CLASS_ID, substrate: st.substrate, minimum_isolation: st.minimum_isolation };
+  } else {
+    record("7v-venue", "execution venue", `local venue selected (IOI_ALPHA_EXECUTION_VENUE unset or not 'microvm'); the microVM lane is NOT claimed by this run`);
+  }
   const runSession = await jd(DAEMON, `/v1/hypervisor/sessions/${encodeURIComponent(runSessionRef)}`);
   const execReceipts = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
   ok("7-inspect", "the session record carries the execute receipt and the durable receipt binds the consumed capability lease and the authority scopes", runSession.status === 200 && execReceipts.length >= 1 && String(execReceipts[0].capability_lease_ref || "").length > 0 && Array.isArray(execReceipts[0].authority_scope_refs), `${execReceipts.length} receipt(s) · lease ${String(execReceipts[0]?.capability_lease_ref || "").slice(0, 40)}`);

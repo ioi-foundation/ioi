@@ -594,6 +594,11 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13, M13.10 (the execution venue on the execute receipt): tokens
+  // 150086 -> 150090 and NOTHING else — four tokens for one server-resolved field. A venue taken
+  // from the request would have cost the same four tokens and meant something entirely different,
+  // which is why the census is not the check that matters here; the receipt reading the
+  // environment's own substrate is.
   // Re-pinned 2026-09-13, M09.5's provider half (three teardown sites converged): tokens
   // 150000 -> 150086, bare-undeclared 536 -> 539, non-ODK literal writer 249 -> 252 and
   // runtime-parameter HELD at 311. Three new writers, all three legible: the provider lane's three
@@ -673,7 +678,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150086,
+  tokenMentions: 150090,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
   productionFsCalls: 234,

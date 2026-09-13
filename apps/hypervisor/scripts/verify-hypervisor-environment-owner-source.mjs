@@ -129,6 +129,11 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
+  // Re-pinned 2026-09-13 (M13.10) from 1130/39/46: registered handlers HELD at 1130 while workspace
+  // 39 -> 40 and candidates 46 -> 47. No route was added. `handle_session_execute` now reads the
+  // environment record to resolve the execution venue for its receipt (ADR 0053 § 2), which makes
+  // it an environment-plane CONSUMER, and this census sees consumers rather than routes. The
+  // registered-handler count holding is the evidence that this is a new read and not a new surface.
   // Re-pinned 2026-09-13 (M09.3) from 1129/38/45, +1 to ALL THREE: the port revocation act,
   // `POST /v1/hypervisor/environments/:id/ports/:port/revoke`. Unlike M07.4's candidate lane —
   // where the note below records `workspace` and `candidates` holding as the evidence that only the
@@ -187,8 +192,8 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
-  census.registered_route_handlers === 1130 && census.workspace_route_handlers === 39
-    && census.routes.length === 46 && census.unresolved.length === 0 && census.unclassified.length === 0
+  census.registered_route_handlers === 1130 && census.workspace_route_handlers === 40
+    && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
     && policyContextRoutes.join(",") === [
