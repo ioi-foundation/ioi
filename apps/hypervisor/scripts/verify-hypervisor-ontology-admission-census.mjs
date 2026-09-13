@@ -579,6 +579,15 @@ const PINNED = {
   // time in this program's legs and the second time it is mine; the discipline is written three
   // paragraphs above and was still skipped. Recording it here rather than only in the register,
   // because this is the file a future re-pin reads.
+  // Re-pinned 2026-09-13 (M10.5) from 149161, +29. No module joined and no writer moved: the change
+  // is `foundry_routes.rs` gaining a `contract_checked` helper, two contract-id constants and the
+  // renamed schema-version strings. Only the literal population grows.
+  //
+  // THIS IS THE THIRD TIME THIS PIN HAS BEEN MOVED LATE IN ONE PROGRAM LEG, and the cause each time
+  // was a pre-push sweep run from memory rather than from a list. A helper function and two `const`
+  // strings are not the sort of change that makes an author think "census" — which is exactly why
+  // the sweep has to enumerate its gates instead of being recalled. Recorded here because this file
+  // is where the next late re-pin will be noticed.
   // Re-pinned 2026-09-12 (M04.10, the reservation admission). No module joined and no writer
   // moved: the admission goes through the generic owner-namespaced event stream rather than
   // through `persist_record`, so the writer buckets are untouched and only the literal population
@@ -612,7 +621,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149161,
+  tokenMentions: 149190,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 245, runtimeParameter: 311 },
   productionFsCalls: 234,

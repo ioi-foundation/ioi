@@ -70,7 +70,17 @@
       "surface_availability": "available",
       "canonical_route": "/studio",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/studio",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "propose",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/automations",
@@ -80,7 +90,17 @@
       "surface_availability": "available",
       "canonical_route": "/automations",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/automations",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/ontology",
@@ -90,7 +110,17 @@
       "surface_availability": "available",
       "canonical_route": "/ontology",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/ontology",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "propose",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/data",
@@ -100,7 +130,17 @@
       "surface_availability": "available",
       "canonical_route": "/data",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/data",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/governance",
@@ -110,7 +150,17 @@
       "surface_availability": "available",
       "canonical_route": "/governance",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/governance",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/provenance",
@@ -120,7 +170,17 @@
       "surface_availability": "available",
       "canonical_route": "/provenance",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/provenance",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/evaluations",
@@ -130,7 +190,17 @@
       "surface_availability": "available",
       "canonical_route": "/evaluations",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/evaluations",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/improvement",
@@ -140,7 +210,17 @@
       "surface_availability": "available",
       "canonical_route": "/improvement",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/improvement",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/foundry",
@@ -150,7 +230,17 @@
       "surface_availability": "available",
       "canonical_route": "/foundry",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/foundry",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/packages",
@@ -160,7 +250,17 @@
       "surface_availability": "available",
       "canonical_route": "/packages",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/packages",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/developer-workspace",
@@ -170,7 +270,17 @@
       "surface_availability": "available",
       "canonical_route": "/developer-workspace",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/developer-workspace",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/developer-console",
@@ -180,7 +290,17 @@
       "surface_availability": "available",
       "canonical_route": "/developer-console",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/developer-console",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/environments",
@@ -190,7 +310,17 @@
       "surface_availability": "available",
       "canonical_route": "/environments",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/environments",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/operations",
@@ -200,7 +330,17 @@
       "surface_availability": "available",
       "canonical_route": "/operations",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/operations",
-      "effect_boundary": "effectful"
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     },
     {
       "surface_ref": "surface://hypervisor/embodied-systems",
@@ -210,7 +350,17 @@
       "surface_availability": "planned",
       "canonical_route": "/embodied-systems",
       "canonical_owner_doc_ref": "doc://architecture/hypervisor/embodied-systems",
-      "effect_boundary": "propose_only"
+      "effect_boundary": "propose_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "hand_authored",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization"
     }
   ],
   "dynamic_registration_classes": [
