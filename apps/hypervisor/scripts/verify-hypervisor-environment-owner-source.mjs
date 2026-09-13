@@ -176,7 +176,11 @@ check("R1_DERIVED_CLOSED_WORLD",
   // 1118 -> 1122 (2026-09-12, M07.3). The provider-spend reconciliation plane registers three
   // paths, one of which carries two methods, and the router counts handlers rather than paths —
   // so four. Moved in the SAME COMMIT as the routes, like every other pin this program touched.
-  census.registered_route_handlers === 1126 && census.workspace_route_handlers === 38
+  // 1126 -> 1129 (2026-09-13, M09.2): THREE handlers across the two new paths — the startup-plan
+  // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
+  // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
+  // by different amounts on the same change and why moving one gives no hint the other needs it.
+  census.registered_route_handlers === 1129 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

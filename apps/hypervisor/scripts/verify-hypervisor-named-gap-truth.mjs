@@ -161,6 +161,12 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 871 -> 873 (2026-09-13, M09.2): the environment startup plan. TWO distinct paths —
+  // `/v1/hypervisor/environment-startup-plans` (list + admit) and
+  // `/v1/hypervisor/environment-recipes/:id/resolutions`. The second exists because ACC-11 clause 3
+  // requires the plan to be inspectable BEFORE it runs, and the only producer of its predecessor
+  // was environment CREATION, which starts the environment in the same pass: a plan obtainable only
+  // after the thing it plans has started inverts the clause rather than weakening it.
   // 870 -> 871 (2026-09-12, M04.10): the per-dimension work-reservation admission. ONE route, on
   // the work-lifecycle prefix rather than a new one, because the reservation bounds work that this
   // owner already governs — but on its OWN event stream (R-74), never the record chain, since that
@@ -182,7 +188,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 871,
+  registeredRoutes: 873,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
