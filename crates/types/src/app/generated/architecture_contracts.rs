@@ -311,6 +311,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/work-dimension-reservation/v1", "sha256:09c1fd5c770ce15d6e91836992f3cf527162dad3206f86ff06379a72a46b6f31"),
     ("schema://ioi/components/hypervisor/foundry-spec/v1", "sha256:a95d1acb99fd566cc2fa6c04c6a2fb326cc606ec93b9d5d2d6fcbed3b0010881"),
     ("schema://ioi/components/hypervisor/foundry-run-plan/v1", "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd"),
+    ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822"),
+    ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -134993,6 +134995,434 @@ pub enum FoundryRunPlanV1Status {
     Superseded,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryDraftSpecV1 {
+    pub schema_version: FoundryDraftSpecV1SchemaVersion,
+    pub object: FoundryDraftSpecV1Object,
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub kind: FoundryDraftSpecV1Kind,
+    pub status: FoundryDraftSpecV1Status,
+    pub model_route_refs: Vec<String>,
+    pub provider_refs: Vec<String>,
+    pub backend_refs: Vec<String>,
+    pub endpoint_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub inputs: serde_json::Value,
+    pub authority_policy_ref: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryDraftSpecV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-draft-spec/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","title":"FoundryDraftSpec","description":"A DRAFT DECLARATION OF A CAPABILITY BUILD, BOUND TO MOUNTS THAT ALREADY EXIST — and deliberately NOT canon's `FoundrySpec`. The daemon's foundation cut served this object under canon's name while sharing exactly ONE field with it (`status`): canon's family is a model-TRAINING pipeline with base models, datasets, a training mode and packaging targets, where this is an eval and route-comparison draft that names existing model routes, providers, backends and endpoints. Registering it under its own name is what lets canon keep its own, and what finally makes this object refusable — its routes are live and, until this contract, minted a `schema_version` present in no registry and validated nothing, so every malformed body was a 201. THE OBJECT IS INERT BY CONSTRUCTION and the shape says so: it NAMES policy and evidence refs and never enforces them, it declares `inputs` it does not execute, and it holds no promotion, alias or registry mutation of any kind. `kind` is closed at the five the daemon admits, because a typo there is a draft that describes the wrong sort of build rather than one that refuses.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","name","description","kind","status","model_route_refs","provider_refs","backend_refs","endpoint_refs","evidence_refs","inputs","authority_policy_ref","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-spec.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_spec"},"id":{"type":"string","pattern":"^fspec_[0-9a-f]+$"},"name":{"type":"string","minLength":1},"description":{"type":"string"},"kind":{"type":"string","description":"Closed at the five the daemon admits. A typo here is a draft describing the wrong sort of build rather than one that refuses.","enum":["model_tune","model_eval","tool_build","inference_endpoint","ontology"]},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"model_route_refs":{"$ref":"#/$defs/refs"},"provider_refs":{"$ref":"#/$defs/refs"},"backend_refs":{"$ref":"#/$defs/refs"},"endpoint_refs":{"$ref":"#/$defs/refs"},"evidence_refs":{"$ref":"#/$defs/refs","description":"Opaque provenance pointers. NAMED, never executed and never enforced — a draft cites evidence, it does not act on it."},"inputs":{"type":"object","description":"Declared build inputs. Deliberately unconstrained in shape and deliberately not executed: this plane dispatches nothing, so constraining them here would assert a contract over something no runtime reads."},"authority_policy_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"A policy this draft NAMES. It crosses no authority and grants none; naming a policy is not applying one."},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundryDraftSpecV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<FoundryDraftSpecV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kind: serde_json::from_value::<FoundryDraftSpecV1Kind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FoundryDraftSpecV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_route_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"model_route_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_route_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"provider_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"backend_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backend_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            endpoint_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"endpoint_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"endpoint_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inputs: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"inputs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"inputs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftSpecV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.hypervisor.foundry-draft-spec.v1"#)]
+    IoiComponentsHypervisorFoundryDraftSpecV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftSpecV1Object {
+    #[serde(rename = r#"ioi.hypervisor.foundry_draft_spec"#)]
+    IoiHypervisorFoundryDraftSpec,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftSpecV1Kind {
+    #[serde(rename = r#"model_tune"#)]
+    ModelTune,
+    #[serde(rename = r#"model_eval"#)]
+    ModelEval,
+    #[serde(rename = r#"tool_build"#)]
+    ToolBuild,
+    #[serde(rename = r#"inference_endpoint"#)]
+    InferenceEndpoint,
+    #[serde(rename = r#"ontology"#)]
+    Ontology,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftSpecV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryDraftRunPlanV1 {
+    pub schema_version: FoundryDraftRunPlanV1SchemaVersion,
+    pub object: FoundryDraftRunPlanV1Object,
+    pub id: String,
+    pub spec_ref: String,
+    pub spec_content_hash: String,
+    pub name: String,
+    pub description: String,
+    pub status: FoundryDraftRunPlanV1Status,
+    pub target_route_ref: Option<String>,
+    pub target_provider_ref: Option<String>,
+    pub steps: Vec<serde_json::Value>,
+    pub inputs: serde_json::Value,
+    pub evidence_refs: Vec<String>,
+    pub promotion_preview: FoundryDraftRunPlanV1PromotionPreview,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryDraftRunPlanV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","title":"FoundryDraftRunPlan","description":"THE DRAFT PHASES A CAPABILITY-BUILD DRAFT WOULD RUN, AND THE PROMOTION IT EXPLICITLY DOES NOT PERFORM. Like its spec this is NOT canon's `FoundryRunPlan`: canon has a closed seven-stage vocabulary, executor bindings and required artifact contracts, where this holds opaque `steps`, a target route/provider and a promotion PREVIEW. Registered under its own name so canon keeps its, and so this object stops being unvalidatable. THE TWO FIELDS THAT CARRY THE SAFETY PROPERTY ARE `spec_content_hash` AND `promotion_preview`. The hash pins the spec CONTENT the plan was drafted against, so a later spec edit surfaces as drift on read instead of silently changing what the plan meant — the plan cannot be quietly re-aimed. And `promotion_preview.would_promote` is a const FALSE: this plane performs no promotion, registry alias or model mutation, and a record claiming otherwise is refused OFFLINE rather than trusted at runtime, which is the difference between an inert plane and a plane that says it is inert.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","spec_ref","spec_content_hash","name","description","status","target_route_ref","target_provider_ref","steps","inputs","evidence_refs","promotion_preview","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-run-plan.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_run_plan"},"id":{"type":"string","pattern":"^frun_[0-9a-f]+$"},"spec_ref":{"type":"string","minLength":1},"spec_content_hash":{"type":"string","minLength":1,"description":"Pins the spec CONTENT this plan was drafted against, so a later spec edit surfaces as drift on read rather than silently changing the plan's meaning."},"name":{"type":"string","minLength":1},"description":{"type":"string"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"steps":{"type":"array","description":"Planned phases, opaque by design: nothing here is dispatched. Constraining their shape would assert a contract over something no runtime reads."},"inputs":{"type":"object"},"evidence_refs":{"$ref":"#/$defs/refs"},"promotion_preview":{"$ref":"#/$defs/promotion_preview"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"promotion_preview":{"type":"object","additionalProperties":false,"description":"A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.","required":["would_promote","note","target_route_ref","target_provider_ref","from_spec_kind"],"properties":{"would_promote":{"type":"boolean","const":false},"note":{"type":"string","minLength":1},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"from_spec_kind":{"anyOf":[{"type":"string"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundryDraftRunPlanV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<FoundryDraftRunPlanV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            spec_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"spec_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"spec_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            spec_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"spec_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"spec_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FoundryDraftRunPlanV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_route_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"target_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_provider_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"target_provider_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_provider_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            steps: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"steps"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"steps"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inputs: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"inputs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"inputs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotion_preview: serde_json::from_value::<FoundryDraftRunPlanV1PromotionPreview>(
+                object
+                    .remove(r#"promotion_preview"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion_preview"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftRunPlanV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.hypervisor.foundry-draft-run-plan.v1"#)]
+    IoiComponentsHypervisorFoundryDraftRunPlanV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftRunPlanV1Object {
+    #[serde(rename = r#"ioi.hypervisor.foundry_draft_run_plan"#)]
+    IoiHypervisorFoundryDraftRunPlan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryDraftRunPlanV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryDraftRunPlanV1PromotionPreview {
+    pub would_promote: FoundryDraftRunPlanV1PromotionPreviewWouldPromote,
+    pub note: String,
+    pub target_route_ref: Option<String>,
+    pub target_provider_ref: Option<String>,
+    pub from_spec_kind: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryDraftRunPlanV1PromotionPreview {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1"#,
+            r##"{"type":"object","additionalProperties":false,"description":"A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.","required":["would_promote","note","target_route_ref","target_provider_ref","from_spec_kind"],"properties":{"would_promote":{"type":"boolean","const":false},"note":{"type":"string","minLength":1},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"from_spec_kind":{"anyOf":[{"type":"string"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            would_promote: serde_json::from_value::<
+                FoundryDraftRunPlanV1PromotionPreviewWouldPromote,
+            >(
+                object
+                    .remove(r#"would_promote"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"would_promote"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_route_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"target_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_provider_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"target_provider_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_provider_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_spec_kind: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_spec_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_spec_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryDraftRunPlanV1PromotionPreviewWouldPromote {
+    False,
+}
+
+impl serde::Serialize for FoundryDraftRunPlanV1PromotionPreviewWouldPromote {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryDraftRunPlanV1PromotionPreviewWouldPromote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -145503,6 +145933,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/foundry-run-plan/v1",
         path: "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -161573,6 +162035,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-draft-spec/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-draft-spec/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -163253,6 +163759,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/work-dimension-reservation/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-dimension-reservation/v1","title":"WorkDimensionReservation","description":"ONE CLAIM ON ONE RESOURCE DIMENSION, HELD AGAINST AN ANCESTOR THAT CANNOT BE OVERSUBSCRIBED. ACC-5 clause 8 requires reservations that are exact-head, per-dimension and disjoint, that preserve protected recovery and integration capacity, that narrow every ancestor bound, and that transfer atomically on reassignment — with crash, sibling races and replacement unable to duplicate or leak one. Three of those are properties of a SET and belong to the admission transaction: disjointness, the protected-capacity floor, and narrowing are all statements about this reservation together with its siblings, and no single record can assert them. What this contract does is make the admission transaction POSSIBLE and make a malformed claim impossible: a reservation names exactly one dimension from a closed vocabulary, carries a POSITIVE unit count (a zero-unit reservation reserves nothing and would sit in the ledger looking like a claim), pins the exact ancestor head it was computed against so a sibling that moved the head invalidates it rather than silently oversubscribing, and lists the full ancestor chain it narrows so the transaction knows every bound to check rather than only the nearest. TRANSFER IS ATOMIC BY SHAPE, AND THE SHAPE IS THE SUCCESSOR'S. The event stream admits one operation at a time, so the single append that can be atomic is the successor naming its predecessor through `transferred_from_ref`: it creates the new claim and releases the old one together. `transferred_to_ref` is the source's terminal state and the readable back-reference, and a registered invariant requires a transferred reservation to name its successor — but it cannot itself be the transfer, because marking a source transferred without creating its successor needs a second append and leaves the units belonging to nobody in between, which is exactly the leak clause 8 names. The units are integers, like every other quantity the estate counts.","x-ioi-schema-version":"ioi.foundations.work-dimension-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","work_ref","holder_ref","dimension","reserved_units","ancestor_chain","expected_ancestor_head","protected_capacity","status","transferred_to_ref","transferred_from_ref","created_at_ms","expires_at_ms"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.work-dimension-reservation.v1"},"reservation_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"holder_ref":{"$ref":"#/$defs/ref","description":"The legal owner binding. A reservation reference never copies the holder's own truth; it names it."},"dimension":{"type":"string","description":"Exactly one resource dimension. Per-dimension means a claim on compute does not narrow a bound on storage, so the vocabulary is closed and a reservation may not straddle two.","enum":["compute_seconds","memory_gibibyte_seconds","storage_gibibytes","egress_gibibytes","concurrent_invocations","wall_clock_seconds"]},"reserved_units":{"$ref":"#/$defs/positive_safe_integer","description":"A zero-unit reservation reserves nothing while occupying a slot that reads as a claim, so the floor is one."},"ancestor_chain":{"type":"array","minItems":1,"uniqueItems":true,"description":"Every ancestor whose bound this claim narrows, nearest first. The WHOLE chain rather than the parent alone: narrowing only the nearest bound lets a grandchild oversubscribe a grandparent through a parent with room. Unique, because an ancestor named twice would be checked twice and appear to have more headroom than it has.","items":{"$ref":"#/$defs/ref"}},"expected_ancestor_head":{"$ref":"#/$defs/hash","description":"The exact head the available capacity was computed against. A sibling admitted in between moves the head, and this reservation is then refused rather than applied to a bound that has already been spent."},"protected_capacity":{"$ref":"#/$defs/protected_capacity"},"status":{"type":"string","enum":["active","transferred","released","expired"]},"transferred_to_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The successor claim a reassignment moved these units to. Required by invariant whenever the status is `transferred`, so units can never belong to nobody."},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"transferred_from_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The claim whose units this one took over. THE TRANSFER IS THIS FIELD, because the stream admits ONE operation at a time: a successor naming its predecessor both creates the new claim and releases the old one in a single append, which is the only way reassignment can be atomic here. `transferred_to_ref` on the source is the readable back-reference and the source's own terminal state; it cannot by itself be the transfer, because marking a source transferred without creating its successor would need a second append and leave the units belonging to nobody in between."}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"protected_capacity":{"type":"object","additionalProperties":false,"description":"Capacity the admission transaction must leave untouched. Recovery and integration are named separately because they are spent by different actors at different times, and a single pooled figure would let a recovery exhaust the room an integration needs.","required":["recovery_units","integration_units"],"properties":{"recovery_units":{"$ref":"#/$defs/safe_integer"},"integration_units":{"$ref":"#/$defs/safe_integer"}}}}}"##),
     ("schema://ioi/components/hypervisor/foundry-spec/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-spec/v1","title":"FoundrySpec","description":"THE DECLARED INTENT OF ONE FOUNDRY BUILD, REGISTERED SO A MALFORMED ONE CANNOT BE ADMITTED. Canon has specified this family since foundry.md, and the daemon has served it live the whole time without a contract: the create route minted a `schema_version` string that appeared in no registry, never called the contract validator that hundreds of other call sites use, and passed its declared inputs through untyped — so every malformed body was a 201. Registering it is what turns that route's own vocabulary into something refusable OFFLINE. THE CLOSED VOCABULARIES ARE THE POINT: `training_mode` and `packaging_targets` are the two places where a typo becomes a build that does the wrong thing rather than a build that refuses, and both are closed here exactly as canon closes them. `version` and `status` carry the succession this family already has in canon, so a superseded spec is a state rather than a deletion. Every ref is a canonical scheme ref rather than a bare string, because a spec that names its base model as free text names nothing a resolver can follow.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","foundry_spec_id","foundry_project_ref","objective","task_family","base_model_refs","training_mode","dataset_snapshot_refs","packaging_targets","budget_policy_ref","eval_policy_ref","version","created_by_ref","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-spec.v1"},"foundry_spec_id":{"$ref":"#/$defs/ref"},"foundry_project_ref":{"$ref":"#/$defs/ref"},"objective":{"type":"string","minLength":1},"task_family":{"type":"string","minLength":1},"base_model_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"A build with no base model has nothing to build from; the floor is one."},"training_mode":{"type":"string","description":"Closed exactly as canon closes it. A typo here is a build that trains the wrong way rather than one that refuses.","enum":["sft","adapter","full_finetune","distillation","preference_optimization","on_policy_correction","eval_only","packaging_only","route_policy_training","conductor_advisor_training"]},"dataset_snapshot_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"search_space_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"run_plan_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"packaging_targets":{"type":"array","uniqueItems":true,"items":{"type":"string","enum":["adapter_merge","quantization","gguf","mlx","onnx","tensorrt","runtime_image","endpoint_package","model_card"]}},"budget_policy_ref":{"$ref":"#/$defs/ref"},"eval_policy_ref":{"$ref":"#/$defs/ref"},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"version":{"$ref":"#/$defs/positive_safe_integer"},"created_by_ref":{"$ref":"#/$defs/ref"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]}},"$defs":{"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##),
     ("schema://ioi/components/hypervisor/foundry-run-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","title":"FoundryRunPlan","description":"THE ORDERED STAGES ONE FOUNDRY SPEC IS BUILT THROUGH, REGISTERED SO THE PLAN IS REFUSABLE BEFORE IT RUNS. Like its spec, this family has been served live and free-form: the route minted an unregistered `schema_version` and passed `stages` through untyped, so a plan naming a stage that does not exist was admitted as readily as one that does. THE STAGE VOCABULARY IS CLOSED exactly as canon closes it, and `stages` is `uniqueItems` because a stage listed twice is either a typo or a second pass the plan does not actually describe — both are better refused than run. `artifact_contract_refs` is where a plan names the contracts its outputs must satisfy, which is the seam that keeps a build's products admissible rather than merely produced; it is required, because a plan that promises no contract for its artifacts has promised nothing a consumer can check. `status` carries the same succession canon gives it, so an admitted plan that is replaced is superseded rather than deleted.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","run_plan_id","foundry_spec_ref","stages","executor_bindings","retry_policy_ref","checkpoint_policy_ref","timeout_policy_ref","artifact_contract_refs","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-run-plan.v1"},"run_plan_id":{"$ref":"#/$defs/ref"},"foundry_spec_ref":{"$ref":"#/$defs/ref"},"stage_graph_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stages":{"type":"array","minItems":1,"uniqueItems":true,"description":"Closed exactly as canon closes it, and unique: a stage listed twice is a typo or a second pass the plan does not describe, and both are better refused than run.","items":{"type":"string","enum":["data_prep","training","checkpointing","eval","packaging","registration","route_promotion"]}},"executor_bindings":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"retry_policy_ref":{"$ref":"#/$defs/ref"},"checkpoint_policy_ref":{"$ref":"#/$defs/ref"},"timeout_policy_ref":{"$ref":"#/$defs/ref"},"artifact_contract_refs":{"type":"array","minItems":1,"uniqueItems":true,"description":"The contracts this plan's outputs must satisfy. Required, because a plan promising no contract for its artifacts has promised nothing a consumer can check.","items":{"$ref":"#/$defs/ref"}},"status":{"type":"string","enum":["draft","admitted","running","completed","superseded"]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##),
+    ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","title":"FoundryDraftSpec","description":"A DRAFT DECLARATION OF A CAPABILITY BUILD, BOUND TO MOUNTS THAT ALREADY EXIST — and deliberately NOT canon's `FoundrySpec`. The daemon's foundation cut served this object under canon's name while sharing exactly ONE field with it (`status`): canon's family is a model-TRAINING pipeline with base models, datasets, a training mode and packaging targets, where this is an eval and route-comparison draft that names existing model routes, providers, backends and endpoints. Registering it under its own name is what lets canon keep its own, and what finally makes this object refusable — its routes are live and, until this contract, minted a `schema_version` present in no registry and validated nothing, so every malformed body was a 201. THE OBJECT IS INERT BY CONSTRUCTION and the shape says so: it NAMES policy and evidence refs and never enforces them, it declares `inputs` it does not execute, and it holds no promotion, alias or registry mutation of any kind. `kind` is closed at the five the daemon admits, because a typo there is a draft that describes the wrong sort of build rather than one that refuses.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","name","description","kind","status","model_route_refs","provider_refs","backend_refs","endpoint_refs","evidence_refs","inputs","authority_policy_ref","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-spec.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_spec"},"id":{"type":"string","pattern":"^fspec_[0-9a-f]+$"},"name":{"type":"string","minLength":1},"description":{"type":"string"},"kind":{"type":"string","description":"Closed at the five the daemon admits. A typo here is a draft describing the wrong sort of build rather than one that refuses.","enum":["model_tune","model_eval","tool_build","inference_endpoint","ontology"]},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"model_route_refs":{"$ref":"#/$defs/refs"},"provider_refs":{"$ref":"#/$defs/refs"},"backend_refs":{"$ref":"#/$defs/refs"},"endpoint_refs":{"$ref":"#/$defs/refs"},"evidence_refs":{"$ref":"#/$defs/refs","description":"Opaque provenance pointers. NAMED, never executed and never enforced — a draft cites evidence, it does not act on it."},"inputs":{"type":"object","description":"Declared build inputs. Deliberately unconstrained in shape and deliberately not executed: this plane dispatches nothing, so constraining them here would assert a contract over something no runtime reads."},"authority_policy_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"A policy this draft NAMES. It crosses no authority and grants none; naming a policy is not applying one."},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
+    ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","title":"FoundryDraftRunPlan","description":"THE DRAFT PHASES A CAPABILITY-BUILD DRAFT WOULD RUN, AND THE PROMOTION IT EXPLICITLY DOES NOT PERFORM. Like its spec this is NOT canon's `FoundryRunPlan`: canon has a closed seven-stage vocabulary, executor bindings and required artifact contracts, where this holds opaque `steps`, a target route/provider and a promotion PREVIEW. Registered under its own name so canon keeps its, and so this object stops being unvalidatable. THE TWO FIELDS THAT CARRY THE SAFETY PROPERTY ARE `spec_content_hash` AND `promotion_preview`. The hash pins the spec CONTENT the plan was drafted against, so a later spec edit surfaces as drift on read instead of silently changing what the plan meant — the plan cannot be quietly re-aimed. And `promotion_preview.would_promote` is a const FALSE: this plane performs no promotion, registry alias or model mutation, and a record claiming otherwise is refused OFFLINE rather than trusted at runtime, which is the difference between an inert plane and a plane that says it is inert.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","spec_ref","spec_content_hash","name","description","status","target_route_ref","target_provider_ref","steps","inputs","evidence_refs","promotion_preview","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-run-plan.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_run_plan"},"id":{"type":"string","pattern":"^frun_[0-9a-f]+$"},"spec_ref":{"type":"string","minLength":1},"spec_content_hash":{"type":"string","minLength":1,"description":"Pins the spec CONTENT this plan was drafted against, so a later spec edit surfaces as drift on read rather than silently changing the plan's meaning."},"name":{"type":"string","minLength":1},"description":{"type":"string"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"steps":{"type":"array","description":"Planned phases, opaque by design: nothing here is dispatched. Constraining their shape would assert a contract over something no runtime reads."},"inputs":{"type":"object"},"evidence_refs":{"$ref":"#/$defs/refs"},"promotion_preview":{"$ref":"#/$defs/promotion_preview"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"promotion_preview":{"type":"object","additionalProperties":false,"description":"A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.","required":["would_promote","note","target_route_ref","target_provider_ref","from_spec_kind"],"properties":{"would_promote":{"type":"boolean","const":false},"note":{"type":"string","minLength":1},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"from_spec_kind":{"anyOf":[{"type":"string"},{"type":"null"}]}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -163524,6 +164032,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/work-dimension-reservation/v1", r#"[{"rule_id":"work_dimension_reservation.transfer_names_its_successor","description":"A TRANSFERRED reservation names the claim its units moved to. Reassignment must be atomic, and the way a transfer leaks is precisely this: the source is marked transferred, the successor is never recorded, and the units belong to nobody while still counting against the ancestor. A record in that state cannot be admitted.","expression":{"operator":"non_empty_when_in","when_path":"$.status","values":["transferred"],"path":"$.transferred_to_ref"}},{"rule_id":"work_dimension_reservation.window","description":"A reservation has a finite non-empty lifetime. An unbounded claim never returns its units to the ancestor, which is oversubscription arriving slowly rather than at once.","expression":{"operator":"numbers_lt","paths":["$.created_at_ms","$.expires_at_ms"]}},{"rule_id":"work_dimension_reservation.narrows_an_ancestor","description":"A reservation narrows at least one ancestor bound. A claim that narrows nothing is not bounded by anything, and clause 8's whole subject is that concurrent child work cannot oversubscribe an ancestor.","expression":{"operator":"non_empty","path":"$.ancestor_chain"}}]"#),
     ("schema://ioi/components/hypervisor/foundry-spec/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-run-plan/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -165547,6 +166057,8 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^frontier://[^\s]{1,500}$"#,
         r#"^frontier://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
+    (r#"^frun_[0-9a-f]+$"#, r#"^frun_[0-9a-f]+$"#),
+    (r#"^fspec_[0-9a-f]+$"#, r#"^fspec_[0-9a-f]+$"#),
     (r#"^gate_[0-9a-f]{1,32}$"#, r#"^gate_[0-9a-f]{1,32}$"#),
     (
         r#"^genesis://[A-Za-z0-9._:/-]+$"#,
@@ -169443,6 +169955,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -170786,6 +171302,16 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/foundry-run-plan/v1" => {
             serde_json::from_value::<FoundryRunPlanV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-draft-spec/v1" => {
+            serde_json::from_value::<FoundryDraftSpecV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1" => {
+            serde_json::from_value::<FoundryDraftRunPlanV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -172135,6 +172661,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/foundry-draft-spec/v1" => {
+            let projection = serde_json::from_value::<FoundryDraftSpecV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1" => {
+            let projection = serde_json::from_value::<FoundryDraftRunPlanV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -172271,8 +172807,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1313,
-            "the registered golden corpus must remain the explicit 1313-fixture bar",
+            1317,
+            "the registered golden corpus must remain the explicit 1317-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -172514,7 +173050,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 904,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 906,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -15408,6 +15408,92 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+      "canonical_name": "FoundryDraftSpec",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/foundry.md#foundry-object-families",
+      "schema_version": "ioi.components.hypervisor.foundry-draft-spec.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "foundry-draft-spec.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FoundryDraftSpecV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FoundryDraftSpecV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/foundry-draft-spec-v1/positive-complete.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/foundry-draft-spec-v1/negative-unknown-kind.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+      "canonical_name": "FoundryDraftRunPlan",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/foundry.md#foundry-object-families",
+      "schema_version": "ioi.components.hypervisor.foundry-draft-run-plan.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "foundry-draft-run-plan.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FoundryDraftRunPlanV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FoundryDraftRunPlanV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/foundry-draft-run-plan-v1/positive-complete.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

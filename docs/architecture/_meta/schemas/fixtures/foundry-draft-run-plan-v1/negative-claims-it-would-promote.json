@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-draft-run-plan.v1",
+  "object": "ioi.hypervisor.foundry_draft_run_plan",
+  "id": "frun_18f3a2c41",
+  "spec_ref": "fspec_18f3a2b1c",
+  "spec_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "name": "promoting-plan",
+  "description": "",
+  "status": "draft",
+  "target_route_ref": null,
+  "target_provider_ref": null,
+  "steps": [],
+  "inputs": {},
+  "evidence_refs": [],
+  "promotion_preview": {
+    "would_promote": true,
+    "note": "claims a promotion this plane cannot perform",
+    "target_route_ref": null,
+    "target_provider_ref": null,
+    "from_spec_kind": "model_eval"
+  },
+  "created_at": "2026-09-12T12:00:00Z",
+  "updated_at": "2026-09-12T12:00:00Z"
+}

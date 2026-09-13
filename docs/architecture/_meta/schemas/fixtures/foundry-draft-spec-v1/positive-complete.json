@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-draft-spec.v1",
+  "object": "ioi.hypervisor.foundry_draft_spec",
+  "id": "fspec_18f3a2b1c",
+  "name": "summariser-eval",
+  "description": "Compare the two mounted summarisation routes on the same task family",
+  "kind": "model_eval",
+  "status": "draft",
+  "model_route_refs": ["model-route://acme/opus-class/1"],
+  "provider_refs": ["provider://acme/alpha"],
+  "backend_refs": [],
+  "endpoint_refs": [],
+  "evidence_refs": ["evidence://acme/transcripts/2026-09-12"],
+  "inputs": { "sample_size": 200 },
+  "authority_policy_ref": "policy://acme/foundry/authority",
+  "created_at": "2026-09-12T12:00:00Z",
+  "updated_at": "2026-09-12T12:00:00Z"
+}

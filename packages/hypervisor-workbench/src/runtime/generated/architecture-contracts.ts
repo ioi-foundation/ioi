@@ -11934,6 +11934,50 @@ export type FoundryRunPlanV1 = {
   status: "draft" | "admitted" | "running" | "completed" | "superseded";
 };
 
+export type FoundryDraftSpecV1 = {
+  schema_version: "ioi.components.hypervisor.foundry-draft-spec.v1";
+  object: "ioi.hypervisor.foundry_draft_spec";
+  id: string;
+  name: string;
+  description: string;
+  kind: "model_tune" | "model_eval" | "tool_build" | "inference_endpoint" | "ontology";
+  status: "draft" | "ready" | "superseded" | "archived";
+  model_route_refs: Array<string>;
+  provider_refs: Array<string>;
+  backend_refs: Array<string>;
+  endpoint_refs: Array<string>;
+  evidence_refs: Array<string>;
+  inputs: Record<string, unknown>;
+  authority_policy_ref: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FoundryDraftRunPlanV1 = {
+  schema_version: "ioi.components.hypervisor.foundry-draft-run-plan.v1";
+  object: "ioi.hypervisor.foundry_draft_run_plan";
+  id: string;
+  spec_ref: string;
+  spec_content_hash: string;
+  name: string;
+  description: string;
+  status: "draft" | "ready" | "superseded" | "archived";
+  target_route_ref: string | null;
+  target_provider_ref: string | null;
+  steps: Array<unknown>;
+  inputs: Record<string, unknown>;
+  evidence_refs: Array<string>;
+  promotion_preview: {
+      would_promote: false;
+      note: string;
+      target_route_ref: string | null;
+      target_provider_ref: string | null;
+      from_spec_kind: string | null;
+    };
+  created_at: string;
+  updated_at: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -22447,6 +22491,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -26413,6 +26489,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json","contract_id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json","contract_id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27103,6 +27183,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$",
   "^foundry-recipe://[^\\s]{1,500}$",
   "^frontier://[^\\s]{1,500}$",
+  "^frun_[0-9a-f]+$",
+  "^fspec_[0-9a-f]+$",
   "^gate_[0-9a-f]{1,32}$",
   "^genesis://[A-Za-z0-9._:/-]+$",
   "^genesis://[^\\s]{1,248}$",
@@ -27751,7 +27833,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/model-router/model-route-cost-comparison/v1": "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0",
   "schema://ioi/foundations/work-dimension-reservation/v1": "sha256:09c1fd5c770ce15d6e91836992f3cf527162dad3206f86ff06379a72a46b6f31",
   "schema://ioi/components/hypervisor/foundry-spec/v1": "sha256:a95d1acb99fd566cc2fa6c04c6a2fb326cc606ec93b9d5d2d6fcbed3b0010881",
-  "schema://ioi/components/hypervisor/foundry-run-plan/v1": "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd"
+  "schema://ioi/components/hypervisor/foundry-run-plan/v1": "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd",
+  "schema://ioi/components/hypervisor/foundry-draft-spec/v1": "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822",
+  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -120357,6 +120441,298 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
       }
     }
+  },
+  "schema://ioi/components/hypervisor/foundry-draft-spec/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+    "title": "FoundryDraftSpec",
+    "description": "A DRAFT DECLARATION OF A CAPABILITY BUILD, BOUND TO MOUNTS THAT ALREADY EXIST — and deliberately NOT canon's `FoundrySpec`. The daemon's foundation cut served this object under canon's name while sharing exactly ONE field with it (`status`): canon's family is a model-TRAINING pipeline with base models, datasets, a training mode and packaging targets, where this is an eval and route-comparison draft that names existing model routes, providers, backends and endpoints. Registering it under its own name is what lets canon keep its own, and what finally makes this object refusable — its routes are live and, until this contract, minted a `schema_version` present in no registry and validated nothing, so every malformed body was a 201. THE OBJECT IS INERT BY CONSTRUCTION and the shape says so: it NAMES policy and evidence refs and never enforces them, it declares `inputs` it does not execute, and it holds no promotion, alias or registry mutation of any kind. `kind` is closed at the five the daemon admits, because a typo there is a draft that describes the wrong sort of build rather than one that refuses.",
+    "x-ioi-schema-version": "ioi.components.hypervisor.foundry-draft-spec.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "name",
+      "description",
+      "kind",
+      "status",
+      "model_route_refs",
+      "provider_refs",
+      "backend_refs",
+      "endpoint_refs",
+      "evidence_refs",
+      "inputs",
+      "authority_policy_ref",
+      "created_at",
+      "updated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.components.hypervisor.foundry-draft-spec.v1"
+      },
+      "object": {
+        "type": "string",
+        "const": "ioi.hypervisor.foundry_draft_spec"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^fspec_[0-9a-f]+$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string"
+      },
+      "kind": {
+        "type": "string",
+        "description": "Closed at the five the daemon admits. A typo here is a draft describing the wrong sort of build rather than one that refuses.",
+        "enum": [
+          "model_tune",
+          "model_eval",
+          "tool_build",
+          "inference_endpoint",
+          "ontology"
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "superseded",
+          "archived"
+        ]
+      },
+      "model_route_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "provider_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "backend_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "endpoint_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "evidence_refs": {
+        "$ref": "#/$defs/refs",
+        "description": "Opaque provenance pointers. NAMED, never executed and never enforced — a draft cites evidence, it does not act on it."
+      },
+      "inputs": {
+        "type": "object",
+        "description": "Declared build inputs. Deliberately unconstrained in shape and deliberately not executed: this plane dispatches nothing, so constraining them here would assert a contract over something no runtime reads."
+      },
+      "authority_policy_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "A policy this draft NAMES. It crosses no authority and grants none; naming a policy is not applying one."
+      },
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "updated_at": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
+      },
+      "refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+    "title": "FoundryDraftRunPlan",
+    "description": "THE DRAFT PHASES A CAPABILITY-BUILD DRAFT WOULD RUN, AND THE PROMOTION IT EXPLICITLY DOES NOT PERFORM. Like its spec this is NOT canon's `FoundryRunPlan`: canon has a closed seven-stage vocabulary, executor bindings and required artifact contracts, where this holds opaque `steps`, a target route/provider and a promotion PREVIEW. Registered under its own name so canon keeps its, and so this object stops being unvalidatable. THE TWO FIELDS THAT CARRY THE SAFETY PROPERTY ARE `spec_content_hash` AND `promotion_preview`. The hash pins the spec CONTENT the plan was drafted against, so a later spec edit surfaces as drift on read instead of silently changing what the plan meant — the plan cannot be quietly re-aimed. And `promotion_preview.would_promote` is a const FALSE: this plane performs no promotion, registry alias or model mutation, and a record claiming otherwise is refused OFFLINE rather than trusted at runtime, which is the difference between an inert plane and a plane that says it is inert.",
+    "x-ioi-schema-version": "ioi.components.hypervisor.foundry-draft-run-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "spec_ref",
+      "spec_content_hash",
+      "name",
+      "description",
+      "status",
+      "target_route_ref",
+      "target_provider_ref",
+      "steps",
+      "inputs",
+      "evidence_refs",
+      "promotion_preview",
+      "created_at",
+      "updated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.components.hypervisor.foundry-draft-run-plan.v1"
+      },
+      "object": {
+        "type": "string",
+        "const": "ioi.hypervisor.foundry_draft_run_plan"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^frun_[0-9a-f]+$"
+      },
+      "spec_ref": {
+        "type": "string",
+        "minLength": 1
+      },
+      "spec_content_hash": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Pins the spec CONTENT this plan was drafted against, so a later spec edit surfaces as drift on read rather than silently changing the plan's meaning."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "superseded",
+          "archived"
+        ]
+      },
+      "target_route_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "target_provider_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "steps": {
+        "type": "array",
+        "description": "Planned phases, opaque by design: nothing here is dispatched. Constraining their shape would assert a contract over something no runtime reads."
+      },
+      "inputs": {
+        "type": "object"
+      },
+      "evidence_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "promotion_preview": {
+        "$ref": "#/$defs/promotion_preview"
+      },
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "updated_at": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
+      },
+      "refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "promotion_preview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.",
+        "required": [
+          "would_promote",
+          "note",
+          "target_route_ref",
+          "target_provider_ref",
+          "from_spec_kind"
+        ],
+        "properties": {
+          "would_promote": {
+            "type": "boolean",
+            "const": false
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_route_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_provider_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_spec_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -136773,7 +137149,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/components/hypervisor/foundry-spec/v1": [],
-  "schema://ioi/components/hypervisor/foundry-run-plan/v1": []
+  "schema://ioi/components/hypervisor/foundry-run-plan/v1": [],
+  "schema://ioi/components/hypervisor/foundry-draft-spec/v1": [],
+  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -139252,4 +139630,16 @@ export function validateFoundryRunPlanV1(
   value: unknown,
 ): value is FoundryRunPlanV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-run-plan/v1", value).ok;
+}
+
+export function validateFoundryDraftSpecV1(
+  value: unknown,
+): value is FoundryDraftSpecV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-draft-spec/v1", value).ok;
+}
+
+export function validateFoundryDraftRunPlanV1(
+  value: unknown,
+): value is FoundryDraftRunPlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", value).ok;
 }

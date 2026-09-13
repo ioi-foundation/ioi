@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-draft-spec.v1",
+  "object": "ioi.hypervisor.foundry_draft_spec",
+  "id": "fspec_18f3a2b1d",
+  "name": "x",
+  "description": "",
+  "kind": "model_training",
+  "status": "draft",
+  "model_route_refs": [],
+  "provider_refs": [],
+  "backend_refs": [],
+  "endpoint_refs": [],
+  "evidence_refs": [],
+  "inputs": {},
+  "authority_policy_ref": null,
+  "created_at": "2026-09-12T12:00:00Z",
+  "updated_at": "2026-09-12T12:00:00Z"
+}

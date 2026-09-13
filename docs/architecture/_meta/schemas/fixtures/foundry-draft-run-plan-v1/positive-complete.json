@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-draft-run-plan.v1",
+  "object": "ioi.hypervisor.foundry_draft_run_plan",
+  "id": "frun_18f3a2c40",
+  "spec_ref": "fspec_18f3a2b1c",
+  "spec_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "name": "summariser-eval-plan",
+  "description": "Draft phases only",
+  "status": "draft",
+  "target_route_ref": "model-route://acme/opus-class/1",
+  "target_provider_ref": null,
+  "steps": [{ "phase": "sample" }, { "phase": "score" }],
+  "inputs": {},
+  "evidence_refs": [],
+  "promotion_preview": {
+    "would_promote": false,
+    "note": "preview only — this foundation performs no promotion, registry alias, or model mutation",
+    "target_route_ref": "model-route://acme/opus-class/1",
+    "target_provider_ref": null,
+    "from_spec_kind": "model_eval"
+  },
+  "created_at": "2026-09-12T12:00:00Z",
+  "updated_at": "2026-09-12T12:00:00Z"
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
+  "title": "FoundryDraftRunPlan",
+  "description": "THE DRAFT PHASES A CAPABILITY-BUILD DRAFT WOULD RUN, AND THE PROMOTION IT EXPLICITLY DOES NOT PERFORM. Like its spec this is NOT canon's `FoundryRunPlan`: canon has a closed seven-stage vocabulary, executor bindings and required artifact contracts, where this holds opaque `steps`, a target route/provider and a promotion PREVIEW. Registered under its own name so canon keeps its, and so this object stops being unvalidatable. THE TWO FIELDS THAT CARRY THE SAFETY PROPERTY ARE `spec_content_hash` AND `promotion_preview`. The hash pins the spec CONTENT the plan was drafted against, so a later spec edit surfaces as drift on read instead of silently changing what the plan meant — the plan cannot be quietly re-aimed. And `promotion_preview.would_promote` is a const FALSE: this plane performs no promotion, registry alias or model mutation, and a record claiming otherwise is refused OFFLINE rather than trusted at runtime, which is the difference between an inert plane and a plane that says it is inert.",
+  "x-ioi-schema-version": "ioi.components.hypervisor.foundry-draft-run-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "object", "id", "spec_ref", "spec_content_hash", "name",
+    "description", "status", "target_route_ref", "target_provider_ref", "steps",
+    "inputs", "evidence_refs", "promotion_preview", "created_at", "updated_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "ioi.components.hypervisor.foundry-draft-run-plan.v1" },
+    "object": { "type": "string", "const": "ioi.hypervisor.foundry_draft_run_plan" },
+    "id": { "type": "string", "pattern": "^frun_[0-9a-f]+$" },
+    "spec_ref": { "type": "string", "minLength": 1 },
+    "spec_content_hash": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pins the spec CONTENT this plan was drafted against, so a later spec edit surfaces as drift on read rather than silently changing the plan's meaning."
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "status": { "type": "string", "enum": ["draft", "ready", "superseded", "archived"] },
+    "target_route_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "target_provider_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "steps": {
+      "type": "array",
+      "description": "Planned phases, opaque by design: nothing here is dispatched. Constraining their shape would assert a contract over something no runtime reads."
+    },
+    "inputs": { "type": "object" },
+    "evidence_refs": { "$ref": "#/$defs/refs" },
+    "promotion_preview": { "$ref": "#/$defs/promotion_preview" },
+    "created_at": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://\\S+$" },
+    "refs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "promotion_preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.",
+      "required": ["would_promote", "note", "target_route_ref", "target_provider_ref", "from_spec_kind"],
+      "properties": {
+        "would_promote": { "type": "boolean", "const": false },
+        "note": { "type": "string", "minLength": 1 },
+        "target_route_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+        "target_provider_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+        "from_spec_kind": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+      }
+    }
+  }
+}

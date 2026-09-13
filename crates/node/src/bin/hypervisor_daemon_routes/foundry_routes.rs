@@ -2,9 +2,17 @@
 //!
 //! Hypervisor Foundry is the persistent capability factory that unifies what borrowed tools split
 //! across Model Catalog / Model Studio / Evals / Training / Inference / Ontology. This cut builds
-//! the PLANE, not a dashboard: real durable objects (`FoundrySpec`, `FoundryRunPlan`) plus a read
-//! projection (`overview`) bound to EXISTING real substrate — model-mount routes/providers/backends/
-//! endpoints, model-mount receipts, agent transcripts, and the Work Ledger.
+//! the PLANE, not a dashboard: real durable objects (`FoundryDraftSpec`, `FoundryDraftRunPlan`)
+//! plus a read projection (`overview`) bound to EXISTING real substrate — model-mount
+//! routes/providers/backends/endpoints, model-mount receipts, agent transcripts, and the Work
+//! Ledger.
+//!
+//! THESE ARE NOT CANON'S `FoundrySpec`/`FoundryRunPlan` AND NO LONGER CLAIM TO BE (R-77). Measured
+//! field by field, this plane's spec shared exactly ONE property name with canon's — `status`.
+//! Canon specifies a model-TRAINING pipeline (base models, dataset snapshots, training mode,
+//! packaging targets); this is an eval and route-comparison DRAFT. Canon's two families are
+//! registered under the canonical names and await their own producer; these are registered under
+//! names that match the fields they actually have.
 //!
 //! It is deliberately inert:
 //!   * no training execution, no eval execution, no inference serving;
@@ -28,8 +36,16 @@ use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState
 
 const SPEC_KIND: &str = "foundry-specs";
 const RUN_PLAN_KIND: &str = "foundry-run-plans";
-const SPEC_SCHEMA: &str = "ioi.hypervisor.foundry-spec.v1";
-const RUN_PLAN_SCHEMA: &str = "ioi.hypervisor.foundry-run-plan.v1";
+/// RENAMED 2026-09-12 (M10.5, ruling R-77). This plane served canon's `FoundrySpec` NAME while
+/// sharing exactly ONE field with canon's shape (`status`): canon's family is a model-TRAINING
+/// pipeline — base models, datasets, training mode, packaging targets — where this is an eval and
+/// route-comparison draft over mounts that already exist. The canonical name belongs to canon's
+/// family, so the CODE's name moved rather than canon's shape, and this object is registered under
+/// one that matches the fields it actually has.
+const SPEC_SCHEMA: &str = "ioi.components.hypervisor.foundry-draft-spec.v1";
+const SPEC_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/foundry-draft-spec/v1";
+const RUN_PLAN_SCHEMA: &str = "ioi.components.hypervisor.foundry-draft-run-plan.v1";
+const RUN_PLAN_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1";
 /// The capability families a FoundrySpec can declare. They are LABELS for draft specs — none of
 /// them executes in this foundation.
 const SPEC_KINDS: &[&str] = &[
@@ -39,6 +55,26 @@ const SPEC_KINDS: &[&str] = &[
     "inference_endpoint",
     "ontology",
 ];
+
+/// Refuse a record that would not survive its own registered contract.
+///
+/// THIS PLANE MINTED AN UNREGISTERED `schema_version` AND VALIDATED NOTHING, so every malformed
+/// body was a 201 — measured against 299 `validate_architecture_contract` call sites elsewhere in
+/// this estate. Registering the two families (R-77) is what makes this call possible; making it
+/// BEFORE `persist_record` is what makes it matter. A record that would not survive the offline
+/// verifier is never written and then explained.
+fn contract_checked(contract_id: &str, record: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        contract_id,
+        record,
+    )
+    .map_err(|error| {
+        bad(
+            "foundry_contract_invalid",
+            &format!("the record violates its registered contract and is NOT written: {error}"),
+        )
+    })
+}
 
 fn safe(seg: &str) -> String {
     seg.replace(
@@ -346,7 +382,7 @@ pub(crate) async fn handle_foundry_spec_create(
     let now = iso_now();
     let record = json!({
         "schema_version": SPEC_SCHEMA,
-        "object": "ioi.hypervisor.foundry_spec",
+        "object": "ioi.hypervisor.foundry_draft_spec",
         "id": id,
         "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("foundry-spec"),
         "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
@@ -365,6 +401,9 @@ pub(crate) async fn handle_foundry_spec_create(
         "created_at": now,
         "updated_at": now
     });
+    if let Err(refusal) = contract_checked(SPEC_CONTRACT_ID, &record) {
+        return refusal;
+    }
     if let Err(error) = persist_record(&st.data_dir, SPEC_KIND, &id, &record) {
         return persist_failed(error);
     }
@@ -549,7 +588,7 @@ pub(crate) async fn handle_foundry_run_plan_create(
     });
     let record = json!({
         "schema_version": RUN_PLAN_SCHEMA,
-        "object": "ioi.hypervisor.foundry_run_plan",
+        "object": "ioi.hypervisor.foundry_draft_run_plan",
         "id": id,
         "spec_ref": spec_ref,
         // Pins the spec CONTENT this plan was drafted against; a later spec
@@ -569,6 +608,9 @@ pub(crate) async fn handle_foundry_run_plan_create(
         "created_at": now,
         "updated_at": now
     });
+    if let Err(refusal) = contract_checked(RUN_PLAN_CONTRACT_ID, &record) {
+        return refusal;
+    }
     if let Err(error) = persist_record(&st.data_dir, RUN_PLAN_KIND, &id, &record) {
         return persist_failed(error);
     }

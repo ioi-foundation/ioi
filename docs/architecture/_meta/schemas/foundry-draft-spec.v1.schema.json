@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-draft-spec/v1",
+  "title": "FoundryDraftSpec",
+  "description": "A DRAFT DECLARATION OF A CAPABILITY BUILD, BOUND TO MOUNTS THAT ALREADY EXIST — and deliberately NOT canon's `FoundrySpec`. The daemon's foundation cut served this object under canon's name while sharing exactly ONE field with it (`status`): canon's family is a model-TRAINING pipeline with base models, datasets, a training mode and packaging targets, where this is an eval and route-comparison draft that names existing model routes, providers, backends and endpoints. Registering it under its own name is what lets canon keep its own, and what finally makes this object refusable — its routes are live and, until this contract, minted a `schema_version` present in no registry and validated nothing, so every malformed body was a 201. THE OBJECT IS INERT BY CONSTRUCTION and the shape says so: it NAMES policy and evidence refs and never enforces them, it declares `inputs` it does not execute, and it holds no promotion, alias or registry mutation of any kind. `kind` is closed at the five the daemon admits, because a typo there is a draft that describes the wrong sort of build rather than one that refuses.",
+  "x-ioi-schema-version": "ioi.components.hypervisor.foundry-draft-spec.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "object", "id", "name", "description", "kind", "status",
+    "model_route_refs", "provider_refs", "backend_refs", "endpoint_refs",
+    "evidence_refs", "inputs", "authority_policy_ref", "created_at", "updated_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "ioi.components.hypervisor.foundry-draft-spec.v1" },
+    "object": { "type": "string", "const": "ioi.hypervisor.foundry_draft_spec" },
+    "id": { "type": "string", "pattern": "^fspec_[0-9a-f]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "kind": {
+      "type": "string",
+      "description": "Closed at the five the daemon admits. A typo here is a draft describing the wrong sort of build rather than one that refuses.",
+      "enum": ["model_tune", "model_eval", "tool_build", "inference_endpoint", "ontology"]
+    },
+    "status": { "type": "string", "enum": ["draft", "ready", "superseded", "archived"] },
+    "model_route_refs": { "$ref": "#/$defs/refs" },
+    "provider_refs": { "$ref": "#/$defs/refs" },
+    "backend_refs": { "$ref": "#/$defs/refs" },
+    "endpoint_refs": { "$ref": "#/$defs/refs" },
+    "evidence_refs": {
+      "$ref": "#/$defs/refs",
+      "description": "Opaque provenance pointers. NAMED, never executed and never enforced — a draft cites evidence, it does not act on it."
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Declared build inputs. Deliberately unconstrained in shape and deliberately not executed: this plane dispatches nothing, so constraining them here would assert a contract over something no runtime reads."
+    },
+    "authority_policy_ref": {
+      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }],
+      "description": "A policy this draft NAMES. It crosses no authority and grants none; naming a policy is not applying one."
+    },
+    "created_at": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://\\S+$" },
+    "refs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } }
+  }
+}
