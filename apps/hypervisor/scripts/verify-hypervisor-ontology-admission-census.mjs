@@ -594,6 +594,14 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13, M09.5 (the cleanup obligation converged onto its registered family):
+  // tokens 149905 -> 150000, bare-undeclared 534 -> 536, and the writer buckets move in OPPOSITE
+  // directions — non-ODK literal 248 -> 249 while runtime-parameter 312 -> 311. That is ONE CALL
+  // CHANGING BUCKETS, not two calls appearing: the deletion lane used to write its obligation to an
+  // inline `"cleanup-obligations"` and now writes the registered family through the named
+  // `CLEANUP_DIR`, so a writer the census could not read became one it can. A pin that only
+  // reported totals would have shown +1/-1 and said nothing; the buckets are what make the
+  // convergence visible from here.
   // Re-pinned 2026-09-13, M09.3's second half (change plan v2 / route_detach): tokens
   // 149904 -> 149905 and bare-undeclared 536 -> 534 — a bucket moving DOWN, which is rarer than it
   // moving up and worth naming: replacing the `CHANGE_PLAN_CONTRACT` constant with a
@@ -659,9 +667,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149905,
+  tokenMentions: 150000,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 248, runtimeParameter: 312 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 249, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -682,7 +690,7 @@ const PINNED = {
   unadjudicable: {
     "foreign-qualified": 4636,
     "opaque-initialiser": 2810,
-    "bare-undeclared": 534,
+    "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

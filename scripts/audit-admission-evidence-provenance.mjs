@@ -228,7 +228,7 @@ const SEAM_FILES = new Set(["lifecycle_routes.rs", "portal_session_exchange_rout
 // scm_publication_routes.rs:2676 and goalrun_routes.rs:4408/7490/7966 are variable reads that
 // never appear as `request_identity(`.
 const IDENTITY =
-  /\b(resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope)\s*\(/gu;
+  /\b(resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope|authorize_environment_owner|authorize_environment_owner_identity)\s*\(/gu;
 const RECORD_READ =
   /\b(load|load_record|read_record_dir|find_by_key|read_owner_scoped_head|read_owner_scoped_history)\s*\(/gu;
 // Helper write seams: named persist_*/save_*/*_write wrappers in the daemon route
@@ -294,6 +294,17 @@ const PINNED = [
 
 // Rule H baseline: mutating handlers with no in-handler identity/authority
 // call — the middleware-covered legacy surface. Growth is red.
+// SHRUNK BY ELEVEN, 2026-09-13 (M09.3/M09.5). The seam list above did not recognise
+// `authorize_environment_owner`, which resolves request identity through `resolve_request_identity`
+// and THEN authorises ownership — so eleven handlers that resolve identity correctly were pinned
+// here as "middleware-covered legacy surface" they were never part of. Adding the seam un-flagged
+// all eleven at once, which is what made the omission visible: a baseline that shrinks by eleven on
+// one regex edit was not describing the estate, it was describing the gate's blind spot.
+//
+// Found because a NEW handler (`handle_env_port_revoke`) was flagged while its own siblings
+// `handle_env_port_expose` and `handle_env_port_unexpose` — calling the identical function — were
+// not. The pin that would have silenced it was the wrong fix; the sibling comparison is what said
+// so.
 const H_BASELINE = [
   // Passkey login finish authenticates the principal through a consumed, server-owned WebAuthn
   // ceremony, verifies user presence/verification and the registered credential, then persists
@@ -303,9 +314,6 @@ const H_BASELINE = [
   "authority_routes.rs::handle_authority_grant",
   "authority_routes.rs::handle_authority_revoke",
   "authority_routes.rs::handle_harness_binding_create",
-  "binding_routes.rs::handle_binding_create",
-  "binding_routes.rs::handle_env_files",
-  "binding_routes.rs::handle_terminal_create",
   "capability_lease_plan_routes.rs::handle_plan_create",
   "capability_lease_plan_routes.rs::handle_plan_delete",
   "capability_lease_plan_routes.rs::handle_plan_patch",
@@ -334,15 +342,10 @@ const H_BASELINE = [
   "connector_session_routes.rs::handle_session_patch",
   "connector_session_routes.rs::handle_session_release",
   "decentralized_cloud_routes.rs::handle_intent_create",
-  "editor_routes.rs::handle_editor_service_create",
   "editor_routes.rs::handle_provisioning_plan_create",
   "environment_routes.rs::handle_agent_run_upsert",
-  "environment_routes.rs::handle_env_config",
-  "environment_routes.rs::handle_env_pr_draft",
-  "environment_routes.rs::handle_environment_action",
   "environment_routes.rs::handle_environment_classes",
   "environment_routes.rs::handle_project_delete",
-  "environment_routes.rs::handle_snapshot_restore",
   "environment_routes.rs::handle_workrun_create",
   "environment_routes.rs::handle_workspace_exec",
   "eval_suite_routes.rs::handle_eval_suite_create",
@@ -524,9 +527,6 @@ const H_BASELINE = [
   "editor_routes.rs::handle_editor_service_rebuild",
   "editor_routes.rs::handle_editor_service_start",
   "editor_routes.rs::handle_editor_service_stop",
-  "environment_routes.rs::handle_env_port_expose",
-  "environment_routes.rs::handle_env_port_unexpose",
-  "environment_routes.rs::handle_environment_get",
   // "goalrun_routes.rs::handle_goal_run_activation_draft" — LEFT the baseline 2026-08-29
   // (M04.7/M04.8 hosted outcome-room): the handler now resolves the activation principal and
   // tenant-scoped request identity in-handler and refuses on disagreement; the vanishing

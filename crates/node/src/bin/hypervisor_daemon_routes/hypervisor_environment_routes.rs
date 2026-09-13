@@ -406,6 +406,12 @@ pub(crate) struct ResolvedEnvironmentEvidence {
     pub source_state_root: Option<String>,
     pub artifact_digest_rows: Vec<Value>,
     pub stage_evidence_refs: Vec<String>,
+    /// The counterparty's admitted billing statements for the obligation's provider (M09.5).
+    ///
+    /// Resolved HERE, where the data directory is, because `compile_from_source` is a pure
+    /// compiler and because a caller supplying these would be asserting the counterparty's own
+    /// fact — which is precisely what closing against them exists to prevent (INV-37).
+    pub counterparty_statements: Vec<Value>,
 }
 
 fn resolve_trusted_inputs(
@@ -438,10 +444,17 @@ fn resolve_trusted_inputs(
             }
         }
     }
+    // Every admitted statement in the estate, filtered to the obligation's provider inside the
+    // kernel's check. Resolved unconditionally rather than per-op: the resolution is a directory
+    // read through the spend plane's own seam, and making it conditional on the op would put a
+    // second copy of "which ops close an obligation" here.
+    let counterparty_statements =
+        super::provider_spend_reconciliation_routes::all_admitted_statements(data_dir);
     Ok(ResolvedEnvironmentEvidence {
         source_state_root,
         artifact_digest_rows,
         stage_evidence_refs,
+        counterparty_statements,
     })
 }
 
@@ -696,6 +709,10 @@ pub(crate) fn compile_from_source(
                         .ok_or_else(|| plan_err("closing_status is absent".into()))?,
                     declaration.disposition_receipt_ref.as_deref(),
                     &declaration.evidence_refs,
+                    // SERVER-RESOLVED, through the spend plane's own seam (INV-37). A caller that
+                    // supplied the statement would be asserting the counterparty's fact, which is
+                    // the whole thing this check exists to stop them doing.
+                    &evidence.counterparty_statements,
                 )
                 .map_err(plan_err)?
             } else {
@@ -1561,6 +1578,7 @@ mod tests {
                 "evidence://acme/env-alpha/restore/root-recompute".into(),
                 "evidence://acme/env-alpha/restore/readiness".into(),
             ],
+            counterparty_statements: Vec::new(),
         }
     }
 
@@ -1569,6 +1587,21 @@ mod tests {
             source_state_root: None,
             artifact_digest_rows: Vec::new(),
             stage_evidence_refs: Vec::new(),
+            // THE LADDER DOES CLOSE AN OBLIGATION AS `completed`, so it needs the counterparty's
+            // own record (M09.5 / ACC-11 clause 7). I first wrote this empty with a comment saying
+            // the ladder never does — the ladder test said otherwise on its first run, which is the
+            // check biting on the estate's own end-to-end flow rather than only on a unit fixture.
+            //
+            // The statement accounts for the obligation fixture's single resource by the provider's
+            // OWN identifier for it (`provider_native_evidence_ref`), which is the join the
+            // obligation contract has always carried and nothing had used.
+            counterparty_statements: vec![json!({
+                "provider_ref": "provider-account://pacc_route_edge",
+                "line_items": [{
+                    "exposure_ref": "evidence://route-edge/record/zone-7",
+                    "billed_micros": 0,
+                }],
+            })],
         }
     }
 

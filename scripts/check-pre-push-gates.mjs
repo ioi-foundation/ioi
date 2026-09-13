@@ -19,8 +19,12 @@
 //   * `cargo fmt --check` moves on EVERY Rust edit and was not in this list at all, so the only
 //     thing that could catch a formatting red was CI — one push too late. Added 2026-09-13 after
 //     exactly that: ten commits pushed, `Check format` red on three of them, no semantic change.
+//   * `check:admission-evidence` reds on a MUTATING HANDLER with no in-handler identity call, so
+//     authoring a route moves it. Also not in this list; also caught by CI one push late. Added
+//     2026-09-13 for the same reason as the one above, on the same day, which is the argument.
 //
-// Four different triggers, none of which announce themselves. The estate's own censuses work
+// FIVE different triggers, none of which announce themselves — and two of the five were found by
+// CI catching what this sweep was built to catch first. The list is the point; recall is not. The estate's own censuses work
 // because they DERIVE their population instead of listing it; this applies the same principle to
 // the habit that guards them.
 //
@@ -59,6 +63,10 @@ const GATES = [
   ["architecture contracts", "node", ["scripts/generate-architecture-contracts.mjs", "--check"]],
   ["surface records", "node", ["scripts/generate-hypervisor-surface-records.mjs", "--check"]],
   ["architecture docs + work items", "npm", ["run", "check:architecture-docs", "--silent"]],
+  // FIFTH TRIGGER, added 2026-09-13. A mutating handler with no in-handler identity call is red
+  // here, so AUTHORING A ROUTE moves this gate — and it was not in the sweep, so the only thing
+  // that could catch it was CI, one push too late. That is exactly what happened.
+  ["admission-evidence provenance", "npm", ["run", "check:admission-evidence", "--silent"]],
   // Brings up its OWN debug daemon on a free port and reaps it — never the shared dev daemon. It
   // reads `target/debug/hypervisor-daemon` without building it, so it refuses outright when that
   // binary is older than the sources it claims to measure rather than reporting on code that is

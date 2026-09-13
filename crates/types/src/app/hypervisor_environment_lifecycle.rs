@@ -1333,11 +1333,65 @@ pub fn compile_cleanup_open(declared: &Value) -> Result<Value, String> {
 
 /// Close an obligation through a receipted disposition. An absent receipt is
 /// an `unreceipted_close` refusal: no closing status exists without one.
+/// Does the counterparty's own admitted statement account for every resource this obligation owes?
+///
+/// ACC-11 clause 7: zero-to-idle closes spend "verified against the provider's own billing readback
+/// rather than the estate's intention". The obligation already required a receipted disposition,
+/// and that is necessary and not sufficient — a receipt the ESTATE writes about its own teardown is
+/// the estate's intention wearing a receipt's clothes. What settles it is the counterparty's record.
+///
+/// THE JOIN WAS ALREADY IN THE CONTRACT. Every `resource_refs` entry carries a
+/// `provider_native_evidence_ref` — the provider's OWN identifier for the thing — which is exactly
+/// what a billing line's `exposure_ref` names. Nothing had to be invented to match the two planes;
+/// they had simply never been introduced.
+fn counterparty_accounts_for(obligation: &Value, statement: &Value) -> Result<(), String> {
+    let provider = required_string(obligation, "/provider_ref")?;
+    let billed_provider = required_string(statement, "/provider_ref")?;
+    if provider != billed_provider {
+        return Err(err(
+            "unreceipted_close",
+            format!(
+                "the statement bills '{billed_provider}' and this obligation is owed to                  '{provider}'; another provider's record closes nothing here"
+            ),
+        ));
+    }
+    let billed: Vec<&str> = statement
+        .get("line_items")
+        .and_then(Value::as_array)
+        .map(|lines| {
+            lines
+                .iter()
+                .filter_map(|line| opt_str(line, "/exposure_ref"))
+                .collect()
+        })
+        .unwrap_or_default();
+    let resources = obligation
+        .get("resource_refs")
+        .and_then(Value::as_array)
+        .ok_or("obligation lacks its resource refs")?;
+    for resource in resources {
+        let native = required_string(resource, "/provider_native_evidence_ref")?;
+        if !billed.iter().any(|exposure| *exposure == native) {
+            let canonical = opt_str(resource, "/canonical_resource_ref").unwrap_or(native);
+            return Err(err(
+                "unreceipted_close",
+                format!(
+                    "the provider's statement does not account for '{canonical}' (native                      '{native}'): a resource the counterparty has not billed to a close is a                      resource the estate only BELIEVES it released"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Close one obligation through a receipted disposition, and — for `completed` — against the
+/// counterparty's own admitted billing statement.
 pub fn compile_cleanup_satisfy(
     current: &Value,
     closing_status: &str,
     disposition_receipt_ref: Option<&str>,
     evidence_refs: &[String],
+    counterparty_statements: &[Value],
 ) -> Result<Value, String> {
     validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, current)
         .map_err(|error| format!("durable cleanup obligation is invalid: {error}"))?;
@@ -1363,6 +1417,43 @@ pub fn compile_cleanup_satisfy(
             "unreceipted_close",
             "the closing disposition requires a canonical receipt ref",
         ));
+    }
+    // ONLY `completed` CLAIMS THE RESOURCE IS GONE. `quarantined` and `abandoned` are honest
+    // non-closures — they say the estate stopped trying and the obligation is parked or given up —
+    // and demanding a counterparty statement for them would make the honest dispositions harder to
+    // record than the optimistic one, which is the incentive backwards.
+    if closing_status == "completed" {
+        if counterparty_statements.is_empty() {
+            return Err(err(
+                "unreceipted_close",
+                "a completed close claims the resource is released and its spend is terminal, \
+                 which is the counterparty's fact and not the estate's; admit the provider's own \
+                 billing statement or close as quarantined or abandoned instead",
+            ));
+        }
+        // ANY admitted statement that accounts for every resource will do, and the LAST failure is
+        // what gets reported: a provider files many statements over many periods, and telling the
+        // operator "no statement accounts for this resource" is useful where "statement 3 of 7 did
+        // not" is noise.
+        let mut last = None;
+        let accounted = counterparty_statements.iter().any(|statement| {
+            match counterparty_accounts_for(current, statement) {
+                Ok(()) => true,
+                Err(reason) => {
+                    last = Some(reason);
+                    false
+                }
+            }
+        });
+        if !accounted {
+            return Err(last.unwrap_or_else(|| {
+                err(
+                    "unreceipted_close",
+                    "no admitted statement from this provider accounts for the obligation's \
+                     resources",
+                )
+            }));
+        }
     }
     let mut successor = current.clone();
     successor["status"] = json!(closing_status);
@@ -2126,11 +2217,27 @@ mod tests {
         assert!(error.starts_with("parent_loss"), "{error}");
     }
 
-    // Dimension: unreceipted close — no closing disposition without a receipt.
+    /// The counterparty's own admitted statement, accounting for the fixture obligation's one
+    /// resource by the provider's OWN identifier for it — which is the join the obligation contract
+    /// already carried as `provider_native_evidence_ref` and which nothing had ever used.
+    fn counterparty_statement() -> Value {
+        json!({
+            "provider_ref": "provider-account://pacc_route_edge",
+            "line_items": [{
+                "exposure_ref": "evidence://route-edge/record/zone-7",
+                "billed_micros": 0,
+            }],
+        })
+    }
+
+    // Dimension: unreceipted close — no closing disposition without a receipt, and no COMPLETED
+    // close without the counterparty's own record (M09.5 / ACC-11 clause 7).
     #[test]
     fn an_obligation_can_never_close_without_a_receipted_disposition() {
         let open = fixture("hypervisor-resource-cleanup-obligation-v1/positive-open.json");
-        let error = compile_cleanup_satisfy(&open, "completed", None, &[]).unwrap_err();
+        let statements = vec![counterparty_statement()];
+        let error =
+            compile_cleanup_satisfy(&open, "completed", None, &[], &statements).unwrap_err();
         assert!(error.starts_with("unreceipted_close"), "{error}");
 
         let closed = compile_cleanup_satisfy(
@@ -2138,6 +2245,7 @@ mod tests {
             "completed",
             Some("receipt://local/env-alpha/cleanup/0001"),
             &["evidence://local/env-alpha/cleanup/absent".to_owned()],
+            &statements,
         )
         .expect("receipted close");
         assert_eq!(closed["status"], "completed");
@@ -2153,9 +2261,99 @@ mod tests {
             "abandoned",
             Some("receipt://local/env-alpha/cleanup/0002"),
             &[],
+            &[],
         )
         .unwrap_err();
         assert!(error.contains("no further disposition"), "{error}");
+    }
+
+    // ------------------------------------------------- M09.5: closure is the counterparty's fact
+    // ACC-11 clause 7: zero-to-idle closes spend "verified against the provider's own billing
+    // readback rather than the estate's intention". A receipted disposition was necessary and not
+    // sufficient — the receipt the estate writes about its own teardown IS its intention.
+
+    #[test]
+    fn a_completed_close_needs_the_counterpartys_record_and_not_only_the_estates_receipt() {
+        let open = fixture("hypervisor-resource-cleanup-obligation-v1/positive-open.json");
+        let receipt = Some("receipt://local/env-alpha/cleanup/0001");
+        let error = compile_cleanup_satisfy(&open, "completed", receipt, &[], &[]).unwrap_err();
+        assert!(error.starts_with("unreceipted_close"), "{error}");
+        assert!(error.contains("counterparty's fact"), "{error}");
+    }
+
+    #[test]
+    fn the_honest_non_closures_do_not_need_one() {
+        // `quarantined` and `abandoned` say the estate stopped trying. Demanding the counterparty's
+        // record for THOSE would make the honest dispositions harder to file than the optimistic
+        // one, which is the incentive backwards.
+        let open = fixture("hypervisor-resource-cleanup-obligation-v1/positive-open.json");
+        for status in ["quarantined", "abandoned"] {
+            compile_cleanup_satisfy(
+                &open,
+                status,
+                Some("receipt://local/env-alpha/cleanup/0003"),
+                &[],
+                &[],
+            )
+            .unwrap_or_else(|error| panic!("{status} must close without a statement: {error}"));
+        }
+    }
+
+    #[test]
+    fn another_providers_statement_closes_nothing_here() {
+        let open = fixture("hypervisor-resource-cleanup-obligation-v1/positive-open.json");
+        let mut foreign = counterparty_statement();
+        foreign["provider_ref"] = json!("provider-account://pacc_someone_else");
+        let error = compile_cleanup_satisfy(
+            &open,
+            "completed",
+            Some("receipt://local/env-alpha/cleanup/0001"),
+            &[],
+            &[foreign],
+        )
+        .unwrap_err();
+        assert!(error.contains("closes nothing here"), "{error}");
+    }
+
+    #[test]
+    fn a_statement_that_does_not_account_for_the_resource_closes_nothing() {
+        // The plausible wrong implementation checks that A statement exists. This one bills the
+        // right provider for the wrong thing, which is what a resource quietly left running looks
+        // like on a real invoice.
+        let open = fixture("hypervisor-resource-cleanup-obligation-v1/positive-open.json");
+        let mut wrong = counterparty_statement();
+        wrong["line_items"][0]["exposure_ref"] = json!("evidence://route-edge/record/zone-9");
+        let error = compile_cleanup_satisfy(
+            &open,
+            "completed",
+            Some("receipt://local/env-alpha/cleanup/0001"),
+            &[],
+            &[wrong],
+        )
+        .unwrap_err();
+        assert!(error.contains("only BELIEVES it released"), "{error}");
+        assert!(
+            error.contains("zone-7"),
+            "the refusal names the resource: {error}"
+        );
+    }
+
+    #[test]
+    fn any_one_of_many_admitted_statements_may_account_for_it() {
+        // A provider files many statements over many periods. Requiring the FIRST to account would
+        // make closure depend on filing order.
+        let open = fixture("hypervisor-resource-cleanup-obligation-v1/positive-open.json");
+        let mut earlier = counterparty_statement();
+        earlier["line_items"][0]["exposure_ref"] = json!("evidence://route-edge/record/zone-1");
+        let closed = compile_cleanup_satisfy(
+            &open,
+            "completed",
+            Some("receipt://local/env-alpha/cleanup/0001"),
+            &[],
+            &[earlier, counterparty_statement()],
+        )
+        .expect("a later statement accounts for it");
+        assert_eq!(closed["status"], "completed");
     }
 
     #[test]

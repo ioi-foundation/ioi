@@ -748,6 +748,16 @@ pub(crate) async fn handle_provider_spend_reconciliation_admit(
 /// Every provider whose most recent reconciliation did not reconcile, read from the gate projection
 /// rather than held in memory — which is what makes the gate survive a restart without a feature
 /// for it, and what lets the op path consult it with no caller identity to scope by.
+/// The admitted billing statements this provider has filed.
+///
+/// THE OWNER SEAM, not a directory read. The environment plane closes a cleanup obligation against
+/// the counterparty's own record (ACC-11 clause 7), and it resolves those records through this
+/// function rather than reading this family's storage itself — a second reader of a family it does
+/// not own is how two planes start disagreeing about what was filed.
+pub(crate) fn all_admitted_statements(data_dir: &str) -> Vec<Value> {
+    read_record_dir(data_dir, STATEMENT_KIND)
+}
+
 pub(crate) fn charge_gated_providers(data_dir: &str) -> BTreeMap<String, Value> {
     let mut gated = BTreeMap::new();
     for row in read_record_dir(data_dir, GATE_PROJECTION_KIND) {

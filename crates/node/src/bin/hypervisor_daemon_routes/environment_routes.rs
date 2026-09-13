@@ -22,6 +22,7 @@ use ioi_types::app::agentic::InferenceOptions;
 use serde_json::{json, Value};
 
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
+use ioi_types::app::hypervisor_environment_lifecycle::CLEANUP_OBLIGATION_CONTRACT;
 
 use super::{
     invoke_native_local, iso_now, persist_invocation_receipt, persist_record, read_record_dir,
@@ -2578,6 +2579,90 @@ fn stop_environment(st: &DaemonState, env: &mut Value, id: &str, condition_kind:
 /// CARVE-OUT SUPPORT: a non-`succeeded` deletion opens a DURABLE cleanup obligation that
 /// survives on the record. Obligations accumulate and are never erased by a later teardown —
 /// only an explicit receipted disposition may close one.
+/// Compile the REGISTERED obligation a failed or unconfirmable teardown owes (M09.5).
+///
+/// THE SECOND SPINE THIS REMOVES. Two families carried the name "cleanup obligation": the
+/// registered `HypervisorResourceCleanupObligation` in `hypervisor-resource-cleanup-obligations`,
+/// with twenty-three required fields, the retention plane's subject and the counterparty-closure
+/// check's subject — and an ad-hoc SIX-FIELD row in `cleanup-obligations` that this lane wrote.
+/// Twenty-one of the registered family's required fields were absent from the record production
+/// actually produced, so an obligation opened by a REAL failed deletion was not the object the
+/// contract described, was not what retention reached, and could not be closed against the
+/// provider's own statement. An operator reading either saw the same two words.
+///
+/// WHAT THE OLD SHAPE GOT RIGHT AND IS PRESERVED: the lane never refuses a deletion, opens an
+/// obligation on any non-`succeeded` outcome, persists a copy that outlives its parent, and
+/// measures the loss when that write fails instead of pretending. Only the shape changes.
+///
+/// THE CONTRACT'S OWN VOCABULARY ALREADY DISTINGUISHED THE TWO OUTCOMES, which is the evidence this
+/// is a convergence rather than a coercion: a delete that FAILED is `partial_execution` and still
+/// owes `destroy`; a delete whose absence could not be CONFIRMED is `unknown_effect` and owes
+/// `verify_absent`. Nothing had to be invented to say either.
+fn registered_cleanup_obligation(environment_id: &str, disposition: &Value) -> Option<Value> {
+    let obligation_ref = disposition["cleanup_obligation_ref"].as_str()?;
+    let resource_ref = disposition["resource_ref"].as_str().unwrap_or_default();
+    let outcome = disposition["outcome"].as_str().unwrap_or("unknown");
+    let (cause, required_disposition) = match outcome {
+        "failed" => ("partial_execution", "destroy"),
+        _ => ("unknown_effect", "verify_absent"),
+    };
+    // The resource kind comes from the ref's own scheme. `other` is the honest answer for a scheme
+    // this lane does not recognise — guessing `vm` would put a wrong kind on a durable record to
+    // avoid admitting the census is incomplete.
+    let resource_kind = match resource_ref.split("://").next().unwrap_or("") {
+        "microvm" => "vm",
+        "container" => "container",
+        "volume" => "volume",
+        "route" => "route",
+        _ => "other",
+    };
+    let environment_ref = format!("environment://hypervisor/{}", safe_id(environment_id));
+    Some(json!({
+        "schema_version": "ioi.hypervisor-resource-cleanup-obligation.v1",
+        "cleanup_obligation_ref": obligation_ref,
+        "revision": 1,
+        // The opening revision has no predecessor. Null rather than absent, because the field is
+        // inside the obligation's own revision root.
+        "predecessor_obligation_root": Value::Null,
+        // NO PLAN, NO EXECUTION, NO SESSION — and the contract already made all three nullable,
+        // which is it saying that an obligation may arise from a bare owner deletion and not only
+        // from a change plan. A synthesised plan ref here would name nothing and read as lineage.
+        "originating_plan_ref": Value::Null,
+        "originating_execution_ref": Value::Null,
+        "originating_daemon_or_provider_operation_ref": json!(format!(
+            "daemon-operation://hypervisor/{}/delete",
+            safe_id(environment_id)
+        )),
+        "environment_ref": environment_ref,
+        "session_ref": Value::Null,
+        "provider_ref": "provider://local/process",
+        "resource_refs": [{
+            "resource_kind": resource_kind,
+            "canonical_resource_ref": resource_ref,
+            // The teardown's own handle IS the provider's identifier for the thing, which is what
+            // makes this obligation closable against a counterparty statement at all.
+            "provider_native_evidence_ref": resource_ref,
+            "identity_commitment": format!("sha256:{}", sha256_hex_bytes(resource_ref.as_bytes())),
+        }],
+        "required_disposition": required_disposition,
+        "cause": cause,
+        "reclaim_policy_ref": "policy://hypervisor/cleanup/reclaim",
+        "required_authority_refs": [],
+        "lifecycle_head_ref": format!(
+            "agentgres://lifecycle-head/hypervisor/{}/cleanup",
+            safe_id(environment_id)
+        ),
+        "status": "pending",
+        "escalation": Value::Null,
+        // One attempt has already happened and failed; that is why this record exists.
+        "attempt_count": 1,
+        "last_attempt_ref": Value::Null,
+        "next_attempt_after": Value::Null,
+        "evidence_refs": [],
+        "receipt_refs": [],
+    }))
+}
+
 fn record_cleanup_disposition(st: &DaemonState, env: &mut Value, disposition: &Value) {
     env["status"]["last_cleanup_disposition"] = disposition.clone();
     if disposition["cleanup_obligation_ref"].is_null() {
@@ -2603,14 +2688,31 @@ fn record_cleanup_disposition(st: &DaemonState, env: &mut Value, disposition: &V
     // silently — deletion CARVE-OUT never refuses, so on a lost write the loss is MEASURED onto the
     // obligation (durable_copy_persisted:false) and observed rather than pretended.
     if let Some(id) = disposition["cleanup_obligation_ref"].as_str() {
-        if persist_record(
-            &st.data_dir,
-            "cleanup-obligations",
-            &safe_id(id),
-            &obligation,
-        )
-        .is_err()
-        {
+        // THE DURABLE COPY IS NOW THE REGISTERED FAMILY (M09.5). It used to be the six-field row
+        // above, written to `cleanup-obligations` — a second spine beside
+        // `hypervisor-resource-cleanup-obligations`, which is what the contract, the retention
+        // plane and the counterparty-closure check all mean by a cleanup obligation. The row stays
+        // on the environment as a projection; what outlives the parent is the registered object.
+        //
+        // A record the contract would refuse is not written and then explained: if the compilation
+        // or its validation fails, that is the same MEASURED loss as a failed write, reported on
+        // the row rather than swallowed.
+        let registered =
+            registered_cleanup_obligation(env["id"].as_str().unwrap_or_default(), disposition)
+                .filter(|record| {
+                    validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, record).is_ok()
+                });
+        let wrote = match registered {
+            Some(record) => persist_record(
+                &st.data_dir,
+                super::hypervisor_environment_routes::CLEANUP_DIR,
+                &safe_id(id),
+                &record,
+            )
+            .is_ok(),
+            None => false,
+        };
+        if !wrote {
             if let Some(last) = env["status"]["cleanup_obligations"]
                 .as_array_mut()
                 .and_then(|a| a.last_mut())
