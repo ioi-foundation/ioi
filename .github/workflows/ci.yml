@@ -763,6 +763,15 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:product-surface-compiler
 
+      # M09.2. Drives recipe -> resolution -> startup plan against its own daemon, then attacks the
+      # plan's four refusals. Its own first assertion refuses a binary older than the routes it
+      # measures, so a restored cache cannot make it report on code this revision does not have.
+      - name: Verify the environment startup plan (M09.2)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:environment-startup-plan
+
       # MOVED HERE FROM build_and_test (2026-09-12). It ran there and PASSED, and its runtime
       # census was collected by nothing: build_and_test sets IOI_VERIFIER_CENSUS_DIR on zero steps
       # and publishes no census artifact, so the verifier-family floor recorded `census_missing`

@@ -47,6 +47,9 @@ const GATES = [
   // binary is older than the sources it claims to measure rather than reporting on code that is
   // not there.
   ["product-surface compiler (M08.8)", "npm", ["run", "check:product-surface-compiler", "--silent"], { slow: true }],
+  // Also boots its own daemon and reaps it. Listed beside the one above rather than folded into it:
+  // they measure different planes, and a single "daemon gates" row would hide which one went red.
+  ["environment startup plan (M09.2)", "npm", ["run", "check:environment-startup-plan", "--silent"], { slow: true }],
   // ROUTE COUNTS — two gates, two populations. Both, always.
   [
     "route count A (distinct paths)",
