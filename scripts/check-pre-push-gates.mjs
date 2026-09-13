@@ -27,6 +27,11 @@
 // contracts, docs, route counts, censuses and the guide's own structure.
 //
 //   --fast   skip the two mutation batteries (they restore the tree; they are simply slower)
+//
+// READ THE LAST LINE, NOT THE EXIT STATUS — or rather, do not read this through a pipe at all.
+// `node scripts/check-pre-push-gates.mjs | tail -25` returns TAIL's exit code, so a sweep that
+// failed 9/11 reports success to whatever ran it. That happened, on this file, in the leg that
+// added it. The final line always states PASS or FAIL with the count; trust that.
 import { execFileSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
