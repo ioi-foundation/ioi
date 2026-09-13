@@ -2064,6 +2064,26 @@ export type HypervisorApplicationSurfaceRegistrationV1 = {
   context_route_resolver_refs?: Array<string>;
 };
 
+export type HypervisorApplicationSurfaceRegistrationV2 = {
+  schema_version: "ioi.hypervisor.application_surface_registration.v2";
+  surface_ref: string;
+  surface_key: string;
+  surface_class: "owner_application" | "substrate_application" | "tool_surface" | "extension_application";
+  display_name: string;
+  surface_availability: "planned" | "preview" | "limited" | "available" | "deprecated" | "unavailable";
+  canonical_route: string;
+  canonical_owner_doc_ref: string;
+  effect_boundary: "inspect_only" | "propose_only" | "effectful";
+  declared_object_contract_refs: Array<string>;
+  declared_action_contract_refs: Array<string>;
+  context_route_resolver_refs?: Array<string>;
+  surface_origin: "first_party" | "organization" | "external_publisher";
+  surface_creation_method: "hand_authored" | "studio_generated" | "developer_kit_generated" | "imported" | "adapted";
+  supported_placements: Array<"permanent_shell" | "applications_catalog" | "open_application" | "home" | "project" | "system" | "work" | "goal_run" | "outcome_room" | "automation_run" | "session" | "organization_admin" | "operator_console">;
+  launch_modes: Array<"direct" | "contextual" | "open_application" | "command_palette" | "api">;
+  supported_context_kinds: Array<"organization" | "project" | "system" | "goal_run" | "outcome_room" | "automation_run" | "session" | "work_queue" | "work_item" | "work_run">;
+};
+
 export type ArtifactRepairReceiptV1 = {
   schema_version: "ioi.hypervisor.artifact-repair-receipt.v1";
   repair_id: string;
@@ -14001,6 +14021,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/positive-imported-organization-surface.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-missing-surface-origin.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-surface-origin.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-placement.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-empty-launch-modes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json",
     "expected": "accept",
@@ -25511,6 +25587,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-verification-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/positive-imported-organization-surface.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/positive-imported-organization-surface.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-missing-surface-origin.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-missing-surface-origin.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-surface-origin.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-surface-origin.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-placement.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-unknown-placement.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-empty-launch-modes.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v2/negative-empty-launch-modes.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json","mutation_id":null,"value_json":null}),
@@ -27716,6 +27799,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1": "sha256:8334e614af20034ffcd4af9fbefecb05184206665c8e1b21f9c5a4804ed79379",
   "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1": "sha256:7167c45b6c2aee52b57bc607c4c7108c1f2d5c81feba36cd7412ba90504cd56f",
   "schema://ioi/components/hypervisor/application-surface-registration/v1": "sha256:77f362af7d82ee1ac9fc74047588b5b97c735737644c221675d0527c9f72b7f2",
+  "schema://ioi/components/hypervisor/application-surface-registration/v2": "sha256:8dc2d4d46522a3110fa7217400e5cffaf9ae48c6e96abf59db060d0d8659a286",
   "schema://ioi/components/hypervisor/artifact-repair-receipt/v1": "sha256:95d032532d7b6c996ef9d1176007aa658facdcd5f05c365896a81068ca7a9e9b",
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
@@ -45530,6 +45614,187 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "uniqueItems": true
       }
     }
+  },
+  "schema://ioi/components/hypervisor/application-surface-registration/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+    "title": "HypervisorApplicationSurfaceRegistration",
+    "x-ioi-schema-version": "ioi.hypervisor.application_surface_registration.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "surface_ref",
+      "surface_key",
+      "surface_class",
+      "display_name",
+      "surface_availability",
+      "canonical_route",
+      "canonical_owner_doc_ref",
+      "effect_boundary",
+      "declared_object_contract_refs",
+      "declared_action_contract_refs",
+      "surface_origin",
+      "surface_creation_method",
+      "supported_placements",
+      "launch_modes",
+      "supported_context_kinds"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.application_surface_registration.v2"
+      },
+      "surface_ref": {
+        "type": "string",
+        "pattern": "^surface://\\S*$"
+      },
+      "surface_key": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "surface_class": {
+        "enum": [
+          "owner_application",
+          "substrate_application",
+          "tool_surface",
+          "extension_application"
+        ]
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 96
+      },
+      "surface_availability": {
+        "enum": [
+          "planned",
+          "preview",
+          "limited",
+          "available",
+          "deprecated",
+          "unavailable"
+        ]
+      },
+      "canonical_route": {
+        "type": "string",
+        "pattern": "^/\\S*$"
+      },
+      "canonical_owner_doc_ref": {
+        "type": "string",
+        "pattern": "^doc://\\S*$"
+      },
+      "effect_boundary": {
+        "enum": [
+          "inspect_only",
+          "propose_only",
+          "effectful"
+        ]
+      },
+      "declared_object_contract_refs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "declared_action_contract_refs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "context_route_resolver_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^context-route-resolver://\\S*$"
+        },
+        "uniqueItems": true
+      },
+      "surface_origin": {
+        "type": "string",
+        "enum": [
+          "first_party",
+          "organization",
+          "external_publisher"
+        ],
+        "description": "Who the surface came FROM. Fixed at authorship; unlike the lifecycle axes it never moves."
+      },
+      "surface_creation_method": {
+        "type": "string",
+        "enum": [
+          "hand_authored",
+          "studio_generated",
+          "developer_kit_generated",
+          "imported",
+          "adapted"
+        ],
+        "description": "How it came to exist. Also fixed at authorship, and independent of origin: a first-party surface may be studio_generated and an organization one hand_authored."
+      },
+      "supported_placements": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "Where this surface may appear. THE PROJECTIONS READ THIS INSTEAD OF A HARD-CODED LIST: the shell projection serves `permanent_shell`, the catalog serves `applications_catalog`, and a surface that belongs in both registers both and still carries one identity. A hard-coded catalog is a placement decision made in a compiler rather than on the registration, which is the defect ACC-10 clause 2 names.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "permanent_shell",
+            "applications_catalog",
+            "open_application",
+            "home",
+            "project",
+            "system",
+            "work",
+            "goal_run",
+            "outcome_room",
+            "automation_run",
+            "session",
+            "organization_admin",
+            "operator_console"
+          ]
+        }
+      },
+      "launch_modes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "How a launch of this surface may be initiated. The command-palette projection serves exactly the surfaces registering `command_palette` and the contextual projection exactly those registering `contextual` — neither is a list a compiler keeps. A surface that registers no launch mode could not be launched at all, so the floor is one.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "direct",
+            "contextual",
+            "open_application",
+            "command_palette",
+            "api"
+          ]
+        }
+      },
+      "supported_context_kinds": {
+        "type": "array",
+        "uniqueItems": true,
+        "description": "The typed canonical contexts this surface can be launched INTO. May be empty: a shell-permanent surface that answers no context is honest about that, and an empty list is the reason it is absent from a contextual projection rather than an oversight. Registering `contextual` as a launch mode while claiming no context kind is a contradiction the admission transaction refuses.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "organization",
+            "project",
+            "system",
+            "goal_run",
+            "outcome_room",
+            "automation_run",
+            "session",
+            "work_queue",
+            "work_item",
+            "work_run"
+          ]
+        }
+      }
+    },
+    "description": "A SURFACE REGISTRATION THAT CARRIES EVERY AXIS CANON NAMES, INCLUDING THE TWO NOTHING REGISTERED. Non-Negotiable 36 requires one registration over ELEVEN INDEPENDENT axes. `surface_origin` and `surface_creation_method` were named by `canonical-enums.md` and by the vocabulary, and existed in no field anywhere: the daemon projected them as explicit NULLS with a comment saying why, which was the honest thing to do with an axis that had no home and is the wrong thing to leave. They are registered here, so the projection can serve a value a consumer can act on. THIS IS A SUCCESSOR AND NOT A WIDENING: v1 is `wire_mutation_policy: forbidden` with `additionalProperties: false`, and the generated surface records are wire data written against it — adding fields in place would change what already-admitted bytes mean. v1 stays valid for everything written under it. WHY THESE TWO AXES MATTER SEPARATELY FROM THE OTHER NINE: origin and creation method are the only axes that describe WHERE A SURFACE CAME FROM rather than what state it is in. Every other axis moves over a surface's life — it is installed, then enabled, then serving — where these are fixed at the moment of authorship and never change. A first-party hand-authored surface and an imported organization one can be identical on all nine lifecycle axes and must still be told apart, which is precisely what an admission decision needs and what a collapsed composite could not answer."
   },
   "schema://ioi/components/hypervisor/artifact-repair-receipt/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -123789,6 +124054,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/components/hypervisor/application-surface-registration/v1": [],
+  "schema://ioi/components/hypervisor/application-surface-registration/v2": [],
   "schema://ioi/components/hypervisor/artifact-repair-receipt/v1": [
     {
       "rule_id": "artifact_repair_receipt.repair_ref.binds_repair_id",
@@ -138817,6 +139083,12 @@ export function validateHypervisorApplicationSurfaceRegistrationV1(
   value: unknown,
 ): value is HypervisorApplicationSurfaceRegistrationV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/application-surface-registration/v1", value).ok;
+}
+
+export function validateHypervisorApplicationSurfaceRegistrationV2(
+  value: unknown,
+): value is HypervisorApplicationSurfaceRegistrationV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/application-surface-registration/v2", value).ok;
 }
 
 export function validateArtifactRepairReceiptV1(

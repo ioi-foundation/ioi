@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+  "title": "HypervisorApplicationSurfaceRegistration",
+  "x-ioi-schema-version": "ioi.hypervisor.application_surface_registration.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "surface_ref",
+    "surface_key",
+    "surface_class",
+    "display_name",
+    "surface_availability",
+    "canonical_route",
+    "canonical_owner_doc_ref",
+    "effect_boundary",
+    "declared_object_contract_refs",
+    "declared_action_contract_refs",
+    "surface_origin",
+    "surface_creation_method",
+    "supported_placements",
+    "launch_modes",
+    "supported_context_kinds"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.application_surface_registration.v2"
+    },
+    "surface_ref": {
+      "type": "string",
+      "pattern": "^surface://\\S*$"
+    },
+    "surface_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "surface_class": {
+      "enum": [
+        "owner_application",
+        "substrate_application",
+        "tool_surface",
+        "extension_application"
+      ]
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "surface_availability": {
+      "enum": [
+        "planned",
+        "preview",
+        "limited",
+        "available",
+        "deprecated",
+        "unavailable"
+      ]
+    },
+    "canonical_route": {
+      "type": "string",
+      "pattern": "^/\\S*$"
+    },
+    "canonical_owner_doc_ref": {
+      "type": "string",
+      "pattern": "^doc://\\S*$"
+    },
+    "effect_boundary": {
+      "enum": [
+        "inspect_only",
+        "propose_only",
+        "effectful"
+      ]
+    },
+    "declared_object_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "declared_action_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "context_route_resolver_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^context-route-resolver://\\S*$"
+      },
+      "uniqueItems": true
+    },
+    "surface_origin": {
+      "type": "string",
+      "enum": [
+        "first_party",
+        "organization",
+        "external_publisher"
+      ],
+      "description": "Who the surface came FROM. Fixed at authorship; unlike the lifecycle axes it never moves."
+    },
+    "surface_creation_method": {
+      "type": "string",
+      "enum": [
+        "hand_authored",
+        "studio_generated",
+        "developer_kit_generated",
+        "imported",
+        "adapted"
+      ],
+      "description": "How it came to exist. Also fixed at authorship, and independent of origin: a first-party surface may be studio_generated and an organization one hand_authored."
+    },
+    "supported_placements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Where this surface may appear. THE PROJECTIONS READ THIS INSTEAD OF A HARD-CODED LIST: the shell projection serves `permanent_shell`, the catalog serves `applications_catalog`, and a surface that belongs in both registers both and still carries one identity. A hard-coded catalog is a placement decision made in a compiler rather than on the registration, which is the defect ACC-10 clause 2 names.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "permanent_shell",
+          "applications_catalog",
+          "open_application",
+          "home",
+          "project",
+          "system",
+          "work",
+          "goal_run",
+          "outcome_room",
+          "automation_run",
+          "session",
+          "organization_admin",
+          "operator_console"
+        ]
+      }
+    },
+    "launch_modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "How a launch of this surface may be initiated. The command-palette projection serves exactly the surfaces registering `command_palette` and the contextual projection exactly those registering `contextual` — neither is a list a compiler keeps. A surface that registers no launch mode could not be launched at all, so the floor is one.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "direct",
+          "contextual",
+          "open_application",
+          "command_palette",
+          "api"
+        ]
+      }
+    },
+    "supported_context_kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "The typed canonical contexts this surface can be launched INTO. May be empty: a shell-permanent surface that answers no context is honest about that, and an empty list is the reason it is absent from a contextual projection rather than an oversight. Registering `contextual` as a launch mode while claiming no context kind is a contradiction the admission transaction refuses.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "organization",
+          "project",
+          "system",
+          "goal_run",
+          "outcome_room",
+          "automation_run",
+          "session",
+          "work_queue",
+          "work_item",
+          "work_run"
+        ]
+      }
+    }
+  },
+  "description": "A SURFACE REGISTRATION THAT CARRIES EVERY AXIS CANON NAMES, INCLUDING THE TWO NOTHING REGISTERED. Non-Negotiable 36 requires one registration over ELEVEN INDEPENDENT axes. `surface_origin` and `surface_creation_method` were named by `canonical-enums.md` and by the vocabulary, and existed in no field anywhere: the daemon projected them as explicit NULLS with a comment saying why, which was the honest thing to do with an axis that had no home and is the wrong thing to leave. They are registered here, so the projection can serve a value a consumer can act on. THIS IS A SUCCESSOR AND NOT A WIDENING: v1 is `wire_mutation_policy: forbidden` with `additionalProperties: false`, and the generated surface records are wire data written against it — adding fields in place would change what already-admitted bytes mean. v1 stays valid for everything written under it. WHY THESE TWO AXES MATTER SEPARATELY FROM THE OTHER NINE: origin and creation method are the only axes that describe WHERE A SURFACE CAME FROM rather than what state it is in. Every other axis moves over a surface's life — it is installed, then enabled, then serving — where these are fixed at the moment of authorship and never change. A first-party hand-authored surface and an imported organization one can be identical on all nine lifecycle axes and must still be told apart, which is precisely what an admission decision needs and what a collapsed composite could not answer."
+}

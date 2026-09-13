@@ -1,0 +1,33 @@
+{
+  "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+  "surface_ref": "surface://hypervisor/studio",
+  "surface_key": "studio",
+  "surface_class": "owner_application",
+  "display_name": "Studio",
+  "surface_availability": "available",
+  "canonical_route": "/studio",
+  "canonical_owner_doc_ref": "doc://architecture/hypervisor/studio",
+  "effect_boundary": "effectful",
+  "declared_object_contract_refs": [
+    "object-model://studio"
+  ],
+  "declared_action_contract_refs": [
+    "action://studio/compose"
+  ],
+  "context_route_resolver_refs": [],
+  "surface_origin": "first_party",
+  "surface_creation_method": "hand_authored",
+  "supported_placements": [
+    "everywhere"
+  ],
+  "launch_modes": [
+    "direct",
+    "command_palette",
+    "contextual",
+    "api"
+  ],
+  "supported_context_kinds": [
+    "organization",
+    "project"
+  ]
+}

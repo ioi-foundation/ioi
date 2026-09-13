@@ -3009,10 +3009,10 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
         "compatibility": "initial",
         "migration_policy": "none",
-        "predecessor_remains_valid": false,
+        "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
@@ -3037,6 +3037,66 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v2",
+      "canonical_name": "HypervisorApplicationSurfaceRegistration",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#minimal-implementation-objects",
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/hypervisor/application-surface-registration/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "successor_only",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-application-surface-registration.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorApplicationSurfaceRegistrationV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorApplicationSurfaceRegistrationV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-application-surface-registration-v2/positive-minimal.json",
+        "fixtures/hypervisor-application-surface-registration-v2/positive-imported-organization-surface.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-application-surface-registration-v2/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-application-surface-registration-v2/negative-missing-surface-origin.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-application-surface-registration-v2/negative-unknown-surface-origin.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-application-surface-registration-v2/negative-unknown-placement.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-application-surface-registration-v2/negative-empty-launch-modes.json",
           "expected_failure": "schema"
         }
       ]
