@@ -2832,11 +2832,32 @@ fn capture_environment_backup(
         "size_bytes":bytes.len(),
         "role":"workspace_snapshot",
     })];
+    // THE LEGACY LANE'S DISPOSITION, MADE TYPED RATHER THAN SILENT (M09.4). This lane captures a
+    // workspace tarball; it is not the environment plane and has none of that plane's four record
+    // families, so it cannot commit their heads and cannot prove environment continuity. What it
+    // CAN commit honestly is the one family it actually captured, under its own name.
+    //
+    // Naming it is what makes the limitation legible instead of absent. A restore that tried to
+    // claim environment continuity from a managed backup is refused by name — the committed
+    // `managed_workspace` head is not among the four families an environment plane rebuilds — where
+    // a lane committing NO heads would have been refused for having nothing to compare, which reads
+    // as a missing feature rather than as a lane that answers a different question.
+    // Committed under the lane's OWN subject family. A managed backup is answerable for what it
+    // captured — it simply captures one workspace rather than an environment plane — and
+    // `managed_workspace` is a family the environment plane never rebuilds. So a restore that tried
+    // to claim environment continuity from a managed backup is refused BY NAME rather than by
+    // having nothing to compare, and the two lanes now say in their bytes that they answer
+    // different questions.
+    let managed_family_roots = vec![json!({
+        "family": "managed_workspace",
+        "roots": [state_root.clone()],
+    })];
     let mut backup = match compile_backup_record(
         &estate,
         &declaration,
         &state_root,
         &rows,
+        &managed_family_roots,
         Some(&expires_at),
         request.system_ref.as_deref(),
         &receipt_ref,

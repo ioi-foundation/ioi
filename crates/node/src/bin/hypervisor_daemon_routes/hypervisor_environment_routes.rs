@@ -13,7 +13,8 @@
 use ioi_types::app::hypervisor_environment_lifecycle::{
     compile_backup_record, compile_change_plan_declaration, compile_cleanup_escalate,
     compile_cleanup_open, compile_cleanup_satisfy, compile_route_binding_declaration,
-    compile_stage_advance, environment_artifact_root, environment_plane_root,
+    compile_stage_advance, environment_artifact_root, environment_family_roots,
+    environment_plane_root,
     evaluate_route_binding_observation, obligation_revision_root, replay_environment_lifecycle,
     route_binding_head, route_identity, BackupDeclaration, EnvironmentEstateBinding,
     EnvironmentLifecycleLogHead, EnvironmentLifecycleOp, EnvironmentPlaneState, StageEvidence,
@@ -545,11 +546,24 @@ pub(crate) fn compile_from_source(
                 source.binding.estate_namespace,
                 source.head.sequence + 1
             );
+            // THE SEMANTIC WITNESS, RESOLVED FROM THE PLANE AS IT STANDS AT CAPTURE (M09.4).
+            // Computed BEFORE this backup joins the state below: a backup whose committed heads
+            // already contained itself would be committing to a plane that did not exist when the
+            // capture was taken, and the restore comparison would then be against a state no
+            // restore can ever reproduce. Same reason `plan_hash` excludes itself.
+            let source_family_roots = environment_family_roots(
+                &state.bindings,
+                &state.backups,
+                &state.plans,
+                &state.obligations,
+            )
+            .map_err(plan_err)?;
             let record = compile_backup_record(
                 &source.binding,
                 &backup_declaration,
                 source_state_root,
                 &evidence.artifact_digest_rows,
+                &source_family_roots,
                 None,
                 None,
                 &receipt_ref,
@@ -604,6 +618,18 @@ pub(crate) fn compile_from_source(
                 &StageEvidence {
                     resolved_artifact_digests: evidence.artifact_digest_rows.clone(),
                     resolved_evidence_refs: evidence.stage_evidence_refs.clone(),
+                    // RECOMPUTED HERE, FROM THE PLANE AS IT NOW STANDS (M09.4). This is the daemon
+                    // rebuilding the four families from the records the restore actually left
+                    // behind — not reading a head the restore wrote, which is the one way this
+                    // check could be made to pass unconditionally. `post_restore_validation`
+                    // compares these against the heads the backup committed at capture.
+                    recomputed_family_roots: environment_family_roots(
+                        &state.bindings,
+                        &state.backups,
+                        &state.plans,
+                        &state.obligations,
+                    )
+                    .map_err(plan_err)?,
                 },
                 &state.backups,
                 &state.bindings,

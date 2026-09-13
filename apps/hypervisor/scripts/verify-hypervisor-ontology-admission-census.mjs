@@ -594,6 +594,12 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13, M09.4 (semantic continuity as the restore pass condition): tokens
+  // 149718 -> 149721 and NOTHING else. Three tokens, because almost all of this unit lives in
+  // `crates/types` — the environment-lifecycle kernel — which this census does not walk; what the
+  // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
+  // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
+  // move a census of the daemon's own literals, and this one does not.
   // Re-pinned 2026-09-13 AGAIN (M09.2, the environment startup plan). No module joined — the work
   // went into `recipe_routes.rs`, already in the walk — but this is the largest literal move of the
   // leg: tokens 149243 -> 149718, opaque initialisers 2802 -> 2810 and foreign-qualified names
@@ -639,7 +645,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149718,
+  tokenMentions: 149721,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 246, runtimeParameter: 311 },
   productionFsCalls: 234,

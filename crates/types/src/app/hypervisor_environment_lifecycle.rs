@@ -68,6 +68,44 @@ pub const ENVIRONMENT_REFUSAL_DIMENSIONS: [&str; 8] = [
     "unreceipted_close",
 ];
 
+/// The families a restore is answerable FOR.
+///
+/// Not all four. `backups` and `change_plans` are the plane's own operation log: taking a backup
+/// appends to one and running a restore appends to the other, so the plane at
+/// `post_restore_validation` differs from the plane at capture BY CONSTRUCTION and always will.
+/// Holding a restore to those families would make continuity unachievable rather than strict —
+/// **you cannot restore the act of restoring.**
+///
+/// What a restore IS answerable for is the substance: which routes are bound, and which cleanup
+/// obligations are still owed. A deletion in either, made before the backup, must stay deleted
+/// after it — which is the clause, and which these two families decide.
+///
+/// Named as a constant so the choice is arguable in one place rather than implied by a comparison
+/// somewhere. Both the commitment and the check read it, so the two can never drift apart.
+/// `managed_workspace` is the LEGACY managed lane's own subject family and the environment plane
+/// never produces it — which is the disposition, expressed as a name rather than as a comment. A
+/// managed backup commits a head an environment restore cannot rebuild, so a restore that tried to
+/// claim environment continuity from one is refused BY NAME instead of by having nothing to
+/// compare. The two lanes answer different questions and now say so in the bytes.
+pub const RESTORE_SUBJECT_FAMILIES: [&str; 3] = [
+    "route_bindings",
+    "cleanup_obligations",
+    "managed_workspace",
+];
+
+/// The subset of family roots a backup commits and a restore is checked against.
+pub fn restore_subject_roots(families: &[Value]) -> Vec<Value> {
+    families
+        .iter()
+        .filter(|family| {
+            opt_str(family, "/family")
+                .map(|name| RESTORE_SUBJECT_FAMILIES.contains(&name))
+                .unwrap_or(false)
+        })
+        .cloned()
+        .collect()
+}
+
 /// The closed, ordered restore stage ladder.
 pub const CHANGE_PLAN_STAGE_LADDER: [&str; 5] = [
     "read_only_preflight",
@@ -272,13 +310,24 @@ pub fn environment_artifact_root(record: &Value) -> Result<String, String> {
 }
 
 /// Derived set root over the live plane records, sorted per family by root.
-pub fn environment_plane_root(
-    estate_namespace: &str,
+/// The per-family roots the plane root is built from, exposed on their own because a BACKUP must
+/// commit them individually.
+///
+/// WHY INDIVIDUALLY RATHER THAN AS THE SINGLE PLANE ROOT. One combined root answers "did anything
+/// change" and nothing else; the per-family roots answer WHICH question the restored system stopped
+/// answering the same way, which is the difference between a refusal a reader can act on and one
+/// that only says no.
+///
+/// Each root is derived from the RECORDS — not from stored bytes, and not from a head field that a
+/// restore could itself have written back. That is what makes a comparison against them semantic:
+/// deleting a record removes its root from the family, so a restore that resurrects a deleted
+/// subject produces a different family root even though every byte it wrote is intact.
+pub fn environment_family_roots(
     bindings: &[Value],
     backups: &[Value],
     plans: &[Value],
     obligations: &[Value],
-) -> Result<String, String> {
+) -> Result<Vec<Value>, String> {
     let mut families = Vec::with_capacity(4);
     for (family, records, root_of) in [
         (
@@ -294,11 +343,46 @@ pub fn environment_plane_root(
         roots.sort();
         families.push(json!({"family": family, "roots": roots}));
     }
+    Ok(families)
+}
+
+/// The estate-scoped set root over all four families, derived from the same per-family roots a
+/// backup commits individually. One number for "did anything at all change"; the family roots
+/// beside it for which thing did.
+pub fn environment_plane_root(
+    estate_namespace: &str,
+    bindings: &[Value],
+    backups: &[Value],
+    plans: &[Value],
+    obligations: &[Value],
+) -> Result<String, String> {
+    let families = environment_family_roots(bindings, backups, plans, obligations)?;
     jcs_hash(&json!({
         "domain": ENVIRONMENT_PLANE_SET_PROFILE,
         "estate_namespace": estate_namespace,
         "families": families,
     }))
+}
+
+/// One committed family head, as a canonical ref a backup can carry.
+///
+/// The family name is inside the ref rather than beside it so a head cannot be silently re-attached
+/// to a different family by a consumer that reorders a list.
+pub fn family_head_ref(estate_namespace: &str, family: &Value) -> Result<String, String> {
+    let name = required_string(family, "/family")?;
+    let roots = family
+        .get("roots")
+        .and_then(Value::as_array)
+        .ok_or("family row lacks its roots")?;
+    let digest = jcs_hash(&json!({
+        "domain": ENVIRONMENT_PLANE_SET_PROFILE,
+        "family": name,
+        "roots": roots,
+    }))?;
+    Ok(format!(
+        "object-head://{estate_namespace}/{name}/{}",
+        digest.trim_start_matches("sha256:")
+    ))
 }
 
 /// Route identity is the declared tuple; two bindings for one identity form a
@@ -530,6 +614,7 @@ pub fn compile_backup_record(
     declaration: &BackupDeclaration,
     resolved_source_state_root: &str,
     resolved_artifact_rows: &[Value],
+    resolved_source_family_roots: &[Value],
     resolved_expires_at: Option<&str>,
     system_ref: Option<&str>,
     receipt_ref: &str,
@@ -540,6 +625,39 @@ pub fn compile_backup_record(
             "a complete backup requires at least one resolved artifact digest row",
         ));
     }
+    // THE SEMANTIC WITNESS, WITHOUT WHICH RESTORE CAN ONLY PROVE BLOB PRESENCE (M09.4). ACC-8
+    // clause 5 requires the restored system to answer the same questions with the same meanings,
+    // and a deletion made before the backup to stay deleted after the restore. The artifact rows
+    // above cannot decide either: they are digests of BYTES, and a faithful byte restore that also
+    // resurrects a deleted record satisfies every one of them.
+    //
+    // The family roots can. Each is derived from the RECORDS present at capture, so a deletion
+    // before the backup is expressed as an absence inside the root — and a restore that brings the
+    // record back produces a different root while every byte it wrote verifies. One commitment
+    // answers both halves of the clause, which is why there is no separate tombstone census here: a
+    // census listing what was deleted would have to be complete to be worth anything, and an
+    // absence is already total.
+    //
+    // Empty is refused rather than tolerated. A backup that commits no heads is the pre-M09.4 shape
+    // — the contract has carried `source_object_head_refs` since v1 and the compiler always wrote
+    // `[]` — and a restore checked against no heads passes by having nothing to compare.
+    if resolved_source_family_roots.is_empty() {
+        return Err(err(
+            "incomplete_restoration",
+            "a complete backup commits the source family heads it must be restorable to; a backup              with none can only ever prove that its bytes came back",
+        ));
+    }
+    let subject_roots = restore_subject_roots(resolved_source_family_roots);
+    if subject_roots.is_empty() {
+        return Err(err(
+            "incomplete_restoration",
+            "the resolved capture names none of the families a restore is answerable for; a              backup committing only the plane's own operation log commits nothing restorable",
+        ));
+    }
+    let source_object_head_refs = subject_roots
+        .iter()
+        .map(|family| family_head_ref(&estate.estate_namespace, family))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut rows = Vec::with_capacity(resolved_artifact_rows.len());
     let mut refs = Vec::with_capacity(resolved_artifact_rows.len());
     for row in resolved_artifact_rows {
@@ -574,7 +692,7 @@ pub fn compile_backup_record(
         "actor_ref": estate.daemon_ref,
         "schedule_or_change_plan_ref": declaration.schedule_or_change_plan_ref,
         "source_state_root_ref": format!("state-root://{resolved_source_state_root}"),
-        "source_object_head_refs": [],
+        "source_object_head_refs": source_object_head_refs,
         "source_checkpoint_or_suffix_boundary_refs": [],
         "capture_profile_ref": format!("policy://{}/backups/capture", estate.estate_namespace),
         "execution_substrate_ref": estate.daemon_ref,
@@ -613,6 +731,93 @@ pub fn compile_backup_record(
     validate_architecture_contract(ENVIRONMENT_BACKUP_CONTRACT, &backup)
         .map_err(|error| format!("compiled backup record is invalid: {error}"))?;
     Ok(backup)
+}
+
+/// Does the restored plane answer the same questions with the same meanings?
+///
+/// ACC-8 clause 5 and ACC-11 clause 5: restore passes on SEMANTIC CONTINUITY, not blob presence.
+/// The distinction is not a nuance — a restore that writes every byte back correctly and also
+/// resurrects a record deleted before the backup satisfies every digest in the manifest and has
+/// broken the guarantee the clause exists to state.
+///
+/// `recomputed` MUST be derived from the restored records by `environment_family_roots`, never read
+/// from a head field on the restored plane. That is the entire weight-bearing requirement: a check
+/// that compared a restored head against the head the same restore wrote would be comparing a value
+/// to itself and would pass unconditionally. The caller passes recomputed roots because only the
+/// caller can recompute them, and the gate's job is to prove it did.
+pub fn evaluate_restore_continuity(backup: &Value, recomputed: &[Value]) -> EnvironmentVerdict {
+    let estate_namespace = match opt_str(backup, "/backup_ref")
+        .and_then(|value| value.strip_prefix("environment-backup://"))
+        .and_then(|tail| tail.split('/').next())
+    {
+        Some(namespace) if !namespace.is_empty() => namespace.to_owned(),
+        _ => {
+            return EnvironmentVerdict::refuse(
+                "incomplete_restoration",
+                "the backup does not name the estate its heads were committed under",
+            )
+        }
+    };
+    let committed: Vec<String> = match backup
+        .get("source_object_head_refs")
+        .and_then(Value::as_array)
+    {
+        Some(refs) if !refs.is_empty() => {
+            refs.iter().filter_map(Value::as_str).map(str::to_owned).collect()
+        }
+        _ => {
+            // A pre-M09.4 backup commits no heads. It is refused rather than waved through,
+            // because "nothing to compare" and "everything matched" are the same outcome to a
+            // caller and opposite facts. Such a backup is still restorable through the legacy
+            // lane; what it cannot do is claim continuity.
+            return EnvironmentVerdict::refuse(
+                "incomplete_restoration",
+                "this backup commits no source family heads, so continuity cannot be decided from                  it — only blob presence can, which is the pass condition ACC-8 clause 5 refuses",
+            );
+        }
+    };
+    let subjects = restore_subject_roots(recomputed);
+    let mut rebuilt = Vec::with_capacity(subjects.len());
+    for family in &subjects {
+        match family_head_ref(&estate_namespace, family) {
+            Ok(head) => rebuilt.push(head),
+            Err(reason) => {
+                return EnvironmentVerdict::refuse("incomplete_restoration", reason);
+            }
+        }
+    }
+    // Every committed head must be present in what the restored records actually produce. Reported
+    // by FAMILY rather than as a count, so a refusal says which question stopped answering the
+    // same way.
+    for head in &committed {
+        if !rebuilt.contains(head) {
+            let family = head
+                .rsplit('/')
+                .nth(1)
+                .unwrap_or("unknown");
+            return EnvironmentVerdict::refuse(
+                "incomplete_restoration",
+                format!(
+                    "the restored plane does not reproduce the committed head for `{family}`: the                      records it rebuilt from are not the records this backup was taken over"
+                ),
+            );
+        }
+    }
+    // And the reverse edge. A restored plane carrying a family the backup never committed has
+    // gained records from somewhere the backup cannot account for, which is the same defect read
+    // from the other side and is exactly what a one-directional check misses.
+    for head in &rebuilt {
+        if !committed.contains(head) {
+            let family = head.rsplit('/').nth(1).unwrap_or("unknown");
+            return EnvironmentVerdict::refuse(
+                "incomplete_restoration",
+                format!(
+                    "the restored plane produced a head for `{family}` that this backup never                      committed: restored state must come from the backup, not from beside it"
+                ),
+            );
+        }
+    }
+    EnvironmentVerdict::admit()
 }
 
 fn resolve_backup<'a>(backups: &'a [Value], backup_ref: &str) -> Option<&'a Value> {
@@ -764,6 +969,13 @@ pub struct StageEvidence {
     pub resolved_artifact_digests: Vec<Value>,
     /// Resolved evidence refs discharging the stage's requirements.
     pub resolved_evidence_refs: Vec<String>,
+    /// The family roots RECOMPUTED from the restored records, for the
+    /// `post_restore_validation` stage (M09.4).
+    ///
+    /// Recomputed, never read back from the restored plane: a head the restore itself wrote and
+    /// then compared against its own commitment would pass unconditionally. Empty is not "nothing
+    /// changed" — it is a caller that did not recompute, and the stage refuses it.
+    pub recomputed_family_roots: Vec<Value>,
 }
 
 /// One compiled forward-only stage advancement.
@@ -910,6 +1122,37 @@ pub fn compile_stage_advance(
                         ),
                     ));
                 }
+            }
+        }
+        // THE STAGE THAT VALIDATED NOTHING (M09.4). `post_restore_validation` has been in the
+        // closed stage ladder since the plane was built and had no arm here at all, so it fell
+        // through the catch-all and discharged on evidence-ref presence alone. Meanwhile
+        // `restore_apply` above checks every manifest digest — which is a complete proof of BLOB
+        // PRESENCE and no proof at all of the thing ACC-8 clause 5 asks for, because a faithful
+        // byte restore that also resurrects a record deleted before the backup satisfies every one
+        // of those digests.
+        //
+        // This is where the difference is decided, and it is decided against roots recomputed from
+        // the restored records rather than against anything the restore wrote.
+        "post_restore_validation" => {
+            let source_backup_ref = required_string(plan, "/restore/source_backup_ref")?;
+            let backup = resolve_backup(current_backups, source_backup_ref).ok_or(format!(
+                "source backup '{source_backup_ref}' is not resolvable from durable truth"
+            ))?;
+            if evidence.recomputed_family_roots.is_empty() {
+                return Err(err(
+                    "incomplete_restoration",
+                    "post_restore_validation was reached with no recomputed family roots:                      continuity is decided by rebuilding the plane from the restored records, and                      a stage handed none of them has measured nothing",
+                ));
+            }
+            let verdict = evaluate_restore_continuity(backup, &evidence.recomputed_family_roots);
+            if !verdict.admitted {
+                return Err(err(
+                    verdict.refusal_dimension.unwrap_or("incomplete_restoration"),
+                    verdict
+                        .refusal_reason
+                        .unwrap_or_else(|| "restore continuity refused".to_owned()),
+                ));
             }
         }
         "activation" => {
@@ -1359,6 +1602,18 @@ mod tests {
         ]
     }
 
+    /// The family roots a capture would resolve. Two families with content and two empty, because a
+    /// plane where every family is populated cannot distinguish a check that compares all four from
+    /// one that stops at the first.
+    fn source_roots() -> Vec<Value> {
+        vec![
+            json!({"family": "route_bindings", "roots": [h(0x51)]}),
+            json!({"family": "backups", "roots": []}),
+            json!({"family": "change_plans", "roots": [h(0x52), h(0x53)]}),
+            json!({"family": "cleanup_obligations", "roots": []}),
+        ]
+    }
+
     fn compiled_backup() -> Value {
         compile_backup_record(
             &estate(),
@@ -1372,6 +1627,7 @@ mod tests {
             },
             &h(0x0e),
             &digest_rows(),
+            &source_roots(),
             None,
             Some("system://acme/system-alpha"),
             "receipt://local/env-alpha/backup/0001",
@@ -1409,6 +1665,8 @@ mod tests {
         StageEvidence {
             resolved_artifact_digests: backup["manifest_rows"].as_array().expect("rows").clone(),
             resolved_evidence_refs: resolved,
+            // A faithful restore rebuilds exactly the families the backup committed.
+            recomputed_family_roots: source_roots(),
         }
     }
 
@@ -1529,6 +1787,7 @@ mod tests {
             },
             &h(0x0e),
             &[],
+            &source_roots(),
             None,
             None,
             "receipt://local/env-alpha/backup/0002",
@@ -1792,4 +2051,172 @@ mod tests {
             json!(backup_manifest_root(&backup).expect("root"))
         );
     }
+
+    // ---------------------------------------------------------------- M09.4 semantic continuity
+    // ACC-8 clause 5 and ACC-11 clause 5: restore passes on SEMANTIC CONTINUITY, not blob presence.
+    // These prove the difference is decidable, because the whole clause turns on a case where every
+    // byte is correct and the restore is still wrong.
+
+    #[test]
+    fn a_backup_commits_the_family_heads_it_must_be_restorable_to() {
+        let backup = compiled_backup();
+        let heads = backup["source_object_head_refs"]
+            .as_array()
+            .expect("committed heads");
+        assert_eq!(heads.len(), 2, "one head per RESTORE-SUBJECT family, including the empty ones");
+        // An EMPTY family still has a head. Its absence would make "this family had no records"
+        // indistinguishable from "this backup did not look at this family", and a restore could
+        // then repopulate an empty family without contradicting anything.
+        assert!(
+            heads.iter().any(|head| head
+                .as_str()
+                .expect("ref")
+                .contains("/cleanup_obligations/")),
+            "{heads:?}"
+        );
+        assert!(heads
+            .iter()
+            .all(|head| head.as_str().expect("ref").starts_with("object-head://local/")));
+    }
+
+    #[test]
+    fn a_faithful_restore_reproduces_every_committed_head() {
+        let backup = compiled_backup();
+        let verdict = evaluate_restore_continuity(&backup, &source_roots());
+        assert!(verdict.admitted, "{verdict:?}");
+    }
+
+    #[test]
+    fn a_deletion_made_before_the_backup_may_not_come_back_after_the_restore() {
+        // THE CLAUSE, EXACTLY. The backup was taken over a plane where one change plan had been
+        // deleted, so its root is absent from the committed head. A restore that writes every
+        // manifest byte back correctly AND resurrects that record satisfies every digest in
+        // `restore_apply` — the blob-presence check cannot see this at all — and produces a
+        // different `change_plans` root here.
+        let backup = compiled_backup();
+        let mut resurrected = source_roots();
+        resurrected[0] = json!({"family": "route_bindings", "roots": [h(0x51), h(0x56)]});
+        let verdict = evaluate_restore_continuity(&backup, &resurrected);
+        assert!(!verdict.admitted);
+        assert_eq!(verdict.refusal_dimension, Some("incomplete_restoration"));
+        assert!(
+            verdict
+                .refusal_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("route_bindings"),
+            "the refusal names WHICH question stopped answering the same way: {verdict:?}"
+        );
+    }
+
+    #[test]
+    fn a_restore_that_loses_a_record_is_refused_by_the_same_edge() {
+        // The other direction of the same defect, and the reason the check is not one-directional:
+        // a restore that drops a record also changes the family root, and a check comparing only
+        // "did anything new appear" would admit it.
+        let backup = compiled_backup();
+        let mut lost = source_roots();
+        lost[0] = json!({"family": "route_bindings", "roots": []});
+        let verdict = evaluate_restore_continuity(&backup, &lost);
+        assert!(!verdict.admitted);
+        assert!(verdict
+            .refusal_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("route_bindings"));
+    }
+
+    #[test]
+    fn a_restored_plane_carrying_a_family_the_backup_never_committed_is_refused() {
+        let backup = compiled_backup();
+        let mut extra = source_roots();
+        // A smuggled family must be a RESTORE SUBJECT to be in scope; a stray operation-log
+        // family is expected to grow and is not a continuity violation.
+        extra.push(json!({"family": "cleanup_obligations", "roots": [h(0x55)]}));
+        let verdict = evaluate_restore_continuity(&backup, &extra);
+        assert!(!verdict.admitted);
+        assert!(verdict
+            .refusal_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("cleanup_obligations"));
+    }
+
+    #[test]
+    fn a_backup_that_commits_no_heads_cannot_claim_continuity() {
+        // The pre-M09.4 shape: `source_object_head_refs: []`, which the compiler wrote for every
+        // backup the plane ever took. Refused rather than waved through, because "nothing to
+        // compare" and "everything matched" are the same outcome to a caller and opposite facts.
+        let mut backup = compiled_backup();
+        backup["source_object_head_refs"] = json!([]);
+        let verdict = evaluate_restore_continuity(&backup, &source_roots());
+        assert!(!verdict.admitted);
+        assert!(verdict
+            .refusal_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("commits no source family heads"));
+    }
+
+    #[test]
+    fn a_capture_that_resolved_no_family_roots_never_compiles_a_backup() {
+        let error = compile_backup_record(
+            &estate(),
+            &BackupDeclaration {
+                backup_tail: "env-alpha/headless".into(),
+                trigger: "manual".into(),
+                environment_ref: "environment://local/env-alpha".into(),
+                schedule_or_change_plan_ref: None,
+            },
+            &h(0x0e),
+            &digest_rows(),
+            &[],
+            None,
+            None,
+            "receipt://local/env-alpha/backup/0003",
+        )
+        .unwrap_err();
+        assert!(error.starts_with("incomplete_restoration"), "{error}");
+    }
+
+    #[test]
+    fn post_restore_validation_refuses_a_byte_faithful_restore_that_broke_continuity() {
+        // The seam, not the function: the same resurrection above, driven through the stage ladder
+        // so it is the ADMISSION that refuses. `restore_apply` is handed the exact manifest digests
+        // and passes — which is the point. A decision function with no caller passes every unit
+        // test it has.
+        let backup = compiled_backup();
+        let binding = genesis_binding();
+        let plan = plan_for(&backup, &binding);
+        let applied = compile_stage_advance(
+            &plan,
+            &[1],
+            2,
+            &evidence_for(&plan, 2, &backup),
+            &[backup.clone()],
+            &[binding.clone()],
+        );
+        assert!(applied.is_ok(), "restore_apply sees only bytes: {applied:?}");
+
+        let mut broken = evidence_for(&plan, 3, &backup);
+        broken.recomputed_family_roots[0] =
+            json!({"family": "route_bindings", "roots": [h(0x51), h(0x56)]});
+        let error = compile_stage_advance(&plan, &[1, 2], 3, &broken, &[backup.clone()], &[binding.clone()])
+            .unwrap_err();
+        assert!(error.starts_with("incomplete_restoration"), "{error}");
+        assert!(error.contains("route_bindings"), "{error}");
+    }
+
+    #[test]
+    fn post_restore_validation_refuses_a_stage_handed_no_recomputed_roots() {
+        let backup = compiled_backup();
+        let binding = genesis_binding();
+        let plan = plan_for(&backup, &binding);
+        let mut empty = evidence_for(&plan, 3, &backup);
+        empty.recomputed_family_roots = Vec::new();
+        let error = compile_stage_advance(&plan, &[1, 2], 3, &empty, &[backup.clone()], &[binding.clone()])
+            .unwrap_err();
+        assert!(error.contains("has measured nothing"), "{error}");
+    }
+
 }

@@ -121,11 +121,22 @@ fn live_backup() -> Value {
             "role": "workspace_snapshot",
         }),
     ];
+    // The restore-subject family roots this capture resolved (M09.4). A backup that committed none
+    // could only ever prove that its bytes came back, which is the pass condition ACC-8 clause 5
+    // refuses.
+    let source_family_roots = vec![
+        json!({
+            "family": "route_bindings",
+            "roots": ["sha256:5a1e1e6a3a7f4b1c9d2e8f0a1b2c3d4e5f60718293a4b5c6d7e8f9012345678a"],
+        }),
+        json!({"family": "cleanup_obligations", "roots": []}),
+    ];
     compile_backup_record(
         &estate(),
         &declaration,
         "sha256:fd61a03af4f77d870fc21e05e7e80678095c92d808cfb3b5c279ee04c74aca13",
         &rows,
+        &source_family_roots,
         None,
         Some("system://local/system-alpha"),
         "receipt://local/env-alpha/backup/0001",
