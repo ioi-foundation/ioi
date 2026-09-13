@@ -259,6 +259,27 @@ impl WorkLifecycleLogCore {
             })
             .unwrap_or_default();
 
+        // A SUCCESSOR IS ACTIVE, enforced here rather than as a registered invariant because the
+        // portable invariant language has no conditional-equality operator: it can require a field
+        // to be non-empty when another is in a set, but not to EQUAL a value. Expressing the rule
+        // by its shape was attempted and withdrawn rather than left inverted — a rule that fires on
+        // the wrong condition is worse than an absent one, because it reads as covered.
+        //
+        // The rule matters because it closes the leak from the other side. A record that names a
+        // predecessor while itself released, expired or transferred would RELEASE that predecessor
+        // and hold nothing in its place, so the units would belong to nobody — arriving through the
+        // very field that exists to prevent exactly that.
+        let succeeds = candidate
+            .get("transferred_from_ref")
+            .and_then(Value::as_str)
+            .filter(|reference| !reference.is_empty());
+        if succeeds.is_some() && candidate.get("status").and_then(Value::as_str) != Some("active") {
+            return Err(WorkLifecycleLogError::new(
+                "work_reservation_successor_not_active",
+                "a claim taking over another's units is active; a terminal successor would release its predecessor and hold nothing in its place",
+            ));
+        }
+
         let chain: Vec<&str> = candidate
             .get("ancestor_chain")
             .and_then(Value::as_array)
@@ -284,8 +305,27 @@ impl WorkLifecycleLogCore {
             // claim has returned them — and a transferred one is counted at its
             // successor instead, which is why the transfer is required to name one.
             let mut held: u64 = 0;
+            // A predecessor some later claim took over holds nothing, whatever its own record
+            // still says: the successor's single append IS the transfer, and re-counting the
+            // source would make a reassignment look like an oversubscription.
+            // THE CANDIDATE IS ITSELF A SUCCESSOR when it names a predecessor, and the first cut
+            // of this fold read only the siblings — so a transfer's own predecessor kept holding
+            // its units and the reassignment read as an oversubscription. The claim under
+            // admission is part of the picture it is admitted into.
+            let superseded: std::collections::BTreeSet<&str> = siblings
+                .iter()
+                .chain(std::iter::once(candidate))
+                .filter_map(|record| record.get("transferred_from_ref").and_then(Value::as_str))
+                .collect();
             for sibling in siblings {
                 if sibling.get("status").and_then(Value::as_str) != Some("active") {
+                    continue;
+                }
+                if sibling
+                    .get("reservation_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| superseded.contains(reference))
+                {
                     continue;
                 }
                 if sibling.get("dimension").and_then(Value::as_str) != Some(dimension) {
@@ -2454,6 +2494,108 @@ mod tests {
             )
             .expect_err("an unreadable sibling refuses");
         assert_eq!(error.code(), "work_reservation_sibling_unreadable");
+    }
+
+    // ----------------------------------------------------------- atomic reassignment (clause 8)
+
+    fn succeeds(units: u64, chain: &[&str], predecessor: &str, status: &str) -> Value {
+        let mut record = claim(units, chain, (0, 0));
+        record["reservation_ref"] = json!("work-reservation://successor");
+        record["transferred_from_ref"] = json!(predecessor);
+        record["status"] = json!(status);
+        record
+    }
+
+    fn identified(units: u64, chain: &[&str], reference: &str) -> Value {
+        let mut record = held(units, chain, "active");
+        record["reservation_ref"] = json!(reference);
+        record
+    }
+
+    /// THE TRANSFER IS ONE APPEND. A successor naming its predecessor takes over the SAME units,
+    /// so the ancestor sees no change — the whole point of atomic reassignment. Without the
+    /// supersession fold this is a double-count and a reassignment reads as an oversubscription.
+    #[test]
+    fn a_successor_takes_over_its_predecessors_units_rather_than_adding_to_them() {
+        let core = WorkLifecycleLogCore;
+        let predecessor = identified(100, &["work://root"], "work-reservation://source");
+        let result = core.plan_reservation(
+            &succeeds(100, &["work://root"], "work-reservation://source", "active"),
+            Some(HEAD),
+            // A ceiling that fits ONE claim of 100 and not two: if the predecessor were still
+            // counted, this admission would exceed it.
+            &bounds(&[("work://root", 100)]),
+            &[predecessor],
+        );
+        assert!(
+            result.is_ok(),
+            "the successor takes over rather than adds: {:?}",
+            result.err().map(|e| e.message().to_string())
+        );
+    }
+
+    /// The predecessor is released by the SUCCESSOR'S existence, not by its own record's status —
+    /// which is what makes the single append atomic. Here the source still says `active`.
+    #[test]
+    fn a_superseded_predecessor_holds_nothing_even_while_its_own_record_says_active() {
+        let core = WorkLifecycleLogCore;
+        let stale_source = identified(100, &["work://root"], "work-reservation://source");
+        assert_eq!(
+            stale_source["status"],
+            json!("active"),
+            "the source has not been rewritten"
+        );
+        let result = core.plan_reservation(
+            &succeeds(100, &["work://root"], "work-reservation://source", "active"),
+            Some(HEAD),
+            &bounds(&[("work://root", 100)]),
+            &[stale_source],
+        );
+        assert!(result.is_ok());
+    }
+
+    /// A TERMINAL SUCCESSOR IS THE LEAK ARRIVING THROUGH THE FIELD THAT PREVENTS IT: it would
+    /// release its predecessor and hold nothing in its place, so the units belong to nobody.
+    /// Enforced here rather than as a registered invariant, because the portable invariant
+    /// language can require a field to be non-empty when another is in a set but cannot require
+    /// one to EQUAL a value.
+    #[test]
+    fn a_successor_that_is_not_active_is_refused() {
+        let core = WorkLifecycleLogCore;
+        for status in ["released", "expired", "transferred"] {
+            let error = core
+                .plan_reservation(
+                    &succeeds(100, &["work://root"], "work-reservation://source", status),
+                    Some(HEAD),
+                    &bounds(&[("work://root", 1000)]),
+                    &[],
+                )
+                .expect_err("a terminal successor refuses");
+            assert_eq!(
+                error.code(),
+                "work_reservation_successor_not_active",
+                "status {status}"
+            );
+        }
+    }
+
+    /// Supersession is keyed by the PREDECESSOR's own ref: a successor naming one claim does not
+    /// release a different sibling that happens to share the ancestor.
+    #[test]
+    fn a_successor_releases_only_the_claim_it_names() {
+        let core = WorkLifecycleLogCore;
+        let error = core
+            .plan_reservation(
+                &succeeds(100, &["work://root"], "work-reservation://source", "active"),
+                Some(HEAD),
+                &bounds(&[("work://root", 100)]),
+                &[
+                    identified(100, &["work://root"], "work-reservation://source"),
+                    identified(100, &["work://root"], "work-reservation://unrelated"),
+                ],
+            )
+            .expect_err("the unrelated sibling still holds its units");
+        assert_eq!(error.code(), "work_reservation_would_oversubscribe");
     }
 
     #[test]

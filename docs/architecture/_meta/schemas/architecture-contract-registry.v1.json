@@ -15297,7 +15297,8 @@
       ],
       "positive_fixture_refs": [
         "fixtures/work-dimension-reservation-v1/positive-complete.json",
-        "fixtures/work-dimension-reservation-v1/positive-transferred.json"
+        "fixtures/work-dimension-reservation-v1/positive-transferred.json",
+        "fixtures/work-dimension-reservation-v1/positive-successor-takes-over.json"
       ],
       "negative_fixture_refs": [
         {

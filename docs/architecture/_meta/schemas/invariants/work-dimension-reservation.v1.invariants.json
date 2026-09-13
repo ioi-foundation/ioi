@@ -9,7 +9,9 @@
       "expression": {
         "operator": "non_empty_when_in",
         "when_path": "$.status",
-        "values": ["transferred"],
+        "values": [
+          "transferred"
+        ],
         "path": "$.transferred_to_ref"
       }
     },
@@ -18,7 +20,10 @@
       "description": "A reservation has a finite non-empty lifetime. An unbounded claim never returns its units to the ancestor, which is oversubscription arriving slowly rather than at once.",
       "expression": {
         "operator": "numbers_lt",
-        "paths": ["$.created_at_ms", "$.expires_at_ms"]
+        "paths": [
+          "$.created_at_ms",
+          "$.expires_at_ms"
+        ]
       }
     },
     {

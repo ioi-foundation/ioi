@@ -11897,6 +11897,7 @@ export type WorkDimensionReservationV1 = {
   transferred_to_ref: string | null;
   created_at_ms: number;
   expires_at_ms: number;
+  transferred_from_ref: string | null;
 };
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
@@ -22335,6 +22336,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-successor-takes-over.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/work-dimension-reservation/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -26312,6 +26321,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json","contract_id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-cost-comparison-v1/negative-duplicate-rank.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-complete.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-complete.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-transferred.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-transferred.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-successor-takes-over.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/positive-successor-takes-over.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json","mutation_id":null,"value_json":null}),
@@ -27650,7 +27660,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1": "sha256:969ea0579666b16df0a2f3c8f7b96153e896a1d0a927cd336a13b7023a0a60b8",
   "schema://ioi/components/model-router/model-route-price-schedule/v1": "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146",
   "schema://ioi/components/model-router/model-route-cost-comparison/v1": "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0",
-  "schema://ioi/foundations/work-dimension-reservation/v1": "sha256:fe04b155dd19bbf11cf6d2290aa6f751dd9b1e7e681858d35836ce623d8c24f2"
+  "schema://ioi/foundations/work-dimension-reservation/v1": "sha256:09c1fd5c770ce15d6e91836992f3cf527162dad3206f86ff06379a72a46b6f31"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -119854,7 +119864,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/work-dimension-reservation/v1",
     "title": "WorkDimensionReservation",
-    "description": "ONE CLAIM ON ONE RESOURCE DIMENSION, HELD AGAINST AN ANCESTOR THAT CANNOT BE OVERSUBSCRIBED. ACC-5 clause 8 requires reservations that are exact-head, per-dimension and disjoint, that preserve protected recovery and integration capacity, that narrow every ancestor bound, and that transfer atomically on reassignment — with crash, sibling races and replacement unable to duplicate or leak one. Three of those are properties of a SET and belong to the admission transaction: disjointness, the protected-capacity floor, and narrowing are all statements about this reservation together with its siblings, and no single record can assert them. What this contract does is make the admission transaction POSSIBLE and make a malformed claim impossible: a reservation names exactly one dimension from a closed vocabulary, carries a POSITIVE unit count (a zero-unit reservation reserves nothing and would sit in the ledger looking like a claim), pins the exact ancestor head it was computed against so a sibling that moved the head invalidates it rather than silently oversubscribing, and lists the full ancestor chain it narrows so the transaction knows every bound to check rather than only the nearest. TRANSFER IS ATOMIC BY SHAPE: a registered invariant requires a transferred reservation to name its successor, so a reassignment cannot leave a claim in a state where the units belong to nobody — which is the leak clause 8 names. The units are integers, like every other quantity the estate counts.",
+    "description": "ONE CLAIM ON ONE RESOURCE DIMENSION, HELD AGAINST AN ANCESTOR THAT CANNOT BE OVERSUBSCRIBED. ACC-5 clause 8 requires reservations that are exact-head, per-dimension and disjoint, that preserve protected recovery and integration capacity, that narrow every ancestor bound, and that transfer atomically on reassignment — with crash, sibling races and replacement unable to duplicate or leak one. Three of those are properties of a SET and belong to the admission transaction: disjointness, the protected-capacity floor, and narrowing are all statements about this reservation together with its siblings, and no single record can assert them. What this contract does is make the admission transaction POSSIBLE and make a malformed claim impossible: a reservation names exactly one dimension from a closed vocabulary, carries a POSITIVE unit count (a zero-unit reservation reserves nothing and would sit in the ledger looking like a claim), pins the exact ancestor head it was computed against so a sibling that moved the head invalidates it rather than silently oversubscribing, and lists the full ancestor chain it narrows so the transaction knows every bound to check rather than only the nearest. TRANSFER IS ATOMIC BY SHAPE, AND THE SHAPE IS THE SUCCESSOR'S. The event stream admits one operation at a time, so the single append that can be atomic is the successor naming its predecessor through `transferred_from_ref`: it creates the new claim and releases the old one together. `transferred_to_ref` is the source's terminal state and the readable back-reference, and a registered invariant requires a transferred reservation to name its successor — but it cannot itself be the transfer, because marking a source transferred without creating its successor needs a second append and leaves the units belonging to nobody in between, which is exactly the leak clause 8 names. The units are integers, like every other quantity the estate counts.",
     "x-ioi-schema-version": "ioi.foundations.work-dimension-reservation.v1",
     "type": "object",
     "additionalProperties": false,
@@ -119870,6 +119880,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "protected_capacity",
       "status",
       "transferred_to_ref",
+      "transferred_from_ref",
       "created_at_ms",
       "expires_at_ms"
     ],
@@ -119945,6 +119956,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "expires_at_ms": {
         "$ref": "#/$defs/positive_safe_integer"
+      },
+      "transferred_from_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The claim whose units this one took over. THE TRANSFER IS THIS FIELD, because the stream admits ONE operation at a time: a successor naming its predecessor both creates the new claim and releases the old one in a single append, which is the only way reassignment can be atomic here. `transferred_to_ref` on the source is the readable back-reference and the source's own terminal state; it cannot by itself be the transfer, because marking a source transferred without creating its successor would need a second append and leave the units belonging to nobody in between."
       }
     },
     "$defs": {

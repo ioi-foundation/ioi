@@ -5,11 +5,17 @@
   "holder_ref": "session://acme/operator-7",
   "dimension": "compute_seconds",
   "reserved_units": 1800,
-  "ancestor_chain": ["work-run://acme/w1"],
+  "ancestor_chain": [
+    "work-run://acme/w1"
+  ],
   "expected_ancestor_head": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-  "protected_capacity": { "recovery_units": 0, "integration_units": 0 },
+  "protected_capacity": {
+    "recovery_units": 0,
+    "integration_units": 0
+  },
   "status": "transferred",
   "transferred_to_ref": null,
+  "transferred_from_ref": null,
   "created_at_ms": 1757635200000,
   "expires_at_ms": 1757638800000
 }
