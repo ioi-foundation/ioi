@@ -154,6 +154,13 @@ const PINNED = {
   // and the reconciliation between the three is what makes this a measurement rather than a tally.
   // The defect being corrected is mine twice over: both commits registered routes and neither moved
   // this pin in the same cut, which is what a pin exists to catch.
+  // A SECOND GATE PINS A ROUTE COUNT AND IT IS NOT THIS ONE.
+  // `apps/hypervisor/scripts/verify-hypervisor-environment-owner-source.mjs` pins
+  // `registered_route_handlers` over ALL registered handlers, where this file pins
+  // `registeredRoutes` over DISTINCT PATHS — so the two numbers differ and moving one gives no
+  // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
+  // both populations, only this pin followed, and CI caught the other. Adding a route should
+  // expect BOTH to move; each pin names the other so finding one leads to the second.
   // 870 -> 871 (2026-09-12, M04.10): the per-dimension work-reservation admission. ONE route, on
   // the work-lifecycle prefix rather than a new one, because the reservation bounds work that this
   // owner already governs — but on its OWN event stream (R-74), never the record chain, since that
