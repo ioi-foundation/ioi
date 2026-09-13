@@ -124,8 +124,18 @@ function structural() {
 
   ok("`post_restore_validation` has its own arm in the stage compiler and no longer falls through the catch-all",
     /"post_restore_validation" =>/u.test(kernelCode));
+  // SLICED, NOT PROXIMITY-BOUNDED. This read `[\s\S]{0,900}` between the arm and the call, which
+  // made the assertion a statement about how many CHARACTERS sit between two tokens — so M09.3
+  // adding a legitimate plan-type guard to the top of the arm turned it red while the behaviour it
+  // checks was untouched. A structural claim should be bounded by STRUCTURE: the arm's body is
+  // everything up to the next arm, and the call is either in it or it is not.
+  const postRestoreArm = kernelCode.slice(
+    kernelCode.indexOf('"post_restore_validation" =>'),
+    kernelCode.indexOf('"activation" =>', kernelCode.indexOf('"post_restore_validation" =>')),
+  );
   ok("that arm decides continuity rather than re-checking digests",
-    /"post_restore_validation" =>[\s\S]{0,900}evaluate_restore_continuity/u.test(kernelCode));
+    postRestoreArm.length > 0 && postRestoreArm.includes("evaluate_restore_continuity"),
+    `${postRestoreArm.length} chars of arm body`);
   ok("`restore_apply` still checks every manifest digest — blob presence is INSUFFICIENT, not removed",
     /"restore_apply" =>[\s\S]{0,2000}departs the manifest \\?\s*commitment/u.test(kernelCode)
       || /"restore_apply" =>[\s\S]{0,2000}manifest/u.test(kernelCode));

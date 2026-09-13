@@ -161,6 +161,11 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 873 -> 874 (2026-09-13, M09.3): the port revocation act,
+  // `/v1/hypervisor/environments/:id/ports/:port/revoke`. ONE path and ONE handler, so this census
+  // and the registered-handler one below move by the same amount for once — which they do only
+  // because the route carries a single verb. `unexpose` beside it is a state a caller can reverse;
+  // this is a decision that outlives the environment row.
   // 871 -> 873 (2026-09-13, M09.2): the environment startup plan. TWO distinct paths —
   // `/v1/hypervisor/environment-startup-plans` (list + admit) and
   // `/v1/hypervisor/environment-recipes/:id/resolutions`. The second exists because ACC-11 clause 3
@@ -188,7 +193,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 873,
+  registeredRoutes: 874,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

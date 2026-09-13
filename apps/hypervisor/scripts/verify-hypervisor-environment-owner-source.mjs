@@ -129,6 +129,13 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
+  // Re-pinned 2026-09-13 (M09.3) from 1129/38/45, +1 to ALL THREE: the port revocation act,
+  // `POST /v1/hypervisor/environments/:id/ports/:port/revoke`. Unlike M07.4's candidate lane —
+  // where the note below records `workspace` and `candidates` holding as the evidence that only the
+  // registered bucket moved — this route IS an environment-plane owner act, so all three buckets
+  // moving together is the evidence that it was classified as one rather than slipping in as
+  // generic surface. A revocation that did not register as an environment owner would be authority
+  // living somewhere the census cannot see it.
   // Re-pinned 2026-09-12 (M04.10) from 1125, +1: the per-dimension work-reservation admission.
   //
   // TWO GATES COUNT ROUTES, AND THE OTHER ONE WAS MOVED WITHOUT THIS ONE. `check:named-gap-truth`
@@ -180,8 +187,8 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
-  census.registered_route_handlers === 1129 && census.workspace_route_handlers === 38
-    && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
+  census.registered_route_handlers === 1130 && census.workspace_route_handlers === 39
+    && census.routes.length === 46 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
     && policyContextRoutes.join(",") === [
