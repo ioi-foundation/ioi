@@ -1445,8 +1445,10 @@ permits host fallback.
 The code profile `trusted_host_hostile_guest/no-nic-v1` is narrower than the
 general VM contract. Its launch specification records zero virtual network
 devices, zero host mounts, and zero host-control sockets and refuses a nonzero
-value before the VMM process is created. The only guest transport is the
-host-initiated, length-bounded vsock workspace protocol. Guest output is
+value before the VMM process is created. Its only guest transport is the
+host-initiated, length-bounded vsock workspace protocol, and it cannot acquire a
+second one by configuration: a spec carrying a model-broker binding is refused
+the workload-bound declaration outright. Guest output is
 accepted only through the regular-file/directory archive subset after path,
 type, member-count, and total-size validation into quarantine.
 
@@ -1478,6 +1480,44 @@ Expiry prevents a fresh invocation but never blocks observation or mandatory
 cleanup of an already ambiguous claim. Reconciliation resolves the hash-bound
 durable capability record by reference; it does not require retaining the
 guest's plaintext bearer token.
+
+#### Brokered model channel (venue profile)
+
+The session-harness venue runs the same launch specification — zero virtual
+network devices, zero host mounts, zero host-control sockets — with exactly one
+added transport, and is therefore a different profile from the workload-bound
+one: `trusted_host_hostile_guest/no-nic-brokered-model-v1`. The added transport
+is guest-initiated: the guest dials a vsock port, the monitor surfaces that as a
+connection to the per-port host socket beside the main one, and a host listener
+carries the bytes onward. The guest names nothing about where they go. The
+destination is resolved on the host from the run's own model route, and the
+in-guest proxy is a byte tunnel that parses no protocol, reads no header and
+holds no credential.
+
+A tunnel carries a host and a port, not a path, so whatever service listens at
+the destination is reachable in full by whatever the guest chooses to write. The
+destination is therefore admitted, not configured: a destination that is not
+loopback is refused, because this channel terminates on the host and a guest with
+a remote address would have the raw egress that the absent network device exists
+to deny; and the daemon's own address is refused, because a remote model route
+resolves to it, its posture is to trust local callers, and exposing its port
+exposes its router rather than one route. A remote route is served the way it is
+already served — the daemon makes the outbound call under the sealed credential —
+so no provider key enters the guest on any path. The residual is stated rather
+than implied: at an admitted model endpoint the guest can also reach that model
+server's non-chat API, which is a disk and availability exposure and not an
+authority crossing; scoping it requires a model-only reverse proxy standing in
+front of the endpoint, which this profile does not yet have.
+
+The enforcement declaration records the channel instead of leaving a reader to
+infer it. `HypervisorVmEnforcementDeclaration` v2 is an additive successor to v1
+carrying `broker_channel`, which is
+`guest_initiated_vsock_uds_single_destination` when a broker is armed and `null`
+when none is — required in both cases, because an absent field is not a claim.
+`guest_channel` is unchanged: the control channel really is still the
+host-initiated, length-bounded one, and the broker sits beside it rather than
+replacing it. The workload-bound profile refuses the binding altogether, so the
+two profiles are told apart by reading one field of one record.
 
 The executable check is `check:workload-bound-effect-boundary`; `--live` boots
 the pinned Cloud Hypervisor/KVM guest as root and exercises the broker through

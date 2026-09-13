@@ -633,6 +633,25 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-13 (M13.10 slice A, the brokered model channel's host end). A MODULE JOINED,
+  // 118 -> 119: `microvm_model_broker.rs` is the first new file in the daemon's walk this leg, and
+  // the module count moving by exactly one is the cheapest proof that the walk saw it. I did the
+  // thing this file's history keeps saying to do and BASELINED FIRST: the three touched sources
+  // were copied aside, reconstructed from HEAD, and the census run again — 118 modules, 150090
+  // tokens, 234 filesystem calls, green. So the whole delta below is this cut's, measured rather
+  // than assumed, and the pins were not already drifting underneath it.
+  // Tokens 150090 -> 150251, opaque initialisers 2810 -> 2819, foreign-qualified 4636 -> 4637, and
+  // production filesystem calls 234 -> 236. THE FILESYSTEM MOVE IS THE ONE TO READ CLOSELY, because
+  // it is the only counter here a new admitter would also move: the two calls are both
+  // `std::fs::remove_file` on the broker's own per-port socket path — one unlinking a stale socket
+  // before bind, one in `Drop` — and neither names an ontology family, which is why the rule a rung
+  // below ("no production filesystem call in a function naming a family it does not own") still
+  // passes at 236. A guest-initiated vsock listener has to unlink its own socket; it has no reason
+  // to touch a record directory, and it does not.
+  // EVERY WRITER BUCKET HELD: family 57, non-ODK literal 252, runtime-parameter 311, family
+  // mentions 285, judged token positions 281, bare-undeclared 539. A cut that adds a whole module
+  // and moves no writer bucket is a cut that added a transport, not an admission path — which is
+  // exactly the claim M13.10 makes, now carried by this census rather than by my say-so.
   // Re-pinned 2026-09-13 AGAIN (M09.2, the environment startup plan). No module joined — the work
   // went into `recipe_routes.rs`, already in the walk — but this is the largest literal move of the
   // leg: tokens 149243 -> 149718, opaque initialisers 2802 -> 2810 and foreign-qualified names
@@ -660,7 +679,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 118,
+  modules: 119,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -678,10 +697,10 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150090,
+  tokenMentions: 150251,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
-  productionFsCalls: 234,
+  productionFsCalls: 236,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -699,8 +718,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4636,
-    "opaque-initialiser": 2810,
+    "foreign-qualified": 4637,
+    "opaque-initialiser": 2819,
     "bare-undeclared": 539,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

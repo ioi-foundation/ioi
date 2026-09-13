@@ -5223,7 +5223,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -5251,6 +5251,58 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+      "canonical_name": "HypervisorVmEnforcementDeclaration",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile",
+      "schema_version": "ioi.components.hypervisor.vm-enforcement-declaration.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive_successor",
+        "migration_policy": "reemit_under_successor",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-vm-enforcement-declaration.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorVmEnforcementDeclarationV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorVmEnforcementDeclarationV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json",
+        "fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json",
           "expected_failure": "schema"
         }
       ]

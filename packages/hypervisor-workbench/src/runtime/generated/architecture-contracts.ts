@@ -3431,6 +3431,25 @@ export type HypervisorVmEnforcementDeclarationV1 = {
   output_policy: "bounded_regular_file_archive_quarantine";
 };
 
+export type HypervisorVmEnforcementDeclarationV2 = {
+  schema_version: "ioi.components.hypervisor.vm-enforcement-declaration.v2";
+  backend: "cloud-hypervisor" | "firecracker" | "qemu";
+  guest_kernel_boundary: true;
+  fresh_instance: boolean;
+  instance_scope: "environment_scoped" | "fresh_per_workrun";
+  workrun_ref: string | null;
+  isolation_binding_ref: string | null;
+  isolation_binding_hash: string | null;
+  principal_ref: string | null;
+  network_policy: "deny_all_no_virtual_nic";
+  network_device_count: 0;
+  host_mount_count: 0;
+  host_control_socket_count: 0;
+  guest_channel: "host_initiated_vsock_uds_bounded";
+  broker_channel: "guest_initiated_vsock_uds_single_destination" | null;
+  output_policy: "bounded_regular_file_archive_quarantine";
+};
+
 export type HypervisorWorkloadBoundEffectProposalV1 = {
   schema_version: "ioi.components.hypervisor.workload-bound-effect-proposal.v1";
   capability_ref: string;
@@ -15391,6 +15410,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json",
     "expected": "accept",
@@ -26032,6 +26091,11 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json","contract_id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json","contract_id":"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json","contract_id":"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json","mutation_id":null,"value_json":null}),
@@ -28155,6 +28219,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/system-interface-binding/v1": "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd",
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8",
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b",
+  "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2": "sha256:6b041ce8641b9b5061595c87c1dc0f12514ac95a48633ca39af099b2294611c8",
   "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1": "sha256:685d5e20bd8ed0cb2a8a0075ffd8d52b906f0147f75612a4127c42dff31b7e08",
   "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1": "sha256:4e2e07cb0e983869398a59984b6fc567009d451dfaa786b8b3adfcd887b16d86",
   "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": "sha256:723f357a24bf30049898e3f165fdf6d900cab0c96b2ca045001db290cdac7955",
@@ -54888,6 +54953,138 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+    "title": "HypervisorVmEnforcementDeclaration",
+    "x-ioi-schema-version": "ioi.components.hypervisor.vm-enforcement-declaration.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "backend",
+      "guest_kernel_boundary",
+      "fresh_instance",
+      "instance_scope",
+      "workrun_ref",
+      "isolation_binding_ref",
+      "isolation_binding_hash",
+      "principal_ref",
+      "network_policy",
+      "network_device_count",
+      "host_mount_count",
+      "host_control_socket_count",
+      "guest_channel",
+      "broker_channel",
+      "output_policy"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.vm-enforcement-declaration.v2"
+      },
+      "backend": {
+        "enum": [
+          "cloud-hypervisor",
+          "firecracker",
+          "qemu"
+        ]
+      },
+      "guest_kernel_boundary": {
+        "const": true
+      },
+      "fresh_instance": {
+        "type": "boolean"
+      },
+      "instance_scope": {
+        "enum": [
+          "environment_scoped",
+          "fresh_per_workrun"
+        ]
+      },
+      "workrun_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "isolation_binding_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "isolation_binding_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "network_policy": {
+        "const": "deny_all_no_virtual_nic"
+      },
+      "network_device_count": {
+        "enum": [
+          0
+        ]
+      },
+      "host_mount_count": {
+        "enum": [
+          0
+        ]
+      },
+      "host_control_socket_count": {
+        "enum": [
+          0
+        ]
+      },
+      "guest_channel": {
+        "const": "host_initiated_vsock_uds_bounded"
+      },
+      "broker_channel": {
+        "$ref": "#/$defs/nullableBrokerChannel"
+      },
+      "output_policy": {
+        "const": "bounded_regular_file_archive_quarantine"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "brokerChannel": {
+        "const": "guest_initiated_vsock_uds_single_destination"
+      },
+      "nullableBrokerChannel": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/brokerChannel"
           },
           {
             "type": "null"
@@ -125914,6 +126111,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/system-interface-binding/v1": [],
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": [],
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": [],
+  "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2": [],
   "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1": [],
   "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1": [],
   "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1": [],
@@ -140637,6 +140835,12 @@ export function validateHypervisorVmEnforcementDeclarationV1(
   value: unknown,
 ): value is HypervisorVmEnforcementDeclarationV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", value).ok;
+}
+
+export function validateHypervisorVmEnforcementDeclarationV2(
+  value: unknown,
+): value is HypervisorVmEnforcementDeclarationV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/vm-enforcement-declaration/v2", value).ok;
 }
 
 export function validateHypervisorWorkloadBoundEffectProposalV1(

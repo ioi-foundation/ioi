@@ -142,6 +142,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/system-interface-binding/v1", "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd"),
     ("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8"),
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b"),
+    ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v2", "sha256:6b041ce8641b9b5061595c87c1dc0f12514ac95a48633ca39af099b2294611c8"),
     ("schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1", "sha256:685d5e20bd8ed0cb2a8a0075ffd8d52b906f0147f75612a4127c42dff31b7e08"),
     ("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", "sha256:4e2e07cb0e983869398a59984b6fc567009d451dfaa786b8b3adfcd887b16d86"),
     ("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", "sha256:723f357a24bf30049898e3f165fdf6d900cab0c96b2ca045001db290cdac7955"),
@@ -36844,6 +36845,353 @@ pub enum HypervisorVmEnforcementDeclarationV1GuestChannel {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HypervisorVmEnforcementDeclarationV1OutputPolicy {
+    #[serde(rename = r#"bounded_regular_file_archive_quarantine"#)]
+    BoundedRegularFileArchiveQuarantine,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorVmEnforcementDeclarationV2 {
+    pub schema_version: HypervisorVmEnforcementDeclarationV2SchemaVersion,
+    pub backend: HypervisorVmEnforcementDeclarationV2Backend,
+    pub guest_kernel_boundary: HypervisorVmEnforcementDeclarationV2GuestKernelBoundary,
+    pub fresh_instance: bool,
+    pub instance_scope: HypervisorVmEnforcementDeclarationV2InstanceScope,
+    pub workrun_ref: Option<String>,
+    pub isolation_binding_ref: Option<String>,
+    pub isolation_binding_hash: Option<String>,
+    pub principal_ref: Option<String>,
+    pub network_policy: HypervisorVmEnforcementDeclarationV2NetworkPolicy,
+    pub network_device_count: HypervisorVmEnforcementDeclarationV2NetworkDeviceCount,
+    pub host_mount_count: HypervisorVmEnforcementDeclarationV2HostMountCount,
+    pub host_control_socket_count: HypervisorVmEnforcementDeclarationV2HostControlSocketCount,
+    pub guest_channel: HypervisorVmEnforcementDeclarationV2GuestChannel,
+    pub broker_channel: Option<HypervisorVmEnforcementDeclarationV2BrokerChannel>,
+    pub output_policy: HypervisorVmEnforcementDeclarationV2OutputPolicy,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorVmEnforcementDeclarationV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","title":"HypervisorVmEnforcementDeclaration","x-ioi-schema-version":"ioi.components.hypervisor.vm-enforcement-declaration.v2","type":"object","additionalProperties":false,"required":["schema_version","backend","guest_kernel_boundary","fresh_instance","instance_scope","workrun_ref","isolation_binding_ref","isolation_binding_hash","principal_ref","network_policy","network_device_count","host_mount_count","host_control_socket_count","guest_channel","broker_channel","output_policy"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.vm-enforcement-declaration.v2"},"backend":{"enum":["cloud-hypervisor","firecracker","qemu"]},"guest_kernel_boundary":{"const":true},"fresh_instance":{"type":"boolean"},"instance_scope":{"enum":["environment_scoped","fresh_per_workrun"]},"workrun_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_hash":{"$ref":"#/$defs/nullableHash"},"principal_ref":{"$ref":"#/$defs/nullableRef"},"network_policy":{"const":"deny_all_no_virtual_nic"},"network_device_count":{"enum":[0]},"host_mount_count":{"enum":[0]},"host_control_socket_count":{"enum":[0]},"guest_channel":{"const":"host_initiated_vsock_uds_bounded"},"broker_channel":{"$ref":"#/$defs/nullableBrokerChannel"},"output_policy":{"const":"bounded_regular_file_archive_quarantine"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"brokerChannel":{"const":"guest_initiated_vsock_uds_single_destination"},"nullableBrokerChannel":{"anyOf":[{"$ref":"#/$defs/brokerChannel"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend: serde_json::from_value::<HypervisorVmEnforcementDeclarationV2Backend>(
+                object
+                    .remove(r#"backend"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backend"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            guest_kernel_boundary: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2GuestKernelBoundary,
+            >(
+                object
+                    .remove(r#"guest_kernel_boundary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"guest_kernel_boundary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fresh_instance: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"fresh_instance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fresh_instance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            instance_scope: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2InstanceScope,
+            >(
+                object
+                    .remove(r#"instance_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"instance_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workrun_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"workrun_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workrun_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            isolation_binding_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"isolation_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"isolation_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            isolation_binding_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"isolation_binding_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"isolation_binding_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_policy: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2NetworkPolicy,
+            >(
+                object
+                    .remove(r#"network_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_device_count: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2NetworkDeviceCount,
+            >(
+                object
+                    .remove(r#"network_device_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_device_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_mount_count: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2HostMountCount,
+            >(
+                object
+                    .remove(r#"host_mount_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_mount_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_control_socket_count: serde_json::from_value::<
+                HypervisorVmEnforcementDeclarationV2HostControlSocketCount,
+            >(
+                object
+                    .remove(r#"host_control_socket_count"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"host_control_socket_count"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            guest_channel:
+                serde_json::from_value::<HypervisorVmEnforcementDeclarationV2GuestChannel>(
+                    object
+                        .remove(r#"guest_channel"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"guest_channel"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            broker_channel: serde_json::from_value::<
+                Option<HypervisorVmEnforcementDeclarationV2BrokerChannel>,
+            >(
+                object
+                    .remove(r#"broker_channel"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"broker_channel"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_policy:
+                serde_json::from_value::<HypervisorVmEnforcementDeclarationV2OutputPolicy>(
+                    object
+                        .remove(r#"output_policy"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"output_policy"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2SchemaVersion {
+    #[serde(rename = r#"ioi.components.hypervisor.vm-enforcement-declaration.v2"#)]
+    IoiComponentsHypervisorVmEnforcementDeclarationV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2Backend {
+    #[serde(rename = r#"cloud-hypervisor"#)]
+    CloudHypervisor,
+    #[serde(rename = r#"firecracker"#)]
+    Firecracker,
+    #[serde(rename = r#"qemu"#)]
+    Qemu,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorVmEnforcementDeclarationV2GuestKernelBoundary {
+    True,
+}
+
+impl serde::Serialize for HypervisorVmEnforcementDeclarationV2GuestKernelBoundary {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorVmEnforcementDeclarationV2GuestKernelBoundary {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2InstanceScope {
+    #[serde(rename = r#"environment_scoped"#)]
+    EnvironmentScoped,
+    #[serde(rename = r#"fresh_per_workrun"#)]
+    FreshPerWorkrun,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2NetworkPolicy {
+    #[serde(rename = r#"deny_all_no_virtual_nic"#)]
+    DenyAllNoVirtualNic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HypervisorVmEnforcementDeclarationV2NetworkDeviceCount {
+    Zero,
+}
+
+impl HypervisorVmEnforcementDeclarationV2NetworkDeviceCount {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Zero => 0_i64,
+        }
+    }
+}
+
+impl serde::Serialize for HypervisorVmEnforcementDeclarationV2NetworkDeviceCount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorVmEnforcementDeclarationV2NetworkDeviceCount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            0_i64 => Ok(Self::Zero),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 0"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HypervisorVmEnforcementDeclarationV2HostMountCount {
+    Zero,
+}
+
+impl HypervisorVmEnforcementDeclarationV2HostMountCount {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Zero => 0_i64,
+        }
+    }
+}
+
+impl serde::Serialize for HypervisorVmEnforcementDeclarationV2HostMountCount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorVmEnforcementDeclarationV2HostMountCount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            0_i64 => Ok(Self::Zero),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 0"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HypervisorVmEnforcementDeclarationV2HostControlSocketCount {
+    Zero,
+}
+
+impl HypervisorVmEnforcementDeclarationV2HostControlSocketCount {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Zero => 0_i64,
+        }
+    }
+}
+
+impl serde::Serialize for HypervisorVmEnforcementDeclarationV2HostControlSocketCount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorVmEnforcementDeclarationV2HostControlSocketCount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            0_i64 => Ok(Self::Zero),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 0"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2GuestChannel {
+    #[serde(rename = r#"host_initiated_vsock_uds_bounded"#)]
+    HostInitiatedVsockUdsBounded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2BrokerChannel {
+    #[serde(rename = r#"guest_initiated_vsock_uds_single_destination"#)]
+    GuestInitiatedVsockUdsSingleDestination,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorVmEnforcementDeclarationV2OutputPolicy {
     #[serde(rename = r#"bounded_regular_file_archive_quarantine"#)]
     BoundedRegularFileArchiveQuarantine,
 }
@@ -141195,6 +141543,46 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json",
         expected_accept: true,
@@ -154786,6 +155174,61 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1"#,
         source_fixture_path: Some(
@@ -166736,6 +167179,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/system-interface-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/system-interface-binding/v1","title":"HypervisorSystemInterfaceBinding","x-ioi-schema-version":"ioi.hypervisor.system_interface_binding.v1","type":"object","additionalProperties":false,"required":["schema_version","system_binding_ref","surface_ref","release_ref","installation_ref","system_ref","surface_enablement_state","visibility","allowed_object_contract_refs","allowed_action_refs","binding_admission_ref","state_root_ref"],"properties":{"schema_version":{"const":"ioi.hypervisor.system_interface_binding.v1"},"system_binding_ref":{"type":"string","pattern":"^package-binding://\\S*$"},"surface_ref":{"type":"string","pattern":"^surface://\\S*$"},"release_ref":{"type":"string","pattern":"^package://\\S+/release/\\S+$"},"installation_ref":{"type":"string","pattern":"^install://\\S*$"},"system_ref":{"type":"string","pattern":"^system://\\S*$"},"surface_enablement_state":{"enum":["not_applicable","enabled","disabled"]},"visibility":{"enum":["private","organization","permissioned","public"]},"allowed_object_contract_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},"allowed_action_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},"binding_admission_ref":{"type":"string","pattern":"^decision://\\S*$"},"state_root_ref":{"type":"string","pattern":"^agentgres://state-root/\\S*$"}}}"#),
     ("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","title":"HypervisorVirtualMachineStatePayload","x-ioi-schema-version":"ioi.components.hypervisor.virtual-machine-state-payload.v1","type":"object","additionalProperties":false,"required":["schema_version","workload_ref","owner_ref","environment_ref","target_content_hash","desired_generation","expected_head","machine_architecture","boot","compute","volume_attachment_specs","network_attachment_specs","device_attachment_specs","policy_refs","observed"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.virtual-machine-state-payload.v1"},"workload_ref":{"$ref":"#/$defs/ref"},"owner_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"target_content_hash":{"$ref":"#/$defs/hash"},"desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"expected_head":{"$ref":"#/$defs/hash"},"machine_architecture":{"$ref":"#/$defs/name"},"boot":{"type":"object","additionalProperties":false,"required":["mode","image_ref"],"properties":{"mode":{"enum":["kernel_initramfs","firmware_disk","imported_image","template_clone"]},"image_ref":{"$ref":"#/$defs/ref"},"firmware_profile_ref":{"$ref":"#/$defs/ref"},"kernel_ref":{"$ref":"#/$defs/ref"},"initramfs_ref":{"$ref":"#/$defs/ref"}}},"compute":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib"],"properties":{"vcpus":{"type":"integer","minimum":1,"maximum":65535},"memory_mib":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"volume_attachment_specs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"network_attachment_specs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"device_attachment_specs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"policy_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"observed":{"type":"object","additionalProperties":false,"required":["observed_generation","desired_phase","observed_phase","backend_registration_ref","backend_capability_declaration_ref","backend_capability_declaration_hash","backend_instance_evidence_ref","boot_epoch","receipt_refs","cleanup_obligation_refs"],"properties":{"observed_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"desired_phase":{"$ref":"#/$defs/name"},"observed_phase":{"$ref":"#/$defs/name"},"backend_registration_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_hash":{"$ref":"#/$defs/hash"},"backend_instance_evidence_ref":{"$ref":"#/$defs/ref"},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"receipt_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"cleanup_obligation_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}}}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"}}}"##),
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","title":"HypervisorVmEnforcementDeclaration","x-ioi-schema-version":"ioi.components.hypervisor.vm-enforcement-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","backend","guest_kernel_boundary","fresh_instance","instance_scope","workrun_ref","isolation_binding_ref","isolation_binding_hash","principal_ref","network_policy","network_device_count","host_mount_count","host_control_socket_count","guest_channel","output_policy"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.vm-enforcement-declaration.v1"},"backend":{"enum":["cloud-hypervisor","firecracker","qemu"]},"guest_kernel_boundary":{"const":true},"fresh_instance":{"type":"boolean"},"instance_scope":{"enum":["environment_scoped","fresh_per_workrun"]},"workrun_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_hash":{"$ref":"#/$defs/nullableHash"},"principal_ref":{"$ref":"#/$defs/nullableRef"},"network_policy":{"const":"deny_all_no_virtual_nic"},"network_device_count":{"enum":[0]},"host_mount_count":{"enum":[0]},"host_control_socket_count":{"enum":[0]},"guest_channel":{"const":"host_initiated_vsock_uds_bounded"},"output_policy":{"const":"bounded_regular_file_archive_quarantine"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##),
+    ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v2","title":"HypervisorVmEnforcementDeclaration","x-ioi-schema-version":"ioi.components.hypervisor.vm-enforcement-declaration.v2","type":"object","additionalProperties":false,"required":["schema_version","backend","guest_kernel_boundary","fresh_instance","instance_scope","workrun_ref","isolation_binding_ref","isolation_binding_hash","principal_ref","network_policy","network_device_count","host_mount_count","host_control_socket_count","guest_channel","broker_channel","output_policy"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.vm-enforcement-declaration.v2"},"backend":{"enum":["cloud-hypervisor","firecracker","qemu"]},"guest_kernel_boundary":{"const":true},"fresh_instance":{"type":"boolean"},"instance_scope":{"enum":["environment_scoped","fresh_per_workrun"]},"workrun_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_hash":{"$ref":"#/$defs/nullableHash"},"principal_ref":{"$ref":"#/$defs/nullableRef"},"network_policy":{"const":"deny_all_no_virtual_nic"},"network_device_count":{"enum":[0]},"host_mount_count":{"enum":[0]},"host_control_socket_count":{"enum":[0]},"guest_channel":{"const":"host_initiated_vsock_uds_bounded"},"broker_channel":{"$ref":"#/$defs/nullableBrokerChannel"},"output_policy":{"const":"bounded_regular_file_archive_quarantine"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"brokerChannel":{"const":"guest_initiated_vsock_uds_single_destination"},"nullableBrokerChannel":{"anyOf":[{"$ref":"#/$defs/brokerChannel"},{"type":"null"}]}}}"##),
     ("schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1","title":"HypervisorWorkloadBoundEffectProposal","x-ioi-schema-version":"ioi.components.hypervisor.workload-bound-effect-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","capability_token","isolation_binding_ref","isolation_binding_hash","principal_ref","proposal_nonce","audience","resource_ref","result_destination_ref","request_hash","exact_request","expires_at_ms"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-bound-effect-proposal.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"capability_token":{"type":"string","pattern":"^wec_[0-9a-f]{64}$"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"isolation_binding_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"},"proposal_nonce":{"type":"string","minLength":1,"maxLength":256},"audience":{"const":"hypervisor-final-invoker"},"resource_ref":{"$ref":"#/$defs/ref"},"result_destination_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"exact_request":{"type":"object"},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
     ("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1","title":"HypervisorWorkloadEffectConsumptionReceipt","x-ioi-schema-version":"ioi.components.hypervisor.workload-effect-consumption-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","isolation_binding_ref","principal_ref","request_hash","effect_receipt_hash","final_invoker_calls","status"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-effect-consumption-receipt.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"effect_receipt_hash":{"$ref":"#/$defs/hash"},"final_invoker_calls":{"enum":[1]},"status":{"const":"consumed"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
     ("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","title":"HypervisorWorkloadEffectReconciliationReceipt","x-ioi-schema-version":"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","capability_ref","isolation_binding_ref","principal_ref","request_hash","prior_status","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","reconciliation_invoker_calls","provider_operations_before","provider_operations_after","reconciliation_evidence_hash","status"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-effect-reconciliation-receipt.v1"},"capability_ref":{"$ref":"#/$defs/ref"},"isolation_binding_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"request_hash":{"$ref":"#/$defs/hash"},"prior_status":{"enum":["claimed","reconciliation_required"]},"disposition":{"enum":["no_effect_observed","cleanup_succeeded"]},"observed_phase":{"type":"string","minLength":1,"maxLength":128},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"const":false},"reconciliation_invoker_calls":{"type":"integer","minimum":1,"maximum":2},"provider_operations_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"provider_operations_after":{"type":"integer","minimum":0,"maximum":9007199254740991},"reconciliation_evidence_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["reconciled_no_effect","reconciled_cleanup_succeeded"]}},"allOf":[{"if":{"properties":{"disposition":{"const":"no_effect_observed"}},"required":["disposition"]},"then":{"properties":{"cleanup_verified":{"const":true},"reconciliation_invoker_calls":{"enum":[1]},"status":{"const":"reconciled_no_effect"}}}},{"if":{"properties":{"disposition":{"const":"cleanup_succeeded"}},"required":["disposition"]},"then":{"properties":{"cleanup_verified":{"const":true},"reconciliation_invoker_calls":{"enum":[2]},"status":{"const":"reconciled_cleanup_succeeded"}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
@@ -167014,6 +167458,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/system-interface-binding/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v2", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1", r#"[]"#),
@@ -172204,6 +172649,11 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-workload-bound.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/positive-venue-brokered.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-network-device.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-unknown.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v2/negative-broker-channel-absent.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json"))),
@@ -173654,6 +174104,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2" => {
+            serde_json::from_value::<HypervisorVmEnforcementDeclarationV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1" => {
             serde_json::from_value::<HypervisorWorkloadBoundEffectProposalV1>(value.clone())
                 .map(|_| ())
@@ -175035,6 +175490,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/vm-enforcement-declaration/v2" => {
+            let projection = serde_json::from_value::<HypervisorVmEnforcementDeclarationV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1" => {
             let projection = serde_json::from_value::<HypervisorWorkloadBoundEffectProposalV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -176051,8 +176511,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1347,
-            "the registered golden corpus must remain the explicit 1347-fixture bar",
+            1352,
+            "the registered golden corpus must remain the explicit 1352-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

@@ -138,6 +138,8 @@ mod materializing_run_routes;
 mod media_trajectory_dataset_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/microvm_model_broker.rs"]
+mod microvm_model_broker;
 #[path = "hypervisor_daemon_routes/model_route_candidate_routes.rs"]
 mod model_route_candidate_routes;
 #[path = "hypervisor_daemon_routes/model_route_rights_routes.rs"]

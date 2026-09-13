@@ -99,6 +99,15 @@ AGENT_SHA="$(sha256sum "$TC/guest-agent" | cut -d' ' -f1)"
 AGENT_SRC_SHA="$(sha256sum "$HERE/guest-agent.c" | cut -d' ' -f1)"
 echo "  guest-agent: built (sha256 $AGENT_SHA)"
 
+# M13.10 — the guest end of the brokered model channel. Built here and hash-pinned exactly like
+# the agent, but DELIBERATELY NOT placed in the initramfs: the initramfs is the pinned boot image
+# for every microVM, and a VM with no model channel must not carry the binary that opens one. It
+# is staged per-run over the bounded import path instead, and only when a broker is armed.
+gcc -static -O2 -s -o "$TC/guest-model-proxy" "$HERE/guest-model-proxy.c"
+PROXY_SHA="$(sha256sum "$TC/guest-model-proxy" | cut -d' ' -f1)"
+PROXY_SRC_SHA="$(sha256sum "$HERE/guest-model-proxy.c" | cut -d' ' -f1)"
+echo "  guest-model-proxy: built (sha256 $PROXY_SHA)"
+
 echo "[4/5] initramfs (static busybox + guest-agent as /init)"
 BUSYBOX="${IOI_BUSYBOX:-/usr/bin/busybox}"
 if [ ! -x "$BUSYBOX" ] || ! file "$BUSYBOX" 2>/dev/null | grep -q "statically linked"; then
@@ -163,6 +172,7 @@ cat > "$TC/supply-manifest.json" <<EOF
   "firecracker": { "version": "$FC_VERSION", "sha256": "$FC_SHA", "path": "$TC/firecracker" },
   "fc_kernel": { "version": "$FC_KERNEL_VERSION", "sha256": "$FC_KERNEL_SHA", "path": "$TC/fc-kernel.bin" },
   "guest_agent": { "source_sha256": "$AGENT_SRC_SHA", "binary_sha256": "$AGENT_SHA", "path": "$TC/guest-agent" },
+  "guest_model_proxy": { "source_sha256": "$PROXY_SRC_SHA", "binary_sha256": "$PROXY_SHA", "path": "$TC/guest-model-proxy" },
   "busybox": { "sha256": "$BUSYBOX_SHA", "path": "$BUSYBOX" },
   "initramfs": { "sha256": "$INITRAMFS_SHA", "path": "$TC/initramfs.cpio.gz" }
 }

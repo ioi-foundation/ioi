@@ -20,7 +20,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_guest_transfer_len, UNBOUNDED_GUEST_TRANSFER_GATE,
 };
-use ioi_types::app::generated::architecture_contracts::HypervisorVmEnforcementDeclarationV1;
+use ioi_types::app::generated::architecture_contracts::HypervisorVmEnforcementDeclarationV2;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -45,6 +45,12 @@ pub(crate) struct VmSpec {
     // The vsock UDS path. MUST be short (≤108 bytes, SUN_LEN) regardless of how deep the data dir
     // is — the workspace/serial live under run_dir, but the socket rides a short path.
     pub sock_path: PathBuf,
+    /// M13.10 — an ADMITTED model destination for the guest-initiated broker channel, or None when
+    /// this VM has no second channel. Constructed only by `admit_model_broker_destination`, so a
+    /// spec cannot carry a destination that skipped the loopback / not-the-daemon refusals. Its
+    /// presence is what makes the declaration name a broker channel, and what the workload-bound
+    /// lane refuses outright.
+    pub model_broker: Option<super::microvm_model_broker::ModelBrokerBinding>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -71,6 +77,9 @@ pub(crate) struct VmEnforcementDeclaration {
     pub host_mount_count: u32,
     pub host_control_socket_count: u32,
     pub guest_channel: &'static str,
+    /// v2 — the SECOND channel, named when armed and `null` when not. Null is a claim: a venue VM
+    /// that never armed a broker says so, rather than leaving a reader to infer it from silence.
+    pub broker_channel: Option<&'static str>,
     pub output_policy: &'static str,
 }
 
@@ -97,7 +106,7 @@ impl VmSpec {
         self.enforce_hostile_guest_floor()?;
         let binding = self.workload_binding.as_ref();
         let declaration = VmEnforcementDeclaration {
-            schema_version: "ioi.components.hypervisor.vm-enforcement-declaration.v1",
+            schema_version: "ioi.components.hypervisor.vm-enforcement-declaration.v2",
             backend,
             guest_kernel_boundary: true,
             fresh_instance: binding.is_some(),
@@ -115,11 +124,17 @@ impl VmSpec {
             host_mount_count: self.host_mount_count,
             host_control_socket_count: self.host_control_socket_count,
             guest_channel: "host_initiated_vsock_uds_bounded",
+            // READ FROM THE SPEC, never from the caller's intent: the channel is named because a
+            // binding exists, and a binding exists only if it survived admission.
+            broker_channel: self
+                .model_broker
+                .as_ref()
+                .map(|_| "guest_initiated_vsock_uds_single_destination"),
             output_policy: "bounded_regular_file_archive_quarantine",
         };
         let value = serde_json::to_value(&declaration)
             .map_err(|error| format!("VM enforcement declaration serialization: {error}"))?;
-        serde_json::from_value::<HypervisorVmEnforcementDeclarationV1>(value)
+        serde_json::from_value::<HypervisorVmEnforcementDeclarationV2>(value)
             .map_err(|error| format!("VM enforcement declaration contract: {error}"))?;
         Ok(declaration)
     }
@@ -162,6 +177,13 @@ impl VmSpec {
     ) -> Result<VmEnforcementDeclaration, String> {
         if self.workload_binding.is_none() {
             return Err("workload_vm_binding_required".into());
+        }
+        // R-113 — the C8 effect boundary may not acquire a second channel. The declaration would
+        // NAME one honestly, which is exactly why that is not sufficient here: this profile's claim
+        // is that one bounded host-initiated channel is all there is, and a profile that can be
+        // widened by arming a field is not that claim.
+        if self.model_broker.is_some() {
+            return Err("workload_bound_profile_excludes_model_broker".into());
         }
         self.enforcement_declaration(backend)
     }
@@ -217,6 +239,11 @@ pub(crate) struct VmHandle {
     // QEMU's kernel vhost-vsock uses a guest CID (global host resource); CH/FC use the UDS, where
     // cid=3 is per-socket and informational.
     pub cid: u32,
+    /// M13.10 — the host end of the brokered model channel, when one is armed. It lives HERE so
+    /// that its lifetime is the VM's: dropping the handle stops the accept loop, joins its
+    /// threads and unlinks the per-port socket, so a VM that goes away cannot leave a listener
+    /// behind that a later VM's guest could reach.
+    pub model_broker: Option<super::microvm_model_broker::ModelBrokerHandle>,
 }
 
 pub(crate) struct ExecOut {
@@ -680,6 +707,7 @@ pub(crate) fn build_vm_spec(
         host_control_socket_count: 0,
         workload_binding: None,
         sock_path,
+        model_broker: None,
     })
 }
 
@@ -765,6 +793,7 @@ impl VmMonitor for CloudHypervisorMonitor {
             monitor: self.id(),
             pid,
             cid: 3,
+            model_broker: None,
         };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
@@ -817,6 +846,7 @@ impl VmMonitor for FirecrackerMonitor {
             monitor: self.id(),
             pid,
             cid: 3,
+            model_broker: None,
         };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
@@ -923,6 +953,7 @@ impl VmMonitor for QemuMonitor {
             monitor: self.id(),
             pid,
             cid,
+            model_broker: None,
         };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
@@ -1494,7 +1525,80 @@ mod tests {
             host_control_socket_count: 0,
             workload_binding: None,
             sock_path: PathBuf::from("/tmp/ioi-boundary-unit.sock"),
+            model_broker: None,
         }
+    }
+
+    #[test]
+    fn the_declaration_names_the_broker_channel_only_when_one_is_armed() {
+        // NULL IS A CLAIM. A venue VM with no broker says so in the record; a reader never has to
+        // infer "no second channel" from a field that simply is not there.
+        let quiet = test_spec();
+        let declaration = quiet.enforcement_declaration("cloud-hypervisor").unwrap();
+        assert_eq!(
+            declaration.schema_version,
+            "ioi.components.hypervisor.vm-enforcement-declaration.v2"
+        );
+        assert_eq!(
+            declaration.guest_channel,
+            "host_initiated_vsock_uds_bounded"
+        );
+        assert_eq!(declaration.broker_channel, None);
+
+        let mut brokered = test_spec();
+        brokered.model_broker = Some(
+            super::super::microvm_model_broker::admit_model_broker_destination(
+                "http://127.0.0.1:11434/v1",
+                None,
+            )
+            .unwrap(),
+        );
+        let declaration = brokered
+            .enforcement_declaration("cloud-hypervisor")
+            .unwrap();
+        assert_eq!(
+            declaration.broker_channel,
+            Some("guest_initiated_vsock_uds_single_destination")
+        );
+        // The CONTROL channel is unchanged by the broker: the second channel sits beside it.
+        assert_eq!(
+            declaration.guest_channel,
+            "host_initiated_vsock_uds_bounded"
+        );
+        // And the floor still holds — a broker is not a licence to attach anything else.
+        assert_eq!(declaration.network_device_count, 0);
+        assert_eq!(declaration.network_policy, "deny_all_no_virtual_nic");
+    }
+
+    #[test]
+    fn the_workload_bound_profile_refuses_to_carry_a_model_broker_at_all() {
+        // Naming the channel honestly is not enough for THIS profile: its claim is that one
+        // bounded host-initiated channel is all there is, and a claim that can be widened by
+        // arming a field is not that claim. The C8 effect boundary fails closed instead.
+        let mut spec = test_spec();
+        spec.bind_workload(
+            "workrun://t2-live",
+            "workload-isolation-binding://t2-live",
+            &format!("sha256:{}", "b".repeat(64)),
+            "principal://hostile-root-guest",
+        )
+        .unwrap();
+        assert!(spec
+            .workload_bound_enforcement_declaration("cloud-hypervisor")
+            .is_ok());
+
+        spec.model_broker = Some(
+            super::super::microvm_model_broker::admit_model_broker_destination(
+                "http://127.0.0.1:11434/v1",
+                None,
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            spec.workload_bound_enforcement_declaration("cloud-hypervisor")
+                .unwrap_err(),
+            "workload_bound_profile_excludes_model_broker"
+        );
     }
 
     #[test]
