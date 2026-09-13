@@ -772,6 +772,14 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:environment-startup-plan
 
+      # M09.4. Drives a real capture and then RECOMPUTES the committed family head in JavaScript,
+      # so a change to the Rust commitment that both sides made together would still fail here.
+      - name: Verify the canonical environment backup (M09.4)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:canonical-environment-backup
+
       # MOVED HERE FROM build_and_test (2026-09-12). It ran there and PASSED, and its runtime
       # census was collected by nothing: build_and_test sets IOI_VERIFIER_CENSUS_DIR on zero steps
       # and publishes no census artifact, so the verifier-family floor recorded `census_missing`
