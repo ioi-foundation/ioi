@@ -130,6 +130,7 @@
     "check:product-surface-compiler": "node scripts/check-product-surface-compiler.mjs",
     "check:environment-startup-plan": "node scripts/check-environment-startup-plan.mjs",
     "check:canonical-environment-backup": "node scripts/check-canonical-environment-backup.mjs",
+    "check:environment-route-binding": "node scripts/check-environment-route-binding.mjs",
     "check:work-items": "node scripts/check-architecture-docs.mjs --work-items",
     "test:hypervisor-alpha-release": "node --test scripts/lib/hypervisor-alpha-release.test.mjs",
     "package:hypervisor-alpha": "node scripts/package-hypervisor-alpha-release.mjs",

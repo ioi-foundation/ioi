@@ -780,6 +780,14 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:canonical-environment-backup
 
+      # M09.3. Drives the port lane end to end INCLUDING A REAL PROCESS RESTART, which is the only
+      # way to prove a revocation is durable rather than resident.
+      - name: Verify the environment route binding (M09.3)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:environment-route-binding
+
       # MOVED HERE FROM build_and_test (2026-09-12). It ran there and PASSED, and its runtime
       # census was collected by nothing: build_and_test sets IOI_VERIFIER_CENSUS_DIR on zero steps
       # and publishes no census artifact, so the verifier-family floor recorded `census_missing`
