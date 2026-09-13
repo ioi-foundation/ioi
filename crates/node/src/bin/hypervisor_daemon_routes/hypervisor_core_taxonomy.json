@@ -80,7 +80,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "project",
+        "system"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/automations",
@@ -100,7 +116,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "project",
+        "automation_run"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/ontology",
@@ -120,7 +152,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/data",
@@ -140,7 +188,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/governance",
@@ -160,7 +224,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "work_queue"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/provenance",
@@ -180,7 +260,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "work_item"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/evaluations",
@@ -200,7 +296,22 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "project"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/improvement",
@@ -220,7 +331,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/foundry",
@@ -240,7 +367,22 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/packages",
@@ -260,7 +402,22 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/developer-workspace",
@@ -280,7 +437,22 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "project"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/developer-console",
@@ -300,7 +472,22 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/environments",
@@ -320,7 +507,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "project",
+        "system"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/operations",
@@ -340,7 +543,23 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "system"
+      ]
     },
     {
       "surface_ref": "surface://hypervisor/embodied-systems",
@@ -360,7 +579,495 @@
       "surface_installation_state": "installed",
       "surface_enablement_state": "enabled",
       "surface_operational_state": "serving",
-      "visibility": "organization"
+      "visibility": "organization",
+      "supported_placements": [
+        "permanent_shell",
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual",
+        "api"
+      ],
+      "supported_context_kinds": [
+        "system"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/monitors",
+      "surface_key": "monitors",
+      "display_name": "Automate",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/automations/monitors",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/automations",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "project",
+        "automation_run"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/machinery",
+      "surface_key": "machinery",
+      "display_name": "Machinery",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/studio/machinery",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/automations",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "project",
+        "automation_run"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/sources",
+      "surface_key": "sources",
+      "display_name": "Data Connection",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/data/sources",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/data",
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "act",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/pipeline",
+      "surface_key": "pipeline",
+      "display_name": "Pipeline Builder",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/pipeline",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/data",
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "workflow_complete",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/evalsuites",
+      "surface_key": "evalsuites",
+      "display_name": "AIP Evals",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/evaluations/evalsuites",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/evaluations",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "project"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/models",
+      "surface_key": "models",
+      "display_name": "Model Catalog",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/foundry/models",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/foundry",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/approvals",
+      "surface_key": "approvals",
+      "display_name": "Approvals",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/governance/approvals",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/governance",
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "act",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "work_queue"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/changes",
+      "surface_key": "changes",
+      "display_name": "Upgrade Assistant",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/improvement/changes",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/improvement",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/listings",
+      "surface_key": "listings",
+      "display_name": "Marketplace",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/marketplace/listings",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/marketplace",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/incidents",
+      "surface_key": "incidents",
+      "display_name": "Issues",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/missions/incidents",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/missions",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "work_queue",
+        "work_item"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/missions",
+      "surface_key": "missions",
+      "display_name": "Missions",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/missions",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/missions",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "inspect",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "work_queue",
+        "work_item"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/explorer",
+      "surface_key": "explorer",
+      "display_name": "Object Explorer",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/ontology/explorer",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/ontology",
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "act",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/schema",
+      "surface_key": "schema",
+      "display_name": "Ontology Manager",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/ontology/manager",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/ontology",
+      "effect_boundary": "effectful",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "act",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ]
+    },
+    {
+      "surface_ref": "surface://hypervisor/designer",
+      "surface_key": "designer",
+      "display_name": "Solution Designer",
+      "surface_class": "tool_surface",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/studio/designer",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/studio",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "surface_operational_state": "serving",
+      "visibility": "organization",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "project",
+        "system"
+      ]
     }
   ],
   "dynamic_registration_classes": [

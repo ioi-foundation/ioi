@@ -33,6 +33,51 @@ const required = (row, axis) => {
   return value;
 };
 
+// A list axis is registered when the array EXISTS, which is not the same as its being non-empty:
+// `supported_context_kinds` is legitimately empty for a surface that answers no typed context, and
+// collapsing "registered as none" into "not registered" would lose the difference this whole unit
+// exists to preserve. `requiredList` is for the arrays that must carry at least one member;
+// `requiredArray` for the one that need not.
+const requiredArray = (row, axis) => {
+  const value = row[axis];
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `taxonomy registration ${row.surface_key}: ${axis} is not registered as an array. An absent ` +
+        `list and an empty one are different registrations and a compiler may not pick between them.`,
+    );
+  }
+  return value;
+};
+
+const requiredList = (row, axis) => {
+  const value = requiredArray(row, axis);
+  if (value.length === 0) {
+    throw new Error(
+      `taxonomy registration ${row.surface_key}: ${axis} is registered empty. A surface with no ` +
+        `placement appears in no projection and one with no launch mode cannot be launched; ` +
+        `either is a registration defect rather than a posture.`,
+    );
+  }
+  return value;
+};
+
+// THE ADMISSION TRANSACTION FOR THIS PLANE. The contradiction below is not expressible in
+// `ioi.portable-invariants.v1` — the language has no way to say "if this array contains X" — so it
+// is enforced where registrations are minted rather than written as an invariant that would not
+// fire. Registering `contextual` while claiming no context kind declares a launch into nothing.
+const contextualClaimChecked = (row) => {
+  const modes = row.launch_modes ?? [];
+  const kinds = row.supported_context_kinds ?? [];
+  if (modes.includes("contextual") && kinds.length === 0) {
+    throw new Error(
+      `taxonomy registration ${row.surface_key}: launch mode \`contextual\` is registered with no ` +
+        `supported_context_kinds. A contextual launch into no typed context is a launch into ` +
+        `nothing; register a context kind or drop the mode.`,
+    );
+  }
+  return row;
+};
+
 // The taxonomy row is the REGISTRATION of record; the projections below derive from it by
 // surface_key rather than from each other, so an axis is read from where it is registered instead
 // of being carried along and possibly reshaped in transit.
@@ -40,8 +85,13 @@ const rowOf = new Map(
   taxonomy.application_registrations.map((row) => [row.surface_key, row]),
 );
 
-const registrations = taxonomy.application_registrations.map((row) => ({
-  schema_version: "ioi.hypervisor.application_surface_registration.v1",
+const registrations = taxonomy.application_registrations.map(contextualClaimChecked).map((row) => ({
+  // THE SUCCESSOR, not a widening. v1 is `wire_mutation_policy: forbidden` with
+  // `additionalProperties: false`, and these records are wire data written against it — adding two
+  // fields in place would change what already-admitted bytes mean. v2 carries the two axes as
+  // REQUIRED, which is the whole point: under v1 a registration could omit them and the daemon had
+  // nothing to project but a null.
+  schema_version: "ioi.hypervisor.application_surface_registration.v2",
   surface_ref: row.surface_ref,
   surface_key: row.surface_key,
   surface_class: row.surface_class,
@@ -50,6 +100,22 @@ const registrations = taxonomy.application_registrations.map((row) => ({
   canonical_route: row.canonical_route,
   canonical_owner_doc_ref: row.canonical_owner_doc_ref,
   effect_boundary: row.effect_boundary,
+  // Read through `required` like every other registered axis: uniform across today's fifteen
+  // surfaces, and uniform by measurement rather than by the compiler asserting it. The moment an
+  // organization surface or an imported one is registered, this projection serves its real value
+  // without a code change — which a literal here would not have done.
+  surface_origin: required(rowOf.get(row.surface_key), "surface_origin"),
+  surface_creation_method: required(rowOf.get(row.surface_key), "surface_creation_method"),
+  // THE FIVE PROJECTIONS READ THESE, so a projection can no longer keep a list of its own members.
+  // Shell serves `permanent_shell`, catalog serves `applications_catalog`, the palette serves the
+  // `command_palette` launch mode and the contextual lane serves surfaces whose context kinds
+  // contain the requested one. A hard-coded catalog is a membership decision made in a compiler,
+  // which is exactly what ACC-10 clause 2 refuses.
+  supported_placements: requiredList(rowOf.get(row.surface_key), "supported_placements"),
+  launch_modes: requiredList(rowOf.get(row.surface_key), "launch_modes"),
+  // May be empty by design: a surface that answers no typed context says so, and that is WHY it is
+  // absent from a contextual projection rather than an oversight nobody can see.
+  supported_context_kinds: requiredArray(rowOf.get(row.surface_key), "supported_context_kinds"),
   declared_object_contract_refs: [],
   declared_action_contract_refs: [],
   context_route_resolver_refs: [],
