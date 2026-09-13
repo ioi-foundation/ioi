@@ -129,6 +129,14 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
+  // Re-pinned 2026-09-12 (M04.10) from 1125, +1: the per-dimension work-reservation admission.
+  //
+  // TWO GATES COUNT ROUTES, AND THE OTHER ONE WAS MOVED WITHOUT THIS ONE. `check:named-gap-truth`
+  // pins `registeredRoutes` and this file pins `registered_route_handlers`; the M04.10 commit moved
+  // the first and not the second, so CI caught a pin miss ONE COMMIT AFTER the same class of miss
+  // was written up as a trap. The pre-push sweep that was built to prevent it ran the other gate
+  // and not this one — the remedy had the same gap as the defect. A future route addition should
+  // expect BOTH numbers to move, and the sweep should enumerate the gates rather than recall them.
   // Re-pinned 2026-09-12 (M07.4 items 2b and 2c) from 1122, +3. The model-route CANDIDATE lane
   // registered three handlers: `POST /model-routes/price-schedules` and
   // `GET /model-routes/price-schedules/:id` admit and read expiring advisory price evidence, and
@@ -168,7 +176,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // 1118 -> 1122 (2026-09-12, M07.3). The provider-spend reconciliation plane registers three
   // paths, one of which carries two methods, and the router counts handlers rather than paths —
   // so four. Moved in the SAME COMMIT as the routes, like every other pin this program touched.
-  census.registered_route_handlers === 1125 && census.workspace_route_handlers === 38
+  census.registered_route_handlers === 1126 && census.workspace_route_handlers === 38
     && census.routes.length === 45 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

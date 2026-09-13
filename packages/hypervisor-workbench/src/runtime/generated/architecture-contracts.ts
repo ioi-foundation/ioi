@@ -11900,6 +11900,40 @@ export type WorkDimensionReservationV1 = {
   transferred_from_ref: string | null;
 };
 
+export type FoundrySpecV1 = {
+  schema_version: "ioi.components.hypervisor.foundry-spec.v1";
+  foundry_spec_id: string;
+  foundry_project_ref: string;
+  objective: string;
+  task_family: string;
+  base_model_refs: Array<string>;
+  training_mode: "sft" | "adapter" | "full_finetune" | "distillation" | "preference_optimization" | "on_policy_correction" | "eval_only" | "packaging_only" | "route_policy_training" | "conductor_advisor_training";
+  dataset_snapshot_refs: Array<string>;
+  search_space_ref?: string | null;
+  run_plan_ref?: string | null;
+  packaging_targets: Array<"adapter_merge" | "quantization" | "gguf" | "mlx" | "onnx" | "tensorrt" | "runtime_image" | "endpoint_package" | "model_card">;
+  budget_policy_ref: string;
+  eval_policy_ref: string;
+  target_route_ref?: string | null;
+  version: number;
+  created_by_ref: string;
+  status: "draft" | "ready" | "superseded" | "archived";
+};
+
+export type FoundryRunPlanV1 = {
+  schema_version: "ioi.components.hypervisor.foundry-run-plan.v1";
+  run_plan_id: string;
+  foundry_spec_ref: string;
+  stage_graph_ref?: string | null;
+  stages: Array<"data_prep" | "training" | "checkpointing" | "eval" | "packaging" | "registration" | "route_promotion">;
+  executor_bindings: Array<string>;
+  retry_policy_ref: string;
+  checkpoint_policy_ref: string;
+  timeout_policy_ref: string;
+  artifact_contract_refs: Array<string>;
+  status: "draft" | "admitted" | "running" | "completed" | "superseded";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -22365,6 +22399,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -26325,6 +26407,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json","contract_id":"schema://ioi/foundations/work-dimension-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json","contract_id":"schema://ioi/components/hypervisor/foundry-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json","contract_id":"schema://ioi/components/hypervisor/foundry-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json","contract_id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json","contract_id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -26810,6 +26898,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
   "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+  "^[a-z][a-z0-9+._-]*://\\S+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
@@ -27660,7 +27749,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1": "sha256:969ea0579666b16df0a2f3c8f7b96153e896a1d0a927cd336a13b7023a0a60b8",
   "schema://ioi/components/model-router/model-route-price-schedule/v1": "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146",
   "schema://ioi/components/model-router/model-route-cost-comparison/v1": "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0",
-  "schema://ioi/foundations/work-dimension-reservation/v1": "sha256:09c1fd5c770ce15d6e91836992f3cf527162dad3206f86ff06379a72a46b6f31"
+  "schema://ioi/foundations/work-dimension-reservation/v1": "sha256:09c1fd5c770ce15d6e91836992f3cf527162dad3206f86ff06379a72a46b6f31",
+  "schema://ioi/components/hypervisor/foundry-spec/v1": "sha256:a95d1acb99fd566cc2fa6c04c6a2fb326cc606ec93b9d5d2d6fcbed3b0010881",
+  "schema://ioi/components/hypervisor/foundry-run-plan/v1": "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -120006,6 +120097,266 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/hypervisor/foundry-spec/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-spec/v1",
+    "title": "FoundrySpec",
+    "description": "THE DECLARED INTENT OF ONE FOUNDRY BUILD, REGISTERED SO A MALFORMED ONE CANNOT BE ADMITTED. Canon has specified this family since foundry.md, and the daemon has served it live the whole time without a contract: the create route minted a `schema_version` string that appeared in no registry, never called the contract validator that hundreds of other call sites use, and passed its declared inputs through untyped — so every malformed body was a 201. Registering it is what turns that route's own vocabulary into something refusable OFFLINE. THE CLOSED VOCABULARIES ARE THE POINT: `training_mode` and `packaging_targets` are the two places where a typo becomes a build that does the wrong thing rather than a build that refuses, and both are closed here exactly as canon closes them. `version` and `status` carry the succession this family already has in canon, so a superseded spec is a state rather than a deletion. Every ref is a canonical scheme ref rather than a bare string, because a spec that names its base model as free text names nothing a resolver can follow.",
+    "x-ioi-schema-version": "ioi.components.hypervisor.foundry-spec.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "foundry_spec_id",
+      "foundry_project_ref",
+      "objective",
+      "task_family",
+      "base_model_refs",
+      "training_mode",
+      "dataset_snapshot_refs",
+      "packaging_targets",
+      "budget_policy_ref",
+      "eval_policy_ref",
+      "version",
+      "created_by_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.components.hypervisor.foundry-spec.v1"
+      },
+      "foundry_spec_id": {
+        "$ref": "#/$defs/ref"
+      },
+      "foundry_project_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "objective": {
+        "type": "string",
+        "minLength": 1
+      },
+      "task_family": {
+        "type": "string",
+        "minLength": 1
+      },
+      "base_model_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "A build with no base model has nothing to build from; the floor is one."
+      },
+      "training_mode": {
+        "type": "string",
+        "description": "Closed exactly as canon closes it. A typo here is a build that trains the wrong way rather than one that refuses.",
+        "enum": [
+          "sft",
+          "adapter",
+          "full_finetune",
+          "distillation",
+          "preference_optimization",
+          "on_policy_correction",
+          "eval_only",
+          "packaging_only",
+          "route_policy_training",
+          "conductor_advisor_training"
+        ]
+      },
+      "dataset_snapshot_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "search_space_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "run_plan_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "packaging_targets": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "adapter_merge",
+            "quantization",
+            "gguf",
+            "mlx",
+            "onnx",
+            "tensorrt",
+            "runtime_image",
+            "endpoint_package",
+            "model_card"
+          ]
+        }
+      },
+      "budget_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "eval_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "target_route_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "version": {
+        "$ref": "#/$defs/positive_safe_integer"
+      },
+      "created_by_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "superseded",
+          "archived"
+        ]
+      }
+    },
+    "$defs": {
+      "positive_safe_integer": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/foundry-run-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+    "title": "FoundryRunPlan",
+    "description": "THE ORDERED STAGES ONE FOUNDRY SPEC IS BUILT THROUGH, REGISTERED SO THE PLAN IS REFUSABLE BEFORE IT RUNS. Like its spec, this family has been served live and free-form: the route minted an unregistered `schema_version` and passed `stages` through untyped, so a plan naming a stage that does not exist was admitted as readily as one that does. THE STAGE VOCABULARY IS CLOSED exactly as canon closes it, and `stages` is `uniqueItems` because a stage listed twice is either a typo or a second pass the plan does not actually describe — both are better refused than run. `artifact_contract_refs` is where a plan names the contracts its outputs must satisfy, which is the seam that keeps a build's products admissible rather than merely produced; it is required, because a plan that promises no contract for its artifacts has promised nothing a consumer can check. `status` carries the same succession canon gives it, so an admitted plan that is replaced is superseded rather than deleted.",
+    "x-ioi-schema-version": "ioi.components.hypervisor.foundry-run-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "run_plan_id",
+      "foundry_spec_ref",
+      "stages",
+      "executor_bindings",
+      "retry_policy_ref",
+      "checkpoint_policy_ref",
+      "timeout_policy_ref",
+      "artifact_contract_refs",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.components.hypervisor.foundry-run-plan.v1"
+      },
+      "run_plan_id": {
+        "$ref": "#/$defs/ref"
+      },
+      "foundry_spec_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "stage_graph_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stages": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "Closed exactly as canon closes it, and unique: a stage listed twice is a typo or a second pass the plan does not describe, and both are better refused than run.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "data_prep",
+            "training",
+            "checkpointing",
+            "eval",
+            "packaging",
+            "registration",
+            "route_promotion"
+          ]
+        }
+      },
+      "executor_bindings": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "retry_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "checkpoint_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "timeout_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "artifact_contract_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "The contracts this plan's outputs must satisfy. Required, because a plan promising no contract for its artifacts has promised nothing a consumer can check.",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "admitted",
+          "running",
+          "completed",
+          "superseded"
+        ]
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -136420,7 +136771,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.ancestor_chain"
       }
     }
-  ]
+  ],
+  "schema://ioi/components/hypervisor/foundry-spec/v1": [],
+  "schema://ioi/components/hypervisor/foundry-run-plan/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -138887,4 +139240,16 @@ export function validateWorkDimensionReservationV1(
   value: unknown,
 ): value is WorkDimensionReservationV1 {
   return validateArchitectureContract("schema://ioi/foundations/work-dimension-reservation/v1", value).ok;
+}
+
+export function validateFoundrySpecV1(
+  value: unknown,
+): value is FoundrySpecV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-spec/v1", value).ok;
+}
+
+export function validateFoundryRunPlanV1(
+  value: unknown,
+): value is FoundryRunPlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-run-plan/v1", value).ok;
 }

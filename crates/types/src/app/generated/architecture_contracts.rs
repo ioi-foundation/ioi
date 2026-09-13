@@ -309,6 +309,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/model-router/model-route-price-schedule/v1", "sha256:49818b249d525ad77364c67eb890899cc21c2c7e0a2a265569404cbace47b146"),
     ("schema://ioi/components/model-router/model-route-cost-comparison/v1", "sha256:1155d468cb6bf8560e51069cbf4e933cac005b3d186aa43788f6989f100498e0"),
     ("schema://ioi/foundations/work-dimension-reservation/v1", "sha256:09c1fd5c770ce15d6e91836992f3cf527162dad3206f86ff06379a72a46b6f31"),
+    ("schema://ioi/components/hypervisor/foundry-spec/v1", "sha256:a95d1acb99fd566cc2fa6c04c6a2fb326cc606ec93b9d5d2d6fcbed3b0010881"),
+    ("schema://ioi/components/hypervisor/foundry-run-plan/v1", "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -134643,6 +134645,354 @@ pub enum WorkDimensionReservationV1Status {
     Expired,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundrySpecV1 {
+    pub schema_version: FoundrySpecV1SchemaVersion,
+    pub foundry_spec_id: String,
+    pub foundry_project_ref: String,
+    pub objective: String,
+    pub task_family: String,
+    pub base_model_refs: Vec<String>,
+    pub training_mode: FoundrySpecV1TrainingMode,
+    pub dataset_snapshot_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_space_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_plan_ref: Option<String>,
+    pub packaging_targets: Vec<FoundrySpecV1PackagingTargetsItem>,
+    pub budget_policy_ref: String,
+    pub eval_policy_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_route_ref: Option<String>,
+    pub version: ArchitectureContractInteger,
+    pub created_by_ref: String,
+    pub status: FoundrySpecV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundrySpecV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-spec/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-spec/v1","title":"FoundrySpec","description":"THE DECLARED INTENT OF ONE FOUNDRY BUILD, REGISTERED SO A MALFORMED ONE CANNOT BE ADMITTED. Canon has specified this family since foundry.md, and the daemon has served it live the whole time without a contract: the create route minted a `schema_version` string that appeared in no registry, never called the contract validator that hundreds of other call sites use, and passed its declared inputs through untyped — so every malformed body was a 201. Registering it is what turns that route's own vocabulary into something refusable OFFLINE. THE CLOSED VOCABULARIES ARE THE POINT: `training_mode` and `packaging_targets` are the two places where a typo becomes a build that does the wrong thing rather than a build that refuses, and both are closed here exactly as canon closes them. `version` and `status` carry the succession this family already has in canon, so a superseded spec is a state rather than a deletion. Every ref is a canonical scheme ref rather than a bare string, because a spec that names its base model as free text names nothing a resolver can follow.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","foundry_spec_id","foundry_project_ref","objective","task_family","base_model_refs","training_mode","dataset_snapshot_refs","packaging_targets","budget_policy_ref","eval_policy_ref","version","created_by_ref","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-spec.v1"},"foundry_spec_id":{"$ref":"#/$defs/ref"},"foundry_project_ref":{"$ref":"#/$defs/ref"},"objective":{"type":"string","minLength":1},"task_family":{"type":"string","minLength":1},"base_model_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"A build with no base model has nothing to build from; the floor is one."},"training_mode":{"type":"string","description":"Closed exactly as canon closes it. A typo here is a build that trains the wrong way rather than one that refuses.","enum":["sft","adapter","full_finetune","distillation","preference_optimization","on_policy_correction","eval_only","packaging_only","route_policy_training","conductor_advisor_training"]},"dataset_snapshot_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"search_space_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"run_plan_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"packaging_targets":{"type":"array","uniqueItems":true,"items":{"type":"string","enum":["adapter_merge","quantization","gguf","mlx","onnx","tensorrt","runtime_image","endpoint_package","model_card"]}},"budget_policy_ref":{"$ref":"#/$defs/ref"},"eval_policy_ref":{"$ref":"#/$defs/ref"},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"version":{"$ref":"#/$defs/positive_safe_integer"},"created_by_ref":{"$ref":"#/$defs/ref"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]}},"$defs":{"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundrySpecV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            foundry_spec_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"foundry_spec_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"foundry_spec_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            foundry_project_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"foundry_project_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"foundry_project_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective: serde_json::from_value::<String>(
+                object
+                    .remove(r#"objective"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            task_family: serde_json::from_value::<String>(
+                object
+                    .remove(r#"task_family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_model_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"base_model_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_model_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            training_mode: serde_json::from_value::<FoundrySpecV1TrainingMode>(
+                object
+                    .remove(r#"training_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"training_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dataset_snapshot_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"dataset_snapshot_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dataset_snapshot_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            search_space_ref: match object.remove(r#"search_space_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            run_plan_ref: match object.remove(r#"run_plan_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            packaging_targets: serde_json::from_value::<Vec<FoundrySpecV1PackagingTargetsItem>>(
+                object
+                    .remove(r#"packaging_targets"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"packaging_targets"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"budget_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eval_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"eval_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"eval_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_route_ref: match object.remove(r#"target_route_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FoundrySpecV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundrySpecV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.hypervisor.foundry-spec.v1"#)]
+    IoiComponentsHypervisorFoundrySpecV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundrySpecV1TrainingMode {
+    #[serde(rename = r#"sft"#)]
+    Sft,
+    #[serde(rename = r#"adapter"#)]
+    Adapter,
+    #[serde(rename = r#"full_finetune"#)]
+    FullFinetune,
+    #[serde(rename = r#"distillation"#)]
+    Distillation,
+    #[serde(rename = r#"preference_optimization"#)]
+    PreferenceOptimization,
+    #[serde(rename = r#"on_policy_correction"#)]
+    OnPolicyCorrection,
+    #[serde(rename = r#"eval_only"#)]
+    EvalOnly,
+    #[serde(rename = r#"packaging_only"#)]
+    PackagingOnly,
+    #[serde(rename = r#"route_policy_training"#)]
+    RoutePolicyTraining,
+    #[serde(rename = r#"conductor_advisor_training"#)]
+    ConductorAdvisorTraining,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundrySpecV1PackagingTargetsItem {
+    #[serde(rename = r#"adapter_merge"#)]
+    AdapterMerge,
+    #[serde(rename = r#"quantization"#)]
+    Quantization,
+    #[serde(rename = r#"gguf"#)]
+    Gguf,
+    #[serde(rename = r#"mlx"#)]
+    Mlx,
+    #[serde(rename = r#"onnx"#)]
+    Onnx,
+    #[serde(rename = r#"tensorrt"#)]
+    Tensorrt,
+    #[serde(rename = r#"runtime_image"#)]
+    RuntimeImage,
+    #[serde(rename = r#"endpoint_package"#)]
+    EndpointPackage,
+    #[serde(rename = r#"model_card"#)]
+    ModelCard,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundrySpecV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryRunPlanV1 {
+    pub schema_version: FoundryRunPlanV1SchemaVersion,
+    pub run_plan_id: String,
+    pub foundry_spec_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage_graph_ref: Option<String>,
+    pub stages: Vec<FoundryRunPlanV1StagesItem>,
+    pub executor_bindings: Vec<String>,
+    pub retry_policy_ref: String,
+    pub checkpoint_policy_ref: String,
+    pub timeout_policy_ref: String,
+    pub artifact_contract_refs: Vec<String>,
+    pub status: FoundryRunPlanV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryRunPlanV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-run-plan/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","title":"FoundryRunPlan","description":"THE ORDERED STAGES ONE FOUNDRY SPEC IS BUILT THROUGH, REGISTERED SO THE PLAN IS REFUSABLE BEFORE IT RUNS. Like its spec, this family has been served live and free-form: the route minted an unregistered `schema_version` and passed `stages` through untyped, so a plan naming a stage that does not exist was admitted as readily as one that does. THE STAGE VOCABULARY IS CLOSED exactly as canon closes it, and `stages` is `uniqueItems` because a stage listed twice is either a typo or a second pass the plan does not actually describe — both are better refused than run. `artifact_contract_refs` is where a plan names the contracts its outputs must satisfy, which is the seam that keeps a build's products admissible rather than merely produced; it is required, because a plan that promises no contract for its artifacts has promised nothing a consumer can check. `status` carries the same succession canon gives it, so an admitted plan that is replaced is superseded rather than deleted.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","run_plan_id","foundry_spec_ref","stages","executor_bindings","retry_policy_ref","checkpoint_policy_ref","timeout_policy_ref","artifact_contract_refs","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-run-plan.v1"},"run_plan_id":{"$ref":"#/$defs/ref"},"foundry_spec_ref":{"$ref":"#/$defs/ref"},"stage_graph_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stages":{"type":"array","minItems":1,"uniqueItems":true,"description":"Closed exactly as canon closes it, and unique: a stage listed twice is a typo or a second pass the plan does not describe, and both are better refused than run.","items":{"type":"string","enum":["data_prep","training","checkpointing","eval","packaging","registration","route_promotion"]}},"executor_bindings":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"retry_policy_ref":{"$ref":"#/$defs/ref"},"checkpoint_policy_ref":{"$ref":"#/$defs/ref"},"timeout_policy_ref":{"$ref":"#/$defs/ref"},"artifact_contract_refs":{"type":"array","minItems":1,"uniqueItems":true,"description":"The contracts this plan's outputs must satisfy. Required, because a plan promising no contract for its artifacts has promised nothing a consumer can check.","items":{"$ref":"#/$defs/ref"}},"status":{"type":"string","enum":["draft","admitted","running","completed","superseded"]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundryRunPlanV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_plan_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"run_plan_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_plan_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            foundry_spec_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"foundry_spec_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"foundry_spec_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stage_graph_ref: match object.remove(r#"stage_graph_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            stages: serde_json::from_value::<Vec<FoundryRunPlanV1StagesItem>>(
+                object
+                    .remove(r#"stages"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stages"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            executor_bindings: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"executor_bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"executor_bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retry_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"retry_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retry_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            timeout_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"timeout_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timeout_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"artifact_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FoundryRunPlanV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryRunPlanV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.hypervisor.foundry-run-plan.v1"#)]
+    IoiComponentsHypervisorFoundryRunPlanV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryRunPlanV1StagesItem {
+    #[serde(rename = r#"data_prep"#)]
+    DataPrep,
+    #[serde(rename = r#"training"#)]
+    Training,
+    #[serde(rename = r#"checkpointing"#)]
+    Checkpointing,
+    #[serde(rename = r#"eval"#)]
+    Eval,
+    #[serde(rename = r#"packaging"#)]
+    Packaging,
+    #[serde(rename = r#"registration"#)]
+    Registration,
+    #[serde(rename = r#"route_promotion"#)]
+    RoutePromotion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryRunPlanV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"running"#)]
+    Running,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -145105,6 +145455,54 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/work-dimension-reservation/v1",
         path: "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-spec/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-spec/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-spec/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-run-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -161109,6 +161507,72 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-spec/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-spec/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-spec/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-run-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-run-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-run-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -162787,6 +163251,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/model-router/model-route-price-schedule/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/model-router/model-route-price-schedule/v1","title":"ModelRoutePriceSchedule","description":"ONE PROVIDER'S PRICE SHAPE FOR ONE ROUTE, AS EXPIRING ADVISORY EVIDENCE. Canon requires an extensible price SCHEDULE rather than a metered-versus-amortized enum, so cost shapes are carried as a LIST of typed components: a provider whose pricing has a dimension nobody has priced before adds a component and extends the schedule, and never forks the contract to hold it. Three properties are structural rather than procedural, because each is a rule that prose has already failed to keep. FIRST, PRICE AUTHORIZES NOTHING: `advisory_only` is a const true that every schedule must carry, so a record asserting otherwise cannot be admitted at all — economic comparison neither grants route rights nor independently authorizes placement or migration, and the byte that says so is not a runtime branch anyone can forget to take. SECOND, A SCHEDULE EXPIRES: `expires_at_ms` is required and must be strictly after `observed_at_ms`, so a schedule cannot be born stale and a stale one is a TYPED GAP rather than a silently aged number. THIRD, EVIDENCE CARRIES ITS OWN PROVENANCE AND CONFIDENCE, so a ranking can state how old and how trustworthy its inputs were instead of presenting an estimate as a measurement. Amounts are integer minor currency units per priced unit; no floating-point price is valid, for the same reason the managed-work billing chain refuses one.","x-ioi-schema-version":"ioi.components.model-router.model-route-price-schedule.v1","type":"object","additionalProperties":false,"required":["schema_version","price_schedule_ref","route_ref","provider_ref","version","body_hash","currency_code","price_components","provenance","confidence","advisory_only","observed_at_ms","expires_at_ms"],"properties":{"schema_version":{"type":"string","const":"ioi.components.model-router.model-route-price-schedule.v1"},"price_schedule_ref":{"$ref":"#/$defs/ref"},"route_ref":{"$ref":"#/$defs/ref"},"provider_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"price_components":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/price_component"}},"provenance":{"$ref":"#/$defs/provenance"},"confidence":{"type":"string","enum":["observed","published","estimated"]},"advisory_only":{"type":"boolean","const":true,"description":"Price ranks routes that already qualify; it never admits one. A schedule that claims to authorize placement is refused offline rather than relied upon at runtime."},"observed_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"price_component":{"type":"object","additionalProperties":false,"description":"One priced dimension. The class vocabulary covers the cost shapes canon names — token tiers including cache and reasoning, GPU-seconds, minimum rental periods, commitments, storage, egress, cold starts, and redundancy or headroom — and a provider with a dimension outside it extends this list rather than reshaping the record.","required":["component_class","meter_unit","minor_units_per_meter_unit"],"properties":{"component_class":{"type":"string","enum":["input_tokens","output_tokens","cache_read_tokens","cache_write_tokens","reasoning_tokens","gpu_seconds","minimum_rental_period","commitment","storage","egress","cold_start","redundancy_headroom"]},"meter_unit":{"type":"string","enum":["per_token","per_second","per_gibibyte","per_gibibyte_transferred","per_invocation","per_period","flat"]},"minor_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"tier":{"anyOf":[{"$ref":"#/$defs/tier"},{"type":"null"}]},"notes":{"type":"string","minLength":1}}},"tier":{"type":"object","additionalProperties":false,"description":"A half-open usage band. A null upper bound is the final, unbounded tier; it is spelled explicitly so an omitted bound cannot read as zero.","required":["from_meter_units","to_meter_units"],"properties":{"from_meter_units":{"$ref":"#/$defs/safe_integer"},"to_meter_units":{"anyOf":[{"$ref":"#/$defs/positive_safe_integer"},{"type":"null"}]}}},"provenance":{"type":"object","additionalProperties":false,"description":"Where the schedule came from and what evidence stands behind it. A schedule that cites no evidence is admissible but declares itself so; a ranking may then report the gap rather than inventing a figure.","required":["source_class","evidence_refs"],"properties":{"source_class":{"type":"string","enum":["provider_published","candidate_lane_observation","reconciled_capacity_spend","operator_declared"]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"observed_from_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/components/model-router/model-route-cost-comparison/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/model-router/model-route-cost-comparison/v1","title":"ModelRouteCostComparison","description":"AN ADVISORY RANKING OVER ROUTES THAT ALREADY QUALIFY. Canon puts eligibility first and price second — quality, privacy, residency, latency and availability are ADMISSION FILTERS, not context displayed beside a price — so this record keeps three populations apart in the bytes rather than in a renderer's discretion. `ranked_candidates` holds routes that were eligible AND had the outcome evidence the decision metric needs. `excluded_candidates` holds routes that never reached ranking because they failed admission, each with a typed reason; a cheaper ineligible route is a rights violation with a price attached, and it is recorded as excluded rather than shown as a bargain. `unranked_candidates` holds routes that ARE eligible but lack outcome evidence, each with a typed gap code — because canon is explicit that a success rate is never synthesized to complete a ranking, and the shape that enforces it is a third bucket rather than an optional field a ranker can leave null and then treat as zero. THE DECISION METRIC IS COST PER SUCCESSFUL WORKLOAD UNIT, carried as integer minor units. Effective cost per token is present only as `explanatory_effective_cost_per_token_minor` and is named so it cannot be mistaken for a winner metric: tokenizers differ across models, so it is not cross-route comparable. A recommendation states a break-even RANGE rather than a point, carries its evidence age and confidence, and cites the exact price-schedule bytes it priced from. `advisory_only` is a const true: price evidence never independently authorizes placement or migration.","x-ioi-schema-version":"ioi.components.model-router.model-route-cost-comparison.v1","type":"object","additionalProperties":false,"required":["schema_version","comparison_ref","workload_ref","currency_code","ranked_candidates","unranked_candidates","excluded_candidates","advisory_only","computed_at_ms"],"properties":{"schema_version":{"type":"string","const":"ioi.components.model-router.model-route-cost-comparison.v1"},"comparison_ref":{"$ref":"#/$defs/ref"},"workload_ref":{"$ref":"#/$defs/ref"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"ranked_candidates":{"type":"array","items":{"$ref":"#/$defs/ranked_candidate"}},"unranked_candidates":{"type":"array","items":{"$ref":"#/$defs/unranked_candidate"}},"excluded_candidates":{"type":"array","items":{"$ref":"#/$defs/excluded_candidate"}},"advisory_only":{"type":"boolean","const":true,"description":"Economic comparison neither grants route rights nor independently authorizes placement or migration. A comparison claiming otherwise is refused offline."},"computed_at_ms":{"$ref":"#/$defs/safe_integer"}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"minor_amount":{"type":"object","additionalProperties":false,"required":["currency_code","minor_units"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"minor_units":{"$ref":"#/$defs/safe_integer"}}},"break_even_range":{"type":"object","additionalProperties":false,"description":"A range, never a point. A break-even stated as a single number claims a precision the inputs do not have, and canon requires the range explicitly.","required":["low_meter_units","high_meter_units"],"properties":{"low_meter_units":{"$ref":"#/$defs/safe_integer"},"high_meter_units":{"$ref":"#/$defs/safe_integer"}}},"evidence":{"type":"object","additionalProperties":false,"description":"What the figure was computed from, and how old and how trustworthy that was. A ranking that cannot state its evidence age is not auditable against the receipts it claims to derive from.","required":["price_schedule_ref","price_schedule_body_hash","evidence_age_ms","confidence","attempt_receipt_refs"],"properties":{"price_schedule_ref":{"$ref":"#/$defs/ref"},"price_schedule_body_hash":{"$ref":"#/$defs/hash"},"evidence_age_ms":{"$ref":"#/$defs/safe_integer"},"confidence":{"type":"string","enum":["observed","published","estimated"]},"attempt_receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}},"ranked_candidate":{"type":"object","additionalProperties":false,"description":"An eligible route with outcome evidence, ranked by cost per successful workload unit.","required":["route_ref","rank","cost_per_successful_unit","successful_unit_count","attempted_unit_count","break_even_range","evidence","reason_codes"],"properties":{"route_ref":{"$ref":"#/$defs/ref"},"rank":{"$ref":"#/$defs/positive_safe_integer"},"cost_per_successful_unit":{"$ref":"#/$defs/minor_amount"},"successful_unit_count":{"$ref":"#/$defs/positive_safe_integer"},"attempted_unit_count":{"$ref":"#/$defs/positive_safe_integer"},"explanatory_effective_cost_per_token_minor":{"anyOf":[{"$ref":"#/$defs/safe_integer"},{"type":"null"}],"description":"Diagnostic only. Tokenizers differ across models, so this is not cross-route comparable and never decides a ranking."},"break_even_range":{"$ref":"#/$defs/break_even_range"},"evidence":{"$ref":"#/$defs/evidence"},"reason_codes":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}}}},"unranked_candidate":{"type":"object","additionalProperties":false,"description":"ELIGIBLE, but not rankable. A success rate is never synthesized to complete a ranking, so a route whose outcome evidence is missing or whose price schedule has expired is carried here with a typed gap instead of being given an invented figure.","required":["route_ref","gap_reason_code"],"properties":{"route_ref":{"$ref":"#/$defs/ref"},"gap_reason_code":{"type":"string","enum":["no_outcome_evidence","no_price_schedule","price_schedule_expired","attempt_evidence_gap","no_successful_unit_observed"]},"evidence_age_ms":{"anyOf":[{"$ref":"#/$defs/safe_integer"},{"type":"null"}]}}},"excluded_candidate":{"type":"object","additionalProperties":false,"description":"INELIGIBLE, so never ranked and never priced. Eligibility resolves first; a cheaper ineligible route is a rights violation with a price attached, and carrying it here keeps it out of the ranked list entirely rather than showing it as a bargain with a caveat.","required":["route_ref","exclusion_reason_code"],"properties":{"route_ref":{"$ref":"#/$defs/ref"},"exclusion_reason_code":{"type":"string","enum":["route_rights_prohibited_use","route_rights_unresolved","quality_floor","privacy_posture","residency","latency_ceiling","availability"]}}}}}"##),
     ("schema://ioi/foundations/work-dimension-reservation/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-dimension-reservation/v1","title":"WorkDimensionReservation","description":"ONE CLAIM ON ONE RESOURCE DIMENSION, HELD AGAINST AN ANCESTOR THAT CANNOT BE OVERSUBSCRIBED. ACC-5 clause 8 requires reservations that are exact-head, per-dimension and disjoint, that preserve protected recovery and integration capacity, that narrow every ancestor bound, and that transfer atomically on reassignment — with crash, sibling races and replacement unable to duplicate or leak one. Three of those are properties of a SET and belong to the admission transaction: disjointness, the protected-capacity floor, and narrowing are all statements about this reservation together with its siblings, and no single record can assert them. What this contract does is make the admission transaction POSSIBLE and make a malformed claim impossible: a reservation names exactly one dimension from a closed vocabulary, carries a POSITIVE unit count (a zero-unit reservation reserves nothing and would sit in the ledger looking like a claim), pins the exact ancestor head it was computed against so a sibling that moved the head invalidates it rather than silently oversubscribing, and lists the full ancestor chain it narrows so the transaction knows every bound to check rather than only the nearest. TRANSFER IS ATOMIC BY SHAPE, AND THE SHAPE IS THE SUCCESSOR'S. The event stream admits one operation at a time, so the single append that can be atomic is the successor naming its predecessor through `transferred_from_ref`: it creates the new claim and releases the old one together. `transferred_to_ref` is the source's terminal state and the readable back-reference, and a registered invariant requires a transferred reservation to name its successor — but it cannot itself be the transfer, because marking a source transferred without creating its successor needs a second append and leaves the units belonging to nobody in between, which is exactly the leak clause 8 names. The units are integers, like every other quantity the estate counts.","x-ioi-schema-version":"ioi.foundations.work-dimension-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","work_ref","holder_ref","dimension","reserved_units","ancestor_chain","expected_ancestor_head","protected_capacity","status","transferred_to_ref","transferred_from_ref","created_at_ms","expires_at_ms"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.work-dimension-reservation.v1"},"reservation_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"holder_ref":{"$ref":"#/$defs/ref","description":"The legal owner binding. A reservation reference never copies the holder's own truth; it names it."},"dimension":{"type":"string","description":"Exactly one resource dimension. Per-dimension means a claim on compute does not narrow a bound on storage, so the vocabulary is closed and a reservation may not straddle two.","enum":["compute_seconds","memory_gibibyte_seconds","storage_gibibytes","egress_gibibytes","concurrent_invocations","wall_clock_seconds"]},"reserved_units":{"$ref":"#/$defs/positive_safe_integer","description":"A zero-unit reservation reserves nothing while occupying a slot that reads as a claim, so the floor is one."},"ancestor_chain":{"type":"array","minItems":1,"uniqueItems":true,"description":"Every ancestor whose bound this claim narrows, nearest first. The WHOLE chain rather than the parent alone: narrowing only the nearest bound lets a grandchild oversubscribe a grandparent through a parent with room. Unique, because an ancestor named twice would be checked twice and appear to have more headroom than it has.","items":{"$ref":"#/$defs/ref"}},"expected_ancestor_head":{"$ref":"#/$defs/hash","description":"The exact head the available capacity was computed against. A sibling admitted in between moves the head, and this reservation is then refused rather than applied to a bound that has already been spent."},"protected_capacity":{"$ref":"#/$defs/protected_capacity"},"status":{"type":"string","enum":["active","transferred","released","expired"]},"transferred_to_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The successor claim a reassignment moved these units to. Required by invariant whenever the status is `transferred`, so units can never belong to nobody."},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"transferred_from_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The claim whose units this one took over. THE TRANSFER IS THIS FIELD, because the stream admits ONE operation at a time: a successor naming its predecessor both creates the new claim and releases the old one in a single append, which is the only way reassignment can be atomic here. `transferred_to_ref` on the source is the readable back-reference and the source's own terminal state; it cannot by itself be the transfer, because marking a source transferred without creating its successor would need a second append and leave the units belonging to nobody in between."}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"protected_capacity":{"type":"object","additionalProperties":false,"description":"Capacity the admission transaction must leave untouched. Recovery and integration are named separately because they are spent by different actors at different times, and a single pooled figure would let a recovery exhaust the room an integration needs.","required":["recovery_units","integration_units"],"properties":{"recovery_units":{"$ref":"#/$defs/safe_integer"},"integration_units":{"$ref":"#/$defs/safe_integer"}}}}}"##),
+    ("schema://ioi/components/hypervisor/foundry-spec/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-spec/v1","title":"FoundrySpec","description":"THE DECLARED INTENT OF ONE FOUNDRY BUILD, REGISTERED SO A MALFORMED ONE CANNOT BE ADMITTED. Canon has specified this family since foundry.md, and the daemon has served it live the whole time without a contract: the create route minted a `schema_version` string that appeared in no registry, never called the contract validator that hundreds of other call sites use, and passed its declared inputs through untyped — so every malformed body was a 201. Registering it is what turns that route's own vocabulary into something refusable OFFLINE. THE CLOSED VOCABULARIES ARE THE POINT: `training_mode` and `packaging_targets` are the two places where a typo becomes a build that does the wrong thing rather than a build that refuses, and both are closed here exactly as canon closes them. `version` and `status` carry the succession this family already has in canon, so a superseded spec is a state rather than a deletion. Every ref is a canonical scheme ref rather than a bare string, because a spec that names its base model as free text names nothing a resolver can follow.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","foundry_spec_id","foundry_project_ref","objective","task_family","base_model_refs","training_mode","dataset_snapshot_refs","packaging_targets","budget_policy_ref","eval_policy_ref","version","created_by_ref","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-spec.v1"},"foundry_spec_id":{"$ref":"#/$defs/ref"},"foundry_project_ref":{"$ref":"#/$defs/ref"},"objective":{"type":"string","minLength":1},"task_family":{"type":"string","minLength":1},"base_model_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"A build with no base model has nothing to build from; the floor is one."},"training_mode":{"type":"string","description":"Closed exactly as canon closes it. A typo here is a build that trains the wrong way rather than one that refuses.","enum":["sft","adapter","full_finetune","distillation","preference_optimization","on_policy_correction","eval_only","packaging_only","route_policy_training","conductor_advisor_training"]},"dataset_snapshot_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"search_space_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"run_plan_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"packaging_targets":{"type":"array","uniqueItems":true,"items":{"type":"string","enum":["adapter_merge","quantization","gguf","mlx","onnx","tensorrt","runtime_image","endpoint_package","model_card"]}},"budget_policy_ref":{"$ref":"#/$defs/ref"},"eval_policy_ref":{"$ref":"#/$defs/ref"},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"version":{"$ref":"#/$defs/positive_safe_integer"},"created_by_ref":{"$ref":"#/$defs/ref"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]}},"$defs":{"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##),
+    ("schema://ioi/components/hypervisor/foundry-run-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","title":"FoundryRunPlan","description":"THE ORDERED STAGES ONE FOUNDRY SPEC IS BUILT THROUGH, REGISTERED SO THE PLAN IS REFUSABLE BEFORE IT RUNS. Like its spec, this family has been served live and free-form: the route minted an unregistered `schema_version` and passed `stages` through untyped, so a plan naming a stage that does not exist was admitted as readily as one that does. THE STAGE VOCABULARY IS CLOSED exactly as canon closes it, and `stages` is `uniqueItems` because a stage listed twice is either a typo or a second pass the plan does not actually describe — both are better refused than run. `artifact_contract_refs` is where a plan names the contracts its outputs must satisfy, which is the seam that keeps a build's products admissible rather than merely produced; it is required, because a plan that promises no contract for its artifacts has promised nothing a consumer can check. `status` carries the same succession canon gives it, so an admitted plan that is replaced is superseded rather than deleted.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","run_plan_id","foundry_spec_ref","stages","executor_bindings","retry_policy_ref","checkpoint_policy_ref","timeout_policy_ref","artifact_contract_refs","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-run-plan.v1"},"run_plan_id":{"$ref":"#/$defs/ref"},"foundry_spec_ref":{"$ref":"#/$defs/ref"},"stage_graph_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stages":{"type":"array","minItems":1,"uniqueItems":true,"description":"Closed exactly as canon closes it, and unique: a stage listed twice is a typo or a second pass the plan does not describe, and both are better refused than run.","items":{"type":"string","enum":["data_prep","training","checkpointing","eval","packaging","registration","route_promotion"]}},"executor_bindings":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"retry_policy_ref":{"$ref":"#/$defs/ref"},"checkpoint_policy_ref":{"$ref":"#/$defs/ref"},"timeout_policy_ref":{"$ref":"#/$defs/ref"},"artifact_contract_refs":{"type":"array","minItems":1,"uniqueItems":true,"description":"The contracts this plan's outputs must satisfy. Required, because a plan promising no contract for its artifacts has promised nothing a consumer can check.","items":{"$ref":"#/$defs/ref"}},"status":{"type":"string","enum":["draft","admitted","running","completed","superseded"]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -163056,6 +163522,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/model-router/model-route-price-schedule/v1", r#"[{"rule_id":"model_route_price_schedule.window","description":"A schedule has a finite non-empty validity interval, so it cannot be born stale. Canon requires schedules to enter as EXPIRING advisory evidence where a stale schedule is a typed gap rather than a silently aged number; a record whose expiry does not follow its observation could never become that typed gap, because it was never fresh.","expression":{"operator":"numbers_lt","paths":["$.observed_at_ms","$.expires_at_ms"]}},{"rule_id":"model_route_price_schedule.components.non_empty","description":"A schedule prices at least one dimension. An empty schedule would rank a route at zero cost, which is the exact shape of reading an absence as a number.","expression":{"operator":"non_empty","path":"$.price_components"}}]"#),
     ("schema://ioi/components/model-router/model-route-cost-comparison/v1", r#"[{"rule_id":"model_route_cost_comparison.ranked.unique_route","description":"A route appears at most once in the ranking. The same route listed twice would be counted twice by any consumer that aggregates the list, and a duplicate carrying two different costs would let a reader pick the flattering one.","expression":{"operator":"array_unique_by_fields","array_path":"$.ranked_candidates","fields":["route_ref"]}},{"rule_id":"model_route_cost_comparison.ranked.unique_rank","description":"Two routes cannot hold the same rank. A ranking with a tie recorded as one position is not an ordering, and the consumer that reads position 1 would get an arbitrary winner.","expression":{"operator":"array_unique_by_fields","array_path":"$.ranked_candidates","fields":["rank"]}},{"rule_id":"model_route_cost_comparison.unranked.unique_route","description":"A route appears at most once among the typed gaps, so one missing-evidence route cannot be reported as several.","expression":{"operator":"array_unique_by_fields","array_path":"$.unranked_candidates","fields":["route_ref"]}},{"rule_id":"model_route_cost_comparison.excluded.unique_route","description":"A route appears at most once among the exclusions, so one ineligible route cannot be reported as several refusals.","expression":{"operator":"array_unique_by_fields","array_path":"$.excluded_candidates","fields":["route_ref"]}}]"#),
     ("schema://ioi/foundations/work-dimension-reservation/v1", r#"[{"rule_id":"work_dimension_reservation.transfer_names_its_successor","description":"A TRANSFERRED reservation names the claim its units moved to. Reassignment must be atomic, and the way a transfer leaks is precisely this: the source is marked transferred, the successor is never recorded, and the units belong to nobody while still counting against the ancestor. A record in that state cannot be admitted.","expression":{"operator":"non_empty_when_in","when_path":"$.status","values":["transferred"],"path":"$.transferred_to_ref"}},{"rule_id":"work_dimension_reservation.window","description":"A reservation has a finite non-empty lifetime. An unbounded claim never returns its units to the ancestor, which is oversubscription arriving slowly rather than at once.","expression":{"operator":"numbers_lt","paths":["$.created_at_ms","$.expires_at_ms"]}},{"rule_id":"work_dimension_reservation.narrows_an_ancestor","description":"A reservation narrows at least one ancestor bound. A claim that narrows nothing is not bounded by anything, and clause 8's whole subject is that concurrent child work cannot oversubscribe an ancestor.","expression":{"operator":"non_empty","path":"$.ancestor_chain"}}]"#),
+    ("schema://ioi/components/hypervisor/foundry-spec/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/foundry-run-plan/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -164294,6 +164762,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9+._-]*://[^\s]{1,500}$"#,
         r#"^[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9+._-]*://\S+$"#,
+        r#"^[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^[a-z][a-z0-9-]*(?:://|:)[^\s]+$"#,
@@ -168965,6 +169437,12 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-transfer-names-nobody.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-zero-units.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-dimension-reservation-v1/negative-narrows-nothing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/positive-complete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-unknown-training-mode.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-spec-v1/negative-no-base-model.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/positive-complete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-repeated-stage.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-run-plan-v1/negative-promises-no-artifact-contract.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -170298,6 +170776,16 @@ mod tests {
         },
         "schema://ioi/foundations/work-dimension-reservation/v1" => {
             serde_json::from_value::<WorkDimensionReservationV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-spec/v1" => {
+            serde_json::from_value::<FoundrySpecV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-run-plan/v1" => {
+            serde_json::from_value::<FoundryRunPlanV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -171637,6 +172125,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/foundry-spec/v1" => {
+            let projection = serde_json::from_value::<FoundrySpecV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-run-plan/v1" => {
+            let projection = serde_json::from_value::<FoundryRunPlanV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -171773,8 +172271,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1307,
-            "the registered golden corpus must remain the explicit 1307-fixture bar",
+            1313,
+            "the registered golden corpus must remain the explicit 1313-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -172016,7 +172514,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 903,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 904,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

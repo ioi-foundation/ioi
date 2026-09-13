@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/foundry-spec/v1",
+  "title": "FoundrySpec",
+  "description": "THE DECLARED INTENT OF ONE FOUNDRY BUILD, REGISTERED SO A MALFORMED ONE CANNOT BE ADMITTED. Canon has specified this family since foundry.md, and the daemon has served it live the whole time without a contract: the create route minted a `schema_version` string that appeared in no registry, never called the contract validator that hundreds of other call sites use, and passed its declared inputs through untyped — so every malformed body was a 201. Registering it is what turns that route's own vocabulary into something refusable OFFLINE. THE CLOSED VOCABULARIES ARE THE POINT: `training_mode` and `packaging_targets` are the two places where a typo becomes a build that does the wrong thing rather than a build that refuses, and both are closed here exactly as canon closes them. `version` and `status` carry the succession this family already has in canon, so a superseded spec is a state rather than a deletion. Every ref is a canonical scheme ref rather than a bare string, because a spec that names its base model as free text names nothing a resolver can follow.",
+  "x-ioi-schema-version": "ioi.components.hypervisor.foundry-spec.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "foundry_spec_id",
+    "foundry_project_ref",
+    "objective",
+    "task_family",
+    "base_model_refs",
+    "training_mode",
+    "dataset_snapshot_refs",
+    "packaging_targets",
+    "budget_policy_ref",
+    "eval_policy_ref",
+    "version",
+    "created_by_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "ioi.components.hypervisor.foundry-spec.v1" },
+    "foundry_spec_id": { "$ref": "#/$defs/ref" },
+    "foundry_project_ref": { "$ref": "#/$defs/ref" },
+    "objective": { "type": "string", "minLength": 1 },
+    "task_family": { "type": "string", "minLength": 1 },
+    "base_model_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" },
+      "description": "A build with no base model has nothing to build from; the floor is one."
+    },
+    "training_mode": {
+      "type": "string",
+      "description": "Closed exactly as canon closes it. A typo here is a build that trains the wrong way rather than one that refuses.",
+      "enum": [
+        "sft",
+        "adapter",
+        "full_finetune",
+        "distillation",
+        "preference_optimization",
+        "on_policy_correction",
+        "eval_only",
+        "packaging_only",
+        "route_policy_training",
+        "conductor_advisor_training"
+      ]
+    },
+    "dataset_snapshot_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "search_space_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "run_plan_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "packaging_targets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "adapter_merge",
+          "quantization",
+          "gguf",
+          "mlx",
+          "onnx",
+          "tensorrt",
+          "runtime_image",
+          "endpoint_package",
+          "model_card"
+        ]
+      }
+    },
+    "budget_policy_ref": { "$ref": "#/$defs/ref" },
+    "eval_policy_ref": { "$ref": "#/$defs/ref" },
+    "target_route_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "version": { "$ref": "#/$defs/positive_safe_integer" },
+    "created_by_ref": { "$ref": "#/$defs/ref" },
+    "status": { "type": "string", "enum": ["draft", "ready", "superseded", "archived"] }
+  },
+  "$defs": {
+    "positive_safe_integer": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://\\S+$" }
+  }
+}

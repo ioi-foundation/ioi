@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-spec.v1",
+  "foundry_spec_id": "foundry-spec://acme/summariser/2",
+  "foundry_project_ref": "foundry-project://acme/summariser",
+  "objective": "x",
+  "task_family": "summarization",
+  "base_model_refs": ["model://acme/base-7b"],
+  "training_mode": "fine_tune",
+  "dataset_snapshot_refs": [],
+  "search_space_ref": null,
+  "run_plan_ref": null,
+  "packaging_targets": [],
+  "budget_policy_ref": "budget://acme/foundry/q3",
+  "eval_policy_ref": "gate://acme/summary-quality/v2",
+  "target_route_ref": null,
+  "version": 1,
+  "created_by_ref": "org://acme",
+  "status": "draft"
+}

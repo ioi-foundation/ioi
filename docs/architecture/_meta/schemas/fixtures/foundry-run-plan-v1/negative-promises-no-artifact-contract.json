@@ -1,0 +1,13 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-run-plan.v1",
+  "run_plan_id": "run-plan://acme/summariser/3",
+  "foundry_spec_ref": "foundry-spec://acme/summariser/1",
+  "stage_graph_ref": null,
+  "stages": ["training"],
+  "executor_bindings": ["runtime://acme/trainer-a100"],
+  "retry_policy_ref": "policy://acme/foundry/retry",
+  "checkpoint_policy_ref": "policy://acme/foundry/checkpoint",
+  "timeout_policy_ref": "policy://acme/foundry/timeout",
+  "artifact_contract_refs": [],
+  "status": "draft"
+}

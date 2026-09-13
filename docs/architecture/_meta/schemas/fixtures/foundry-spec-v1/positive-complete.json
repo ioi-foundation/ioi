@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.components.hypervisor.foundry-spec.v1",
+  "foundry_spec_id": "foundry-spec://acme/summariser/1",
+  "foundry_project_ref": "foundry-project://acme/summariser",
+  "objective": "Reduce cost per successful summary while holding the quality gate",
+  "task_family": "summarization",
+  "base_model_refs": ["model://acme/base-7b"],
+  "training_mode": "adapter",
+  "dataset_snapshot_refs": ["dataset-snapshot://acme/summaries/2026-09-01"],
+  "search_space_ref": null,
+  "run_plan_ref": "run-plan://acme/summariser/1",
+  "packaging_targets": ["adapter_merge", "gguf"],
+  "budget_policy_ref": "budget://acme/foundry/q3",
+  "eval_policy_ref": "gate://acme/summary-quality/v2",
+  "target_route_ref": null,
+  "version": 1,
+  "created_by_ref": "org://acme",
+  "status": "draft"
+}
