@@ -197,13 +197,21 @@ const PINNED = {
   // standing-lease consumer loop and the standing-lease population drills among them — and two of
   // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
   // coverage count that lags its population stops being a closed world.
+  // 107 -> 108 (2026-09-13, M10.5): one absence-worded assertion joined, in
+  // `check:foundry-spec-contracts` — the pinned ABSENCE that the daemon no longer stamps canon's
+  // family names on records sharing one property with canon's shape.
+  //
+  // THIS PIN MOVES WHEN A NEW VERIFIER IS WRITTEN, not when the daemon changes, which is a
+  // different trigger from the other pins in this file and easy to miss for exactly that reason:
+  // authoring a gate that asserts an absence enlarges the population this gate counts. A unit that
+  // ships a verifier should expect this number to move even when it touched no route and no module.
   // 106 -> 107 (2026-09-12, leg 0 CI truth): exactly one absence-worded assertion joined, in
   // verify-hypervisor-project-discovery-proposal.mjs (M09.1, `a4f6987d9`) — the typed absence that
   // a proposal moves nothing anywhere. Attribution is EXACT rather than inferred: this gate's own
   // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
   // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
   // second stage holds at 17 while the first moves.
-  verifierAbsenceLabels: 107,
+  verifierAbsenceLabels: 108,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 
