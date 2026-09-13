@@ -11979,7 +11979,7 @@ export type FoundryDraftRunPlanV1 = {
 };
 
 export type FoundryQualifiedMeasurementV2 = {
-  schema_version: "ioi.foundations.foundry-qualified-measurement.v2";
+  schema_version: "ioi.foundry-qualified-measurement.v2";
   verdict: "qualified" | "rejected";
   quality: {
       token_coverage: number;
@@ -22593,7 +22593,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -22601,7 +22601,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -22609,7 +22609,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -26585,9 +26585,9 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json","mutation_id":null,"value_json":null}),
-  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","contract_id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","mutation_id":null,"value_json":null}),
-  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","contract_id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","mutation_id":null,"value_json":null}),
-  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","contract_id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27931,7 +27931,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-run-plan/v1": "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd",
   "schema://ioi/components/hypervisor/foundry-draft-spec/v1": "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822",
   "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7",
-  "schema://ioi/foundations/objects/foundry-qualified-measurement/v2": "sha256:20d5cdfbe470c7f43830ffc0f28eae2fb759e9f26b3daa096e7e417e5ac511a8"
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -120830,12 +120830,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/objects/foundry-qualified-measurement/v2": {
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "$id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
     "title": "FoundryQualifiedMeasurement",
     "description": "A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.",
-    "x-ioi-schema-version": "ioi.foundations.foundry-qualified-measurement.v2",
+    "x-ioi-schema-version": "ioi.foundry-qualified-measurement.v2",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -120848,7 +120848,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "properties": {
       "schema_version": {
         "type": "string",
-        "const": "ioi.foundations.foundry-qualified-measurement.v2"
+        "const": "ioi.foundry-qualified-measurement.v2"
       },
       "verdict": {
         "enum": [
@@ -137616,7 +137616,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/foundry-run-plan/v1": [],
   "schema://ioi/components/hypervisor/foundry-draft-spec/v1": [],
   "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": [],
-  "schema://ioi/foundations/objects/foundry-qualified-measurement/v2": []
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -140112,5 +140112,5 @@ export function validateFoundryDraftRunPlanV1(
 export function validateFoundryQualifiedMeasurementV2(
   value: unknown,
 ): value is FoundryQualifiedMeasurementV2 {
-  return validateArchitectureContract("schema://ioi/foundations/objects/foundry-qualified-measurement/v2", value).ok;
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", value).ok;
 }

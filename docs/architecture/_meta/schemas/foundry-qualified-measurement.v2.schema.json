@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+  "$id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
   "title": "FoundryQualifiedMeasurement",
   "description": "A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.",
-  "x-ioi-schema-version": "ioi.foundations.foundry-qualified-measurement.v2",
+  "x-ioi-schema-version": "ioi.foundry-qualified-measurement.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "ioi.foundations.foundry-qualified-measurement.v2"
+      "const": "ioi.foundry-qualified-measurement.v2"
     },
     "verdict": {
       "enum": [

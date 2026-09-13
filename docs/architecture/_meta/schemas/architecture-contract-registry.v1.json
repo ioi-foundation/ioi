@@ -11495,7 +11495,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+        "successor_contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": true,
@@ -15496,10 +15496,10 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+      "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
       "canonical_name": "FoundryQualifiedMeasurement",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md#bounded-executable-foundry-wire-contracts",
-      "schema_version": "ioi.foundations.foundry-qualified-measurement.v2",
+      "schema_version": "ioi.foundry-qualified-measurement.v2",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",

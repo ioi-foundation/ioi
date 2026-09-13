@@ -141,7 +141,8 @@
     "check:consumer-path-vocabulary": "node scripts/verify-hypervisor-consumer-path-vocabulary.mjs",
     "check:receipts-on-demand": "node scripts/verify-hypervisor-receipts-on-demand.mjs",
     "check:memory-provenance": "node scripts/verify-hypervisor-memory-provenance.mjs",
-    "check:work-lifecycle-reservations": "node scripts/verify-hypervisor-work-lifecycle-reservations.mjs --mutation"
+    "check:work-lifecycle-reservations": "node scripts/verify-hypervisor-work-lifecycle-reservations.mjs --mutation",
+    "check:foundry-spec-contracts": "node scripts/verify-hypervisor-foundry-spec-contracts.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

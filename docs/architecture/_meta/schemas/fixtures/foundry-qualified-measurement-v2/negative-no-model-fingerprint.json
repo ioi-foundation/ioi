@@ -1,5 +1,5 @@
 {
-  "schema_version": "ioi.foundations.foundry-qualified-measurement.v2",
+  "schema_version": "ioi.foundry-qualified-measurement.v2",
   "verdict": "qualified",
   "quality": {
     "token_coverage": 0.75,
