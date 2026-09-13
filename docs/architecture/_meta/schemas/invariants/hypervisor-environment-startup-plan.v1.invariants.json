@@ -1,0 +1,29 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-environment-startup-plan/exact-predecessor-binding/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_environment_startup_plan.plan_is_not_its_own_resolution",
+      "description": "A plan that names itself as the resolution it came from is a cycle, and a cycle here defeats the one-way rule canon states outright: the concrete startup plan points back to the exact recipe and resolution, never the reverse. Cheap to check and impossible to see by reading a record with forty-six refs in it.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.startup_plan_ref",
+          "$.development_environment_recipe_resolution_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct",
+      "description": "The resolution's hash covers a record that CONTAINS the recipe reference, so the two commitments cannot be the same bytes. Equality means one was copied into the other — the plausible defect when four hash fields are wired in a row — and it would leave the plan claiming to have frozen two predecessors while having frozen one.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.development_environment_recipe_content_hash",
+          "$.development_environment_recipe_resolution_hash"
+        ]
+      }
+    }
+  ]
+}

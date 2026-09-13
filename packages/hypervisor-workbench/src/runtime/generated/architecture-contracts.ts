@@ -2852,6 +2852,55 @@ export type HypervisorDevelopmentEnvironmentRecipeResolutionV1 = {
   created_at: string;
 };
 
+export type HypervisorEnvironmentStartupPlanV1 = {
+  schema_version: "ioi.hypervisor.environment-startup-plan.v1";
+  startup_plan_ref: string;
+  plan_hash: string;
+  environment_ref: string;
+  session_ref: string | null;
+  system_ref: string | null;
+  work_subject_ref: string | null;
+  development_environment_recipe_ref: string;
+  development_environment_recipe_content_hash: string;
+  development_environment_recipe_resolution_ref: string;
+  development_environment_recipe_resolution_hash: string;
+  placement_decision_ref: string;
+  runtime_assignment_ref: string | null;
+  runtime_operator: "ioi_managed" | "customer_managed" | "local" | "hybrid";
+  provider_account_ref: string | null;
+  provider_adapter_revision_ref: string | null;
+  source_ref: string;
+  artifact_ref: string;
+  configuration_ref: string;
+  ordered_task_refs: Array<string>;
+  service_refs: Array<string>;
+  agent_service_refs: Array<string>;
+  port_refs: Array<string>;
+  readiness_gate_ref: string;
+  connectivity_profile_ref: string;
+  resource_isolation_profile_ref: string;
+  custody_and_privacy_profile_refs: Array<string>;
+  temporal_verification_profile_ref: string;
+  authority_currentness_floor_ref: string;
+  lifecycle_continuity_floor_ref: string | null;
+  ordering_finality_profile_ref: string | null;
+  required_identity_context_ref: string;
+  required_authority_scope_refs: Array<string>;
+  resolved_authority_decision_refs: Array<string>;
+  authority_lease_refs: Array<string>;
+  capability_lease_refs: Array<string>;
+  required_secret_refs: Array<string>;
+  secret_capability_lease_refs: Array<string>;
+  required_scm_auth_refs: Array<string>;
+  resource_budget_ref: string;
+  budget_lease_ref: string | null;
+  resource_allocation_ref: string | null;
+  stop_policy_ref: string;
+  recovery_policy_ref: string;
+  rollback_policy_ref: string;
+  expected_receipt_contract_refs: Array<string>;
+};
+
 export type HypervisorDevelopmentEnvironmentRecipeV1 = {
   schema_version: "ioi.hypervisor.development-environment-recipe.v1";
   recipe_ref: string;
@@ -14629,6 +14678,70 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_environment_startup_plan.plan_is_not_its_own_resolution"
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
     "expected": "accept",
@@ -25663,6 +25776,14 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json","mutation_id":null,"value_json":null}),
@@ -27341,6 +27462,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^environment-port://[^\\s]{1,240}$",
   "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$",
   "^environment-service://[^\\s]{1,240}$",
+  "^environment-startup-plan://\\S+/revision/[0-9]+$",
   "^environment://[^\\s]{1,240}$",
   "^environment://[^\\s]{1,500}$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}$",
@@ -27822,6 +27944,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f",
   "schema://ioi/components/hypervisor/hypervisor-change-plan/v1": "sha256:32d6b5365cdc15a5c05b83f196ac0101758fad6534a5dbef7b30d99b55e0abf0",
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1": "sha256:590743d3cb2cb61408bb97680a6e82a0e0ba2a151cc25a9634e17fbdaf491368",
+  "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1": "sha256:0a051ec7bfdcb5fc6850b615bc5e809acc02574666c149883b83d03c40ad6861",
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377",
   "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1": "sha256:c358a0e549989aac8d0ef688f68286317959b6bd77c1b2a2a43ded71c2f616a8",
   "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1": "sha256:6b8e05c397f5ce106af734c9684f4eff933846f012a937bdff341f6909674d86",
@@ -50444,6 +50567,356 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "canonicalDateTime": {
         "type": "string",
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+    "title": "HypervisorEnvironmentStartupPlan",
+    "description": "THE IMMUTABLE BRIDGE FROM A RESOLVED RECIPE TO ONE CONCRETE STARTUP ATTEMPT, AND THE OBJECT ACC-11 CLAUSE 3 REQUIRES TO BE INSPECTABLE BEFORE IT RUNS. It freezes what will start, where, which dependencies and gates must become ready, and which evidence the lifecycle must emit. It does not execute, does not grant authority, does not own provider truth, and does not make readiness true by declaration. WHY IT IS A SEPARATE OBJECT FROM THE RESOLUTION IT COMES FROM: the same recipe resolves to DIFFERENT startup plans across local, customer-managed and IOI-managed postures, so a resolution that carried the concrete attempt would have to be rewritten per posture and would stop being the reusable thing it is. The plan points one-way back to the exact recipe and resolution and never the reverse. THERE IS NO `blocked_reason` HERE, AND ITS ABSENCE IS THE POINT. Canon: a refused candidate remains a resolution refusal or a startup-admission refusal; it never becomes an admitted startup plan with an embedded blockage. The resolution contract next door DOES carry `blocked_reason`, which is correct there and would be a category error here — an admitted plan that says why it cannot run is a record asserting two contradictory things, and something downstream will believe the wrong half. With `additionalProperties: false` a plan carrying one is refused rather than stored and explained. EVERY NULLABLE FIELD IS PRESENT AND NULL RATHER THAN ABSENT. `plan_hash` covers the body including every exact nullable System, work-subject, temporal, currentness-floor, continuity-floor and ordering/finality field, and a field cannot be inside a hash and absent at the same time. Present-and-null is a registered answer — this plan serves no System — where absent is a different record that happens to hash differently. CHANGE REQUIRES A SUCCESSOR, NEVER A PATCH. Changed placement, provider adapter, authority decision or lease, secret capability, readiness, privacy, budget or recovery resolution all mint a new plan; the revision-exact `startup_plan_ref` is what makes that enforceable rather than aspirational.",
+    "x-ioi-schema-version": "ioi.hypervisor.environment-startup-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "startup_plan_ref",
+      "plan_hash",
+      "environment_ref",
+      "session_ref",
+      "system_ref",
+      "work_subject_ref",
+      "development_environment_recipe_ref",
+      "development_environment_recipe_content_hash",
+      "development_environment_recipe_resolution_ref",
+      "development_environment_recipe_resolution_hash",
+      "placement_decision_ref",
+      "runtime_assignment_ref",
+      "runtime_operator",
+      "provider_account_ref",
+      "provider_adapter_revision_ref",
+      "source_ref",
+      "artifact_ref",
+      "configuration_ref",
+      "ordered_task_refs",
+      "service_refs",
+      "agent_service_refs",
+      "port_refs",
+      "readiness_gate_ref",
+      "connectivity_profile_ref",
+      "resource_isolation_profile_ref",
+      "custody_and_privacy_profile_refs",
+      "temporal_verification_profile_ref",
+      "authority_currentness_floor_ref",
+      "lifecycle_continuity_floor_ref",
+      "ordering_finality_profile_ref",
+      "required_identity_context_ref",
+      "required_authority_scope_refs",
+      "resolved_authority_decision_refs",
+      "authority_lease_refs",
+      "capability_lease_refs",
+      "required_secret_refs",
+      "secret_capability_lease_refs",
+      "required_scm_auth_refs",
+      "resource_budget_ref",
+      "budget_lease_ref",
+      "resource_allocation_ref",
+      "stop_policy_ref",
+      "recovery_policy_ref",
+      "rollback_policy_ref",
+      "expected_receipt_contract_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.environment-startup-plan.v1"
+      },
+      "startup_plan_ref": {
+        "type": "string",
+        "pattern": "^environment-startup-plan://\\S+/revision/[0-9]+$",
+        "description": "Revision-exact by shape. A plan reference without a revision is a mutable alias, and canon requires a SUCCESSOR plan for every change rather than a patch in place — a ref that can point at different bytes over time makes that requirement unenforceable."
+      },
+      "plan_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "Covers the canonical body from `schema_version` through `expected_receipt_contract_refs`, INCLUDING the allocated `startup_plan_ref` and every nullable field, and excluding only itself. Admission, execution, roots and receipts bind this hash from outside, so they cannot form a cycle with it."
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "session_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Required in fact when the environment serves an admitted System. That condition is not expressible in `ioi.portable-invariants.v1` — the language cannot read another plane's admission — so it is enforced in the admission transaction, where the System IS resolvable, rather than written as a rule that would not fire."
+      },
+      "work_subject_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "development_environment_recipe_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The owner-qualified name. Canon makes the historical bare `recipe_ref` spelling a READ-ONLY v1 compatibility alias: boundary adapters may read it, canonical state emits this. A generic recipe family is a defect because `DataRecipe`, `HypervisorSessionLaunchRecipe`, `WorkflowTemplate` and `GoalRunProfile` would all answer to it."
+      },
+      "development_environment_recipe_content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "The recipe by CONTENT, beside the recipe by name. Both, because a ref alone is an alias that can be repointed and a hash alone cannot be looked up. The admission recomputes this from the stored recipe and refuses a caller-asserted value (INV-37): a plan that took the caller's word for what the recipe said would freeze a claim rather than a recipe."
+      },
+      "development_environment_recipe_resolution_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "development_environment_recipe_resolution_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "placement_decision_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "runtime_assignment_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "runtime_operator": {
+        "enum": [
+          "ioi_managed",
+          "customer_managed",
+          "local",
+          "hybrid"
+        ]
+      },
+      "provider_account_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "provider_adapter_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "source_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "artifact_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "configuration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "ordered_task_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "ORDERED, so `uniqueItems` is deliberately absent here while every other ref list carries it: a task legitimately runs twice in one startup, and forbidding that would be the schema inventing a rule canon does not state."
+      },
+      "service_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Services the startup attempt must bring up."
+      },
+      "agent_service_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Agent services, named separately from ordinary services because they carry authority a service does not."
+      },
+      "port_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Declared ports. An endpoint not named here is undeclared, and the admission refuses the plan rather than opening it."
+      },
+      "readiness_gate_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "connectivity_profile_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Declared egress. Undeclared egress is the same class of defect as an undeclared port and is refused the same way."
+      },
+      "resource_isolation_profile_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "custody_and_privacy_profile_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Declared custody. A path or store outside these profiles is undeclared."
+      },
+      "temporal_verification_profile_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "authority_currentness_floor_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Freezing a predecessor is not the same as making it current forever. The floor is what the daemon revalidates against immediately before startup and at every consequential effect boundary; stale, revoked, exhausted or uncertain evidence blocks execution and requires a SUCCESSOR plan rather than execution from the frozen plan alone."
+      },
+      "lifecycle_continuity_floor_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ordering_finality_profile_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "required_identity_context_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "required_authority_scope_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Provider-neutral. Canon makes the historical `required_wallet_scope_refs` spelling a read-only v1 alias: a scope named after one custody provider cannot describe the others."
+      },
+      "resolved_authority_decision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "What was DECIDED, distinct from what was required — a plan that recorded only the requirement could not be audited against the decision that answered it."
+      },
+      "authority_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "capability_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required_secret_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "secret_capability_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "The leases that permit the secrets above. Named separately because a required secret with no lease is exactly the gap this pairing exists to make visible."
+      },
+      "required_scm_auth_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "resource_budget_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "budget_lease_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resource_allocation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stop_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "recovery_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "rollback_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "expected_receipt_contract_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "What the lifecycle MUST emit. The plan freezes the obligation; it does not make the receipts true by declaring them."
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
       }
     }
   },
@@ -124305,6 +124778,30 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1": [
+    {
+      "rule_id": "hypervisor_environment_startup_plan.plan_is_not_its_own_resolution",
+      "description": "A plan that names itself as the resolution it came from is a cycle, and a cycle here defeats the one-way rule canon states outright: the concrete startup plan points back to the exact recipe and resolution, never the reverse. Cheap to check and impossible to see by reading a record with forty-six refs in it.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.startup_plan_ref",
+          "$.development_environment_recipe_resolution_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct",
+      "description": "The resolution's hash covers a record that CONTAINS the recipe reference, so the two commitments cannot be the same bytes. Equality means one was copied into the other — the plausible defect when four hash fields are wired in a row — and it would leave the plan claiming to have frozen two predecessors while having frozen one.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.development_environment_recipe_content_hash",
+          "$.development_environment_recipe_resolution_hash"
+        ]
+      }
+    }
+  ],
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": [
     {
       "rule_id": "hypervisor_development_environment_recipe.init_tasks.unique_names",
@@ -139221,6 +139718,12 @@ export function validateHypervisorDevelopmentEnvironmentRecipeResolutionV1(
   value: unknown,
 ): value is HypervisorDevelopmentEnvironmentRecipeResolutionV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", value).ok;
+}
+
+export function validateHypervisorEnvironmentStartupPlanV1(
+  value: unknown,
+): value is HypervisorEnvironmentStartupPlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", value).ok;
 }
 
 export function validateHypervisorDevelopmentEnvironmentRecipeV1(

@@ -1,0 +1,71 @@
+{
+  "schema_version": "ioi.hypervisor.environment-startup-plan.v1",
+  "startup_plan_ref": "environment-startup-plan://hypervisor/env-7/revision/1",
+  "plan_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "environment_ref": "environment://hypervisor/env-7",
+  "session_ref": null,
+  "system_ref": null,
+  "work_subject_ref": null,
+  "development_environment_recipe_ref": "development-environment-recipe://hypervisor/node-20/revision/3",
+  "development_environment_recipe_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "development_environment_recipe_resolution_ref": "environment-recipe-resolution://hypervisor/reso-9",
+  "development_environment_recipe_resolution_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "placement_decision_ref": "placement-decision://hypervisor/pld-4",
+  "runtime_assignment_ref": null,
+  "runtime_operator": "local",
+  "provider_account_ref": null,
+  "provider_adapter_revision_ref": null,
+  "source_ref": "source://hypervisor/repo-1",
+  "artifact_ref": "artifact://hypervisor/build-1",
+  "configuration_ref": "configuration://hypervisor/cfg-1",
+  "ordered_task_refs": [
+    "task://hypervisor/install",
+    "task://hypervisor/build",
+    "task://hypervisor/install"
+  ],
+  "service_refs": [
+    "service://hypervisor/postgres"
+  ],
+  "agent_service_refs": [],
+  "port_refs": [
+    "port://hypervisor/env-7/5432"
+  ],
+  "readiness_gate_ref": "readiness-gate://hypervisor/gate-2",
+  "connectivity_profile_ref": "connectivity-profile://hypervisor/loopback-only",
+  "resource_isolation_profile_ref": "resource-isolation-profile://hypervisor/standard",
+  "custody_and_privacy_profile_refs": [
+    "custody-profile://hypervisor/workspace-local"
+  ],
+  "temporal_verification_profile_ref": "temporal-verification-profile://hypervisor/local-clock",
+  "authority_currentness_floor_ref": "authority-currentness-floor://hypervisor/floor-1",
+  "lifecycle_continuity_floor_ref": null,
+  "ordering_finality_profile_ref": null,
+  "required_identity_context_ref": "identity-context://hypervisor/local-operator",
+  "required_authority_scope_refs": [
+    "authority-scope://hypervisor/environment.start"
+  ],
+  "resolved_authority_decision_refs": [
+    "authority-decision://hypervisor/dec-1"
+  ],
+  "authority_lease_refs": [
+    "authority-lease://hypervisor/lease-1"
+  ],
+  "capability_lease_refs": [],
+  "required_secret_refs": [
+    "secret://hypervisor/db-password"
+  ],
+  "secret_capability_lease_refs": [
+    "capability-lease://hypervisor/secret-lease-1"
+  ],
+  "required_scm_auth_refs": [],
+  "resource_budget_ref": "budget://hypervisor/env-budget-1",
+  "budget_lease_ref": null,
+  "resource_allocation_ref": null,
+  "stop_policy_ref": "stop-policy://hypervisor/graceful",
+  "recovery_policy_ref": "recovery-policy://hypervisor/restart-once",
+  "rollback_policy_ref": "rollback-policy://hypervisor/revert-to-previous",
+  "expected_receipt_contract_refs": [
+    "schema://ioi/components/hypervisor/hypervisor-environment-startup-execution/v1"
+  ],
+  "blocked_reason": "secret_lease_missing"
+}

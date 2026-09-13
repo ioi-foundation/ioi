@@ -121,6 +121,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f"),
     ("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", "sha256:32d6b5365cdc15a5c05b83f196ac0101758fad6534a5dbef7b30d99b55e0abf0"),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", "sha256:590743d3cb2cb61408bb97680a6e82a0e0ba2a151cc25a9634e17fbdaf491368"),
+    ("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", "sha256:0a051ec7bfdcb5fc6850b615bc5e809acc02574666c149883b83d03c40ad6861"),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377"),
     ("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", "sha256:c358a0e549989aac8d0ef688f68286317959b6bd77c1b2a2a43ded71c2f616a8"),
     ("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", "sha256:6b8e05c397f5ce106af734c9684f4eff933846f012a937bdff341f6909674d86"),
@@ -30675,6 +30676,414 @@ pub enum HypervisorDevelopmentEnvironmentRecipeResolutionV1ResolvedPortsItemAcce
     SessionLease,
     #[serde(rename = r#"shared"#)]
     Shared,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorEnvironmentStartupPlanV1 {
+    pub schema_version: HypervisorEnvironmentStartupPlanV1SchemaVersion,
+    pub startup_plan_ref: String,
+    pub plan_hash: String,
+    pub environment_ref: String,
+    pub session_ref: Option<String>,
+    pub system_ref: Option<String>,
+    pub work_subject_ref: Option<String>,
+    pub development_environment_recipe_ref: String,
+    pub development_environment_recipe_content_hash: String,
+    pub development_environment_recipe_resolution_ref: String,
+    pub development_environment_recipe_resolution_hash: String,
+    pub placement_decision_ref: String,
+    pub runtime_assignment_ref: Option<String>,
+    pub runtime_operator: HypervisorEnvironmentStartupPlanV1RuntimeOperator,
+    pub provider_account_ref: Option<String>,
+    pub provider_adapter_revision_ref: Option<String>,
+    pub source_ref: String,
+    pub artifact_ref: String,
+    pub configuration_ref: String,
+    pub ordered_task_refs: Vec<String>,
+    pub service_refs: Vec<String>,
+    pub agent_service_refs: Vec<String>,
+    pub port_refs: Vec<String>,
+    pub readiness_gate_ref: String,
+    pub connectivity_profile_ref: String,
+    pub resource_isolation_profile_ref: String,
+    pub custody_and_privacy_profile_refs: Vec<String>,
+    pub temporal_verification_profile_ref: String,
+    pub authority_currentness_floor_ref: String,
+    pub lifecycle_continuity_floor_ref: Option<String>,
+    pub ordering_finality_profile_ref: Option<String>,
+    pub required_identity_context_ref: String,
+    pub required_authority_scope_refs: Vec<String>,
+    pub resolved_authority_decision_refs: Vec<String>,
+    pub authority_lease_refs: Vec<String>,
+    pub capability_lease_refs: Vec<String>,
+    pub required_secret_refs: Vec<String>,
+    pub secret_capability_lease_refs: Vec<String>,
+    pub required_scm_auth_refs: Vec<String>,
+    pub resource_budget_ref: String,
+    pub budget_lease_ref: Option<String>,
+    pub resource_allocation_ref: Option<String>,
+    pub stop_policy_ref: String,
+    pub recovery_policy_ref: String,
+    pub rollback_policy_ref: String,
+    pub expected_receipt_contract_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorEnvironmentStartupPlanV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","title":"HypervisorEnvironmentStartupPlan","description":"THE IMMUTABLE BRIDGE FROM A RESOLVED RECIPE TO ONE CONCRETE STARTUP ATTEMPT, AND THE OBJECT ACC-11 CLAUSE 3 REQUIRES TO BE INSPECTABLE BEFORE IT RUNS. It freezes what will start, where, which dependencies and gates must become ready, and which evidence the lifecycle must emit. It does not execute, does not grant authority, does not own provider truth, and does not make readiness true by declaration. WHY IT IS A SEPARATE OBJECT FROM THE RESOLUTION IT COMES FROM: the same recipe resolves to DIFFERENT startup plans across local, customer-managed and IOI-managed postures, so a resolution that carried the concrete attempt would have to be rewritten per posture and would stop being the reusable thing it is. The plan points one-way back to the exact recipe and resolution and never the reverse. THERE IS NO `blocked_reason` HERE, AND ITS ABSENCE IS THE POINT. Canon: a refused candidate remains a resolution refusal or a startup-admission refusal; it never becomes an admitted startup plan with an embedded blockage. The resolution contract next door DOES carry `blocked_reason`, which is correct there and would be a category error here — an admitted plan that says why it cannot run is a record asserting two contradictory things, and something downstream will believe the wrong half. With `additionalProperties: false` a plan carrying one is refused rather than stored and explained. EVERY NULLABLE FIELD IS PRESENT AND NULL RATHER THAN ABSENT. `plan_hash` covers the body including every exact nullable System, work-subject, temporal, currentness-floor, continuity-floor and ordering/finality field, and a field cannot be inside a hash and absent at the same time. Present-and-null is a registered answer — this plan serves no System — where absent is a different record that happens to hash differently. CHANGE REQUIRES A SUCCESSOR, NEVER A PATCH. Changed placement, provider adapter, authority decision or lease, secret capability, readiness, privacy, budget or recovery resolution all mint a new plan; the revision-exact `startup_plan_ref` is what makes that enforceable rather than aspirational.","x-ioi-schema-version":"ioi.hypervisor.environment-startup-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","startup_plan_ref","plan_hash","environment_ref","session_ref","system_ref","work_subject_ref","development_environment_recipe_ref","development_environment_recipe_content_hash","development_environment_recipe_resolution_ref","development_environment_recipe_resolution_hash","placement_decision_ref","runtime_assignment_ref","runtime_operator","provider_account_ref","provider_adapter_revision_ref","source_ref","artifact_ref","configuration_ref","ordered_task_refs","service_refs","agent_service_refs","port_refs","readiness_gate_ref","connectivity_profile_ref","resource_isolation_profile_ref","custody_and_privacy_profile_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","required_identity_context_ref","required_authority_scope_refs","resolved_authority_decision_refs","authority_lease_refs","capability_lease_refs","required_secret_refs","secret_capability_lease_refs","required_scm_auth_refs","resource_budget_ref","budget_lease_ref","resource_allocation_ref","stop_policy_ref","recovery_policy_ref","rollback_policy_ref","expected_receipt_contract_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.environment-startup-plan.v1"},"startup_plan_ref":{"type":"string","pattern":"^environment-startup-plan://\\S+/revision/[0-9]+$","description":"Revision-exact by shape. A plan reference without a revision is a mutable alias, and canon requires a SUCCESSOR plan for every change rather than a patch in place — a ref that can point at different bytes over time makes that requirement unenforceable."},"plan_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Covers the canonical body from `schema_version` through `expected_receipt_contract_refs`, INCLUDING the allocated `startup_plan_ref` and every nullable field, and excluding only itself. Admission, execution, roots and receipts bind this hash from outside, so they cannot form a cycle with it."},"environment_ref":{"$ref":"#/$defs/ref"},"session_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"system_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Required in fact when the environment serves an admitted System. That condition is not expressible in `ioi.portable-invariants.v1` — the language cannot read another plane's admission — so it is enforced in the admission transaction, where the System IS resolvable, rather than written as a rule that would not fire."},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"development_environment_recipe_ref":{"$ref":"#/$defs/ref","description":"The owner-qualified name. Canon makes the historical bare `recipe_ref` spelling a READ-ONLY v1 compatibility alias: boundary adapters may read it, canonical state emits this. A generic recipe family is a defect because `DataRecipe`, `HypervisorSessionLaunchRecipe`, `WorkflowTemplate` and `GoalRunProfile` would all answer to it."},"development_environment_recipe_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The recipe by CONTENT, beside the recipe by name. Both, because a ref alone is an alias that can be repointed and a hash alone cannot be looked up. The admission recomputes this from the stored recipe and refuses a caller-asserted value (INV-37): a plan that took the caller's word for what the recipe said would freeze a claim rather than a recipe."},"development_environment_recipe_resolution_ref":{"$ref":"#/$defs/ref"},"development_environment_recipe_resolution_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"placement_decision_ref":{"$ref":"#/$defs/ref"},"runtime_assignment_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"runtime_operator":{"enum":["ioi_managed","customer_managed","local","hybrid"]},"provider_account_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"provider_adapter_revision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"source_ref":{"$ref":"#/$defs/ref"},"artifact_ref":{"$ref":"#/$defs/ref"},"configuration_ref":{"$ref":"#/$defs/ref"},"ordered_task_refs":{"type":"array","items":{"$ref":"#/$defs/ref"},"description":"ORDERED, so `uniqueItems` is deliberately absent here while every other ref list carries it: a task legitimately runs twice in one startup, and forbidding that would be the schema inventing a rule canon does not state."},"service_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Services the startup attempt must bring up."},"agent_service_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Agent services, named separately from ordinary services because they carry authority a service does not."},"port_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Declared ports. An endpoint not named here is undeclared, and the admission refuses the plan rather than opening it."},"readiness_gate_ref":{"$ref":"#/$defs/ref"},"connectivity_profile_ref":{"$ref":"#/$defs/ref","description":"Declared egress. Undeclared egress is the same class of defect as an undeclared port and is refused the same way."},"resource_isolation_profile_ref":{"$ref":"#/$defs/ref"},"custody_and_privacy_profile_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Declared custody. A path or store outside these profiles is undeclared."},"temporal_verification_profile_ref":{"$ref":"#/$defs/ref"},"authority_currentness_floor_ref":{"$ref":"#/$defs/ref","description":"Freezing a predecessor is not the same as making it current forever. The floor is what the daemon revalidates against immediately before startup and at every consequential effect boundary; stale, revoked, exhausted or uncertain evidence blocks execution and requires a SUCCESSOR plan rather than execution from the frozen plan alone."},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"required_identity_context_ref":{"$ref":"#/$defs/ref"},"required_authority_scope_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Provider-neutral. Canon makes the historical `required_wallet_scope_refs` spelling a read-only v1 alias: a scope named after one custody provider cannot describe the others."},"resolved_authority_decision_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What was DECIDED, distinct from what was required — a plan that recorded only the requirement could not be audited against the decision that answered it."},"authority_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"capability_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"required_secret_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"secret_capability_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The leases that permit the secrets above. Named separately because a required secret with no lease is exactly the gap this pairing exists to make visible."},"required_scm_auth_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"resource_budget_ref":{"$ref":"#/$defs/ref"},"budget_lease_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"resource_allocation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stop_policy_ref":{"$ref":"#/$defs/ref"},"recovery_policy_ref":{"$ref":"#/$defs/ref"},"rollback_policy_ref":{"$ref":"#/$defs/ref"},"expected_receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What the lifecycle MUST emit. The plan freezes the obligation; it does not make the receipts true by declaring them."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<HypervisorEnvironmentStartupPlanV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            startup_plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"startup_plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"startup_plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            development_environment_recipe_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"development_environment_recipe_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"development_environment_recipe_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            development_environment_recipe_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"development_environment_recipe_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"development_environment_recipe_content_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            development_environment_recipe_resolution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"development_environment_recipe_resolution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"development_environment_recipe_resolution_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            development_environment_recipe_resolution_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"development_environment_recipe_resolution_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"development_environment_recipe_resolution_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            placement_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"placement_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"placement_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_assignment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"runtime_assignment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_assignment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_operator: serde_json::from_value::<
+                HypervisorEnvironmentStartupPlanV1RuntimeOperator,
+            >(
+                object
+                    .remove(r#"runtime_operator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_operator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_account_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"provider_account_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_account_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_adapter_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"provider_adapter_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"provider_adapter_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            configuration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"configuration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"configuration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordered_task_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ordered_task_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ordered_task_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            service_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"service_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"service_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agent_service_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"agent_service_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agent_service_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            port_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"port_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"port_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            readiness_gate_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"readiness_gate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"readiness_gate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connectivity_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connectivity_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connectivity_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_isolation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resource_isolation_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resource_isolation_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            custody_and_privacy_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"custody_and_privacy_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"custody_and_privacy_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_verification_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"temporal_verification_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_verification_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_currentness_floor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_currentness_floor_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_currentness_floor_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_continuity_floor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"lifecycle_continuity_floor_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_continuity_floor_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_finality_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ordering_finality_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ordering_finality_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_identity_context_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"required_identity_context_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_identity_context_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_authority_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_authority_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_authority_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_authority_decision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_authority_decision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_secret_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_secret_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_secret_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            secret_capability_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"secret_capability_lease_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"secret_capability_lease_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scm_auth_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_scm_auth_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scm_auth_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_budget_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resource_budget_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_budget_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"budget_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_allocation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resource_allocation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_allocation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stop_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stop_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stop_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recovery_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recovery_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recovery_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rollback_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_receipt_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"expected_receipt_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_receipt_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorEnvironmentStartupPlanV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.environment-startup-plan.v1"#)]
+    IoiHypervisorEnvironmentStartupPlanV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorEnvironmentStartupPlanV1RuntimeOperator {
+    #[serde(rename = r#"ioi_managed"#)]
+    IoiManaged,
+    #[serde(rename = r#"customer_managed"#)]
+    CustomerManaged,
+    #[serde(rename = r#"local"#)]
+    Local,
+    #[serde(rename = r#"hybrid"#)]
+    Hybrid,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -139316,6 +139725,70 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("hypervisor_environment_startup_plan.plan_is_not_its_own_resolution"),
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
         expected_accept: true,
@@ -152510,6 +152983,94 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1"#,
         source_fixture_path: Some(
@@ -165088,6 +165649,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/harness-session-terminal-attach/v1","title":"HarnessSessionTerminalAttach","description":"The terminal-attach admission the runtime kernel composes from an admitted HarnessSessionSpawn and its matching HarnessSessionReadiness (runtime_harness_session_terminal_attach_admission.rs): the client may create and write the host PTY only after this record binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root. The client attach contract carries the daemon-resolved command line, its initial write, and the client-custody PTY transport; the transcript projection opens awaiting the client stream with the daemon-resolved command as its stdin line. The client is a PTY transport, never the source of runtime truth.","x-ioi-schema-version":"ioi.runtime.harness_session_terminal_attach.v1","type":"object","additionalProperties":false,"required":["schema_version","attach_id","decision","attach_state","attach_lane","spawn_id","readiness_id","session_binding_ref","session_route_ref","agent_harness_adapter_id","client_attach_contract","terminal_transcript_projection","authority_scope_refs","receipt_refs","agentgres_operation_refs","state_root","attached_at","requiresDaemonGate","runtimeTruthSource","terminal_attach_invariant"],"properties":{"schema_version":{"const":"ioi.runtime.harness_session_terminal_attach.v1"},"attach_id":{"type":"string","pattern":"^harness-session-terminal-attach:[^\\s]{1,300}$"},"decision":{"const":"admitted"},"attach_state":{"const":"client_pty_attach_admitted"},"attach_lane":{"const":"hypervisor_client_terminal_adapter"},"spawn_id":{"type":"string","minLength":1,"maxLength":300},"readiness_id":{"type":"string","minLength":1,"maxLength":300},"launch_id":{"type":"string","minLength":1,"maxLength":300},"session_binding_ref":{"type":"string","pattern":"^harness-session-binding:[^\\s]{1,400}$"},"session_route_ref":{"type":"string","pattern":"^session-route:[^\\s]{1,240}$"},"harness_selection_ref":{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"},"agent_harness_adapter_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"model_configuration_ref":{"type":"string","pattern":"^model-config:[^\\s]{1,240}$"},"model_route_ref":{"type":"string","pattern":"^model-route:[^\\s]{1,240}$"},"model_name":{"type":"string","minLength":1,"maxLength":200},"workspace_ref":{"type":"string","pattern":"^workspace://[^\\s]{1,240}$"},"workspace_root":{"type":"string","minLength":1,"maxLength":400},"terminal_session_ref":{"type":"string","minLength":1,"maxLength":240},"command_contract_ref":{"type":"string","minLength":1,"maxLength":240},"command_contract":{"type":"object","additionalProperties":false,"required":["pty_transport"],"properties":{"pty_transport":{"const":"hypervisor_client_terminal_adapter"},"process_custody":{"const":"client_host_pty_after_daemon_spawn_admission"},"resolved_argv":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","minLength":1,"maxLength":400}}}},"workspace_mount_policy":{"enum":["public_trunk","redacted_projection","plain_workspace","ctee_private_workspace"]},"privacy_posture_ref":{"type":"string","pattern":"^privacy:[^\\s]{1,200}$"},"receipt_policy_ref":{"type":"string","pattern":"^receipt-policy:[^\\s]{1,240}$"},"client_attach_contract":{"type":"object","additionalProperties":false,"required":["command_line","initial_write","transcript_stream_ref","pty_transport","process_custody"],"properties":{"command_line":{"type":"string","minLength":1,"maxLength":2000},"initial_write":{"type":"string","minLength":2,"maxLength":2001},"transcript_stream_ref":{"type":"string","pattern":"^agentgres://trace/[^\\s]{1,240}$"},"pty_transport":{"const":"hypervisor_client_terminal_adapter"},"process_custody":{"const":"client_host_pty_after_daemon_attach_admission"},"root":{"type":"string","minLength":1,"maxLength":400},"rows":{"type":"integer","minimum":1,"maximum":10000},"cols":{"type":"integer","minimum":1,"maximum":10000}}},"terminal_transcript_projection":{"type":"object","additionalProperties":false,"required":["schema_version","transcript_id","transcript_state","transcript_stream_ref","cursor","lines","runtimeTruthSource"],"properties":{"schema_version":{"const":"ioi.runtime.harness_terminal_transcript_projection.v1"},"transcript_id":{"type":"string","pattern":"^harness-terminal-transcript:[^\\s]{1,300}$"},"transcript_state":{"const":"awaiting_client_stream"},"transcript_stream_ref":{"type":"string","pattern":"^agentgres://trace/[^\\s]{1,240}$"},"cursor":{"type":"integer","minimum":0,"maximum":0},"lines":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"object","additionalProperties":false,"required":["stream","text"],"properties":{"stream":{"enum":["system","stdin"]},"text":{"type":"string","minLength":1,"maxLength":2000}}}},"runtimeTruthSource":{"const":"daemon-runtime"}}},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^scope:[^\\s]{1,200}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":48,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"agentgres_operation_refs":{"type":"array","minItems":1,"maxItems":48,"items":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,240}$"}},"state_root":{"type":"string","pattern":"^agentgres://state-root/[^\\s]{1,240}$"},"attached_at":{"$ref":"#/$defs/canonicalDateTime"},"requiresDaemonGate":{"const":true},"runtimeTruthSource":{"const":"daemon-runtime"},"terminal_attach_invariant":{"const":"The client may create and write to the host PTY only after the daemon binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root in this attach object."}},"$defs":{"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","title":"HypervisorChangePlan","description":"The immutable, inspectable unit of environment change for the admitted plan type environment_restore: ordered stages with per-stage preconditions and evidence requirements, the restore binding that references source material only through its backup manifest commitment, and the forward-only activation binding over the exact expected active head and candidate generation. The plan hash covers the complete immutable body and excludes only itself; state roots, receipts, observations, execution output, and refusal reasons are never members of that preimage. Stage progress, admission, execution, and refusal are distinct committed records — they never rewrite this plan.","x-ioi-schema-version":"ioi.hypervisor-change-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","plan_hash","target_ref","observed_ref","system_ref","work_subject_ref","plan_type","steps","rollback_steps","gate_refs","affected_refs","maintenance_window_ref","suppression_window_ref","authority_scope_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","activation","restore"],"properties":{"schema_version":{"const":"ioi.hypervisor-change-plan.v1"},"plan_ref":{"type":"string","pattern":"^change-plan://[^\\s]{1,240}$"},"plan_hash":{"$ref":"#/$defs/hash"},"target_ref":{"type":"string","pattern":"^(?:target-state|agentgres)://[^\\s]{1,240}$"},"observed_ref":{"type":"string","pattern":"^(?:observed-state|agentgres)://[^\\s]{1,240}$"},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"plan_type":{"const":"environment_restore"},"steps":{"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"rollback_steps":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"gate_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"}},"affected_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}},"maintenance_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"suppression_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^scope:[a-z0-9_.:-]{1,120}$"}},"temporal_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"authority_currentness_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"activation":{"type":"object","additionalProperties":false,"required":["activation_target_ref","expected_active_head_ref","candidate_ref","candidate_generation","adjudication_requirement_ref"],"properties":{"activation_target_ref":{"$ref":"#/$defs/canonicalRef"},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"candidate_ref":{"$ref":"#/$defs/canonicalRef"},"candidate_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"adjudication_requirement_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"restore":{"type":"object","additionalProperties":false,"required":["source_backup_ref","restore_manifest_ref","restore_manifest_root","restore_scope","target_environment_ref","target_generation_or_writer_fence_ref","pre_restore_checkpoint_ref","overwrite_or_clear_policy_ref","compatibility_validation_refs","source_root_and_head_expectations","suffix_disposition","target_read_only_preflight_ref","target_read_only_preflight_hash","target_preflight_valid_until","post_restore_readiness_gate_ref","post_restore_root_validation_contract_ref"],"properties":{"source_backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"restore_manifest_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},{"type":"null"}]},"restore_manifest_root":{"$ref":"#/$defs/hash"},"restore_scope":{"enum":["whole_environment","workspace","service","volume","declared_objects"]},"target_environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"target_generation_or_writer_fence_ref":{"$ref":"#/$defs/canonicalRef"},"pre_restore_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"overwrite_or_clear_policy_ref":{"$ref":"#/$defs/policyRef"},"compatibility_validation_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"source_root_and_head_expectations":{"type":"object","additionalProperties":false,"required":["source_state_root_ref","source_object_head_refs"],"properties":{"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}}}},"suffix_disposition":{"enum":["replay","import","explicitly_lost","not_applicable"]},"target_read_only_preflight_ref":{"type":"string","pattern":"^evidence://[^\\s]{1,240}$"},"target_read_only_preflight_hash":{"$ref":"#/$defs/hash"},"target_preflight_valid_until":{"$ref":"#/$defs/canonicalDateTime"},"post_restore_readiness_gate_ref":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"},"post_restore_root_validation_contract_ref":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}}}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"planStep":{"type":"object","additionalProperties":false,"required":["step_index","kind","precondition_refs","evidence_requirement_refs"],"properties":{"step_index":{"type":"integer","minimum":1,"maximum":16},"kind":{"enum":["read_only_preflight","restore_apply","post_restore_validation","activation","cleanup_reconciliation"]},"precondition_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"evidence_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}}}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","title":"HypervisorDevelopmentEnvironmentRecipeResolution","description":"The daemon-produced decision that turns one admitted development-environment recipe into concrete environment ingredients for one exact environment (recipe_routes.rs resolve_recipe): resolved substrate/tasks/services/ports plus the required task, service, port, secret, and SCM-auth edges that its readiness gate must prove. A resolution always binds the exact recipe_ref and environment_ref it resolved; a blocked candidate is a refusal, never a partially populated resolution, so blocked_reason is structurally null. The implementation's wire literal is ioi.hypervisor.environment-recipe-resolution.v1; the canon-name divergence is recorded at the canonical owner.","x-ioi-schema-version":"ioi.hypervisor.environment-recipe-resolution.v1","type":"object","additionalProperties":false,"required":["schema_version","recipe_ref","environment_ref","resolved_substrate","resolved_tasks","resolved_prebuild_tasks","resolved_services","resolved_ports","required_task_refs","required_service_refs","required_port_refs","required_secret_refs","required_scm_auth_refs","readiness_gate_ref","resolution_ref","blocked_reason","created_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.environment-recipe-resolution.v1"},"recipe_ref":{"type":"string","pattern":"^recipe_[0-9a-f]{1,32}$"},"environment_ref":{"type":"string","minLength":1,"maxLength":240},"resolved_substrate":{"enum":["local_host","devcontainer","container"]},"resolved_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"resolved_prebuild_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"resolved_services":{"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["name","command","lifecycle","trigger"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"lifecycle":{"enum":["optional","required"]},"trigger":{"enum":["post_start","environment_start"]}}}},"resolved_ports":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["port","protocol","access_policy"],"properties":{"port":{"type":"integer","minimum":1,"maximum":65535},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"]}}}},"required_task_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":200}},"required_service_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":200}},"required_port_refs":{"type":"array","maxItems":64,"items":{"type":"integer","minimum":1,"maximum":65535}},"required_secret_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"required_scm_auth_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"readiness_gate_ref":{"type":"string","pattern":"^gate_[0-9a-f]{1,32}$"},"resolution_ref":{"type":"string","pattern":"^reso_[0-9a-f]{1,32}$"},"blocked_reason":{"type":"null"},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"task":{"type":"object","additionalProperties":false,"required":["name","command","trigger","required"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"trigger":{"enum":["prebuild","environment_start","post_start"]},"required":{"type":"boolean"}}},"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","title":"HypervisorEnvironmentStartupPlan","description":"THE IMMUTABLE BRIDGE FROM A RESOLVED RECIPE TO ONE CONCRETE STARTUP ATTEMPT, AND THE OBJECT ACC-11 CLAUSE 3 REQUIRES TO BE INSPECTABLE BEFORE IT RUNS. It freezes what will start, where, which dependencies and gates must become ready, and which evidence the lifecycle must emit. It does not execute, does not grant authority, does not own provider truth, and does not make readiness true by declaration. WHY IT IS A SEPARATE OBJECT FROM THE RESOLUTION IT COMES FROM: the same recipe resolves to DIFFERENT startup plans across local, customer-managed and IOI-managed postures, so a resolution that carried the concrete attempt would have to be rewritten per posture and would stop being the reusable thing it is. The plan points one-way back to the exact recipe and resolution and never the reverse. THERE IS NO `blocked_reason` HERE, AND ITS ABSENCE IS THE POINT. Canon: a refused candidate remains a resolution refusal or a startup-admission refusal; it never becomes an admitted startup plan with an embedded blockage. The resolution contract next door DOES carry `blocked_reason`, which is correct there and would be a category error here — an admitted plan that says why it cannot run is a record asserting two contradictory things, and something downstream will believe the wrong half. With `additionalProperties: false` a plan carrying one is refused rather than stored and explained. EVERY NULLABLE FIELD IS PRESENT AND NULL RATHER THAN ABSENT. `plan_hash` covers the body including every exact nullable System, work-subject, temporal, currentness-floor, continuity-floor and ordering/finality field, and a field cannot be inside a hash and absent at the same time. Present-and-null is a registered answer — this plan serves no System — where absent is a different record that happens to hash differently. CHANGE REQUIRES A SUCCESSOR, NEVER A PATCH. Changed placement, provider adapter, authority decision or lease, secret capability, readiness, privacy, budget or recovery resolution all mint a new plan; the revision-exact `startup_plan_ref` is what makes that enforceable rather than aspirational.","x-ioi-schema-version":"ioi.hypervisor.environment-startup-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","startup_plan_ref","plan_hash","environment_ref","session_ref","system_ref","work_subject_ref","development_environment_recipe_ref","development_environment_recipe_content_hash","development_environment_recipe_resolution_ref","development_environment_recipe_resolution_hash","placement_decision_ref","runtime_assignment_ref","runtime_operator","provider_account_ref","provider_adapter_revision_ref","source_ref","artifact_ref","configuration_ref","ordered_task_refs","service_refs","agent_service_refs","port_refs","readiness_gate_ref","connectivity_profile_ref","resource_isolation_profile_ref","custody_and_privacy_profile_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","required_identity_context_ref","required_authority_scope_refs","resolved_authority_decision_refs","authority_lease_refs","capability_lease_refs","required_secret_refs","secret_capability_lease_refs","required_scm_auth_refs","resource_budget_ref","budget_lease_ref","resource_allocation_ref","stop_policy_ref","recovery_policy_ref","rollback_policy_ref","expected_receipt_contract_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.environment-startup-plan.v1"},"startup_plan_ref":{"type":"string","pattern":"^environment-startup-plan://\\S+/revision/[0-9]+$","description":"Revision-exact by shape. A plan reference without a revision is a mutable alias, and canon requires a SUCCESSOR plan for every change rather than a patch in place — a ref that can point at different bytes over time makes that requirement unenforceable."},"plan_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Covers the canonical body from `schema_version` through `expected_receipt_contract_refs`, INCLUDING the allocated `startup_plan_ref` and every nullable field, and excluding only itself. Admission, execution, roots and receipts bind this hash from outside, so they cannot form a cycle with it."},"environment_ref":{"$ref":"#/$defs/ref"},"session_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"system_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Required in fact when the environment serves an admitted System. That condition is not expressible in `ioi.portable-invariants.v1` — the language cannot read another plane's admission — so it is enforced in the admission transaction, where the System IS resolvable, rather than written as a rule that would not fire."},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"development_environment_recipe_ref":{"$ref":"#/$defs/ref","description":"The owner-qualified name. Canon makes the historical bare `recipe_ref` spelling a READ-ONLY v1 compatibility alias: boundary adapters may read it, canonical state emits this. A generic recipe family is a defect because `DataRecipe`, `HypervisorSessionLaunchRecipe`, `WorkflowTemplate` and `GoalRunProfile` would all answer to it."},"development_environment_recipe_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The recipe by CONTENT, beside the recipe by name. Both, because a ref alone is an alias that can be repointed and a hash alone cannot be looked up. The admission recomputes this from the stored recipe and refuses a caller-asserted value (INV-37): a plan that took the caller's word for what the recipe said would freeze a claim rather than a recipe."},"development_environment_recipe_resolution_ref":{"$ref":"#/$defs/ref"},"development_environment_recipe_resolution_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"placement_decision_ref":{"$ref":"#/$defs/ref"},"runtime_assignment_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"runtime_operator":{"enum":["ioi_managed","customer_managed","local","hybrid"]},"provider_account_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"provider_adapter_revision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"source_ref":{"$ref":"#/$defs/ref"},"artifact_ref":{"$ref":"#/$defs/ref"},"configuration_ref":{"$ref":"#/$defs/ref"},"ordered_task_refs":{"type":"array","items":{"$ref":"#/$defs/ref"},"description":"ORDERED, so `uniqueItems` is deliberately absent here while every other ref list carries it: a task legitimately runs twice in one startup, and forbidding that would be the schema inventing a rule canon does not state."},"service_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Services the startup attempt must bring up."},"agent_service_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Agent services, named separately from ordinary services because they carry authority a service does not."},"port_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Declared ports. An endpoint not named here is undeclared, and the admission refuses the plan rather than opening it."},"readiness_gate_ref":{"$ref":"#/$defs/ref"},"connectivity_profile_ref":{"$ref":"#/$defs/ref","description":"Declared egress. Undeclared egress is the same class of defect as an undeclared port and is refused the same way."},"resource_isolation_profile_ref":{"$ref":"#/$defs/ref"},"custody_and_privacy_profile_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Declared custody. A path or store outside these profiles is undeclared."},"temporal_verification_profile_ref":{"$ref":"#/$defs/ref"},"authority_currentness_floor_ref":{"$ref":"#/$defs/ref","description":"Freezing a predecessor is not the same as making it current forever. The floor is what the daemon revalidates against immediately before startup and at every consequential effect boundary; stale, revoked, exhausted or uncertain evidence blocks execution and requires a SUCCESSOR plan rather than execution from the frozen plan alone."},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"required_identity_context_ref":{"$ref":"#/$defs/ref"},"required_authority_scope_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Provider-neutral. Canon makes the historical `required_wallet_scope_refs` spelling a read-only v1 alias: a scope named after one custody provider cannot describe the others."},"resolved_authority_decision_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What was DECIDED, distinct from what was required — a plan that recorded only the requirement could not be audited against the decision that answered it."},"authority_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"capability_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"required_secret_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"secret_capability_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The leases that permit the secrets above. Named separately because a required secret with no lease is exactly the gap this pairing exists to make visible."},"required_scm_auth_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"resource_budget_ref":{"$ref":"#/$defs/ref"},"budget_lease_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"resource_allocation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stop_policy_ref":{"$ref":"#/$defs/ref"},"recovery_policy_ref":{"$ref":"#/$defs/ref"},"rollback_policy_ref":{"$ref":"#/$defs/ref"},"expected_receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What the lifecycle MUST emit. The plan freezes the obligation; it does not make the receipts true by declaring them."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","title":"HypervisorDevelopmentEnvironmentRecipe","description":"The admitted reusable development-environment setup contract as the daemon actually produces and persists it (recipe_routes.rs new_recipe / detect_recipe_fields): explicit or repo-detected provenance, substrate, task/service/port declarations, and the required secret and SCM-auth edges that later gate readiness. The recipe declares desired setup; it is never provider truth, storage truth, wallet authority, or runtime execution by itself. Canon declares a richer envelope (content hash, discovery lineage, checkout, policy refs); this v1 registers the shape the implementation produces today and the divergence is recorded at the canonical owner.","x-ioi-schema-version":"ioi.hypervisor.development-environment-recipe.v1","type":"object","additionalProperties":false,"required":["schema_version","recipe_ref","source","project_ref","environment_class_ref","substrate","monitor","isolation_profile","cache_paths","detected_signals","prebuild_tasks","init_tasks","post_start_tasks","services","ports","secret_requirement_refs","scm_auth_requirement_refs","created_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.development-environment-recipe.v1"},"recipe_ref":{"type":"string","pattern":"^recipe_[0-9a-f]{1,32}$"},"source":{"enum":["explicit","repo_detected"]},"project_ref":{"anyOf":[{"type":"string","pattern":"^project:[^\\s]{1,200}$"},{"type":"null"}]},"environment_class_ref":{"type":"string","minLength":1,"maxLength":200},"substrate":{"enum":["local_host","devcontainer","container"]},"monitor":{"type":"null"},"isolation_profile":{"type":"null"},"cache_paths":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":400}},"detected_signals":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"enum":["devcontainer.json","Dockerfile","Cargo.toml","package.json","python","go.mod"]}},"prebuild_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"init_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"post_start_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"services":{"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["name","command","lifecycle","trigger"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"lifecycle":{"enum":["optional","required"]},"trigger":{"enum":["post_start","environment_start"]}}}},"ports":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["port","protocol","access_policy"],"properties":{"port":{"type":"integer","minimum":1,"maximum":65535},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"]}}}},"secret_requirement_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"scm_auth_requirement_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"task":{"type":"object","additionalProperties":false,"required":["name","command","trigger","required"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"trigger":{"enum":["prebuild","environment_start","post_start"]},"required":{"type":"boolean"}}},"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","title":"HypervisorEnvironmentBackup","description":"One durable environment backup aggregate: the captured source state root, the complete content manifest with one per-artifact digest row for every referenced payload artifact, custody/encryption/retention bindings, and the lifecycle status ladder. Only status 'complete' is eligible restore material, and completeness is structural: the declared artifact count, the manifest rows, and the top-level artifact refs must all agree, and the manifest root must recompute from the exact rows. A backup missing any manifest row is invalid, never merely degraded; restore staging references a backup only through this manifest commitment.","x-ioi-schema-version":"ioi.hypervisor-environment-backup.v1","type":"object","additionalProperties":false,"required":["schema_version","backup_ref","environment_ref","session_ref","system_ref","work_subject_ref","backup_policy_ref","trigger","actor_ref","schedule_or_change_plan_ref","source_state_root_ref","source_object_head_refs","source_checkpoint_or_suffix_boundary_refs","capture_profile_ref","execution_substrate_ref","destination_ref","custody_profile_ref","artifact_refs","manifest_artifact_ref","manifest_root","manifest_artifact_count","manifest_rows","content_commitment_refs","encryption_ref","key_epoch_ref","retention_policy_ref","expires_at","hold_refs","authority_requirement_refs","authority_grant_refs","daemon_operation_refs","provider_operation_refs","lifecycle_head_ref","status","evidence_refs","receipt_refs"],"properties":{"schema_version":{"const":"ioi.hypervisor-environment-backup.v1"},"backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://[^\\s]{1,240}$"},{"type":"null"}]},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"backup_policy_ref":{"$ref":"#/$defs/policyRef"},"trigger":{"enum":["manual","scheduled","webhook","pre_change","shutdown","policy"]},"actor_ref":{"anyOf":[{"type":"string","pattern":"^(?:wallet|org|project|runtime)://[^\\s]{1,240}$"},{"type":"null"}]},"schedule_or_change_plan_ref":{"anyOf":[{"type":"string","pattern":"^(?:schedule|change-plan|event)://[^\\s]{1,240}$"},{"type":"null"}]},"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}},"source_checkpoint_or_suffix_boundary_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"capture_profile_ref":{"$ref":"#/$defs/policyRef"},"execution_substrate_ref":{"type":"string","pattern":"^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$"},"destination_ref":{"type":"string","pattern":"^storage://[^\\s]{1,240}$"},"custody_profile_ref":{"$ref":"#/$defs/policyRef"},"artifact_refs":{"type":"array","maxItems":256,"items":{"$ref":"#/$defs/artifactRef"}},"manifest_artifact_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"manifest_root":{"$ref":"#/$defs/hash"},"manifest_artifact_count":{"type":"integer","minimum":0,"maximum":256},"manifest_rows":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["artifact_ref","sha256","size_bytes","role"],"properties":{"artifact_ref":{"$ref":"#/$defs/artifactRef"},"sha256":{"$ref":"#/$defs/hash"},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991},"role":{"enum":["environment_backup_payload","workspace_snapshot","evidence","checkpoint"]}}}},"content_commitment_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^(?:commitment|evidence)://[^\\s]{1,240}$"}},"encryption_ref":{"anyOf":[{"type":"string","pattern":"^encryption://[^\\s]{1,240}$"},{"type":"null"}]},"key_epoch_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"expires_at":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]},"hold_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"authority_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"authority_grant_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^grant://[^\\s]{1,240}$"}},"daemon_operation_refs":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/canonicalRef"}},"provider_operation_refs":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/canonicalRef"}},"lifecycle_head_ref":{"$ref":"#/$defs/canonicalRef"},"status":{"enum":["requested","capturing","finalizing","complete","failed","cancelled","expired","pruned"]},"evidence_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"}},"receipt_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}}},"allOf":[{"if":{"properties":{"status":{"const":"complete"}}},"then":{"properties":{"manifest_artifact_count":{"type":"integer","minimum":1,"maximum":256},"manifest_rows":{"type":"array","minItems":1},"artifact_refs":{"type":"array","minItems":1},"content_commitment_refs":{"type":"array","minItems":1},"receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","title":"HypervisorEnvironmentRouteBinding","description":"One immutable admitted route-to-environment binding revision: exact route identity (hostname, path prefix, protocol), the owning principal and optional owning System, the bound environment/port target, provider and policy bindings, and compare-and-swap lineage over predecessor revisions. Desired activation, cutover, detach, and replacement flow through an admitted HypervisorChangePlan; observed DNS, certificate, endpoint, and provider facts are evidence and never mutate the binding. A binding revision is structurally incapable of asserting observed reachability, ownership currency, or TLS validity.","x-ioi-schema-version":"ioi.hypervisor-environment-route-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","route_binding_ref","predecessor_route_binding_ref","route_binding_hash","owner_principal_ref","environment_ref","session_ref","system_ref","service_ref","port_ref","target_endpoint_ref","target_port","target_protocol","hostname_or_address","path_prefix","network_scope","route_provider_ref","dns_provider_ref","certificate_provider_ref","port_exposure_policy_ref","ownership_proof_requirement_ref","tls_policy_ref","renewal_policy_ref","traffic_policy_ref","privacy_and_information_flow_policy_refs","authority_requirement_refs","budget_or_quote_ref","expected_active_head_ref","activation_generation","expected_receipt_contract_refs","asserts_observed_route_truth"],"properties":{"schema_version":{"const":"ioi.hypervisor-environment-route-binding.v1"},"route_binding_ref":{"type":"string","pattern":"^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"},"predecessor_route_binding_ref":{"anyOf":[{"type":"string","pattern":"^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"},{"type":"null"}]},"route_binding_hash":{"$ref":"#/$defs/hash"},"owner_principal_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,240}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://[^\\s]{1,240}$"},{"type":"null"}]},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"service_ref":{"anyOf":[{"type":"string","pattern":"^environment-service://[^\\s]{1,240}$"},{"type":"null"}]},"port_ref":{"type":"string","pattern":"^environment-port://[^\\s]{1,240}$"},"target_endpoint_ref":{"type":"string","pattern":"^endpoint://[^\\s]{1,240}$"},"target_port":{"type":"integer","minimum":1,"maximum":65535},"target_protocol":{"enum":["http","https","tcp","udp","websocket","grpc"]},"hostname_or_address":{"type":"string","pattern":"^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$"},"path_prefix":{"anyOf":[{"type":"string","pattern":"^/[^\\s]{0,200}$"},{"type":"null"}]},"network_scope":{"enum":["local","private_network","session_scoped","public_internet"]},"route_provider_ref":{"$ref":"#/$defs/nullableProviderRef"},"dns_provider_ref":{"$ref":"#/$defs/nullableProviderRef"},"certificate_provider_ref":{"$ref":"#/$defs/nullableProviderRef"},"port_exposure_policy_ref":{"$ref":"#/$defs/policyRef"},"ownership_proof_requirement_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"tls_policy_ref":{"$ref":"#/$defs/policyRef"},"renewal_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"traffic_policy_ref":{"$ref":"#/$defs/policyRef"},"privacy_and_information_flow_policy_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/policyRef"}},"authority_requirement_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"budget_or_quote_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"activation_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"expected_receipt_contract_refs":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}},"asserts_observed_route_truth":{"const":false}},"allOf":[{"if":{"properties":{"predecessor_route_binding_ref":{"type":"null"}}},"then":{"properties":{"activation_generation":{"type":"integer","minimum":1,"maximum":1},"expected_active_head_ref":{"type":"null"}}},"else":{"properties":{"activation_generation":{"type":"integer","minimum":2,"maximum":9007199254740991},"expected_active_head_ref":{"$ref":"#/$defs/canonicalRef"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"nullableProviderRef":{"anyOf":[{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,240}$"},{"type":"null"}]}}}"##),
@@ -165363,6 +165925,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", r#"[{"rule_id":"harness_session_terminal_attach.transcript_stream.bound","description":"The client attach contract and the transcript projection cite the same daemon-owned transcript stream; the client cannot be handed one stream while the projection records another.","expression":{"operator":"fields_equal","paths":["$.client_attach_contract.transcript_stream_ref","$.terminal_transcript_projection.transcript_stream_ref"]}},{"rule_id":"harness_session_terminal_attach.stdin_line.daemon_resolved","description":"The transcript's opening stdin line is exactly the daemon-resolved command line of the client attach contract; the client never authors the initial command record (INV-37).","expression":{"operator":"fields_equal","paths":["$.terminal_transcript_projection.lines[1].text","$.client_attach_contract.command_line"]}},{"rule_id":"harness_session_terminal_attach.identity.distinct_predecessors","description":"The attach binds two distinct predecessors: its spawn and its readiness proof are never the same record.","expression":{"operator":"fields_not_equal","paths":["$.spawn_id","$.readiness_id"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", r#"[{"rule_id":"hypervisor_change_plan.plan_hash.recomputes","description":"The plan hash covers the complete canonical immutable plan body including the allocated ref, exact nullable fields, and every ordered step, gate, rollback, restore, and activation input; it excludes only plan_hash. State roots, receipts, observations, execution output, and refusal reasons are never members of this preimage.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisor-change-plan-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"plan_ref":{"path":"$.plan_ref"},"target_ref":{"path":"$.target_ref"},"observed_ref":{"path":"$.observed_ref"},"system_ref":{"path":"$.system_ref"},"work_subject_ref":{"path":"$.work_subject_ref"},"plan_type":{"path":"$.plan_type"},"steps":{"path":"$.steps"},"rollback_steps":{"path":"$.rollback_steps"},"gate_refs":{"path":"$.gate_refs"},"affected_refs":{"path":"$.affected_refs"},"maintenance_window_ref":{"path":"$.maintenance_window_ref"},"suppression_window_ref":{"path":"$.suppression_window_ref"},"authority_scope_refs":{"path":"$.authority_scope_refs"},"temporal_verification_profile_ref":{"path":"$.temporal_verification_profile_ref"},"authority_currentness_floor_ref":{"path":"$.authority_currentness_floor_ref"},"lifecycle_continuity_floor_ref":{"path":"$.lifecycle_continuity_floor_ref"},"ordering_finality_profile_ref":{"path":"$.ordering_finality_profile_ref"},"activation":{"path":"$.activation"},"restore":{"path":"$.restore"}},"expected_path":"$.plan_hash","expected_encoding":"sha256_string"}},{"rule_id":"hypervisor_change_plan.steps.unique","description":"Each ordered stage index appears at most once; a duplicated stage cannot smuggle re-entry.","expression":{"operator":"array_unique_by_fields","array_path":"$.steps","fields":["step_index"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", r#"[{"rule_id":"hypervisor_development_environment_recipe_resolution.resolved_tasks.unique_names","description":"Resolved task names remain unique so required_task_refs match one exact task run.","expression":{"operator":"array_unique_by_fields","array_path":"$.resolved_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe_resolution.resolved_services.unique_names","description":"Resolved service names remain unique so required_service_refs match one exact service.","expression":{"operator":"array_unique_by_fields","array_path":"$.resolved_services","fields":["name"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", r#"[{"rule_id":"hypervisor_environment_startup_plan.plan_is_not_its_own_resolution","description":"A plan that names itself as the resolution it came from is a cycle, and a cycle here defeats the one-way rule canon states outright: the concrete startup plan points back to the exact recipe and resolution, never the reverse. Cheap to check and impossible to see by reading a record with forty-six refs in it.","expression":{"operator":"fields_not_equal","paths":["$.startup_plan_ref","$.development_environment_recipe_resolution_ref"]}},{"rule_id":"hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct","description":"The resolution's hash covers a record that CONTAINS the recipe reference, so the two commitments cannot be the same bytes. Equality means one was copied into the other — the plausible defect when four hash fields are wired in a row — and it would leave the plan claiming to have frozen two predecessors while having frozen one.","expression":{"operator":"fields_not_equal","paths":["$.development_environment_recipe_content_hash","$.development_environment_recipe_resolution_hash"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", r#"[{"rule_id":"hypervisor_development_environment_recipe.init_tasks.unique_names","description":"Recipe resolution derives required_task_refs by task name; a duplicated init-task name would double-count or shadow a required edge.","expression":{"operator":"array_unique_by_fields","array_path":"$.init_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.prebuild_tasks.unique_names","description":"Prebuild task names are resolution identities and must be unique within the recipe.","expression":{"operator":"array_unique_by_fields","array_path":"$.prebuild_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.post_start_tasks.unique_names","description":"Post-start task names are resolution identities and must be unique within the recipe.","expression":{"operator":"array_unique_by_fields","array_path":"$.post_start_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.services.unique_names","description":"Service names gate readiness (required_service_refs match on name); a duplicated service name would make the readiness edge ambiguous.","expression":{"operator":"array_unique_by_fields","array_path":"$.services","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.ports.unique","description":"One declared port row per port number; the resolution's required_port_refs must never double-count a port.","expression":{"operator":"array_unique_by_fields","array_path":"$.ports","fields":["port"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", r#"[{"rule_id":"hypervisor_environment_backup.manifest_rows.match_declared_count","description":"The manifest carries exactly one row per declared artifact; a silently dropped row breaks the record.","expression":{"operator":"array_length_equals","array_path":"$.manifest_rows","count_path":"$.manifest_artifact_count"}},{"rule_id":"hypervisor_environment_backup.artifact_refs.match_declared_count","description":"The top-level artifact refs and the declared artifact count agree; a payload artifact outside the manifest cannot exist.","expression":{"operator":"array_length_equals","array_path":"$.artifact_refs","count_path":"$.manifest_artifact_count"}},{"rule_id":"hypervisor_environment_backup.manifest_rows.unique","description":"Each payload artifact carries at most one manifest row.","expression":{"operator":"array_unique_by_fields","array_path":"$.manifest_rows","fields":["artifact_ref"]}},{"rule_id":"hypervisor_environment_backup.manifest_root.recomputes","description":"The manifest root recomputes over the exact per-artifact digest rows bound to this backup and its captured source state root; restore staging references the backup only through this commitment.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisor-environment-backup-manifest-jcs-sha256.v1"},"backup_ref":{"path":"$.backup_ref"},"environment_ref":{"path":"$.environment_ref"},"source_state_root_ref":{"path":"$.source_state_root_ref"},"rows":{"path":"$.manifest_rows"}},"expected_path":"$.manifest_root","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", r#"[{"rule_id":"hypervisor_environment_route_binding.route_binding_hash.recomputes","description":"The route-binding hash recomputes over the complete immutable body including the allocated ref and exact nullable fields, excluding only route_binding_hash.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisor-environment-route-binding-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"route_binding_ref":{"path":"$.route_binding_ref"},"predecessor_route_binding_ref":{"path":"$.predecessor_route_binding_ref"},"owner_principal_ref":{"path":"$.owner_principal_ref"},"environment_ref":{"path":"$.environment_ref"},"session_ref":{"path":"$.session_ref"},"system_ref":{"path":"$.system_ref"},"service_ref":{"path":"$.service_ref"},"port_ref":{"path":"$.port_ref"},"target_endpoint_ref":{"path":"$.target_endpoint_ref"},"target_port":{"path":"$.target_port"},"target_protocol":{"path":"$.target_protocol"},"hostname_or_address":{"path":"$.hostname_or_address"},"path_prefix":{"path":"$.path_prefix"},"network_scope":{"path":"$.network_scope"},"route_provider_ref":{"path":"$.route_provider_ref"},"dns_provider_ref":{"path":"$.dns_provider_ref"},"certificate_provider_ref":{"path":"$.certificate_provider_ref"},"port_exposure_policy_ref":{"path":"$.port_exposure_policy_ref"},"ownership_proof_requirement_ref":{"path":"$.ownership_proof_requirement_ref"},"tls_policy_ref":{"path":"$.tls_policy_ref"},"renewal_policy_ref":{"path":"$.renewal_policy_ref"},"traffic_policy_ref":{"path":"$.traffic_policy_ref"},"privacy_and_information_flow_policy_refs":{"path":"$.privacy_and_information_flow_policy_refs"},"authority_requirement_refs":{"path":"$.authority_requirement_refs"},"budget_or_quote_ref":{"path":"$.budget_or_quote_ref"},"expected_active_head_ref":{"path":"$.expected_active_head_ref"},"activation_generation":{"path":"$.activation_generation"},"expected_receipt_contract_refs":{"path":"$.expected_receipt_contract_refs"},"asserts_observed_route_truth":{"path":"$.asserts_observed_route_truth"}},"expected_path":"$.route_binding_hash","expected_encoding":"sha256_string"}}]"#),
@@ -167499,6 +168062,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^environment-service://[^\s]{1,240}$"#,
         r#"^environment-service://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^environment-startup-plan://\S+/revision/[0-9]+$"#,
+        r#"^environment-startup-plan://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+/revision/[0-9]+$"#,
     ),
     (
         r#"^environment://[^\s]{1,240}$"#,
@@ -170484,6 +171051,14 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json"))),
@@ -171888,6 +172463,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1" => {
+            serde_json::from_value::<HypervisorEnvironmentStartupPlanV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1" => {
             serde_json::from_value::<HypervisorDevelopmentEnvironmentRecipeV1>(value.clone())
                 .map(|_| ())
@@ -173254,6 +173834,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1" => {
+            let projection = serde_json::from_value::<HypervisorEnvironmentStartupPlanV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1" => {
             let projection = serde_json::from_value::<HypervisorDevelopmentEnvironmentRecipeV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -174360,8 +174945,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1327,
-            "the registered golden corpus must remain the explicit 1327-fixture bar",
+            1335,
+            "the registered golden corpus must remain the explicit 1335-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -174603,7 +175188,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 906,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 907,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

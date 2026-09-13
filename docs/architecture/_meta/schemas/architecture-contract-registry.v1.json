@@ -4182,6 +4182,77 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+      "canonical_name": "HypervisorEnvironmentStartupPlan",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#hypervisordevelopmentenvironmentreciperesolution",
+      "schema_version": "ioi.hypervisor.environment-startup-plan.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-environment-startup-plan.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-environment-startup-plan/exact-predecessor-binding/v1",
+          "path": "invariants/hypervisor-environment-startup-plan.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorEnvironmentStartupPlanV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorEnvironmentStartupPlanV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-environment-startup-plan-v1/positive-local-posture.json",
+        "fixtures/hypervisor-environment-startup-plan-v1/positive-managed-posture.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-environment-startup-plan-v1/negative-blocked-reason-on-a-plan.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-startup-plan-v1/negative-plan-ref-without-a-revision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-startup-plan-v1/negative-nullable-field-absent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-startup-plan-v1/negative-unknown-runtime-operator.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-startup-plan-v1/negative-recipe-and-resolution-hash-equal.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-startup-plan-v1/negative-plan-names-itself-as-its-resolution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_environment_startup_plan.plan_is_not_its_own_resolution"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
       "canonical_name": "HypervisorDevelopmentEnvironmentRecipe",
       "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#hypervisordevelopmentenvironmentrecipe",

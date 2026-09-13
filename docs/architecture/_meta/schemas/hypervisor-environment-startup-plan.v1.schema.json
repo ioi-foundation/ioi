@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1",
+  "title": "HypervisorEnvironmentStartupPlan",
+  "description": "THE IMMUTABLE BRIDGE FROM A RESOLVED RECIPE TO ONE CONCRETE STARTUP ATTEMPT, AND THE OBJECT ACC-11 CLAUSE 3 REQUIRES TO BE INSPECTABLE BEFORE IT RUNS. It freezes what will start, where, which dependencies and gates must become ready, and which evidence the lifecycle must emit. It does not execute, does not grant authority, does not own provider truth, and does not make readiness true by declaration. WHY IT IS A SEPARATE OBJECT FROM THE RESOLUTION IT COMES FROM: the same recipe resolves to DIFFERENT startup plans across local, customer-managed and IOI-managed postures, so a resolution that carried the concrete attempt would have to be rewritten per posture and would stop being the reusable thing it is. The plan points one-way back to the exact recipe and resolution and never the reverse. THERE IS NO `blocked_reason` HERE, AND ITS ABSENCE IS THE POINT. Canon: a refused candidate remains a resolution refusal or a startup-admission refusal; it never becomes an admitted startup plan with an embedded blockage. The resolution contract next door DOES carry `blocked_reason`, which is correct there and would be a category error here — an admitted plan that says why it cannot run is a record asserting two contradictory things, and something downstream will believe the wrong half. With `additionalProperties: false` a plan carrying one is refused rather than stored and explained. EVERY NULLABLE FIELD IS PRESENT AND NULL RATHER THAN ABSENT. `plan_hash` covers the body including every exact nullable System, work-subject, temporal, currentness-floor, continuity-floor and ordering/finality field, and a field cannot be inside a hash and absent at the same time. Present-and-null is a registered answer — this plan serves no System — where absent is a different record that happens to hash differently. CHANGE REQUIRES A SUCCESSOR, NEVER A PATCH. Changed placement, provider adapter, authority decision or lease, secret capability, readiness, privacy, budget or recovery resolution all mint a new plan; the revision-exact `startup_plan_ref` is what makes that enforceable rather than aspirational.",
+  "x-ioi-schema-version": "ioi.hypervisor.environment-startup-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "startup_plan_ref",
+    "plan_hash",
+    "environment_ref",
+    "session_ref",
+    "system_ref",
+    "work_subject_ref",
+    "development_environment_recipe_ref",
+    "development_environment_recipe_content_hash",
+    "development_environment_recipe_resolution_ref",
+    "development_environment_recipe_resolution_hash",
+    "placement_decision_ref",
+    "runtime_assignment_ref",
+    "runtime_operator",
+    "provider_account_ref",
+    "provider_adapter_revision_ref",
+    "source_ref",
+    "artifact_ref",
+    "configuration_ref",
+    "ordered_task_refs",
+    "service_refs",
+    "agent_service_refs",
+    "port_refs",
+    "readiness_gate_ref",
+    "connectivity_profile_ref",
+    "resource_isolation_profile_ref",
+    "custody_and_privacy_profile_refs",
+    "temporal_verification_profile_ref",
+    "authority_currentness_floor_ref",
+    "lifecycle_continuity_floor_ref",
+    "ordering_finality_profile_ref",
+    "required_identity_context_ref",
+    "required_authority_scope_refs",
+    "resolved_authority_decision_refs",
+    "authority_lease_refs",
+    "capability_lease_refs",
+    "required_secret_refs",
+    "secret_capability_lease_refs",
+    "required_scm_auth_refs",
+    "resource_budget_ref",
+    "budget_lease_ref",
+    "resource_allocation_ref",
+    "stop_policy_ref",
+    "recovery_policy_ref",
+    "rollback_policy_ref",
+    "expected_receipt_contract_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.environment-startup-plan.v1"
+    },
+    "startup_plan_ref": {
+      "type": "string",
+      "pattern": "^environment-startup-plan://\\S+/revision/[0-9]+$",
+      "description": "Revision-exact by shape. A plan reference without a revision is a mutable alias, and canon requires a SUCCESSOR plan for every change rather than a patch in place — a ref that can point at different bytes over time makes that requirement unenforceable."
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Covers the canonical body from `schema_version` through `expected_receipt_contract_refs`, INCLUDING the allocated `startup_plan_ref` and every nullable field, and excluding only itself. Admission, execution, roots and receipts bind this hash from outside, so they cannot form a cycle with it."
+    },
+    "environment_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "session_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Required in fact when the environment serves an admitted System. That condition is not expressible in `ioi.portable-invariants.v1` — the language cannot read another plane's admission — so it is enforced in the admission transaction, where the System IS resolvable, rather than written as a rule that would not fire."
+    },
+    "work_subject_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "development_environment_recipe_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The owner-qualified name. Canon makes the historical bare `recipe_ref` spelling a READ-ONLY v1 compatibility alias: boundary adapters may read it, canonical state emits this. A generic recipe family is a defect because `DataRecipe`, `HypervisorSessionLaunchRecipe`, `WorkflowTemplate` and `GoalRunProfile` would all answer to it."
+    },
+    "development_environment_recipe_content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "The recipe by CONTENT, beside the recipe by name. Both, because a ref alone is an alias that can be repointed and a hash alone cannot be looked up. The admission recomputes this from the stored recipe and refuses a caller-asserted value (INV-37): a plan that took the caller's word for what the recipe said would freeze a claim rather than a recipe."
+    },
+    "development_environment_recipe_resolution_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "development_environment_recipe_resolution_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "placement_decision_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "runtime_assignment_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "runtime_operator": {
+      "enum": [
+        "ioi_managed",
+        "customer_managed",
+        "local",
+        "hybrid"
+      ]
+    },
+    "provider_account_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provider_adapter_revision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "artifact_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "configuration_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "ordered_task_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "ORDERED, so `uniqueItems` is deliberately absent here while every other ref list carries it: a task legitimately runs twice in one startup, and forbidding that would be the schema inventing a rule canon does not state."
+    },
+    "service_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "Services the startup attempt must bring up."
+    },
+    "agent_service_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "Agent services, named separately from ordinary services because they carry authority a service does not."
+    },
+    "port_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "Declared ports. An endpoint not named here is undeclared, and the admission refuses the plan rather than opening it."
+    },
+    "readiness_gate_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "connectivity_profile_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Declared egress. Undeclared egress is the same class of defect as an undeclared port and is refused the same way."
+    },
+    "resource_isolation_profile_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "custody_and_privacy_profile_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "Declared custody. A path or store outside these profiles is undeclared."
+    },
+    "temporal_verification_profile_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "authority_currentness_floor_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Freezing a predecessor is not the same as making it current forever. The floor is what the daemon revalidates against immediately before startup and at every consequential effect boundary; stale, revoked, exhausted or uncertain evidence blocks execution and requires a SUCCESSOR plan rather than execution from the frozen plan alone."
+    },
+    "lifecycle_continuity_floor_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ordering_finality_profile_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "required_identity_context_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "required_authority_scope_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "Provider-neutral. Canon makes the historical `required_wallet_scope_refs` spelling a read-only v1 alias: a scope named after one custody provider cannot describe the others."
+    },
+    "resolved_authority_decision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "What was DECIDED, distinct from what was required — a plan that recorded only the requirement could not be audited against the decision that answered it."
+    },
+    "authority_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "capability_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "required_secret_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "secret_capability_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "The leases that permit the secrets above. Named separately because a required secret with no lease is exactly the gap this pairing exists to make visible."
+    },
+    "required_scm_auth_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "resource_budget_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "budget_lease_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resource_allocation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stop_policy_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "recovery_policy_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "rollback_policy_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "expected_receipt_contract_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "What the lifecycle MUST emit. The plan freezes the obligation; it does not make the receipts true by declaring them."
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    }
+  }
+}
