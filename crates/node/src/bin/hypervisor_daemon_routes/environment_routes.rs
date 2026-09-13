@@ -21,6 +21,8 @@ use ioi_services::agentic::runtime::kernel::runtime_goal_pursuit::GoalPursuitCor
 use ioi_types::app::agentic::InferenceOptions;
 use serde_json::{json, Value};
 
+use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
+
 use super::{
     invoke_native_local, iso_now, persist_invocation_receipt, persist_record, read_record_dir,
     remove_record, resolve_route, short_hash, AppError, DaemonState,
@@ -915,6 +917,21 @@ fn admitted_environment_port_target(
     environment: &Value,
     requested_port: u64,
 ) -> Result<u16, &'static str> {
+    // M09.3 — THE PORT RECORD SUBTRACTS, AND ONLY SUBTRACTS. Giving a port its own authority does
+    // not mean giving it a second way to say yes: the four conditions below already decide
+    // admission correctly and are left exactly as they were. What the record adds is a VETO that
+    // outlives the environment row — an environment restarting recomputes its typed ports from the
+    // recipe and would otherwise hand back a port somebody had revoked, because a row derived from
+    // a recipe cannot remember a decision made about it.
+    //
+    // Permission is subtraction, and no surface owns authority truth. A record that could ADMIT a
+    // port the environment row did not would be a second admission path with its own idea of what
+    // exists, which is the defect this estate refuses everywhere else.
+    if let Some(record) = load_environment_port(data_dir, environment_id, requested_port) {
+        if record["exposure_state"].as_str() == Some("revoked") {
+            return Err("environment_port_revoked");
+        }
+    }
     let Some(port_record) = environment["status"]["ports"].as_array().and_then(|ports| {
         ports
             .iter()
@@ -943,6 +960,270 @@ fn admitted_environment_port_target(
         return Err("environment_port_target_owned_by_another_environment");
     }
     u16::try_from(target).map_err(|_| "environment_port_target_invalid")
+}
+
+// ---------------------------------------------------------------------------------
+// M09.3 — THE PORT AS ITS OWN OBJECT.
+//
+// ACC-11 clause 4 requires ports and route bindings to be their own objects with
+// their own authority and revocation. The route binding has been one since the
+// plane was built; the port was a row inside `environment.status.ports`,
+// addressable only as a path segment under its environment.
+//
+// WHAT MOVES AND WHAT DOES NOT. The typed row's BEHAVIOUR was already right —
+// `admitted_environment_port_target` refuses an absent, conflicted, non-TCP or
+// foreign-claimed target, which is canon's four conditions — so this promotion
+// does not touch the derivation. What it adds is an owner: a durable record with
+// its own identity, validated against its own registered contract, carrying the
+// one thing a field on an environment could never carry, which is a REVOCATION
+// that outlives whoever could reopen it.
+// ---------------------------------------------------------------------------------
+
+pub(crate) const ENVIRONMENT_PORT_RECORDS: &str = "environment-ports";
+const ENVIRONMENT_PORT_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/hypervisor-environment-port/v1";
+
+/// The port's own identity, derived from the environment and the port it selects by.
+/// Deterministic rather than minted, so re-admitting the same port of the same
+/// environment updates one record instead of growing a new one per restart.
+pub(crate) fn environment_port_ref(environment_id: &str, port: u64) -> String {
+    format!(
+        "environment-port://hypervisor/{}/{port}",
+        safe_id(environment_id)
+    )
+}
+
+/// Promote one typed status row into the registered object. The row keeps producing
+/// the projection callers already read; this is what gives that projection an owner.
+pub(crate) fn environment_port_record(
+    environment_id: &str,
+    row: &Value,
+    previous: Option<&Value>,
+) -> Value {
+    let port = row.get("port").and_then(Value::as_u64).unwrap_or(0);
+    // REVOCATION SURVIVES RE-ADMISSION, which is the whole difference between a
+    // revoked port and a closed one. An environment restarting recomputes its rows
+    // from the recipe and would happily hand back a `closed` port that somebody had
+    // withdrawn; a record that carried its terminal state only until the next start
+    // would be a decision with an expiry date.
+    let revoked = previous.and_then(|record| record.get("exposure_state").and_then(Value::as_str))
+        == Some("revoked");
+    let exposure_state = if revoked {
+        "revoked".to_owned()
+    } else {
+        row.get("exposure_state")
+            .and_then(Value::as_str)
+            .unwrap_or("closed")
+            .to_owned()
+    };
+    json!({
+        "schema_version": "ioi.hypervisor.environment-port.v1",
+        "port_ref": environment_port_ref(environment_id, port),
+        "environment_ref": format!("environment://hypervisor/{}", safe_id(environment_id)),
+        "service_ref": row.get("service_ref").cloned().unwrap_or(Value::Null),
+        "port": port,
+        "protocol": row.get("protocol").cloned().unwrap_or_else(|| json!("tcp")),
+        "access_policy": row.get("access_policy").cloned().unwrap_or_else(|| json!("private")),
+        "port_exposure_policy_ref": format!(
+            "policy://hypervisor/ports/{}",
+            row.get("access_policy").and_then(Value::as_str).unwrap_or("private")
+        ),
+        "capability_lease_ref": if revoked { Value::Null } else { row.get("capability_lease_ref").cloned().unwrap_or(Value::Null) },
+        "exposure_state": exposure_state,
+        "local_or_session_url": if revoked { Value::Null } else { row.get("url").cloned().unwrap_or(Value::Null) },
+        "route_binding_refs": previous
+            .and_then(|record| record.get("route_binding_refs").cloned())
+            .unwrap_or_else(|| json!([])),
+        "revoked_at_ms": previous
+            .and_then(|record| record.get("revoked_at_ms").cloned())
+            .filter(|_| revoked)
+            .unwrap_or(Value::Null),
+    })
+}
+
+pub(crate) fn load_environment_port(
+    data_dir: &str,
+    environment_id: &str,
+    port: u64,
+) -> Option<Value> {
+    read_record_dir(data_dir, ENVIRONMENT_PORT_RECORDS)
+        .into_iter()
+        .find(|record| {
+            record["port_ref"].as_str() == Some(environment_port_ref(environment_id, port).as_str())
+        })
+}
+
+/// Persist the admitted port set for one environment, validating each against its
+/// registered contract BEFORE the write. A record that would not survive the offline
+/// verifier is never written and then explained.
+pub(crate) fn persist_environment_ports(data_dir: &str, environment_id: &str, rows: &[Value]) {
+    for row in rows {
+        let port = row.get("port").and_then(Value::as_u64).unwrap_or(0);
+        if port == 0 {
+            continue;
+        }
+        let previous = load_environment_port(data_dir, environment_id, port);
+        let record = environment_port_record(environment_id, row, previous.as_ref());
+        if validate_architecture_contract(ENVIRONMENT_PORT_CONTRACT, &record).is_err() {
+            continue;
+        }
+        let id = safe_id(record["port_ref"].as_str().unwrap_or_default());
+        let _ = persist_record(data_dir, ENVIRONMENT_PORT_RECORDS, &id, &record);
+    }
+}
+
+#[cfg(test)]
+mod m09_3_port_object_tests {
+    use super::*;
+
+    const PORT_CONTRACT: &str = "schema://ioi/components/hypervisor/hypervisor-environment-port/v1";
+
+    fn scratch(label: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("ioi-m093-{label}-{nanos:x}"));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        dir
+    }
+
+    fn row(port: u64) -> Value {
+        json!({
+            "port": port,
+            "protocol": "tcp",
+            "access_policy": "private",
+            "capability_lease_ref": Value::Null,
+            "url": Value::Null,
+            "exposure_state": "closed",
+        })
+    }
+
+    #[test]
+    fn a_typed_row_promotes_to_a_record_its_own_contract_admits() {
+        let record = environment_port_record("env-1", &row(5432), None);
+        validate_architecture_contract(PORT_CONTRACT, &record)
+            .expect("the promoted record validates against the registered contract");
+        assert_eq!(
+            record["port_ref"],
+            json!("environment-port://hypervisor/env-1/5432")
+        );
+        assert_eq!(record["exposure_state"], json!("closed"));
+        // Present-and-null, not absent: "no lease" is a registered answer.
+        assert!(record.get("capability_lease_ref").is_some());
+        assert!(record["capability_lease_ref"].is_null());
+        assert!(record["revoked_at_ms"].is_null());
+    }
+
+    #[test]
+    fn revocation_survives_re_admission_which_is_the_whole_difference_from_closing() {
+        // An environment restarting recomputes its typed rows from the RECIPE, which cannot
+        // remember a decision made about one of them. A port whose terminal state lasted only
+        // until the next start would be a decision with an expiry date.
+        let revoked = json!({
+            "exposure_state": "revoked",
+            "revoked_at_ms": 1_789_000_000_000u64,
+            "route_binding_refs": ["environment-route-binding://hypervisor/env-1/revision/2"],
+        });
+        let readmitted = environment_port_record("env-1", &row(5432), Some(&revoked));
+        assert_eq!(readmitted["exposure_state"], json!("revoked"));
+        assert_eq!(readmitted["revoked_at_ms"], json!(1_789_000_000_000u64));
+        // And re-admission cannot hand back a lease or a URL for a withdrawn port.
+        assert!(readmitted["capability_lease_ref"].is_null());
+        assert!(readmitted["local_or_session_url"].is_null());
+        // The routes bound to it are carried, not silently dropped: closing the port does not
+        // revoke its routes, and the record is what keeps that separable.
+        assert_eq!(
+            readmitted["route_binding_refs"].as_array().map(Vec::len),
+            Some(1)
+        );
+        validate_architecture_contract(PORT_CONTRACT, &readmitted).expect("still valid");
+    }
+
+    #[test]
+    fn an_ordinary_row_is_not_promoted_into_a_revoked_one() {
+        // The negative control for the rule above: carrying the terminal state forward must key on
+        // the PREVIOUS record, not on anything in the row, or every restart would revoke.
+        let previous = environment_port_record("env-1", &row(5432), None);
+        let again = environment_port_record("env-1", &row(5432), Some(&previous));
+        assert_eq!(again["exposure_state"], json!("closed"));
+        assert!(again["revoked_at_ms"].is_null());
+    }
+
+    #[test]
+    fn the_preview_fence_vetoes_a_revoked_port_and_only_vetoes() {
+        let dir = scratch("veto");
+        let data_dir = dir.to_str().unwrap();
+        let env = json!({
+            "id": "env-1",
+            "status": { "phase": "running", "ports": [row(5432)] }
+        });
+        // Before any record exists the fence admits, exactly as it did before this unit: the
+        // record SUBTRACTS and must never be the thing that admits.
+        assert_eq!(
+            admitted_environment_port_target(data_dir, "env-1", &env, 5432),
+            Ok(5432u16)
+        );
+
+        let revoked = json!({
+            "exposure_state": "revoked",
+            "revoked_at_ms": 1_789_000_000_000u64,
+        });
+        let record = environment_port_record("env-1", &row(5432), Some(&revoked));
+        persist_record(
+            data_dir,
+            ENVIRONMENT_PORT_RECORDS,
+            &safe_id(record["port_ref"].as_str().unwrap()),
+            &record,
+        )
+        .expect("record persists");
+
+        assert_eq!(
+            admitted_environment_port_target(data_dir, "env-1", &env, 5432),
+            Err("environment_port_revoked"),
+            "the environment row still says closed-and-admissible; the record withdraws it"
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_record_cannot_admit_a_port_the_environment_row_does_not_have() {
+        // Permission is subtraction. A record for a port absent from the environment's typed rows
+        // must not become a second admission path.
+        let dir = scratch("subtract");
+        let data_dir = dir.to_str().unwrap();
+        let record = environment_port_record("env-1", &row(9999), None);
+        persist_record(
+            data_dir,
+            ENVIRONMENT_PORT_RECORDS,
+            &safe_id(record["port_ref"].as_str().unwrap()),
+            &record,
+        )
+        .expect("record persists");
+        let env = json!({
+            "id": "env-1",
+            "status": { "phase": "running", "ports": [row(5432)] }
+        });
+        assert_eq!(
+            admitted_environment_port_target(data_dir, "env-1", &env, 9999),
+            Err("environment_port_not_admitted")
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn persisting_the_admitted_set_writes_one_record_per_port_and_skips_the_invalid() {
+        let dir = scratch("persist");
+        let data_dir = dir.to_str().unwrap();
+        // Port 0 is not a port. It is skipped rather than written and then explained.
+        persist_environment_ports(data_dir, "env-1", &[row(5432), row(8080), row(0)]);
+        let written = read_record_dir(data_dir, ENVIRONMENT_PORT_RECORDS);
+        assert_eq!(written.len(), 2, "{written:?}");
+        for record in &written {
+            validate_architecture_contract(PORT_CONTRACT, record).expect("each record is valid");
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
 
 #[cfg(test)]
@@ -1155,6 +1436,80 @@ fn port_listening(port: u64) -> bool {
         }
         Err(_) => false,
     }
+}
+
+/// POST /v1/hypervisor/environments/:id/ports/:port/revoke — withdraw one port, terminally.
+///
+/// THE ACT A FIELD ON AN ENVIRONMENT COULD NOT CARRY (M09.3). Closing a port is a STATE: whoever
+/// could open it can reopen it, and an environment restart recomputes its typed rows from the
+/// recipe and hands the port back. Revocation is a DECISION, and ACC-11 clause 4 asks for it on the
+/// port itself rather than on the environment around it — a plane whose only terminal state belongs
+/// to the environment can withdraw a port only by withdrawing everything sharing it.
+///
+/// Terminal means terminal: there is deliberately no un-revoke verb. Restoring a withdrawn port is
+/// a new admission by whoever holds that authority, not a reversal available to whoever withdrew
+/// it, because an undo makes the decision indistinguishable from a state again.
+pub(crate) async fn handle_env_port_revoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((id, port)): AxumPath<(String, u64)>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize_environment_owner(&st.data_dir, &headers, &id)?;
+    let Some(mut env) = load_env(&st.data_dir, &id) else {
+        return Ok(Json(
+            json!({ "ok": false, "reason": "environment not found" }),
+        ));
+    };
+    let Some(existing) = load_environment_port(&st.data_dir, &id, port) else {
+        // A port with no record was never admitted, and revoking what does not exist would mint a
+        // terminal decision about nothing — a tombstone a later admission would then have to
+        // explain.
+        return Ok(Json(json!({
+            "ok": false,
+            "reason": "environment_port_not_admitted",
+            "fail_closed": true
+        })));
+    };
+    if existing["exposure_state"].as_str() == Some("revoked") {
+        // Idempotent by state rather than by retry key: the port is already withdrawn and the
+        // original decision keeps its own timestamp. Re-dating it would let a second caller
+        // rewrite when the withdrawal happened.
+        return Ok(Json(
+            json!({ "ok": true, "port": existing, "already_revoked": true }),
+        ));
+    }
+    let mut record = existing;
+    record["exposure_state"] = json!("revoked");
+    record["revoked_at_ms"] = json!(std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as u64)
+        .unwrap_or(0));
+    record["capability_lease_ref"] = Value::Null;
+    record["local_or_session_url"] = Value::Null;
+    if let Err(error) = validate_architecture_contract(ENVIRONMENT_PORT_CONTRACT, &record) {
+        return Ok(Json(json!({
+            "ok": false,
+            "reason": "environment_port_contract_refused",
+            "detail": error.to_string()
+        })));
+    }
+    let record_id = safe_id(record["port_ref"].as_str().unwrap_or_default());
+    persist_record(&st.data_dir, ENVIRONMENT_PORT_RECORDS, &record_id, &record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // The environment's projection follows the record, never the other way round.
+    if let Some(rows) = env["status"]["ports"].as_array_mut() {
+        for row in rows.iter_mut() {
+            if row.get("port").and_then(Value::as_u64) == Some(port) {
+                row["exposure_state"] = json!("revoked");
+                row["capability_lease_ref"] = Value::Null;
+                row["url"] = Value::Null;
+            }
+        }
+    }
+    let env_id = safe_id(&id);
+    let _ = persist_record(&st.data_dir, "environments", &env_id, &env);
+    Ok(Json(json!({ "ok": true, "port": record })))
 }
 
 /// GET /v1/hypervisor/environments/:id/ports — observe the env's ports with live TCP liveness.
@@ -3546,6 +3901,10 @@ pub(crate) async fn handle_environment_action(
                     })
                     .collect();
                 env["status"]["ports"] = json!(ports);
+                // The typed rows keep serving the projection callers already read; persisting them
+                // as records is what gives that projection an owner (M09.3). Done here rather than
+                // in a separate lane so the record set cannot drift from the rows it describes.
+                persist_environment_ports(&st.data_dir, &id, &ports);
                 if any_conflict {
                     set_component(&mut env, "connectivity", "degraded", "host port conflict");
                     observe(

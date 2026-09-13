@@ -594,6 +594,13 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13, M09.3 (the port as its own object): tokens 149721 -> 149904,
+  // foreign-qualified 4633 -> 4636, and BOTH writer buckets move — non-ODK literal 246 -> 248 for
+  // the two `persist_record` calls that write the new `environment-ports` family through a named
+  // constant, and runtime-parameter 311 -> 312 for the revoke handler's write back to
+  // `"environments"`, which is inline because every other write to that family in the module is.
+  // Recorded rather than tidied: making this one call legible while its dozen siblings stay opaque
+  // would move the number without moving the fact.
   // Re-pinned 2026-09-13, M09.4 (semantic continuity as the restore pass condition): tokens
   // 149718 -> 149721 and NOTHING else. Three tokens, because almost all of this unit lives in
   // `crates/types` — the environment-lifecycle kernel — which this census does not walk; what the
@@ -645,9 +652,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149721,
+  tokenMentions: 149904,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 246, runtimeParameter: 311 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 248, runtimeParameter: 312 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -666,7 +673,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4633,
+    "foreign-qualified": 4636,
     "opaque-initialiser": 2810,
     "bare-undeclared": 536,
     "ambiguous-module": 0,

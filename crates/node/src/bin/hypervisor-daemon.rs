@@ -4155,6 +4155,13 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/environments/:id/ports/:port/unexpose",
             post(environment_routes::handle_env_port_unexpose),
         )
+        // M09.3 — revocation as the PORT's own act. `unexpose` above is a state a caller can
+        // reverse; this is a decision that outlives the environment row, which is what ACC-11
+        // clause 4 means by a port having its own authority and revocation.
+        .route(
+            "/v1/hypervisor/environments/:id/ports/:port/revoke",
+            post(environment_routes::handle_env_port_revoke),
+        )
         // Watch (daemon-owned file/git snapshot the env-ops Watch streams from) + PR draft
         // (daemon-owned governed proposal; the daemon writes the artifact, not the serve layer).
         .route(
