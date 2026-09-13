@@ -120,6 +120,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/harness-session-spawn/v1", "sha256:095dec4ddb3e6d0916c14fb155d08a815fa56e47f33816d9cf68ab2a9eb30c4a"),
     ("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f"),
     ("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", "sha256:32d6b5365cdc15a5c05b83f196ac0101758fad6534a5dbef7b30d99b55e0abf0"),
+    ("schema://ioi/components/hypervisor/hypervisor-change-plan/v2", "sha256:3ccd2f1c4ace7aa7719f162d4b0bf0251cfffd3f51fe3c08c03be8d15695e27a"),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", "sha256:590743d3cb2cb61408bb97680a6e82a0e0ba2a151cc25a9634e17fbdaf491368"),
     ("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", "sha256:0a051ec7bfdcb5fc6850b615bc5e809acc02574666c149883b83d03c40ad6861"),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377"),
@@ -30223,6 +30224,686 @@ pub enum HypervisorChangePlanV1RestoreSuffixDisposition {
     ExplicitlyLost,
     #[serde(rename = r#"not_applicable"#)]
     NotApplicable,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2 {
+    pub schema_version: HypervisorChangePlanV2SchemaVersion,
+    pub plan_ref: String,
+    pub plan_hash: String,
+    pub target_ref: String,
+    pub observed_ref: String,
+    pub system_ref: Option<String>,
+    pub work_subject_ref: Option<String>,
+    pub plan_type: HypervisorChangePlanV2PlanType,
+    pub steps: Vec<HypervisorChangePlanV2StepsItem>,
+    pub rollback_steps: Vec<HypervisorChangePlanV2RollbackStepsItem>,
+    pub gate_refs: Vec<String>,
+    pub affected_refs: Vec<String>,
+    pub maintenance_window_ref: Option<String>,
+    pub suppression_window_ref: Option<String>,
+    pub authority_scope_refs: Vec<String>,
+    pub temporal_verification_profile_ref: Option<String>,
+    pub authority_currentness_floor_ref: Option<String>,
+    pub lifecycle_continuity_floor_ref: Option<String>,
+    pub ordering_finality_profile_ref: Option<String>,
+    pub activation: HypervisorChangePlanV2Activation,
+    pub restore: Option<HypervisorChangePlanV2Restore>,
+    pub detach: Option<HypervisorChangePlanV2Detach>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v2","title":"HypervisorChangePlan","description":"The immutable, inspectable unit of environment change for the admitted plan type environment_restore: ordered stages with per-stage preconditions and evidence requirements, the restore binding that references source material only through its backup manifest commitment, and the forward-only activation binding over the exact expected active head and candidate generation. The plan hash covers the complete immutable body and excludes only itself; state roots, receipts, observations, execution output, and refusal reasons are never members of that preimage. Stage progress, admission, execution, and refusal are distinct committed records — they never rewrite this plan. V2 ADMITS A SECOND ACTION. v1's `plan_type` was a const, so the object canon names as the ONLY conformant route to reconciliation could express exactly one of the four reconciliations canon lists. `route_detach` is what M09.3 needs for revocation on the route binding, which is immutable and therefore cannot carry a revoked flag of its own. This is a SUCCESSOR because v1 is `wire_mutation_policy: forbidden` and carries admitted records; v1 plans stay valid and stay restores.","x-ioi-schema-version":"ioi.hypervisor-change-plan.v2","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","plan_hash","target_ref","observed_ref","system_ref","work_subject_ref","plan_type","steps","rollback_steps","gate_refs","affected_refs","maintenance_window_ref","suppression_window_ref","authority_scope_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","activation","restore","detach"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-change-plan.v2"},"plan_ref":{"type":"string","pattern":"^change-plan://[^\\s]{1,240}$"},"plan_hash":{"$ref":"#/$defs/hash"},"target_ref":{"type":"string","pattern":"^(?:target-state|agentgres)://[^\\s]{1,240}$"},"observed_ref":{"type":"string","pattern":"^(?:observed-state|agentgres)://[^\\s]{1,240}$"},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"plan_type":{"enum":["environment_restore","route_detach"],"description":"v1 made this a CONST — `environment_restore` — so the registered plan modelled exactly one action. Canon says reconciliation is EXCLUSIVELY an admitted ChangePlan and names four actions (renew, cut over, detach, replace-by-successor), which made three of them unperformable by any conformant path. `route_detach` is added because this unit BUILDS and PROVES it; the other three are deliberately NOT minted here, because a plan type nothing produces is a shape pretending to be a capability, and that is the defect this program refuses rather than a head start on it."},"steps":{"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"rollback_steps":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"gate_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"}},"affected_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}},"maintenance_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"suppression_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^scope:[a-z0-9_.:-]{1,120}$"}},"temporal_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"authority_currentness_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"activation":{"type":"object","additionalProperties":false,"required":["activation_target_ref","expected_active_head_ref","candidate_ref","candidate_generation","adjudication_requirement_ref"],"properties":{"activation_target_ref":{"$ref":"#/$defs/canonicalRef"},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"candidate_ref":{"$ref":"#/$defs/canonicalRef"},"candidate_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"adjudication_requirement_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"restore":{"anyOf":[{"type":"object","additionalProperties":false,"required":["source_backup_ref","restore_manifest_ref","restore_manifest_root","restore_scope","target_environment_ref","target_generation_or_writer_fence_ref","pre_restore_checkpoint_ref","overwrite_or_clear_policy_ref","compatibility_validation_refs","source_root_and_head_expectations","suffix_disposition","target_read_only_preflight_ref","target_read_only_preflight_hash","target_preflight_valid_until","post_restore_readiness_gate_ref","post_restore_root_validation_contract_ref"],"properties":{"source_backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"restore_manifest_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},{"type":"null"}]},"restore_manifest_root":{"$ref":"#/$defs/hash"},"restore_scope":{"enum":["whole_environment","workspace","service","volume","declared_objects"]},"target_environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"target_generation_or_writer_fence_ref":{"$ref":"#/$defs/canonicalRef"},"pre_restore_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"overwrite_or_clear_policy_ref":{"$ref":"#/$defs/policyRef"},"compatibility_validation_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"source_root_and_head_expectations":{"type":"object","additionalProperties":false,"required":["source_state_root_ref","source_object_head_refs"],"properties":{"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}}}},"suffix_disposition":{"enum":["replay","import","explicitly_lost","not_applicable"]},"target_read_only_preflight_ref":{"type":"string","pattern":"^evidence://[^\\s]{1,240}$"},"target_read_only_preflight_hash":{"$ref":"#/$defs/hash"},"target_preflight_valid_until":{"$ref":"#/$defs/canonicalDateTime"},"post_restore_readiness_gate_ref":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"},"post_restore_root_validation_contract_ref":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}}},{"type":"null"}],"description":"Present for `environment_restore`, null for `route_detach`. Nullable rather than optional: `plan_hash` covers the body, and a field cannot be inside a hash and absent at the same time — the same reading M09.2's startup plan and M08.8's registration both landed on."},"detach":{"anyOf":[{"type":"object","additionalProperties":false,"required":["route_binding_ref","expected_active_head_ref","detach_reason_ref"],"properties":{"route_binding_ref":{"$ref":"#/$defs/canonicalRef","description":"The exact immutable revision being detached. A route binding may be replaced only by an explicit successor, so a detach names the revision it withdraws rather than the route, which would be an alias."},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}],"description":"The head the detach was computed against. A sibling that moved the head in between invalidates this plan rather than detaching a revision that is no longer active — the same exact-head discipline the activation member already carries."},"detach_reason_ref":{"$ref":"#/$defs/canonicalRef","description":"Why. A detach with no recorded reason is a withdrawal nobody can audit, and canon requires reconciliation to happen under fresh authority rather than by intention."}}},{"type":"null"}],"description":"Present for `route_detach`, null for `environment_restore`. The pairing with `restore` above is deliberate and is checked in the admission transaction rather than here: 'exactly one of these two is non-null, matching plan_type' is a conjunction, and `ioi.portable-invariants.v1` cannot express one."}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"planStep":{"type":"object","additionalProperties":false,"required":["step_index","kind","precondition_refs","evidence_requirement_refs"],"properties":{"step_index":{"type":"integer","minimum":1,"maximum":16},"kind":{"enum":["read_only_preflight","restore_apply","post_restore_validation","activation","cleanup_reconciliation"]},"precondition_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"evidence_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorChangePlanV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_type: serde_json::from_value::<HypervisorChangePlanV2PlanType>(
+                object
+                    .remove(r#"plan_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            steps: serde_json::from_value::<Vec<HypervisorChangePlanV2StepsItem>>(
+                object
+                    .remove(r#"steps"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"steps"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_steps: serde_json::from_value::<Vec<HypervisorChangePlanV2RollbackStepsItem>>(
+                object
+                    .remove(r#"rollback_steps"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_steps"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gate_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"gate_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gate_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"affected_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maintenance_window_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"maintenance_window_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"maintenance_window_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suppression_window_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"suppression_window_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"suppression_window_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_verification_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"temporal_verification_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_verification_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_currentness_floor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_currentness_floor_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_currentness_floor_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_continuity_floor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"lifecycle_continuity_floor_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_continuity_floor_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_finality_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ordering_finality_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ordering_finality_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation: serde_json::from_value::<HypervisorChangePlanV2Activation>(
+                object
+                    .remove(r#"activation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore: serde_json::from_value::<Option<HypervisorChangePlanV2Restore>>(
+                object
+                    .remove(r#"restore"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            detach: serde_json::from_value::<Option<HypervisorChangePlanV2Detach>>(
+                object
+                    .remove(r#"detach"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"detach"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorChangePlanV2SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor-change-plan.v2"#)]
+    IoiHypervisorChangePlanV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorChangePlanV2PlanType {
+    #[serde(rename = r#"environment_restore"#)]
+    EnvironmentRestore,
+    #[serde(rename = r#"route_detach"#)]
+    RouteDetach,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2StepsItem {
+    pub step_index: ArchitectureContractInteger,
+    pub kind: HypervisorChangePlanV2StepsItemKind,
+    pub precondition_refs: Vec<String>,
+    pub evidence_requirement_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2StepsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["step_index","kind","precondition_refs","evidence_requirement_refs"],"properties":{"step_index":{"type":"integer","minimum":1,"maximum":16},"kind":{"enum":["read_only_preflight","restore_apply","post_restore_validation","activation","cleanup_reconciliation"]},"precondition_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"evidence_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            step_index: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"step_index"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"step_index"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kind: serde_json::from_value::<HypervisorChangePlanV2StepsItemKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            precondition_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"precondition_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"precondition_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorChangePlanV2StepsItemKind {
+    #[serde(rename = r#"read_only_preflight"#)]
+    ReadOnlyPreflight,
+    #[serde(rename = r#"restore_apply"#)]
+    RestoreApply,
+    #[serde(rename = r#"post_restore_validation"#)]
+    PostRestoreValidation,
+    #[serde(rename = r#"activation"#)]
+    Activation,
+    #[serde(rename = r#"cleanup_reconciliation"#)]
+    CleanupReconciliation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2RollbackStepsItem {
+    pub step_index: ArchitectureContractInteger,
+    pub kind: HypervisorChangePlanV2RollbackStepsItemKind,
+    pub precondition_refs: Vec<String>,
+    pub evidence_requirement_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2RollbackStepsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["step_index","kind","precondition_refs","evidence_requirement_refs"],"properties":{"step_index":{"type":"integer","minimum":1,"maximum":16},"kind":{"enum":["read_only_preflight","restore_apply","post_restore_validation","activation","cleanup_reconciliation"]},"precondition_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"evidence_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            step_index: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"step_index"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"step_index"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kind: serde_json::from_value::<HypervisorChangePlanV2RollbackStepsItemKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            precondition_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"precondition_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"precondition_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorChangePlanV2RollbackStepsItemKind {
+    #[serde(rename = r#"read_only_preflight"#)]
+    ReadOnlyPreflight,
+    #[serde(rename = r#"restore_apply"#)]
+    RestoreApply,
+    #[serde(rename = r#"post_restore_validation"#)]
+    PostRestoreValidation,
+    #[serde(rename = r#"activation"#)]
+    Activation,
+    #[serde(rename = r#"cleanup_reconciliation"#)]
+    CleanupReconciliation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2Activation {
+    pub activation_target_ref: String,
+    pub expected_active_head_ref: Option<String>,
+    pub candidate_ref: String,
+    pub candidate_generation: ArchitectureContractInteger,
+    pub adjudication_requirement_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2Activation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["activation_target_ref","expected_active_head_ref","candidate_ref","candidate_generation","adjudication_requirement_ref"],"properties":{"activation_target_ref":{"$ref":"#/$defs/canonicalRef"},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"candidate_ref":{"$ref":"#/$defs/canonicalRef"},"candidate_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"adjudication_requirement_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            activation_target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"activation_target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation_target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_active_head_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_active_head_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_active_head_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"candidate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_generation: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"candidate_generation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_generation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudication_requirement_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"adjudication_requirement_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"adjudication_requirement_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2Restore {
+    pub source_backup_ref: String,
+    pub restore_manifest_ref: Option<String>,
+    pub restore_manifest_root: String,
+    pub restore_scope: HypervisorChangePlanV2RestoreRestoreScope,
+    pub target_environment_ref: String,
+    pub target_generation_or_writer_fence_ref: String,
+    pub pre_restore_checkpoint_ref: Option<String>,
+    pub overwrite_or_clear_policy_ref: String,
+    pub compatibility_validation_refs: Vec<String>,
+    pub source_root_and_head_expectations:
+        HypervisorChangePlanV2RestoreSourceRootAndHeadExpectations,
+    pub suffix_disposition: HypervisorChangePlanV2RestoreSuffixDisposition,
+    pub target_read_only_preflight_ref: String,
+    pub target_read_only_preflight_hash: String,
+    pub target_preflight_valid_until: String,
+    pub post_restore_readiness_gate_ref: String,
+    pub post_restore_root_validation_contract_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2Restore {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_backup_ref","restore_manifest_ref","restore_manifest_root","restore_scope","target_environment_ref","target_generation_or_writer_fence_ref","pre_restore_checkpoint_ref","overwrite_or_clear_policy_ref","compatibility_validation_refs","source_root_and_head_expectations","suffix_disposition","target_read_only_preflight_ref","target_read_only_preflight_hash","target_preflight_valid_until","post_restore_readiness_gate_ref","post_restore_root_validation_contract_ref"],"properties":{"source_backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"restore_manifest_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},{"type":"null"}]},"restore_manifest_root":{"$ref":"#/$defs/hash"},"restore_scope":{"enum":["whole_environment","workspace","service","volume","declared_objects"]},"target_environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"target_generation_or_writer_fence_ref":{"$ref":"#/$defs/canonicalRef"},"pre_restore_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"overwrite_or_clear_policy_ref":{"$ref":"#/$defs/policyRef"},"compatibility_validation_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"source_root_and_head_expectations":{"type":"object","additionalProperties":false,"required":["source_state_root_ref","source_object_head_refs"],"properties":{"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}}}},"suffix_disposition":{"enum":["replay","import","explicitly_lost","not_applicable"]},"target_read_only_preflight_ref":{"type":"string","pattern":"^evidence://[^\\s]{1,240}$"},"target_read_only_preflight_hash":{"$ref":"#/$defs/hash"},"target_preflight_valid_until":{"$ref":"#/$defs/canonicalDateTime"},"post_restore_readiness_gate_ref":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"},"post_restore_root_validation_contract_ref":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_backup_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_backup_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_backup_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore_manifest_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"restore_manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore_manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore_manifest_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"restore_manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore_manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore_scope: serde_json::from_value::<HypervisorChangePlanV2RestoreRestoreScope>(
+                object
+                    .remove(r#"restore_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_generation_or_writer_fence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_generation_or_writer_fence_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_generation_or_writer_fence_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pre_restore_checkpoint_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"pre_restore_checkpoint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"pre_restore_checkpoint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overwrite_or_clear_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overwrite_or_clear_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"overwrite_or_clear_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_validation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatibility_validation_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatibility_validation_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_root_and_head_expectations: serde_json::from_value::<
+                HypervisorChangePlanV2RestoreSourceRootAndHeadExpectations,
+            >(
+                object
+                    .remove(r#"source_root_and_head_expectations"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_root_and_head_expectations"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suffix_disposition: serde_json::from_value::<
+                HypervisorChangePlanV2RestoreSuffixDisposition,
+            >(
+                object
+                    .remove(r#"suffix_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"suffix_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_read_only_preflight_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_read_only_preflight_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_read_only_preflight_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_read_only_preflight_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_read_only_preflight_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_read_only_preflight_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_preflight_valid_until: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_preflight_valid_until"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_preflight_valid_until"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            post_restore_readiness_gate_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"post_restore_readiness_gate_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"post_restore_readiness_gate_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            post_restore_root_validation_contract_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"post_restore_root_validation_contract_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"post_restore_root_validation_contract_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorChangePlanV2RestoreRestoreScope {
+    #[serde(rename = r#"whole_environment"#)]
+    WholeEnvironment,
+    #[serde(rename = r#"workspace"#)]
+    Workspace,
+    #[serde(rename = r#"service"#)]
+    Service,
+    #[serde(rename = r#"volume"#)]
+    Volume,
+    #[serde(rename = r#"declared_objects"#)]
+    DeclaredObjects,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2RestoreSourceRootAndHeadExpectations {
+    pub source_state_root_ref: String,
+    pub source_object_head_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2RestoreSourceRootAndHeadExpectations {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_state_root_ref","source_object_head_refs"],"properties":{"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_state_root_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_state_root_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_state_root_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_object_head_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_object_head_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_object_head_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorChangePlanV2RestoreSuffixDisposition {
+    #[serde(rename = r#"replay"#)]
+    Replay,
+    #[serde(rename = r#"import"#)]
+    Import,
+    #[serde(rename = r#"explicitly_lost"#)]
+    ExplicitlyLost,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorChangePlanV2Detach {
+    pub route_binding_ref: String,
+    pub expected_active_head_ref: Option<String>,
+    pub detach_reason_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorChangePlanV2Detach {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["route_binding_ref","expected_active_head_ref","detach_reason_ref"],"properties":{"route_binding_ref":{"$ref":"#/$defs/canonicalRef","description":"The exact immutable revision being detached. A route binding may be replaced only by an explicit successor, so a detach names the revision it withdraws rather than the route, which would be an alias."},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}],"description":"The head the detach was computed against. A sibling that moved the head in between invalidates this plan rather than detaching a revision that is no longer active — the same exact-head discipline the activation member already carries."},"detach_reason_ref":{"$ref":"#/$defs/canonicalRef","description":"Why. A detach with no recorded reason is a withdrawal nobody can audit, and canon requires reconciliation to happen under fresh authority rather than by intention."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            route_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"route_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_active_head_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_active_head_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_active_head_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            detach_reason_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"detach_reason_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"detach_reason_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -139842,6 +140523,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
         expected_accept: true,
@@ -153149,6 +153862,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-change-plan/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1"#,
         source_fixture_path: Some(
@@ -165957,6 +166714,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/harness-session-spawn/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/harness-session-spawn/v1","title":"HarnessSessionSpawn","description":"The daemon-admitted harness spawn record in the exact boundary state the runtime kernel's terminal-attach gate enforces (runtime_harness_session_terminal_attach_admission.rs require_spawn): decision admitted, spawn_state ready_for_client_pty_attach, daemon gate and daemon runtime truth pinned, a command contract whose PTY transport is the hypervisor client terminal adapter, and a terminal attach contract carrying the daemon-resolved command line. The spawn does not run the process and grants no terminal execution authority; it is the frozen host-spawn admission that readiness and terminal attach must cite. No in-tree producer emits this record yet; the contract pins the consumer-enforced boundary, and the dev-replay mock's divergent states are recorded at the canonical owner.","x-ioi-schema-version":"ioi.runtime.harness_session_spawn.v1","type":"object","additionalProperties":false,"required":["schema_version","decision","spawn_state","requiresDaemonGate","runtimeTruthSource","spawn_id","launch_id","session_binding_ref","session_route_ref","harness_selection_ref","model_configuration_ref","model_route_ref","workspace_ref","workspace_root","command_contract","terminal_attach_contract","workspace_mount_policy","privacy_posture_ref","authority_scope_refs","receipt_policy_ref","receipt_refs","agentgres_operation_refs"],"properties":{"schema_version":{"const":"ioi.runtime.harness_session_spawn.v1"},"decision":{"const":"admitted"},"spawn_state":{"const":"ready_for_client_pty_attach"},"spawn_lane":{"const":"host_terminal_session"},"requiresDaemonGate":{"const":true},"runtimeTruthSource":{"const":"daemon-runtime"},"spawn_id":{"type":"string","minLength":1,"maxLength":300},"launch_id":{"type":"string","minLength":1,"maxLength":300},"session_binding_ref":{"type":"string","pattern":"^harness-session-binding:[^\\s]{1,400}$"},"session_route_ref":{"type":"string","pattern":"^session-route:[^\\s]{1,240}$"},"harness_selection_ref":{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"},"agent_harness_adapter_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"model_configuration_ref":{"type":"string","pattern":"^model-config:[^\\s]{1,240}$"},"model_route_ref":{"type":"string","pattern":"^model-route:[^\\s]{1,240}$"},"model_name":{"type":"string","minLength":1,"maxLength":200},"workspace_ref":{"type":"string","pattern":"^workspace://[^\\s]{1,240}$"},"workspace_root":{"type":"string","minLength":1,"maxLength":400},"terminal_session_ref":{"type":"string","minLength":1,"maxLength":240},"command_contract_ref":{"type":"string","minLength":1,"maxLength":240},"command_contract":{"type":"object","additionalProperties":false,"required":["pty_transport"],"properties":{"pty_transport":{"const":"hypervisor_client_terminal_adapter"},"process_custody":{"const":"client_host_pty_after_daemon_spawn_admission"},"resolved_argv":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","minLength":1,"maxLength":400}}}},"terminal_attach_contract":{"type":"object","additionalProperties":false,"required":["command_line"],"properties":{"command_line":{"type":"string","minLength":1,"maxLength":2000},"root":{"type":"string","minLength":1,"maxLength":400},"rows":{"type":"integer","minimum":1,"maximum":10000},"cols":{"type":"integer","minimum":1,"maximum":10000}}},"workspace_mount_policy":{"enum":["public_trunk","redacted_projection","plain_workspace","ctee_private_workspace"]},"privacy_posture_ref":{"type":"string","pattern":"^privacy:[^\\s]{1,200}$"},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^scope:[^\\s]{1,200}$"}},"receipt_policy_ref":{"type":"string","pattern":"^receipt-policy:[^\\s]{1,240}$"},"receipt_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"agentgres_operation_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,240}$"}},"secret_release_policy":{"const":"none"},"spawned_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/harness-session-terminal-attach/v1","title":"HarnessSessionTerminalAttach","description":"The terminal-attach admission the runtime kernel composes from an admitted HarnessSessionSpawn and its matching HarnessSessionReadiness (runtime_harness_session_terminal_attach_admission.rs): the client may create and write the host PTY only after this record binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root. The client attach contract carries the daemon-resolved command line, its initial write, and the client-custody PTY transport; the transcript projection opens awaiting the client stream with the daemon-resolved command as its stdin line. The client is a PTY transport, never the source of runtime truth.","x-ioi-schema-version":"ioi.runtime.harness_session_terminal_attach.v1","type":"object","additionalProperties":false,"required":["schema_version","attach_id","decision","attach_state","attach_lane","spawn_id","readiness_id","session_binding_ref","session_route_ref","agent_harness_adapter_id","client_attach_contract","terminal_transcript_projection","authority_scope_refs","receipt_refs","agentgres_operation_refs","state_root","attached_at","requiresDaemonGate","runtimeTruthSource","terminal_attach_invariant"],"properties":{"schema_version":{"const":"ioi.runtime.harness_session_terminal_attach.v1"},"attach_id":{"type":"string","pattern":"^harness-session-terminal-attach:[^\\s]{1,300}$"},"decision":{"const":"admitted"},"attach_state":{"const":"client_pty_attach_admitted"},"attach_lane":{"const":"hypervisor_client_terminal_adapter"},"spawn_id":{"type":"string","minLength":1,"maxLength":300},"readiness_id":{"type":"string","minLength":1,"maxLength":300},"launch_id":{"type":"string","minLength":1,"maxLength":300},"session_binding_ref":{"type":"string","pattern":"^harness-session-binding:[^\\s]{1,400}$"},"session_route_ref":{"type":"string","pattern":"^session-route:[^\\s]{1,240}$"},"harness_selection_ref":{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"},"agent_harness_adapter_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"model_configuration_ref":{"type":"string","pattern":"^model-config:[^\\s]{1,240}$"},"model_route_ref":{"type":"string","pattern":"^model-route:[^\\s]{1,240}$"},"model_name":{"type":"string","minLength":1,"maxLength":200},"workspace_ref":{"type":"string","pattern":"^workspace://[^\\s]{1,240}$"},"workspace_root":{"type":"string","minLength":1,"maxLength":400},"terminal_session_ref":{"type":"string","minLength":1,"maxLength":240},"command_contract_ref":{"type":"string","minLength":1,"maxLength":240},"command_contract":{"type":"object","additionalProperties":false,"required":["pty_transport"],"properties":{"pty_transport":{"const":"hypervisor_client_terminal_adapter"},"process_custody":{"const":"client_host_pty_after_daemon_spawn_admission"},"resolved_argv":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","minLength":1,"maxLength":400}}}},"workspace_mount_policy":{"enum":["public_trunk","redacted_projection","plain_workspace","ctee_private_workspace"]},"privacy_posture_ref":{"type":"string","pattern":"^privacy:[^\\s]{1,200}$"},"receipt_policy_ref":{"type":"string","pattern":"^receipt-policy:[^\\s]{1,240}$"},"client_attach_contract":{"type":"object","additionalProperties":false,"required":["command_line","initial_write","transcript_stream_ref","pty_transport","process_custody"],"properties":{"command_line":{"type":"string","minLength":1,"maxLength":2000},"initial_write":{"type":"string","minLength":2,"maxLength":2001},"transcript_stream_ref":{"type":"string","pattern":"^agentgres://trace/[^\\s]{1,240}$"},"pty_transport":{"const":"hypervisor_client_terminal_adapter"},"process_custody":{"const":"client_host_pty_after_daemon_attach_admission"},"root":{"type":"string","minLength":1,"maxLength":400},"rows":{"type":"integer","minimum":1,"maximum":10000},"cols":{"type":"integer","minimum":1,"maximum":10000}}},"terminal_transcript_projection":{"type":"object","additionalProperties":false,"required":["schema_version","transcript_id","transcript_state","transcript_stream_ref","cursor","lines","runtimeTruthSource"],"properties":{"schema_version":{"const":"ioi.runtime.harness_terminal_transcript_projection.v1"},"transcript_id":{"type":"string","pattern":"^harness-terminal-transcript:[^\\s]{1,300}$"},"transcript_state":{"const":"awaiting_client_stream"},"transcript_stream_ref":{"type":"string","pattern":"^agentgres://trace/[^\\s]{1,240}$"},"cursor":{"type":"integer","minimum":0,"maximum":0},"lines":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"object","additionalProperties":false,"required":["stream","text"],"properties":{"stream":{"enum":["system","stdin"]},"text":{"type":"string","minLength":1,"maxLength":2000}}}},"runtimeTruthSource":{"const":"daemon-runtime"}}},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^scope:[^\\s]{1,200}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":48,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"agentgres_operation_refs":{"type":"array","minItems":1,"maxItems":48,"items":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,240}$"}},"state_root":{"type":"string","pattern":"^agentgres://state-root/[^\\s]{1,240}$"},"attached_at":{"$ref":"#/$defs/canonicalDateTime"},"requiresDaemonGate":{"const":true},"runtimeTruthSource":{"const":"daemon-runtime"},"terminal_attach_invariant":{"const":"The client may create and write to the host PTY only after the daemon binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root in this attach object."}},"$defs":{"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","title":"HypervisorChangePlan","description":"The immutable, inspectable unit of environment change for the admitted plan type environment_restore: ordered stages with per-stage preconditions and evidence requirements, the restore binding that references source material only through its backup manifest commitment, and the forward-only activation binding over the exact expected active head and candidate generation. The plan hash covers the complete immutable body and excludes only itself; state roots, receipts, observations, execution output, and refusal reasons are never members of that preimage. Stage progress, admission, execution, and refusal are distinct committed records — they never rewrite this plan.","x-ioi-schema-version":"ioi.hypervisor-change-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","plan_hash","target_ref","observed_ref","system_ref","work_subject_ref","plan_type","steps","rollback_steps","gate_refs","affected_refs","maintenance_window_ref","suppression_window_ref","authority_scope_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","activation","restore"],"properties":{"schema_version":{"const":"ioi.hypervisor-change-plan.v1"},"plan_ref":{"type":"string","pattern":"^change-plan://[^\\s]{1,240}$"},"plan_hash":{"$ref":"#/$defs/hash"},"target_ref":{"type":"string","pattern":"^(?:target-state|agentgres)://[^\\s]{1,240}$"},"observed_ref":{"type":"string","pattern":"^(?:observed-state|agentgres)://[^\\s]{1,240}$"},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"plan_type":{"const":"environment_restore"},"steps":{"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"rollback_steps":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"gate_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"}},"affected_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}},"maintenance_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"suppression_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^scope:[a-z0-9_.:-]{1,120}$"}},"temporal_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"authority_currentness_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"activation":{"type":"object","additionalProperties":false,"required":["activation_target_ref","expected_active_head_ref","candidate_ref","candidate_generation","adjudication_requirement_ref"],"properties":{"activation_target_ref":{"$ref":"#/$defs/canonicalRef"},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"candidate_ref":{"$ref":"#/$defs/canonicalRef"},"candidate_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"adjudication_requirement_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"restore":{"type":"object","additionalProperties":false,"required":["source_backup_ref","restore_manifest_ref","restore_manifest_root","restore_scope","target_environment_ref","target_generation_or_writer_fence_ref","pre_restore_checkpoint_ref","overwrite_or_clear_policy_ref","compatibility_validation_refs","source_root_and_head_expectations","suffix_disposition","target_read_only_preflight_ref","target_read_only_preflight_hash","target_preflight_valid_until","post_restore_readiness_gate_ref","post_restore_root_validation_contract_ref"],"properties":{"source_backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"restore_manifest_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},{"type":"null"}]},"restore_manifest_root":{"$ref":"#/$defs/hash"},"restore_scope":{"enum":["whole_environment","workspace","service","volume","declared_objects"]},"target_environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"target_generation_or_writer_fence_ref":{"$ref":"#/$defs/canonicalRef"},"pre_restore_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"overwrite_or_clear_policy_ref":{"$ref":"#/$defs/policyRef"},"compatibility_validation_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"source_root_and_head_expectations":{"type":"object","additionalProperties":false,"required":["source_state_root_ref","source_object_head_refs"],"properties":{"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}}}},"suffix_disposition":{"enum":["replay","import","explicitly_lost","not_applicable"]},"target_read_only_preflight_ref":{"type":"string","pattern":"^evidence://[^\\s]{1,240}$"},"target_read_only_preflight_hash":{"$ref":"#/$defs/hash"},"target_preflight_valid_until":{"$ref":"#/$defs/canonicalDateTime"},"post_restore_readiness_gate_ref":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"},"post_restore_root_validation_contract_ref":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}}}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"planStep":{"type":"object","additionalProperties":false,"required":["step_index","kind","precondition_refs","evidence_requirement_refs"],"properties":{"step_index":{"type":"integer","minimum":1,"maximum":16},"kind":{"enum":["read_only_preflight","restore_apply","post_restore_validation","activation","cleanup_reconciliation"]},"precondition_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"evidence_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}}}}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-change-plan/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v2","title":"HypervisorChangePlan","description":"The immutable, inspectable unit of environment change for the admitted plan type environment_restore: ordered stages with per-stage preconditions and evidence requirements, the restore binding that references source material only through its backup manifest commitment, and the forward-only activation binding over the exact expected active head and candidate generation. The plan hash covers the complete immutable body and excludes only itself; state roots, receipts, observations, execution output, and refusal reasons are never members of that preimage. Stage progress, admission, execution, and refusal are distinct committed records — they never rewrite this plan. V2 ADMITS A SECOND ACTION. v1's `plan_type` was a const, so the object canon names as the ONLY conformant route to reconciliation could express exactly one of the four reconciliations canon lists. `route_detach` is what M09.3 needs for revocation on the route binding, which is immutable and therefore cannot carry a revoked flag of its own. This is a SUCCESSOR because v1 is `wire_mutation_policy: forbidden` and carries admitted records; v1 plans stay valid and stay restores.","x-ioi-schema-version":"ioi.hypervisor-change-plan.v2","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","plan_hash","target_ref","observed_ref","system_ref","work_subject_ref","plan_type","steps","rollback_steps","gate_refs","affected_refs","maintenance_window_ref","suppression_window_ref","authority_scope_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","activation","restore","detach"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-change-plan.v2"},"plan_ref":{"type":"string","pattern":"^change-plan://[^\\s]{1,240}$"},"plan_hash":{"$ref":"#/$defs/hash"},"target_ref":{"type":"string","pattern":"^(?:target-state|agentgres)://[^\\s]{1,240}$"},"observed_ref":{"type":"string","pattern":"^(?:observed-state|agentgres)://[^\\s]{1,240}$"},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"plan_type":{"enum":["environment_restore","route_detach"],"description":"v1 made this a CONST — `environment_restore` — so the registered plan modelled exactly one action. Canon says reconciliation is EXCLUSIVELY an admitted ChangePlan and names four actions (renew, cut over, detach, replace-by-successor), which made three of them unperformable by any conformant path. `route_detach` is added because this unit BUILDS and PROVES it; the other three are deliberately NOT minted here, because a plan type nothing produces is a shape pretending to be a capability, and that is the defect this program refuses rather than a head start on it."},"steps":{"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"rollback_steps":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/planStep"}},"gate_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"}},"affected_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}},"maintenance_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"suppression_window_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^scope:[a-z0-9_.:-]{1,120}$"}},"temporal_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"authority_currentness_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"activation":{"type":"object","additionalProperties":false,"required":["activation_target_ref","expected_active_head_ref","candidate_ref","candidate_generation","adjudication_requirement_ref"],"properties":{"activation_target_ref":{"$ref":"#/$defs/canonicalRef"},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"candidate_ref":{"$ref":"#/$defs/canonicalRef"},"candidate_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"adjudication_requirement_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"restore":{"anyOf":[{"type":"object","additionalProperties":false,"required":["source_backup_ref","restore_manifest_ref","restore_manifest_root","restore_scope","target_environment_ref","target_generation_or_writer_fence_ref","pre_restore_checkpoint_ref","overwrite_or_clear_policy_ref","compatibility_validation_refs","source_root_and_head_expectations","suffix_disposition","target_read_only_preflight_ref","target_read_only_preflight_hash","target_preflight_valid_until","post_restore_readiness_gate_ref","post_restore_root_validation_contract_ref"],"properties":{"source_backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"restore_manifest_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},{"type":"null"}]},"restore_manifest_root":{"$ref":"#/$defs/hash"},"restore_scope":{"enum":["whole_environment","workspace","service","volume","declared_objects"]},"target_environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"target_generation_or_writer_fence_ref":{"$ref":"#/$defs/canonicalRef"},"pre_restore_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"overwrite_or_clear_policy_ref":{"$ref":"#/$defs/policyRef"},"compatibility_validation_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"source_root_and_head_expectations":{"type":"object","additionalProperties":false,"required":["source_state_root_ref","source_object_head_refs"],"properties":{"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}}}},"suffix_disposition":{"enum":["replay","import","explicitly_lost","not_applicable"]},"target_read_only_preflight_ref":{"type":"string","pattern":"^evidence://[^\\s]{1,240}$"},"target_read_only_preflight_hash":{"$ref":"#/$defs/hash"},"target_preflight_valid_until":{"$ref":"#/$defs/canonicalDateTime"},"post_restore_readiness_gate_ref":{"type":"string","pattern":"^(?:gate|policy)://[^\\s]{1,240}$"},"post_restore_root_validation_contract_ref":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}}},{"type":"null"}],"description":"Present for `environment_restore`, null for `route_detach`. Nullable rather than optional: `plan_hash` covers the body, and a field cannot be inside a hash and absent at the same time — the same reading M09.2's startup plan and M08.8's registration both landed on."},"detach":{"anyOf":[{"type":"object","additionalProperties":false,"required":["route_binding_ref","expected_active_head_ref","detach_reason_ref"],"properties":{"route_binding_ref":{"$ref":"#/$defs/canonicalRef","description":"The exact immutable revision being detached. A route binding may be replaced only by an explicit successor, so a detach names the revision it withdraws rather than the route, which would be an alias."},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}],"description":"The head the detach was computed against. A sibling that moved the head in between invalidates this plan rather than detaching a revision that is no longer active — the same exact-head discipline the activation member already carries."},"detach_reason_ref":{"$ref":"#/$defs/canonicalRef","description":"Why. A detach with no recorded reason is a withdrawal nobody can audit, and canon requires reconciliation to happen under fresh authority rather than by intention."}}},{"type":"null"}],"description":"Present for `route_detach`, null for `environment_restore`. The pairing with `restore` above is deliberate and is checked in the admission transaction rather than here: 'exactly one of these two is non-null, matching plan_type' is a conjunction, and `ioi.portable-invariants.v1` cannot express one."}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"planStep":{"type":"object","additionalProperties":false,"required":["step_index","kind","precondition_refs","evidence_requirement_refs"],"properties":{"step_index":{"type":"integer","minimum":1,"maximum":16},"kind":{"enum":["read_only_preflight","restore_apply","post_restore_validation","activation","cleanup_reconciliation"]},"precondition_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"evidence_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}}}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","title":"HypervisorDevelopmentEnvironmentRecipeResolution","description":"The daemon-produced decision that turns one admitted development-environment recipe into concrete environment ingredients for one exact environment (recipe_routes.rs resolve_recipe): resolved substrate/tasks/services/ports plus the required task, service, port, secret, and SCM-auth edges that its readiness gate must prove. A resolution always binds the exact recipe_ref and environment_ref it resolved; a blocked candidate is a refusal, never a partially populated resolution, so blocked_reason is structurally null. The implementation's wire literal is ioi.hypervisor.environment-recipe-resolution.v1; the canon-name divergence is recorded at the canonical owner.","x-ioi-schema-version":"ioi.hypervisor.environment-recipe-resolution.v1","type":"object","additionalProperties":false,"required":["schema_version","recipe_ref","environment_ref","resolved_substrate","resolved_tasks","resolved_prebuild_tasks","resolved_services","resolved_ports","required_task_refs","required_service_refs","required_port_refs","required_secret_refs","required_scm_auth_refs","readiness_gate_ref","resolution_ref","blocked_reason","created_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.environment-recipe-resolution.v1"},"recipe_ref":{"type":"string","pattern":"^recipe_[0-9a-f]{1,32}$"},"environment_ref":{"type":"string","minLength":1,"maxLength":240},"resolved_substrate":{"enum":["local_host","devcontainer","container"]},"resolved_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"resolved_prebuild_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"resolved_services":{"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["name","command","lifecycle","trigger"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"lifecycle":{"enum":["optional","required"]},"trigger":{"enum":["post_start","environment_start"]}}}},"resolved_ports":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["port","protocol","access_policy"],"properties":{"port":{"type":"integer","minimum":1,"maximum":65535},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"]}}}},"required_task_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":200}},"required_service_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":200}},"required_port_refs":{"type":"array","maxItems":64,"items":{"type":"integer","minimum":1,"maximum":65535}},"required_secret_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"required_scm_auth_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"readiness_gate_ref":{"type":"string","pattern":"^gate_[0-9a-f]{1,32}$"},"resolution_ref":{"type":"string","pattern":"^reso_[0-9a-f]{1,32}$"},"blocked_reason":{"type":"null"},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"task":{"type":"object","additionalProperties":false,"required":["name","command","trigger","required"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"trigger":{"enum":["prebuild","environment_start","post_start"]},"required":{"type":"boolean"}}},"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1","title":"HypervisorEnvironmentStartupPlan","description":"THE IMMUTABLE BRIDGE FROM A RESOLVED RECIPE TO ONE CONCRETE STARTUP ATTEMPT, AND THE OBJECT ACC-11 CLAUSE 3 REQUIRES TO BE INSPECTABLE BEFORE IT RUNS. It freezes what will start, where, which dependencies and gates must become ready, and which evidence the lifecycle must emit. It does not execute, does not grant authority, does not own provider truth, and does not make readiness true by declaration. WHY IT IS A SEPARATE OBJECT FROM THE RESOLUTION IT COMES FROM: the same recipe resolves to DIFFERENT startup plans across local, customer-managed and IOI-managed postures, so a resolution that carried the concrete attempt would have to be rewritten per posture and would stop being the reusable thing it is. The plan points one-way back to the exact recipe and resolution and never the reverse. THERE IS NO `blocked_reason` HERE, AND ITS ABSENCE IS THE POINT. Canon: a refused candidate remains a resolution refusal or a startup-admission refusal; it never becomes an admitted startup plan with an embedded blockage. The resolution contract next door DOES carry `blocked_reason`, which is correct there and would be a category error here — an admitted plan that says why it cannot run is a record asserting two contradictory things, and something downstream will believe the wrong half. With `additionalProperties: false` a plan carrying one is refused rather than stored and explained. EVERY NULLABLE FIELD IS PRESENT AND NULL RATHER THAN ABSENT. `plan_hash` covers the body including every exact nullable System, work-subject, temporal, currentness-floor, continuity-floor and ordering/finality field, and a field cannot be inside a hash and absent at the same time. Present-and-null is a registered answer — this plan serves no System — where absent is a different record that happens to hash differently. CHANGE REQUIRES A SUCCESSOR, NEVER A PATCH. Changed placement, provider adapter, authority decision or lease, secret capability, readiness, privacy, budget or recovery resolution all mint a new plan; the revision-exact `startup_plan_ref` is what makes that enforceable rather than aspirational.","x-ioi-schema-version":"ioi.hypervisor.environment-startup-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","startup_plan_ref","plan_hash","environment_ref","session_ref","system_ref","work_subject_ref","development_environment_recipe_ref","development_environment_recipe_content_hash","development_environment_recipe_resolution_ref","development_environment_recipe_resolution_hash","placement_decision_ref","runtime_assignment_ref","runtime_operator","provider_account_ref","provider_adapter_revision_ref","source_ref","artifact_ref","configuration_ref","ordered_task_refs","service_refs","agent_service_refs","port_refs","readiness_gate_ref","connectivity_profile_ref","resource_isolation_profile_ref","custody_and_privacy_profile_refs","temporal_verification_profile_ref","authority_currentness_floor_ref","lifecycle_continuity_floor_ref","ordering_finality_profile_ref","required_identity_context_ref","required_authority_scope_refs","resolved_authority_decision_refs","authority_lease_refs","capability_lease_refs","required_secret_refs","secret_capability_lease_refs","required_scm_auth_refs","resource_budget_ref","budget_lease_ref","resource_allocation_ref","stop_policy_ref","recovery_policy_ref","rollback_policy_ref","expected_receipt_contract_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.environment-startup-plan.v1"},"startup_plan_ref":{"type":"string","pattern":"^environment-startup-plan://\\S+/revision/[0-9]+$","description":"Revision-exact by shape. A plan reference without a revision is a mutable alias, and canon requires a SUCCESSOR plan for every change rather than a patch in place — a ref that can point at different bytes over time makes that requirement unenforceable."},"plan_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Covers the canonical body from `schema_version` through `expected_receipt_contract_refs`, INCLUDING the allocated `startup_plan_ref` and every nullable field, and excluding only itself. Admission, execution, roots and receipts bind this hash from outside, so they cannot form a cycle with it."},"environment_ref":{"$ref":"#/$defs/ref"},"session_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"system_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Required in fact when the environment serves an admitted System. That condition is not expressible in `ioi.portable-invariants.v1` — the language cannot read another plane's admission — so it is enforced in the admission transaction, where the System IS resolvable, rather than written as a rule that would not fire."},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"development_environment_recipe_ref":{"$ref":"#/$defs/ref","description":"The owner-qualified name. Canon makes the historical bare `recipe_ref` spelling a READ-ONLY v1 compatibility alias: boundary adapters may read it, canonical state emits this. A generic recipe family is a defect because `DataRecipe`, `HypervisorSessionLaunchRecipe`, `WorkflowTemplate` and `GoalRunProfile` would all answer to it."},"development_environment_recipe_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The recipe by CONTENT, beside the recipe by name. Both, because a ref alone is an alias that can be repointed and a hash alone cannot be looked up. The admission recomputes this from the stored recipe and refuses a caller-asserted value (INV-37): a plan that took the caller's word for what the recipe said would freeze a claim rather than a recipe."},"development_environment_recipe_resolution_ref":{"$ref":"#/$defs/ref"},"development_environment_recipe_resolution_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"placement_decision_ref":{"$ref":"#/$defs/ref"},"runtime_assignment_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"runtime_operator":{"enum":["ioi_managed","customer_managed","local","hybrid"]},"provider_account_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"provider_adapter_revision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"source_ref":{"$ref":"#/$defs/ref"},"artifact_ref":{"$ref":"#/$defs/ref"},"configuration_ref":{"$ref":"#/$defs/ref"},"ordered_task_refs":{"type":"array","items":{"$ref":"#/$defs/ref"},"description":"ORDERED, so `uniqueItems` is deliberately absent here while every other ref list carries it: a task legitimately runs twice in one startup, and forbidding that would be the schema inventing a rule canon does not state."},"service_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Services the startup attempt must bring up."},"agent_service_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Agent services, named separately from ordinary services because they carry authority a service does not."},"port_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Declared ports. An endpoint not named here is undeclared, and the admission refuses the plan rather than opening it."},"readiness_gate_ref":{"$ref":"#/$defs/ref"},"connectivity_profile_ref":{"$ref":"#/$defs/ref","description":"Declared egress. Undeclared egress is the same class of defect as an undeclared port and is refused the same way."},"resource_isolation_profile_ref":{"$ref":"#/$defs/ref"},"custody_and_privacy_profile_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Declared custody. A path or store outside these profiles is undeclared."},"temporal_verification_profile_ref":{"$ref":"#/$defs/ref"},"authority_currentness_floor_ref":{"$ref":"#/$defs/ref","description":"Freezing a predecessor is not the same as making it current forever. The floor is what the daemon revalidates against immediately before startup and at every consequential effect boundary; stale, revoked, exhausted or uncertain evidence blocks execution and requires a SUCCESSOR plan rather than execution from the frozen plan alone."},"lifecycle_continuity_floor_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"ordering_finality_profile_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"required_identity_context_ref":{"$ref":"#/$defs/ref"},"required_authority_scope_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Provider-neutral. Canon makes the historical `required_wallet_scope_refs` spelling a read-only v1 alias: a scope named after one custody provider cannot describe the others."},"resolved_authority_decision_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What was DECIDED, distinct from what was required — a plan that recorded only the requirement could not be audited against the decision that answered it."},"authority_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"capability_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"required_secret_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"secret_capability_lease_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The leases that permit the secrets above. Named separately because a required secret with no lease is exactly the gap this pairing exists to make visible."},"required_scm_auth_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"resource_budget_ref":{"$ref":"#/$defs/ref"},"budget_lease_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"resource_allocation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stop_policy_ref":{"$ref":"#/$defs/ref"},"recovery_policy_ref":{"$ref":"#/$defs/ref"},"rollback_policy_ref":{"$ref":"#/$defs/ref"},"expected_receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What the lifecycle MUST emit. The plan freezes the obligation; it does not make the receipts true by declaring them."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","title":"HypervisorDevelopmentEnvironmentRecipe","description":"The admitted reusable development-environment setup contract as the daemon actually produces and persists it (recipe_routes.rs new_recipe / detect_recipe_fields): explicit or repo-detected provenance, substrate, task/service/port declarations, and the required secret and SCM-auth edges that later gate readiness. The recipe declares desired setup; it is never provider truth, storage truth, wallet authority, or runtime execution by itself. Canon declares a richer envelope (content hash, discovery lineage, checkout, policy refs); this v1 registers the shape the implementation produces today and the divergence is recorded at the canonical owner.","x-ioi-schema-version":"ioi.hypervisor.development-environment-recipe.v1","type":"object","additionalProperties":false,"required":["schema_version","recipe_ref","source","project_ref","environment_class_ref","substrate","monitor","isolation_profile","cache_paths","detected_signals","prebuild_tasks","init_tasks","post_start_tasks","services","ports","secret_requirement_refs","scm_auth_requirement_refs","created_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.development-environment-recipe.v1"},"recipe_ref":{"type":"string","pattern":"^recipe_[0-9a-f]{1,32}$"},"source":{"enum":["explicit","repo_detected"]},"project_ref":{"anyOf":[{"type":"string","pattern":"^project:[^\\s]{1,200}$"},{"type":"null"}]},"environment_class_ref":{"type":"string","minLength":1,"maxLength":200},"substrate":{"enum":["local_host","devcontainer","container"]},"monitor":{"type":"null"},"isolation_profile":{"type":"null"},"cache_paths":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":400}},"detected_signals":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"enum":["devcontainer.json","Dockerfile","Cargo.toml","package.json","python","go.mod"]}},"prebuild_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"init_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"post_start_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"services":{"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["name","command","lifecycle","trigger"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"lifecycle":{"enum":["optional","required"]},"trigger":{"enum":["post_start","environment_start"]}}}},"ports":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["port","protocol","access_policy"],"properties":{"port":{"type":"integer","minimum":1,"maximum":65535},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"]}}}},"secret_requirement_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"scm_auth_requirement_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"task":{"type":"object","additionalProperties":false,"required":["name","command","trigger","required"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"trigger":{"enum":["prebuild","environment_start","post_start"]},"required":{"type":"boolean"}}},"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
@@ -166234,6 +166992,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/harness-session-spawn/v1", r#"[{"rule_id":"harness_session_spawn.identity.distinct_from_launch","description":"A spawn is a derived record over one launch: spawn_id never aliases launch_id, so readiness and attach can bind each predecessor exactly.","expression":{"operator":"fields_not_equal","paths":["$.spawn_id","$.launch_id"]}}]"#),
     ("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", r#"[{"rule_id":"harness_session_terminal_attach.transcript_stream.bound","description":"The client attach contract and the transcript projection cite the same daemon-owned transcript stream; the client cannot be handed one stream while the projection records another.","expression":{"operator":"fields_equal","paths":["$.client_attach_contract.transcript_stream_ref","$.terminal_transcript_projection.transcript_stream_ref"]}},{"rule_id":"harness_session_terminal_attach.stdin_line.daemon_resolved","description":"The transcript's opening stdin line is exactly the daemon-resolved command line of the client attach contract; the client never authors the initial command record (INV-37).","expression":{"operator":"fields_equal","paths":["$.terminal_transcript_projection.lines[1].text","$.client_attach_contract.command_line"]}},{"rule_id":"harness_session_terminal_attach.identity.distinct_predecessors","description":"The attach binds two distinct predecessors: its spawn and its readiness proof are never the same record.","expression":{"operator":"fields_not_equal","paths":["$.spawn_id","$.readiness_id"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", r#"[{"rule_id":"hypervisor_change_plan.plan_hash.recomputes","description":"The plan hash covers the complete canonical immutable plan body including the allocated ref, exact nullable fields, and every ordered step, gate, rollback, restore, and activation input; it excludes only plan_hash. State roots, receipts, observations, execution output, and refusal reasons are never members of this preimage.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisor-change-plan-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"plan_ref":{"path":"$.plan_ref"},"target_ref":{"path":"$.target_ref"},"observed_ref":{"path":"$.observed_ref"},"system_ref":{"path":"$.system_ref"},"work_subject_ref":{"path":"$.work_subject_ref"},"plan_type":{"path":"$.plan_type"},"steps":{"path":"$.steps"},"rollback_steps":{"path":"$.rollback_steps"},"gate_refs":{"path":"$.gate_refs"},"affected_refs":{"path":"$.affected_refs"},"maintenance_window_ref":{"path":"$.maintenance_window_ref"},"suppression_window_ref":{"path":"$.suppression_window_ref"},"authority_scope_refs":{"path":"$.authority_scope_refs"},"temporal_verification_profile_ref":{"path":"$.temporal_verification_profile_ref"},"authority_currentness_floor_ref":{"path":"$.authority_currentness_floor_ref"},"lifecycle_continuity_floor_ref":{"path":"$.lifecycle_continuity_floor_ref"},"ordering_finality_profile_ref":{"path":"$.ordering_finality_profile_ref"},"activation":{"path":"$.activation"},"restore":{"path":"$.restore"}},"expected_path":"$.plan_hash","expected_encoding":"sha256_string"}},{"rule_id":"hypervisor_change_plan.steps.unique","description":"Each ordered stage index appears at most once; a duplicated stage cannot smuggle re-entry.","expression":{"operator":"array_unique_by_fields","array_path":"$.steps","fields":["step_index"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-change-plan/v2", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", r#"[{"rule_id":"hypervisor_development_environment_recipe_resolution.resolved_tasks.unique_names","description":"Resolved task names remain unique so required_task_refs match one exact task run.","expression":{"operator":"array_unique_by_fields","array_path":"$.resolved_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe_resolution.resolved_services.unique_names","description":"Resolved service names remain unique so required_service_refs match one exact service.","expression":{"operator":"array_unique_by_fields","array_path":"$.resolved_services","fields":["name"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1", r#"[{"rule_id":"hypervisor_environment_startup_plan.plan_is_not_its_own_resolution","description":"A plan that names itself as the resolution it came from is a cycle, and a cycle here defeats the one-way rule canon states outright: the concrete startup plan points back to the exact recipe and resolution, never the reverse. Cheap to check and impossible to see by reading a record with forty-six refs in it.","expression":{"operator":"fields_not_equal","paths":["$.startup_plan_ref","$.development_environment_recipe_resolution_ref"]}},{"rule_id":"hypervisor_environment_startup_plan.recipe_and_resolution_hashes_are_distinct","description":"The resolution's hash covers a record that CONTAINS the recipe reference, so the two commitments cannot be the same bytes. Equality means one was copied into the other — the plausible defect when four hash fields are wired in a row — and it would leave the plan claiming to have frozen two predecessors while having frozen one.","expression":{"operator":"fields_not_equal","paths":["$.development_environment_recipe_content_hash","$.development_environment_recipe_resolution_hash"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", r#"[{"rule_id":"hypervisor_development_environment_recipe.init_tasks.unique_names","description":"Recipe resolution derives required_task_refs by task name; a duplicated init-task name would double-count or shadow a required edge.","expression":{"operator":"array_unique_by_fields","array_path":"$.init_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.prebuild_tasks.unique_names","description":"Prebuild task names are resolution identities and must be unique within the recipe.","expression":{"operator":"array_unique_by_fields","array_path":"$.prebuild_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.post_start_tasks.unique_names","description":"Post-start task names are resolution identities and must be unique within the recipe.","expression":{"operator":"array_unique_by_fields","array_path":"$.post_start_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.services.unique_names","description":"Service names gate readiness (required_service_refs match on name); a duplicated service name would make the readiness edge ambiguous.","expression":{"operator":"array_unique_by_fields","array_path":"$.services","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.ports.unique","description":"One declared port row per port number; the resolution's required_port_refs must never double-count a port.","expression":{"operator":"array_unique_by_fields","array_path":"$.ports","fields":["port"]}}]"#),
@@ -171361,6 +172120,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json"))),
@@ -172781,6 +173544,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-change-plan/v2" => {
+            serde_json::from_value::<HypervisorChangePlanV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1" => {
             serde_json::from_value::<HypervisorDevelopmentEnvironmentRecipeResolutionV1>(value.clone())
                 .map(|_| ())
@@ -174157,6 +174925,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-change-plan/v2" => {
+            let projection = serde_json::from_value::<HypervisorChangePlanV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1" => {
             let projection = serde_json::from_value::<HypervisorDevelopmentEnvironmentRecipeResolutionV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -175278,8 +176051,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1343,
-            "the registered golden corpus must remain the explicit 1343-fixture bar",
+            1347,
+            "the registered golden corpus must remain the explicit 1347-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

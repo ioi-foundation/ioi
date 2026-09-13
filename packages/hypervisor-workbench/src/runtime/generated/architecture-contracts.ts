@@ -2813,6 +2813,71 @@ export type HypervisorChangePlanV1 = {
     };
 };
 
+export type HypervisorChangePlanV2 = {
+  schema_version: "ioi.hypervisor-change-plan.v2";
+  plan_ref: string;
+  plan_hash: string;
+  target_ref: string;
+  observed_ref: string;
+  system_ref: string | null;
+  work_subject_ref: string | null;
+  plan_type: "environment_restore" | "route_detach";
+  steps: Array<{
+        step_index: number;
+        kind: "read_only_preflight" | "restore_apply" | "post_restore_validation" | "activation" | "cleanup_reconciliation";
+        precondition_refs: Array<string>;
+        evidence_requirement_refs: Array<string>;
+      }>;
+  rollback_steps: Array<{
+        step_index: number;
+        kind: "read_only_preflight" | "restore_apply" | "post_restore_validation" | "activation" | "cleanup_reconciliation";
+        precondition_refs: Array<string>;
+        evidence_requirement_refs: Array<string>;
+      }>;
+  gate_refs: Array<string>;
+  affected_refs: Array<string>;
+  maintenance_window_ref: string | null;
+  suppression_window_ref: string | null;
+  authority_scope_refs: Array<string>;
+  temporal_verification_profile_ref: string | null;
+  authority_currentness_floor_ref: string | null;
+  lifecycle_continuity_floor_ref: string | null;
+  ordering_finality_profile_ref: string | null;
+  activation: {
+      activation_target_ref: string;
+      expected_active_head_ref: string | null;
+      candidate_ref: string;
+      candidate_generation: number;
+      adjudication_requirement_ref: string | null;
+    };
+  restore: {
+      source_backup_ref: string;
+      restore_manifest_ref: string | null;
+      restore_manifest_root: string;
+      restore_scope: "whole_environment" | "workspace" | "service" | "volume" | "declared_objects";
+      target_environment_ref: string;
+      target_generation_or_writer_fence_ref: string;
+      pre_restore_checkpoint_ref: string | null;
+      overwrite_or_clear_policy_ref: string;
+      compatibility_validation_refs: Array<string>;
+      source_root_and_head_expectations: {
+            source_state_root_ref: string;
+            source_object_head_refs: Array<string>;
+          };
+      suffix_disposition: "replay" | "import" | "explicitly_lost" | "not_applicable";
+      target_read_only_preflight_ref: string;
+      target_read_only_preflight_hash: string;
+      target_preflight_valid_until: string;
+      post_restore_readiness_gate_ref: string;
+      post_restore_root_validation_contract_ref: string;
+    } | null;
+  detach: {
+      route_binding_ref: string;
+      expected_active_head_ref: string | null;
+      detach_reason_ref: string;
+    } | null;
+};
+
 export type HypervisorDevelopmentEnvironmentRecipeResolutionV1 = {
   schema_version: "ioi.hypervisor.environment-recipe-resolution.v1";
   recipe_ref: string;
@@ -14654,6 +14719,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
     "expected": "accept",
@@ -25851,6 +25948,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-restore-unchanged-under-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/positive-route-detach.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-unminted-plan-type.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v2/negative-detach-without-a-reason.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json","mutation_id":null,"value_json":null}),
@@ -28032,6 +28133,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/harness-session-spawn/v1": "sha256:095dec4ddb3e6d0916c14fb155d08a815fa56e47f33816d9cf68ab2a9eb30c4a",
   "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f",
   "schema://ioi/components/hypervisor/hypervisor-change-plan/v1": "sha256:32d6b5365cdc15a5c05b83f196ac0101758fad6534a5dbef7b30d99b55e0abf0",
+  "schema://ioi/components/hypervisor/hypervisor-change-plan/v2": "sha256:3ccd2f1c4ace7aa7719f162d4b0bf0251cfffd3f51fe3c08c03be8d15695e27a",
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1": "sha256:590743d3cb2cb61408bb97680a6e82a0e0ba2a151cc25a9634e17fbdaf491368",
   "schema://ioi/components/hypervisor/hypervisor-environment-startup-plan/v1": "sha256:0a051ec7bfdcb5fc6850b615bc5e809acc02574666c149883b83d03c40ad6861",
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377",
@@ -50367,6 +50469,462 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "pattern": "^schema://[^\\s]{1,240}$"
           }
         }
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,240}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "planStep": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_index",
+          "kind",
+          "precondition_refs",
+          "evidence_requirement_refs"
+        ],
+        "properties": {
+          "step_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "kind": {
+            "enum": [
+              "read_only_preflight",
+              "restore_apply",
+              "post_restore_validation",
+              "activation",
+              "cleanup_reconciliation"
+            ]
+          },
+          "precondition_refs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            }
+          },
+          "evidence_requirement_refs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            }
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-change-plan/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v2",
+    "title": "HypervisorChangePlan",
+    "description": "The immutable, inspectable unit of environment change for the admitted plan type environment_restore: ordered stages with per-stage preconditions and evidence requirements, the restore binding that references source material only through its backup manifest commitment, and the forward-only activation binding over the exact expected active head and candidate generation. The plan hash covers the complete immutable body and excludes only itself; state roots, receipts, observations, execution output, and refusal reasons are never members of that preimage. Stage progress, admission, execution, and refusal are distinct committed records — they never rewrite this plan. V2 ADMITS A SECOND ACTION. v1's `plan_type` was a const, so the object canon names as the ONLY conformant route to reconciliation could express exactly one of the four reconciliations canon lists. `route_detach` is what M09.3 needs for revocation on the route binding, which is immutable and therefore cannot carry a revoked flag of its own. This is a SUCCESSOR because v1 is `wire_mutation_policy: forbidden` and carries admitted records; v1 plans stay valid and stay restores.",
+    "x-ioi-schema-version": "ioi.hypervisor-change-plan.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "plan_ref",
+      "plan_hash",
+      "target_ref",
+      "observed_ref",
+      "system_ref",
+      "work_subject_ref",
+      "plan_type",
+      "steps",
+      "rollback_steps",
+      "gate_refs",
+      "affected_refs",
+      "maintenance_window_ref",
+      "suppression_window_ref",
+      "authority_scope_refs",
+      "temporal_verification_profile_ref",
+      "authority_currentness_floor_ref",
+      "lifecycle_continuity_floor_ref",
+      "ordering_finality_profile_ref",
+      "activation",
+      "restore",
+      "detach"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor-change-plan.v2"
+      },
+      "plan_ref": {
+        "type": "string",
+        "pattern": "^change-plan://[^\\s]{1,240}$"
+      },
+      "plan_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "target_ref": {
+        "type": "string",
+        "pattern": "^(?:target-state|agentgres)://[^\\s]{1,240}$"
+      },
+      "observed_ref": {
+        "type": "string",
+        "pattern": "^(?:observed-state|agentgres)://[^\\s]{1,240}$"
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "work_subject_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "plan_type": {
+        "enum": [
+          "environment_restore",
+          "route_detach"
+        ],
+        "description": "v1 made this a CONST — `environment_restore` — so the registered plan modelled exactly one action. Canon says reconciliation is EXCLUSIVELY an admitted ChangePlan and names four actions (renew, cut over, detach, replace-by-successor), which made three of them unperformable by any conformant path. `route_detach` is added because this unit BUILDS and PROVES it; the other three are deliberately NOT minted here, because a plan type nothing produces is a shape pretending to be a capability, and that is the defect this program refuses rather than a head start on it."
+      },
+      "steps": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/planStep"
+        }
+      },
+      "rollback_steps": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/planStep"
+        }
+      },
+      "gate_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:gate|policy)://[^\\s]{1,240}$"
+        }
+      },
+      "affected_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "maintenance_window_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "suppression_window_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[a-z0-9_.:-]{1,120}$"
+        }
+      },
+      "temporal_verification_profile_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_currentness_floor_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lifecycle_continuity_floor_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ordering_finality_profile_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "activation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "activation_target_ref",
+          "expected_active_head_ref",
+          "candidate_ref",
+          "candidate_generation",
+          "adjudication_requirement_ref"
+        ],
+        "properties": {
+          "activation_target_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "expected_active_head_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "candidate_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "adjudication_requirement_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "restore": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_backup_ref",
+              "restore_manifest_ref",
+              "restore_manifest_root",
+              "restore_scope",
+              "target_environment_ref",
+              "target_generation_or_writer_fence_ref",
+              "pre_restore_checkpoint_ref",
+              "overwrite_or_clear_policy_ref",
+              "compatibility_validation_refs",
+              "source_root_and_head_expectations",
+              "suffix_disposition",
+              "target_read_only_preflight_ref",
+              "target_read_only_preflight_hash",
+              "target_preflight_valid_until",
+              "post_restore_readiness_gate_ref",
+              "post_restore_root_validation_contract_ref"
+            ],
+            "properties": {
+              "source_backup_ref": {
+                "type": "string",
+                "pattern": "^environment-backup://[^\\s]{1,240}$"
+              },
+              "restore_manifest_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^artifact://[^\\s]{1,240}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "restore_manifest_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "restore_scope": {
+                "enum": [
+                  "whole_environment",
+                  "workspace",
+                  "service",
+                  "volume",
+                  "declared_objects"
+                ]
+              },
+              "target_environment_ref": {
+                "type": "string",
+                "pattern": "^environment://[^\\s]{1,240}$"
+              },
+              "target_generation_or_writer_fence_ref": {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              "pre_restore_checkpoint_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/canonicalRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "overwrite_or_clear_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              },
+              "compatibility_validation_refs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "$ref": "#/$defs/canonicalRef"
+                }
+              },
+              "source_root_and_head_expectations": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_state_root_ref",
+                  "source_object_head_refs"
+                ],
+                "properties": {
+                  "source_state_root_ref": {
+                    "type": "string",
+                    "pattern": "^state-root://sha256:[0-9a-f]{64}$"
+                  },
+                  "source_object_head_refs": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "items": {
+                      "$ref": "#/$defs/canonicalRef"
+                    }
+                  }
+                }
+              },
+              "suffix_disposition": {
+                "enum": [
+                  "replay",
+                  "import",
+                  "explicitly_lost",
+                  "not_applicable"
+                ]
+              },
+              "target_read_only_preflight_ref": {
+                "type": "string",
+                "pattern": "^evidence://[^\\s]{1,240}$"
+              },
+              "target_read_only_preflight_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "target_preflight_valid_until": {
+                "$ref": "#/$defs/canonicalDateTime"
+              },
+              "post_restore_readiness_gate_ref": {
+                "type": "string",
+                "pattern": "^(?:gate|policy)://[^\\s]{1,240}$"
+              },
+              "post_restore_root_validation_contract_ref": {
+                "type": "string",
+                "pattern": "^schema://[^\\s]{1,240}$"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present for `environment_restore`, null for `route_detach`. Nullable rather than optional: `plan_hash` covers the body, and a field cannot be inside a hash and absent at the same time — the same reading M09.2's startup plan and M08.8's registration both landed on."
+      },
+      "detach": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route_binding_ref",
+              "expected_active_head_ref",
+              "detach_reason_ref"
+            ],
+            "properties": {
+              "route_binding_ref": {
+                "$ref": "#/$defs/canonicalRef",
+                "description": "The exact immutable revision being detached. A route binding may be replaced only by an explicit successor, so a detach names the revision it withdraws rather than the route, which would be an alias."
+              },
+              "expected_active_head_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/canonicalRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The head the detach was computed against. A sibling that moved the head in between invalidates this plan rather than detaching a revision that is no longer active — the same exact-head discipline the activation member already carries."
+              },
+              "detach_reason_ref": {
+                "$ref": "#/$defs/canonicalRef",
+                "description": "Why. A detach with no recorded reason is a withdrawal nobody can audit, and canon requires reconciliation to happen under fresh authority rather than by intention."
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present for `route_detach`, null for `environment_restore`. The pairing with `restore` above is deliberate and is checked in the admission transaction rather than here: 'exactly one of these two is non-null, matching plan_type' is a conjunction, and `ioi.portable-invariants.v1` cannot express one."
       }
     },
     "$defs": {
@@ -124974,6 +125532,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/hypervisor-change-plan/v2": [],
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1": [
     {
       "rule_id": "hypervisor_development_environment_recipe_resolution.resolved_tasks.unique_names",
@@ -139946,6 +140505,12 @@ export function validateHypervisorChangePlanV1(
   value: unknown,
 ): value is HypervisorChangePlanV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", value).ok;
+}
+
+export function validateHypervisorChangePlanV2(
+  value: unknown,
+): value is HypervisorChangePlanV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-change-plan/v2", value).ok;
 }
 
 export function validateHypervisorDevelopmentEnvironmentRecipeResolutionV1(

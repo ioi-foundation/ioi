@@ -1621,7 +1621,13 @@ mod tests {
         use ioi_types::app::hypervisor_environment_lifecycle::change_plan_commitment;
         let backup = &ladder.source.state.backups[0];
         let binding = &ladder.source.state.bindings[0];
+        // The v1 fixture is still the golden corpus's subject; what this plane COMPILES is the v2
+        // successor, so the declaration carries the successor's shape. A v1-shaped body reaching
+        // this route is refused for a missing `detach`, which is a breaking successor behaving as
+        // one rather than a regression.
         let mut plan = fixture("hypervisor-change-plan-v1/positive-restore-declared.json");
+        plan["schema_version"] = json!("ioi.hypervisor-change-plan.v2");
+        plan["detach"] = Value::Null;
         plan["restore"]["source_backup_ref"] = backup["backup_ref"].clone();
         plan["restore"]["restore_manifest_root"] = backup["manifest_root"].clone();
         plan["restore"]["source_root_and_head_expectations"]["source_state_root_ref"] =

@@ -28,7 +28,7 @@ use serde_json::{json, Value};
 use crate::app::generated::architecture_contracts::validate_architecture_contract;
 
 use super::hypervisor_environment_lifecycle::{
-    backup_manifest_root, CHANGE_PLAN_CONTRACT, ENVIRONMENT_BACKUP_CONTRACT,
+    backup_manifest_root, validate_durable_change_plan, ENVIRONMENT_BACKUP_CONTRACT,
 };
 use super::system_activation::namespace;
 use super::system_writer_fence::{
@@ -332,7 +332,11 @@ pub fn admit_replay_suffix(
     // manifest commitment must bind the durable backup and the backup's
     // source state root must match the root observed on the restored state.
     if let Some(binding) = restore {
-        if validate_architecture_contract(CHANGE_PLAN_CONTRACT, binding.change_plan).is_err() {
+        // Replay reads DURABLE plans, so it accepts the version each was written under: a v1 plan
+        // admitted before M09.3 describes a restore that really happened, and replay refusing to
+        // read its own history would be the successor invalidating the past rather than succeeding
+        // it. New plans compile as v2; both replay.
+        if validate_durable_change_plan(binding.change_plan).is_err() {
             return ReplayVerdict::refuse(
                 "source_incomplete",
                 "the bound change plan fails its registered contract; incomplete restore \

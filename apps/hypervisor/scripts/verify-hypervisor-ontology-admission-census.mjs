@@ -594,6 +594,13 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13, M09.3's second half (change plan v2 / route_detach): tokens
+  // 149904 -> 149905 and bare-undeclared 536 -> 534 — a bucket moving DOWN, which is rarer than it
+  // moving up and worth naming: replacing the `CHANGE_PLAN_CONTRACT` constant with a
+  // version-dispatching reader in two files removed two bare constant names from the census's view.
+  // A pin that only ever ratchets upward would have hidden this. ONE token, because the whole of that half lives in `crates/types` — the
+  // successor contract and the lifecycle kernel — which this census does not walk; the daemon's own
+  // change is two lines swapping a constant for a version-dispatching reader.
   // Re-pinned 2026-09-13, M09.3 (the port as its own object): tokens 149721 -> 149904,
   // foreign-qualified 4633 -> 4636, and BOTH writer buckets move — non-ODK literal 246 -> 248 for
   // the two `persist_record` calls that write the new `environment-ports` family through a named
@@ -652,7 +659,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149904,
+  tokenMentions: 149905,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 248, runtimeParameter: 312 },
   productionFsCalls: 234,
@@ -675,7 +682,7 @@ const PINNED = {
   unadjudicable: {
     "foreign-qualified": 4636,
     "opaque-initialiser": 2810,
-    "bare-undeclared": 536,
+    "bare-undeclared": 534,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

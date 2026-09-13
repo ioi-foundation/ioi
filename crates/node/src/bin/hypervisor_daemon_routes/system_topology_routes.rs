@@ -14,8 +14,8 @@
 //! prove).
 
 use ioi_types::app::hypervisor_environment_lifecycle::{
-    environment_plane_root, route_binding_head, route_identity, EnvironmentLifecycleLogHead,
-    EnvironmentPlaneState, CHANGE_PLAN_CONTRACT, CLEANUP_OBLIGATION_CONTRACT,
+    environment_plane_root, route_binding_head, route_identity, validate_durable_change_plan,
+    EnvironmentLifecycleLogHead, EnvironmentPlaneState, CLEANUP_OBLIGATION_CONTRACT,
     ROUTE_BINDING_CONTRACT,
 };
 use ioi_types::app::system_membership_transitions::{
@@ -205,7 +205,11 @@ pub(crate) fn build_minimum_topology_projection(
     // and their committed stage advancements alone.
     let mut change_plans = Vec::new();
     for plan in &environment.plans {
-        validate_contract(CHANGE_PLAN_CONTRACT, plan, "durable change plan")?;
+        // Durable plans are read at the version they were WRITTEN under: v1 records admitted
+        // before M09.3 stay valid, which is what `predecessor_remains_valid` means and why a
+        // projection must not demand the successor of history.
+        validate_durable_change_plan(plan)
+            .map_err(|error| verr("system_lifecycle_artifact_invalid", error))?;
         let plan_ref = opt_str(plan, "/plan_ref").unwrap_or_default().to_owned();
         change_plans.push(json!({
             "plan_ref": plan_ref,

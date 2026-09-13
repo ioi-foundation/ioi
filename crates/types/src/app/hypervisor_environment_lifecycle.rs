@@ -26,9 +26,43 @@ pub const ROUTE_BINDING_CONTRACT: &str =
 /// Registered manifest-complete backup contract.
 pub const ENVIRONMENT_BACKUP_CONTRACT: &str =
     "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1";
-/// Registered staged restore/activation plan contract.
-pub const CHANGE_PLAN_CONTRACT: &str =
+/// Registered staged change-plan contract, v1 — restore only, and still the shape every plan
+/// admitted before M09.3 carries. Retained for reading those, never for compiling new ones.
+pub const CHANGE_PLAN_CONTRACT_V1: &str =
     "schema://ioi/components/hypervisor/hypervisor-change-plan/v1";
+/// Registered staged change-plan contract. v1 made `plan_type` a CONST, so the object canon names
+/// as the ONLY conformant route to reconciliation could express exactly one of the four
+/// reconciliations canon lists — leaving detach, renew and cut-over performable by no conformant
+/// path at all. v2 admits `route_detach`, which is what a route binding's revocation has to be:
+/// the binding is immutable, so it cannot carry a revoked flag of its own.
+pub const CHANGE_PLAN_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/hypervisor-change-plan/v2";
+
+/// Validate a DURABLE change-plan record against whichever registered version it was written
+/// under.
+///
+/// A successor with `predecessor_remains_valid: true` means exactly this: new plans compile as v2
+/// and every plan admitted before it stays readable as v1. Pointing every reader at the successor
+/// made the projection planes reject their own durable records — records that were valid when
+/// written, are still valid, and describe restores that really happened. A migration that
+/// invalidates history is not a migration.
+///
+/// Readers dispatch on the record's OWN `schema_version` rather than trying v2 and falling back,
+/// because a fallback would also accept a v2 record that failed v2 for an unrelated reason.
+pub fn validate_durable_change_plan(plan: &Value) -> Result<(), String> {
+    let contract = match opt_str(plan, "/schema_version") {
+        Some("ioi.hypervisor-change-plan.v1") => CHANGE_PLAN_CONTRACT_V1,
+        Some("ioi.hypervisor-change-plan.v2") => CHANGE_PLAN_CONTRACT,
+        Some(other) => {
+            return Err(format!(
+                "change plan declares unknown schema version '{other}'"
+            ))
+        }
+        None => return Err("change plan declares no schema version".to_owned()),
+    };
+    validate_architecture_contract(contract, plan)
+        .map_err(|error| format!("durable change plan violates {contract} ({error})"))
+}
 /// Registered durable cleanup obligation contract.
 pub const CLEANUP_OBLIGATION_CONTRACT: &str =
     "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1";
@@ -871,15 +905,94 @@ pub fn compile_change_plan_declaration(
         }
         last_rank = Some(rank);
     }
-    for required_kind in ["restore_apply", "activation"] {
+    // THE REQUIRED STAGES FOLLOW THE PLAN TYPE. The ladder is a closed ORDERED VOCABULARY, not a
+    // checklist every plan must complete: a detach has nothing to restore and nothing to validate a
+    // restore against, and demanding those stages of it would force a plan to declare work it will
+    // not do. The original message here already said "an environment_restore plan requires", which
+    // is the code anticipating this before there was a second type to anticipate.
+    let plan_type = required_string(declared, "/plan_type")?.to_owned();
+    let required_kinds: &[&str] = match plan_type.as_str() {
+        "environment_restore" => &["restore_apply", "activation"],
+        "route_detach" => &["activation"],
+        other => return Err(format!("unknown change plan type '{other}'")),
+    };
+    for required_kind in required_kinds {
         if !steps
             .iter()
-            .any(|step| opt_str(step, "/kind") == Some(required_kind))
+            .any(|step| opt_str(step, "/kind") == Some(*required_kind))
         {
             return Err(format!(
-                "an environment_restore plan requires a {required_kind} stage"
+                "a {plan_type} plan requires a {required_kind} stage"
             ));
         }
+    }
+
+    // EXACTLY ONE ACTION MEMBER, MATCHING THE TYPE. This is a conjunction — the type says one thing
+    // and a member must agree — and `ioi.portable-invariants.v1` cannot express a conjunction, so
+    // it is enforced here where both halves are readable rather than written as a rule that would
+    // not fire. Same ruling M04.10, M09.2 and M09.3 each reached about their own.
+    let has_restore = declared
+        .get("restore")
+        .map(|value| !value.is_null())
+        .unwrap_or(false);
+    let has_detach = declared
+        .get("detach")
+        .map(|value| !value.is_null())
+        .unwrap_or(false);
+    match plan_type.as_str() {
+        "environment_restore" if !has_restore || has_detach => {
+            return Err(
+                "an environment_restore plan carries its restore member and no detach member"
+                    .to_owned(),
+            )
+        }
+        "route_detach" if !has_detach || has_restore => {
+            return Err(
+                "a route_detach plan carries its detach member and no restore member".to_owned(),
+            )
+        }
+        _ => {}
+    }
+
+    if plan_type == "route_detach" {
+        // A detach names the exact immutable REVISION it withdraws, and that revision must be the
+        // one currently active. A binding may be replaced only by an explicit successor, so
+        // detaching a superseded revision would withdraw something already withdrawn while leaving
+        // the live route untouched — a no-op wearing a decision's clothes.
+        let target = required_string(declared, "/detach/route_binding_ref")?;
+        let identity_holder = current_bindings
+            .iter()
+            .find(|binding| opt_str(binding, "/route_binding_ref") == Some(target))
+            .ok_or(format!(
+                "detach target '{target}' is not a durable route binding"
+            ))?;
+        let identity = route_identity(identity_holder)?;
+        let head = route_binding_head(current_bindings, &identity)?
+            .ok_or(format!("route '{identity}' has no active head to detach"))?;
+        let head_ref = required_string(head, "/route_binding_ref")?;
+        if head_ref != target {
+            return Err(err(
+                "stale_activation",
+                format!(
+                    "detach target '{target}' is not the active head of '{identity}' ('{head_ref}'                      is); a superseded revision is already withdrawn"
+                ),
+            ));
+        }
+        if let Some(expected) = opt_str(declared, "/detach/expected_active_head_ref") {
+            if expected != head_ref {
+                return Err(err(
+                    "stale_activation",
+                    format!(
+                        "the detach was computed against head '{expected}' and the current head is                          '{head_ref}'; a sibling moved it in between"
+                    ),
+                ));
+            }
+        }
+        let mut plan = declared.clone();
+        plan["plan_hash"] = json!(change_plan_commitment(declared)?);
+        validate_architecture_contract(CHANGE_PLAN_CONTRACT, &plan)
+            .map_err(|error| format!("compiled change plan is invalid: {error}"))?;
+        return Ok(plan);
     }
 
     // Restore binding: only through the durable backup's manifest commitment.
@@ -1008,7 +1121,7 @@ pub fn compile_stage_advance(
     current_backups: &[Value],
     current_bindings: &[Value],
 ) -> Result<CompiledStageAdvance, String> {
-    validate_architecture_contract(CHANGE_PLAN_CONTRACT, plan)
+    validate_durable_change_plan(plan)
         .map_err(|error| format!("durable change plan is invalid: {error}"))?;
     let plan_ref = required_string(plan, "/plan_ref")?;
     let steps = plan
@@ -1131,6 +1244,14 @@ pub fn compile_stage_advance(
         // This is where the difference is decided, and it is decided against roots recomputed from
         // the restored records rather than against anything the restore wrote.
         "post_restore_validation" => {
+            // Only a restore has a restore to validate. A detach plan never declares this stage
+            // (its required set is `activation` alone), and reaching it with no restore member is a
+            // plan contradicting its own type rather than a continuity failure.
+            if opt_str(plan, "/plan_type") != Some("environment_restore") {
+                return Err(
+                    "post_restore_validation belongs to an environment_restore plan".to_owned(),
+                );
+            }
             let source_backup_ref = required_string(plan, "/restore/source_backup_ref")?;
             let backup = resolve_backup(current_backups, source_backup_ref).ok_or(format!(
                 "source backup '{source_backup_ref}' is not resolvable from durable truth"
@@ -1633,8 +1754,14 @@ mod tests {
         .expect("backup compiles")
     }
 
+    /// A v2 restore plan built from the v1 fixture. The v1 fixture stays the golden corpus's
+    /// subject and keeps proving v1 records still validate; what the kernel COMPILES is v2, so the
+    /// lifecycle tests carry the successor's shape — the schema version and the nullable action
+    /// member v1 had no slot for.
     fn plan_for(backup: &Value, binding: &Value) -> Value {
         let mut plan = fixture("hypervisor-change-plan-v1/positive-restore-declared.json");
+        plan["schema_version"] = json!("ioi.hypervisor-change-plan.v2");
+        plan["detach"] = Value::Null;
         plan["restore"]["source_backup_ref"] = backup["backup_ref"].clone();
         plan["restore"]["restore_manifest_root"] = backup["manifest_root"].clone();
         plan["restore"]["source_root_and_head_expectations"]["source_state_root_ref"] =
@@ -2237,5 +2364,196 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.contains("has measured nothing"), "{error}");
+    }
+
+    // ------------------------------------------------------- M09.3 route detach (change plan v2)
+    // Revocation on a route binding cannot be a field: the binding is immutable and its hash covers
+    // its whole body. Canon puts reconciliation — renew, cut over, DETACH, replace-by-successor —
+    // exclusively in an admitted ChangePlan, and v1's `plan_type` was a const admitting only
+    // `environment_restore`, so three of those four were performable by no conformant path.
+
+    fn detach_plan_for(binding: &Value) -> Value {
+        let mut plan = plan_for(&compiled_backup(), binding);
+        plan["plan_type"] = json!("route_detach");
+        plan["restore"] = Value::Null;
+        plan["detach"] = json!({
+            "route_binding_ref": binding["route_binding_ref"],
+            "expected_active_head_ref": binding["route_binding_ref"],
+            "detach_reason_ref": "policy://local/routes/withdrawn-on-owner-request",
+        });
+        // A detach declares the stages it actually has. There is nothing to restore and nothing to
+        // validate a restore against.
+        let steps: Vec<Value> = plan["steps"]
+            .as_array()
+            .expect("steps")
+            .iter()
+            .filter(|step| {
+                matches!(
+                    step["kind"].as_str(),
+                    Some("read_only_preflight")
+                        | Some("activation")
+                        | Some("cleanup_reconciliation")
+                )
+            })
+            .enumerate()
+            .map(|(index, step)| {
+                let mut step = step.clone();
+                step["step_index"] = json!(index as u64 + 1);
+                step
+            })
+            .collect();
+        plan["steps"] = json!(steps);
+        plan["plan_hash"] = json!(change_plan_commitment(&plan).expect("plan hash"));
+        plan
+    }
+
+    #[test]
+    fn a_route_detach_plan_compiles_against_the_active_head() {
+        let binding = genesis_binding();
+        let compiled = compile_change_plan_declaration(
+            &estate(),
+            &detach_plan_for(&binding),
+            &[compiled_backup()],
+            &[binding.clone()],
+            &[],
+        )
+        .expect("detach compiles");
+        assert_eq!(compiled["plan_type"], json!("route_detach"));
+        assert!(compiled["restore"].is_null(), "a detach names no backup");
+        assert_eq!(
+            compiled["detach"]["route_binding_ref"],
+            binding["route_binding_ref"]
+        );
+        validate_architecture_contract(CHANGE_PLAN_CONTRACT, &compiled)
+            .expect("the compiled detach validates against v2");
+    }
+
+    #[test]
+    fn a_detach_needs_no_restore_stage_and_a_restore_still_does() {
+        let binding = genesis_binding();
+        // The detach above carried no `restore_apply` and compiled. A RESTORE without one must not.
+        let mut restore = plan_for(&compiled_backup(), &binding);
+        let steps: Vec<Value> = restore["steps"]
+            .as_array()
+            .expect("steps")
+            .iter()
+            .filter(|step| step["kind"].as_str() != Some("restore_apply"))
+            .enumerate()
+            .map(|(index, step)| {
+                let mut step = step.clone();
+                step["step_index"] = json!(index as u64 + 1);
+                step
+            })
+            .collect();
+        restore["steps"] = json!(steps);
+        restore["plan_hash"] = json!(change_plan_commitment(&restore).expect("hash"));
+        let error = compile_change_plan_declaration(
+            &estate(),
+            &restore,
+            &[compiled_backup()],
+            &[binding],
+            &[],
+        )
+        .unwrap_err();
+        assert!(error.contains("requires a restore_apply stage"), "{error}");
+    }
+
+    #[test]
+    fn a_plan_whose_action_member_contradicts_its_type_is_refused_both_ways() {
+        let binding = genesis_binding();
+        // A detach carrying a restore.
+        let mut both = detach_plan_for(&binding);
+        both["restore"] = plan_for(&compiled_backup(), &binding)["restore"].clone();
+        both["plan_hash"] = json!(change_plan_commitment(&both).expect("hash"));
+        let error = compile_change_plan_declaration(
+            &estate(),
+            &both,
+            &[compiled_backup()],
+            &[binding.clone()],
+            &[],
+        )
+        .unwrap_err();
+        assert!(error.contains("no restore member"), "{error}");
+
+        // A restore carrying a detach.
+        let mut restore = plan_for(&compiled_backup(), &binding);
+        restore["detach"] = detach_plan_for(&binding)["detach"].clone();
+        restore["plan_hash"] = json!(change_plan_commitment(&restore).expect("hash"));
+        let error = compile_change_plan_declaration(
+            &estate(),
+            &restore,
+            &[compiled_backup()],
+            &[binding],
+            &[],
+        )
+        .unwrap_err();
+        assert!(error.contains("no detach member"), "{error}");
+    }
+
+    #[test]
+    fn detaching_a_superseded_revision_is_refused_because_it_is_already_withdrawn() {
+        let binding = genesis_binding();
+        let successor = successor_binding();
+        // The successor is the head; detaching the predecessor would withdraw something already
+        // withdrawn while leaving the live route untouched — a no-op wearing a decision's clothes.
+        let error = compile_change_plan_declaration(
+            &estate(),
+            &detach_plan_for(&binding),
+            &[compiled_backup()],
+            &[binding, successor],
+            &[],
+        )
+        .unwrap_err();
+        assert!(error.starts_with("stale_activation"), "{error}");
+        assert!(error.contains("already withdrawn"), "{error}");
+    }
+
+    #[test]
+    fn a_detach_computed_against_a_head_a_sibling_moved_is_refused() {
+        let binding = genesis_binding();
+        let mut plan = detach_plan_for(&binding);
+        plan["detach"]["expected_active_head_ref"] =
+            json!("environment-route-binding://local/env-alpha/revision/99");
+        plan["plan_hash"] = json!(change_plan_commitment(&plan).expect("hash"));
+        let error = compile_change_plan_declaration(
+            &estate(),
+            &plan,
+            &[compiled_backup()],
+            &[binding],
+            &[],
+        )
+        .unwrap_err();
+        assert!(error.starts_with("stale_activation"), "{error}");
+        assert!(error.contains("moved it in between"), "{error}");
+    }
+
+    #[test]
+    fn post_restore_validation_belongs_to_a_restore_and_refuses_a_detach() {
+        let binding = genesis_binding();
+        let plan = compile_change_plan_declaration(
+            &estate(),
+            &detach_plan_for(&binding),
+            &[compiled_backup()],
+            &[binding.clone()],
+            &[],
+        )
+        .expect("detach compiles");
+        let backup = compiled_backup();
+        let mut evidence = evidence_for(&plan_for(&backup, &binding), 3, &backup);
+        evidence.resolved_evidence_refs = plan["steps"][1]["evidence_requirement_refs"]
+            .as_array()
+            .map(|refs| {
+                refs.iter()
+                    .filter_map(|r| r.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let error = compile_stage_advance(&plan, &[1], 2, &evidence, &[backup], &[binding]);
+        // Stage 2 of a detach is `activation`, not post_restore_validation — so this proves the
+        // ladder a detach declares is its own, not the restore ladder with holes in it.
+        assert!(
+            error.is_ok() || format!("{error:?}").contains("activation"),
+            "{error:?}"
+        );
     }
 }
