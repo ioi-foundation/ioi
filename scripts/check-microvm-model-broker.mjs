@@ -173,17 +173,52 @@ ok("canon states the residual instead of implying it is fenced",
 ok("canon states that no provider key enters the guest on any path",
   /no provider key enters the guest on any path/.test(canon));
 
-// ---- 9. drive the Rust suite that proves the behaviour ------------------------------------------
+// ---- 9. the channel is ARMED per environment, staged per run, and never by default -------------
+const ENVROUTES = "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs";
+const envroutes = read(ENVROUTES);
+ok("the channel is armed from a DECLARATION on the recipe, not from being a microVM",
+  /fn microvm_model_broker_binding/.test(envroutes)
+  && envroutes.includes('"brokered_model_only"')
+  && /!= "brokered_model_only"[\s\S]{0,60}return Ok\(None\)/.test(envroutes));
+ok("the declaration rides the connectivity profile's egress policy rather than minting a second place to decide egress",
+  envroutes.includes('.get("egress_policy")') && envroutes.includes('"default_deny_external"'));
+ok("the binding is on the spec BEFORE the declaration is minted, so the record describes the VM that exists",
+  envroutes.indexOf("spec.model_broker = microvm_model_broker_binding")
+    < envroutes.indexOf("let enforcement = spec"));
+ok("the host end comes up BEFORE the VM — no window where the guest dials an absent listener",
+  envroutes.indexOf("start_model_broker(&spec.sock_path")
+    < envroutes.indexOf("let mut vm = monitor"));
+ok("the status records the armed channel, and records NULL when none was armed",
+  /"model_broker": match spec\.model_broker\.as_ref\(\)/.test(envroutes)
+  && /None => Value::Null/.test(envroutes));
+
+const stageFn = microvm.slice(microvm.indexOf("pub(crate) fn stage_and_start_model_proxy"));
+ok("the staged binary's hash is RE-VERIFIED at use against the supply pin",
+  stageFn.includes("guest_model_proxy_hash_mismatch") && /sha256_file\(Path::new\(path\)\)/.test(stageFn));
+ok("staging MOVES the binary out of /workspace — the exported tree is what lands back on the host checkout",
+  /mv \.\/\{staged_name\} \{guest_path\}/.test(stageFn)
+  && stageFn.includes('const GUEST_PROXY_GUEST_PATH') === false
+  && microvm.includes('const GUEST_PROXY_GUEST_PATH: &str = "/tmp/ioi-model-proxy";'));
+ok("staging PROVES the proxy is running rather than trusting that the shell forked",
+  stageFn.includes("guest_model_proxy_not_running_after_start") && stageFn.includes("/proc/$(cat"));
+ok("staging PROVES the workspace is clean afterwards, rather than assuming the move worked",
+  stageFn.includes("guest_model_proxy_left_in_exported_workspace"));
+ok("the detached proxy's streams are closed, or the guest agent's exec would never see EOF",
+  />\/dev\/null 2>&1 &/.test(stageFn));
+
+// ---- 10. drive the Rust suite that proves the behaviour ------------------------------------------
 let rust = { pass: false, detail: "" };
 try {
   const out = execFileSync(
     "cargo",
     ["test", "-p", "ioi-node", "--bin", "hypervisor-daemon", "--",
-      "microvm_model_broker::tests", "microvm::tests::the_"],
+      "microvm_model_broker::tests", "microvm::tests::the_",
+      "environment_routes::containment_tests::a_microvm_gets_no_model",
+      "environment_routes::containment_tests::a_declared_channel"],
     { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 900_000 });
   const line = out.split("\n").filter((l) => l.startsWith("test result:")).pop() ?? "";
   const m = /(\d+) passed; (\d+) failed/.exec(line);
-  rust = { pass: !!m && m[2] === "0" && Number(m[1]) >= 8, detail: line.trim() };
+  rust = { pass: !!m && m[2] === "0" && Number(m[1]) >= 10, detail: line.trim() };
 } catch (error) {
   rust = { pass: false, detail: String(error?.stdout ?? error?.message ?? error).split("\n").slice(-4).join(" ") };
 }

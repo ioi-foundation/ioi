@@ -633,6 +633,21 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-13 (M13.10 slice B, arming the channel and staging its guest end). NO MODULE
+  // JOINED — 119 holds — because slice A already put the file in the walk and this is the wiring
+  // into `environment_routes.rs` and `microvm.rs`, both long since walked. The baseline this time
+  // needed no reconstruction: slice A's commit (79cf30451) was measured green at every pin below
+  // before this work started, so the delta is bounded by two commits rather than argued.
+  // Tokens 150251 -> 150336, opaque initialisers 2819 -> 2822, foreign-qualified 4637 -> 4638, and
+  // production filesystem calls 236 -> 239. THE THREE NEW FILESYSTEM CALLS ARE `create_dir_all`,
+  // `copy` and `remove_dir_all` ON A HOST TEMP DIRECTORY — the staging area the pinned proxy is
+  // copied into before it is tarred over the guest's bounded import path. None of them names an
+  // ontology family and none touches a record directory, which is why the rule a rung below still
+  // passes at 239: staging a binary into a guest is not writing a record.
+  // EVERY WRITER BUCKET HELD AGAIN: family 57, non-ODK literal 252, runtime-parameter 311, family
+  // mentions 285. Two consecutive cuts on this unit have added a transport and its wiring while
+  // moving no writer bucket at all — which is the census saying, in the only way it can, that
+  // M13.10 added a channel rather than an admission path.
   // Re-pinned 2026-09-13 (M13.10 slice A, the brokered model channel's host end). A MODULE JOINED,
   // 118 -> 119: `microvm_model_broker.rs` is the first new file in the daemon's walk this leg, and
   // the module count moving by exactly one is the cheapest proof that the walk saw it. I did the
@@ -697,10 +712,10 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150251,
+  tokenMentions: 150336,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
-  productionFsCalls: 236,
+  productionFsCalls: 239,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -718,8 +733,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4637,
-    "opaque-initialiser": 2819,
+    "foreign-qualified": 4638,
+    "opaque-initialiser": 2822,
     "bare-undeclared": 539,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

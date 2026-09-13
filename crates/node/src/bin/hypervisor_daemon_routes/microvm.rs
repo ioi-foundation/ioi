@@ -1401,6 +1401,103 @@ pub(crate) fn hostile_guest_proposal_roundtrip(
     })
 }
 
+/// The staged proxy's name inside the imported workspace, and where it is moved to before any task
+/// runs. `/tmp` is the guest agent's own scratch (it stages `/tmp/in.tar` there) and is never part
+/// of the exported workspace tar.
+const GUEST_PROXY_STAGED_NAME: &str = ".ioi-model-proxy";
+const GUEST_PROXY_GUEST_PATH: &str = "/tmp/ioi-model-proxy";
+const GUEST_PROXY_PID_FILE: &str = "/tmp/ioi-model-proxy.pid";
+
+/// M13.10 — the GUEST end of the brokered model channel: stage the pinned proxy and start it.
+///
+/// WHY IT IS STAGED AND NOT BOOTED. The initramfs is the pinned image every microVM boots, and a VM
+/// that declared no model channel must not carry the binary that opens one. So the proxy rides the
+/// same bounded import path the workspace does, and only when a broker is armed.
+///
+/// WHY IT DOES NOT STAY IN `/workspace`. `handle_export` tars `/workspace` wholesale and the host
+/// writes that back — so a binary left there would land in the operator's checkout and break the
+/// very clause M13.10 has to satisfy (a byte-exact host checkout before and after). It is moved to
+/// `/tmp`, which the agent already uses for its own transfer scratch and never exports, BEFORE any
+/// task can run. The move is not cleanup-on-success; it is part of staging.
+pub(crate) fn stage_and_start_model_proxy(
+    monitor: &dyn VmMonitor,
+    vm: &VmHandle,
+    home_dir: &str,
+    binding: &super::microvm_model_broker::ModelBrokerBinding,
+) -> Result<(), String> {
+    let tc = resolve_toolchain(home_dir)?;
+    let entry = &tc.manifest["guest_model_proxy"];
+    let path = entry["path"]
+        .as_str()
+        .ok_or_else(|| "guest_model_proxy_not_provisioned".to_string())?;
+    let want = entry["binary_sha256"]
+        .as_str()
+        .ok_or_else(|| "guest_model_proxy_not_pinned".to_string())?;
+    // RE-HASHED AT USE, not trusted from the manifest's say-so: the pin and the bytes are checked
+    // against each other every time the binary is about to cross into a guest.
+    let got = sha256_file(Path::new(path))?;
+    if got != want {
+        return Err(format!(
+            "guest_model_proxy_hash_mismatch: got {got}, pinned {want} — fail closed"
+        ));
+    }
+
+    let stage = std::env::temp_dir().join(format!(
+        "ioi-proxy-stage-{}-{}",
+        std::process::id(),
+        uuid::Uuid::new_v4().simple()
+    ));
+    std::fs::create_dir_all(&stage).map_err(|e| format!("proxy stage dir: {e}"))?;
+    let staged = stage.join(GUEST_PROXY_STAGED_NAME);
+    let copied = std::fs::copy(path, &staged).map_err(|e| format!("proxy stage copy: {e}"));
+    let tar = copied.and_then(|_| tar_dir(&stage));
+    let _ = std::fs::remove_dir_all(&stage);
+    monitor.import_workspace(vm, &tar?)?;
+
+    // One shell: move it out of the exported tree, make it executable, start it detached with its
+    // streams closed. The streams matter — the guest agent reads the child's pipe to EOF, so a
+    // background process still holding it would hang the exec rather than return.
+    let start = format!(
+        "set -e; mv ./{staged_name} {guest_path}; chmod +x {guest_path}; \
+         {guest_path} {listen} {vsock} >/dev/null 2>&1 & echo $! > {pid_file}",
+        staged_name = GUEST_PROXY_STAGED_NAME,
+        guest_path = GUEST_PROXY_GUEST_PATH,
+        listen = super::microvm_model_broker::GUEST_LISTEN_PORT,
+        vsock = binding.vsock_port,
+        pid_file = GUEST_PROXY_PID_FILE,
+    );
+    let out = monitor.exec(vm, &start)?;
+    if out.exit_code != 0 {
+        return Err(format!(
+            "guest_model_proxy_start_failed (exit {}): {}",
+            out.exit_code,
+            out.output.trim()
+        ));
+    }
+
+    // PROVE IT IS RUNNING RATHER THAN ASSUME THE SHELL SUCCEEDED. `&` reports that the shell forked,
+    // not that the program survived its first instruction; a proxy that exited on a bad argument
+    // would leave the exec above green and the channel dead.
+    let alive = monitor.exec(
+        vm,
+        &format!("[ -d /proc/$(cat {GUEST_PROXY_PID_FILE}) ] && echo alive || echo dead"),
+    )?;
+    if alive.output.trim() != "alive" {
+        return Err("guest_model_proxy_not_running_after_start".into());
+    }
+
+    // AND PROVE THE WORKSPACE IS CLEAN. The staged binary must not be in the tree that gets
+    // exported back over the operator's checkout.
+    let residue = monitor.exec(
+        vm,
+        &format!("[ -e ./{GUEST_PROXY_STAGED_NAME} ] && echo present || echo absent"),
+    )?;
+    if residue.output.trim() != "absent" {
+        return Err("guest_model_proxy_left_in_exported_workspace".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

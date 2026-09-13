@@ -1509,6 +1509,19 @@ server's non-chat API, which is a disk and availability exposure and not an
 authority crossing; scoping it requires a model-only reverse proxy standing in
 front of the endpoint, which this profile does not yet have.
 
+The channel is armed per environment and never by being a microVM. The
+declaration rides the connectivity profile's `egress_policy`, because a brokered
+model channel is an egress statement and settling it anywhere else would mint a
+second place where connectivity is decided; an environment that says nothing
+keeps `default_deny_external`, and gets neither a host listener nor a staged
+proxy. The in-guest proxy is supply-pinned beside the guest agent and is
+deliberately absent from the boot image, since a VM that declared no model
+channel must not carry the binary that opens one. It is staged over the same
+bounded import path the workspace uses and moved out of the workspace before any
+task runs — the exported workspace is written back over the operator's checkout,
+so a binary left in it would be a change to the host tree that the venue exists
+to avoid making.
+
 The enforcement declaration records the channel instead of leaving a reader to
 infer it. `HypervisorVmEnforcementDeclaration` v2 is an additive successor to v1
 carrying `broker_channel`, which is

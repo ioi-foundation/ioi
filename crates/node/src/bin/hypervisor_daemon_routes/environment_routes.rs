@@ -2414,6 +2414,39 @@ fn env_is_microvm(env: &Value, recipe: Option<&Value>) -> bool {
 /// Boot a microVM for the env via the selected VmMonitor (WS-5: cloud-hypervisor primary, QEMU /
 /// Firecracker lanes), import the scoped workspace into the guest tmpfs, and store the live handle.
 /// Sets the sandbox/isolation status to the REAL vm_kernel boundary; records the chosen monitor.
+/// M13.10 — does this environment DECLARE a brokered model channel, and if so, to where?
+///
+/// ARMED PER ENVIRONMENT, NEVER BY DEFAULT. The declaration rides `egress_policy`, which the
+/// connectivity profile already owns: a brokered model channel IS an egress statement, and deciding
+/// it anywhere else would mint a second place where connectivity is settled. An environment that
+/// says nothing gets `default_deny_external` and no channel — no host listener, and no proxy staged
+/// into its guest.
+///
+/// THE DESTINATION IS RESOLVED HERE, ON THE HOST, from the daemon's own local model upstream. The
+/// guest never names it, and `admit_model_broker_destination` refuses it if it is not loopback or
+/// if it is the daemon's own address.
+fn microvm_model_broker_binding(
+    recipe: &Value,
+) -> Result<Option<super::microvm_model_broker::ModelBrokerBinding>, String> {
+    let declared = recipe
+        .get("egress_policy")
+        .and_then(Value::as_str)
+        .unwrap_or("default_deny_external");
+    if declared != "brokered_model_only" {
+        return Ok(None);
+    }
+    let upstream = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:11434".to_string());
+    let daemon_addr = std::env::var("IOI_HYPERVISOR_DAEMON_ADDR").ok();
+    super::microvm_model_broker::admit_model_broker_destination(
+        upstream.trim_end_matches('/'),
+        daemon_addr.as_deref(),
+    )
+    .map(Some)
+}
+
 fn provision_microvm(
     st: &DaemonState,
     env: &mut Value,
@@ -2435,13 +2468,29 @@ fn provision_microvm(
     // SUN_LEN-safe vsock socket path (the data dir can be arbitrarily deep; the socket cannot).
     spec.sock_path =
         microvm::short_sock_path(env_id).map_err(|e| app(format!("vm socket: {e}")))?;
+    // ARMED BEFORE THE DECLARATION IS MINTED. The record has to describe the VM that is about to
+    // exist, so the binding is on the spec before anything reads it into a claim.
+    spec.model_broker = microvm_model_broker_binding(recipe)
+        .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e))?;
     let enforcement = spec
         .enforcement_declaration(monitor_id)
         .map_err(|e| app(format!("microvm enforcement: {e}")))?;
     let monitor = microvm::make_monitor(monitor_kind);
+    // THE HOST END COMES UP BEFORE THE VM, not after: the per-port socket is what cloud-hypervisor
+    // connects to when the guest dials, and a window where the guest can dial an absent listener is
+    // a window where the harness reads a closed connection as a dead model.
+    let broker_handle = match spec.model_broker.as_ref() {
+        Some(binding) => Some(
+            super::microvm_model_broker::start_model_broker(&spec.sock_path, binding)
+                .map_err(|e| app(format!("model broker listener: {e}")))?,
+        ),
+        None => None,
+    };
     let mut vm = monitor
         .start(&spec)
         .map_err(|e| app(format!("microvm start ({monitor_id}): {e}")))?;
+    // Its lifetime is now the VM's: dropping the handle stops the loop and unlinks the socket.
+    vm.model_broker = broker_handle;
     let tar = match microvm::tar_dir(std::path::Path::new(ws)) {
         Ok(tar) => tar,
         Err(error) => {
@@ -2452,6 +2501,16 @@ fn provision_microvm(
     if let Err(error) = monitor.import_workspace(&vm, &tar) {
         let _ = monitor.stop(&mut vm);
         return Err(app(format!("import workspace: {error}")));
+    }
+    // The guest end goes in AFTER the workspace, so its `mv` out of `/workspace` cannot be undone
+    // by a later extract into the same directory.
+    if let Some(binding) = spec.model_broker.as_ref() {
+        if let Err(error) =
+            microvm::stage_and_start_model_proxy(monitor.as_ref(), &vm, &st.home_dir, binding)
+        {
+            let _ = monitor.stop(&mut vm);
+            return Err(app(format!("model broker guest end: {error}")));
+        }
     }
     let proto = match monitor.proto_version(&vm) {
         Ok(version) if version > 0 => version,
@@ -2475,7 +2534,17 @@ fn provision_microvm(
         "selection_reason": reason,
         "pid": vm.pid,
         "guest_agent_proto": proto,
-        "enforcement_declaration": enforcement
+        "enforcement_declaration": enforcement,
+        // Null when no channel was armed, exactly as the declaration's own `broker_channel` is —
+        // the two are written from the same binding and cannot disagree.
+        "model_broker": match spec.model_broker.as_ref() {
+            Some(binding) => json!({
+                "vsock_port": binding.vsock_port,
+                "destination": binding.destination,
+                "guest_listen_port": super::microvm_model_broker::GUEST_LISTEN_PORT,
+            }),
+            None => Value::Null,
+        }
     });
     st.live_vms.lock().unwrap().insert(env_id.to_string(), vm);
     Ok(())
@@ -6041,6 +6110,45 @@ pub(crate) async fn handle_workrun_execute(
 #[cfg(test)]
 mod containment_tests {
     use super::*;
+
+    /// M13.10 — the channel is armed only where it is DECLARED.
+    #[test]
+    fn a_microvm_gets_no_model_channel_unless_its_recipe_declares_one() {
+        // Silence is not a declaration: the default egress policy arms nothing, so no host listener
+        // comes up and no proxy is staged into the guest.
+        for quiet in [
+            json!({}),
+            json!({ "egress_policy": "default_deny_external" }),
+            json!({ "egress_policy": "" }),
+            json!({ "isolation_profile": "minimal_sealed" }),
+        ] {
+            assert_eq!(
+                microvm_model_broker_binding(&quiet).unwrap(),
+                None,
+                "an undeclared channel must not be armed: {quiet}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_declared_channel_resolves_its_destination_on_the_host() {
+        let declared = json!({ "egress_policy": "brokered_model_only" });
+        let previous = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM").ok();
+        // SAFETY: single-threaded test scope; restored below.
+        unsafe { std::env::set_var("IOI_HYPERVISOR_MODEL_UPSTREAM", "http://127.0.0.1:11434/") };
+        let binding = microvm_model_broker_binding(&declared)
+            .unwrap()
+            .expect("a declared channel is armed");
+        assert_eq!(binding.destination, "127.0.0.1:11434");
+        assert_eq!(
+            binding.vsock_port,
+            super::super::microvm_model_broker::BROKER_VSOCK_PORT
+        );
+        match previous {
+            Some(value) => unsafe { std::env::set_var("IOI_HYPERVISOR_MODEL_UPSTREAM", value) },
+            None => unsafe { std::env::remove_var("IOI_HYPERVISOR_MODEL_UPSTREAM") },
+        }
+    }
 
     fn microvm_env_status() -> Value {
         json!({
