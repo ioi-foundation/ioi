@@ -1074,6 +1074,139 @@ pub(crate) fn persist_environment_ports(data_dir: &str, environment_id: &str, ro
 }
 
 #[cfg(test)]
+mod m09_5_cleanup_obligation_tests {
+    use super::*;
+
+    fn disposition(outcome: &str, resource: &str) -> Value {
+        json!({
+            "cleanup_obligation_ref": format!("cleanup-obligation://containment/{outcome}/{}", resource.replace([':', '/'], "_")),
+            "resource_ref": resource,
+            "outcome": outcome,
+            "detail": "test disposition",
+        })
+    }
+
+    #[test]
+    fn a_failed_teardown_compiles_a_registered_obligation_that_owes_destruction() {
+        let record = registered_cleanup_obligation(
+            "env_1",
+            "provider://local/process",
+            &disposition("failed", "microvm://environment/env_1"),
+        )
+        .expect("a failed teardown owes an obligation");
+        validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, &record)
+            .expect("the compiled obligation validates against the registered contract");
+        // The contract's OWN vocabulary already distinguished the two outcomes, which is the
+        // evidence this is a convergence and not a coercion: a delete that FAILED still owes
+        // `destroy`, and the cause is that the execution was partial.
+        assert_eq!(record["required_disposition"], json!("destroy"));
+        assert_eq!(record["cause"], json!("partial_execution"));
+        assert_eq!(record["status"], json!("pending"));
+        assert_eq!(record["revision"], json!(1));
+        assert!(
+            record["predecessor_obligation_root"].is_null(),
+            "an opening revision has no predecessor"
+        );
+        assert_eq!(record["resource_refs"][0]["resource_kind"], json!("vm"));
+    }
+
+    #[test]
+    fn an_unconfirmable_teardown_owes_VERIFICATION_rather_than_destruction() {
+        let record = registered_cleanup_obligation(
+            "env_1",
+            "provider://local/process",
+            &disposition("unknown", "microvm://environment/env_1"),
+        )
+        .expect("an unknown teardown owes an obligation");
+        validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, &record).expect("valid");
+        // The difference that matters operationally: nobody should destroy a resource that may
+        // already be gone, and nobody should assume it is.
+        assert_eq!(record["required_disposition"], json!("verify_absent"));
+        assert_eq!(record["cause"], json!("unknown_effect"));
+    }
+
+    #[test]
+    fn a_succeeded_teardown_owes_nothing_and_mints_nothing() {
+        // `close_deletion` returns no obligation ref on success, so the builder returns None. An
+        // obligation minted when nothing is owed is a false claim of debt, and it would sit in the
+        // retention plane forever waiting for a counterparty statement about a resource that was
+        // correctly deleted.
+        let mut clean = disposition("succeeded", "microvm://environment/env_1");
+        clean["cleanup_obligation_ref"] = Value::Null;
+        assert!(
+            registered_cleanup_obligation("env_1", "provider://local/process", &clean).is_none()
+        );
+    }
+
+    #[test]
+    fn the_provider_lane_and_the_environment_lane_compile_the_same_object() {
+        // The convergence, asserted rather than assumed: two lanes, one builder, one registered
+        // family. Before this unit the environment lane wrote a six-field row and the provider lane
+        // wrote a field on the instance.
+        let env_lane = registered_cleanup_obligation(
+            "env_1",
+            "provider://local/process",
+            &disposition("failed", "microvm://environment/env_1"),
+        )
+        .expect("env lane");
+        let provider_lane = registered_cleanup_obligation(
+            "env_1",
+            "provider-account://pacc_vast",
+            &disposition("failed", "provider://vast/instance/9"),
+        )
+        .expect("provider lane");
+        for record in [&env_lane, &provider_lane] {
+            validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, record).expect("valid");
+            assert_eq!(
+                record["schema_version"],
+                json!("ioi.hypervisor-resource-cleanup-obligation.v1")
+            );
+        }
+        // Each names its OWN provider; the builder does not flatten them to one.
+        assert_eq!(env_lane["provider_ref"], json!("provider://local/process"));
+        assert_eq!(
+            provider_lane["provider_ref"],
+            json!("provider-account://pacc_vast")
+        );
+        // And an unrecognised scheme is `other` rather than a guess.
+        assert_eq!(
+            provider_lane["resource_refs"][0]["resource_kind"],
+            json!("other")
+        );
+    }
+
+    #[test]
+    fn the_provider_native_evidence_ref_is_null_and_that_is_a_recorded_gap_not_a_shortcut() {
+        // The contract makes this field an `evidence://` ref — the provider's own RECORD of the
+        // resource — and a teardown disposition carries only a handle and an outcome. Populating it
+        // with the handle would validate and name nothing.
+        //
+        // The consequence is real: the counterparty-closure check joins on exactly this field, so
+        // these obligations cannot be closed as `completed` until the teardown lane records real
+        // provider-native evidence. They can still be opened, survive, escalate, and be quarantined
+        // or abandoned. Asserted here so the gap is a test rather than a comment.
+        let record = registered_cleanup_obligation(
+            "env_1",
+            "provider-account://pacc_vast",
+            &disposition("unknown", "provider://vast/instance/9"),
+        )
+        .expect("obligation");
+        assert!(record["resource_refs"][0]["provider_native_evidence_ref"].is_null());
+        assert_eq!(
+            record["resource_refs"][0]["canonical_resource_ref"],
+            json!("provider://vast/instance/9")
+        );
+        let commitment = record["resource_refs"][0]["identity_commitment"]
+            .as_str()
+            .unwrap();
+        assert!(
+            commitment.starts_with("sha256:") && commitment.len() == 71,
+            "{commitment}"
+        );
+    }
+}
+
+#[cfg(test)]
 mod m09_3_port_object_tests {
     use super::*;
 
@@ -2598,7 +2731,11 @@ fn stop_environment(st: &DaemonState, env: &mut Value, id: &str, condition_kind:
 /// is a convergence rather than a coercion: a delete that FAILED is `partial_execution` and still
 /// owes `destroy`; a delete whose absence could not be CONFIRMED is `unknown_effect` and owes
 /// `verify_absent`. Nothing had to be invented to say either.
-fn registered_cleanup_obligation(environment_id: &str, disposition: &Value) -> Option<Value> {
+pub(crate) fn registered_cleanup_obligation(
+    environment_id: &str,
+    provider_ref: &str,
+    disposition: &Value,
+) -> Option<Value> {
     let obligation_ref = disposition["cleanup_obligation_ref"].as_str()?;
     let resource_ref = disposition["resource_ref"].as_str().unwrap_or_default();
     let outcome = disposition["outcome"].as_str().unwrap_or("unknown");
@@ -2635,13 +2772,24 @@ fn registered_cleanup_obligation(environment_id: &str, disposition: &Value) -> O
         )),
         "environment_ref": environment_ref,
         "session_ref": Value::Null,
-        "provider_ref": "provider://local/process",
+        "provider_ref": provider_ref,
         "resource_refs": [{
             "resource_kind": resource_kind,
             "canonical_resource_ref": resource_ref,
-            // The teardown's own handle IS the provider's identifier for the thing, which is what
-            // makes this obligation closable against a counterparty statement at all.
-            "provider_native_evidence_ref": resource_ref,
+            // NULL, AND THE CONTRACT IS RIGHT TO MAKE ME SAY SO. This field is an `evidence://`
+            // ref — the provider's own RECORD of the resource — and a teardown disposition carries
+            // only the resource handle and an outcome. Putting the handle here would satisfy
+            // nothing: the field would be populated, the shape would validate, and the ref would
+            // name no evidence anybody could fetch.
+            //
+            // THE CONSEQUENCE IS REAL AND IS THE HONEST ONE: an obligation with a null
+            // provider-native evidence ref cannot be closed against a counterparty billing
+            // statement, because the join the closure check performs is exactly on this field. So
+            // these obligations can be opened, survive, escalate and be quarantined or abandoned —
+            // but a `completed` close waits until the teardown lane records real provider-native
+            // evidence. That is a gap in what the ESTATE observes, not a gap in the check, and it
+            // is better standing open than closed by a synthesised ref.
+            "provider_native_evidence_ref": Value::Null,
             "identity_commitment": format!("sha256:{}", sha256_hex_bytes(resource_ref.as_bytes())),
         }],
         "required_disposition": required_disposition,
@@ -2697,11 +2845,16 @@ fn record_cleanup_disposition(st: &DaemonState, env: &mut Value, disposition: &V
         // A record the contract would refuse is not written and then explained: if the compilation
         // or its validation fails, that is the same MEASURED loss as a failed write, reported on
         // the row rather than swallowed.
-        let registered =
-            registered_cleanup_obligation(env["id"].as_str().unwrap_or_default(), disposition)
-                .filter(|record| {
-                    validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, record).is_ok()
-                });
+        let registered = registered_cleanup_obligation(
+            env["id"].as_str().unwrap_or_default(),
+            // A microVM teardown is the estate's own process substrate, not a third party's; the
+            // provider lane passes its real account instead.
+            "provider://local/process",
+            disposition,
+        )
+        .filter(|record| {
+            validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, record).is_ok()
+        });
         let wrote = match registered {
             Some(record) => persist_record(
                 &st.data_dir,

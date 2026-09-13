@@ -594,6 +594,12 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13, M09.5's provider half (three teardown sites converged): tokens
+  // 150000 -> 150086, bare-undeclared 536 -> 539, non-ODK literal writer 249 -> 252 and
+  // runtime-parameter HELD at 311. Three new writers, all three legible: the provider lane's three
+  // teardown sites each persist through the named `CLEANUP_DIR` rather than an inline family
+  // string, so the bucket that grew is the one the census can read. A convergence that had added
+  // three opaque writers would have moved the other number, and that would have been the tell.
   // Re-pinned 2026-09-13, M09.5 (the cleanup obligation converged onto its registered family):
   // tokens 149905 -> 150000, bare-undeclared 534 -> 536, and the writer buckets move in OPPOSITE
   // directions — non-ODK literal 248 -> 249 while runtime-parameter 312 -> 311. That is ONE CALL
@@ -667,9 +673,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150000,
+  tokenMentions: 150086,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 249, runtimeParameter: 311 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -690,7 +696,7 @@ const PINNED = {
   unadjudicable: {
     "foreign-qualified": 4636,
     "opaque-initialiser": 2810,
-    "bare-undeclared": 536,
+    "bare-undeclared": 539,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

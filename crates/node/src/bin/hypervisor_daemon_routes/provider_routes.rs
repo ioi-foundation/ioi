@@ -1965,6 +1965,26 @@ impl EnvironmentProvider for VastProvider {
         inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
         inst["deletion_disposition"] = deletion_disposition.clone();
+        // THE OBLIGATION IS A REGISTERED OBJECT, NOT A FIELD ON THE INSTANCE (M09.5). The line
+        // above stays as the instance's own projection; what a non-`succeeded` teardown OWES now
+        // outlives the instance as a `HypervisorResourceCleanupObligation` — the same convergence
+        // the environment lane took, for the same reason: a row on the thing that failed to be
+        // deleted is the least durable place to record that it may still exist.
+        if let Some(obligation) = super::environment_routes::registered_cleanup_obligation(
+            env_ref,
+            &format!("provider-account://{}", self.account_id()),
+            &deletion_disposition,
+        ) {
+            let id = obligation["cleanup_obligation_ref"]
+                .as_str()
+                .unwrap_or_default();
+            let _ = persist_record(
+                data_dir,
+                super::hypervisor_environment_routes::CLEANUP_DIR,
+                &safe(id),
+                &obligation,
+            );
+        }
         self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
@@ -2477,6 +2497,26 @@ impl EnvironmentProvider for RunPodProvider {
         inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
         inst["deletion_disposition"] = deletion_disposition.clone();
+        // THE OBLIGATION IS A REGISTERED OBJECT, NOT A FIELD ON THE INSTANCE (M09.5). The line
+        // above stays as the instance's own projection; what a non-`succeeded` teardown OWES now
+        // outlives the instance as a `HypervisorResourceCleanupObligation` — the same convergence
+        // the environment lane took, for the same reason: a row on the thing that failed to be
+        // deleted is the least durable place to record that it may still exist.
+        if let Some(obligation) = super::environment_routes::registered_cleanup_obligation(
+            env_ref,
+            &format!("provider-account://{}", self.account_id()),
+            &deletion_disposition,
+        ) {
+            let id = obligation["cleanup_obligation_ref"]
+                .as_str()
+                .unwrap_or_default();
+            let _ = persist_record(
+                data_dir,
+                super::hypervisor_environment_routes::CLEANUP_DIR,
+                &safe(id),
+                &obligation,
+            );
+        }
         self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
@@ -3026,6 +3066,26 @@ impl EnvironmentProvider for LambdaProvider {
         inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
         inst["deletion_disposition"] = deletion_disposition.clone();
+        // THE OBLIGATION IS A REGISTERED OBJECT, NOT A FIELD ON THE INSTANCE (M09.5). The line
+        // above stays as the instance's own projection; what a non-`succeeded` teardown OWES now
+        // outlives the instance as a `HypervisorResourceCleanupObligation` — the same convergence
+        // the environment lane took, for the same reason: a row on the thing that failed to be
+        // deleted is the least durable place to record that it may still exist.
+        if let Some(obligation) = super::environment_routes::registered_cleanup_obligation(
+            env_ref,
+            &format!("provider-account://{}", self.account_id()),
+            &deletion_disposition,
+        ) {
+            let id = obligation["cleanup_obligation_ref"]
+                .as_str()
+                .unwrap_or_default();
+            let _ = persist_record(
+                data_dir,
+                super::hypervisor_environment_routes::CLEANUP_DIR,
+                &safe(id),
+                &obligation,
+            );
+        }
         self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
