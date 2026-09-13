@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.environment-port.v1",
+  "port_ref": "environment-port://hypervisor/env-1/5432",
+  "environment_ref": "environment://hypervisor/env-1",
+  "service_ref": "service://hypervisor/db",
+  "port": 5432,
+  "protocol": "tcp",
+  "access_policy": "private",
+  "port_exposure_policy_ref": "policy://hypervisor/ports/private",
+  "exposure_state": "closed",
+  "local_or_session_url": null,
+  "route_binding_refs": [],
+  "revoked_at_ms": null
+}

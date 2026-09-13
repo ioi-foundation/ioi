@@ -125,6 +125,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377"),
     ("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", "sha256:c358a0e549989aac8d0ef688f68286317959b6bd77c1b2a2a43ded71c2f616a8"),
     ("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", "sha256:6b8e05c397f5ce106af734c9684f4eff933846f012a937bdff341f6909674d86"),
+    ("schema://ioi/components/hypervisor/hypervisor-environment-port/v1", "sha256:066c0542730db2c7b4713231f2ed6dc041aa5decc42037a834f0270bc3d4053c"),
     ("schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1", "sha256:1abc2124c1de5187571c0d42fc3065d97b950ca51fbe293bbd2b238b688b415d"),
     ("schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1", "sha256:689bfc17c504c046e8817d52c077c25d99dd9b55c9e5e3fec7cd1964c2c06c89"),
     ("schema://ioi/components/hypervisor/mutation-receipt/v1", "sha256:608784081d9e0bb6584543f28ba3082325a75ddbfa7ecdac976af0a83cfa1e7c"),
@@ -32353,6 +32354,162 @@ impl<'de> serde::Deserialize<'de> for HypervisorEnvironmentRouteBindingV1Asserts
             ))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorEnvironmentPortV1 {
+    pub schema_version: HypervisorEnvironmentPortV1SchemaVersion,
+    pub port_ref: String,
+    pub environment_ref: String,
+    pub service_ref: Option<String>,
+    pub port: ArchitectureContractInteger,
+    pub protocol: HypervisorEnvironmentPortV1Protocol,
+    pub access_policy: HypervisorEnvironmentPortV1AccessPolicy,
+    pub port_exposure_policy_ref: String,
+    pub capability_lease_ref: Option<String>,
+    pub exposure_state: HypervisorEnvironmentPortV1ExposureState,
+    pub local_or_session_url: Option<String>,
+    pub route_binding_refs: Vec<String>,
+    pub revoked_at_ms: Option<ArchitectureContractInteger>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorEnvironmentPortV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","title":"HypervisorEnvironmentPort","description":"A PORT AS ITS OWN OBJECT, WITH ITS OWN AUTHORITY AND ITS OWN REVOCATION. ACC-11 clause 4 requires ports and route bindings to be their own objects rather than fields on an environment. The route binding has been one since the plane was built; the port has not — it lived as a row inside `environment.status.ports`, reachable only as a path segment under its environment and carrying no identity, no contract and no authority separable from the environment's. WHAT WAS ALREADY RIGHT, AND IS PRESERVED RATHER THAN REBUILT: the typed row already behaved correctly where it mattered most. `admitted_environment_port_target` refuses a preview whose port is absent, in conflict, non-TCP, or whose target is claimed by another non-deleted environment — canon's four conditions exactly, and the reason 'a preview cannot reach another environment's ports' is a property this plane already has. Giving the row an identity does not change that derivation; it gives the thing being derived an owner. WHY A PORT MUST BE ABLE TO BE REVOKED AND NOT MERELY CLOSED: a closed port can be reopened by whoever could open it, so closing is a state and not a decision. Revocation is terminal, and a plane where the only terminal state belongs to the ENVIRONMENT can withdraw a port only by withdrawing everything around it.","x-ioi-schema-version":"ioi.hypervisor.environment-port.v1","type":"object","additionalProperties":false,"required":["schema_version","port_ref","environment_ref","service_ref","port","protocol","access_policy","port_exposure_policy_ref","capability_lease_ref","exposure_state","local_or_session_url","route_binding_refs","revoked_at_ms"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.environment-port.v1"},"port_ref":{"type":"string","pattern":"^environment-port://\\S+$","description":"The port's OWN identity. Until this contract a port had none: it was a row inside `environment.status.ports`, addressable only as a path segment under its environment, which is the shape ACC-11 clause 4 names when it says ports must be their own objects rather than a field on an environment."},"environment_ref":{"$ref":"#/$defs/ref"},"service_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"port":{"type":"integer","minimum":1,"maximum":65535,"description":"The port number a caller SELECTS BY. Canon is explicit that it is a selector for an already-admitted row and never the provider target itself — repeating another environment's number must not proxy into it — so the target is derived from this admitted record rather than from the request."},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"],"description":"Who may reach it, decided on the port rather than inherited from the environment. A port that inherits its environment's answer cannot be more private than the environment, which is the whole reason canon gives it its own authority."},"port_exposure_policy_ref":{"$ref":"#/$defs/ref"},"capability_lease_ref":{"anyOf":[{"$ref":"#/$defs/ref","description":"The lease that currently permits exposure, present only while one is held. Null is a registered answer — this port is exposed under no lease — and is why the field is present-and-null rather than absent."},{"type":"null"}]},"exposure_state":{"enum":["closed","lease_required","open","conflict","revoked"],"description":"Canon names closed | lease_required | open. Two more are admitted here because the daemon already produces both and a vocabulary that cannot express what the runtime emits forces a caller to guess: `conflict` is the state the preview fence already refuses on, and `revoked` is the terminal state revocation needs — a revoked port is NOT merely closed, because closed can be reopened and revoked cannot."},"local_or_session_url":{"anyOf":[{"type":"string","maxLength":2048},{"type":"null"}]},"route_binding_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The externally addressable routes bound to this port. Canon separates the two deliberately: a port is a daemon-visible socket, a route has independent cardinality, ownership proof, certificate, provider, cutover, cost and REVOCATION semantics. Revoking a route does not close the port, and closing the port does not revoke its routes — which is only expressible because they are two objects."},"revoked_at_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"When revocation happened, or null. Paired with `exposure_state: revoked` rather than replacing it, so a reader can tell a revoked port from a closed one without consulting a clock."},{"type":"null"}]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorEnvironmentPortV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            port_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"port_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"port_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            service_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"service_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"service_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            port: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"port"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"port"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protocol: serde_json::from_value::<HypervisorEnvironmentPortV1Protocol>(
+                object
+                    .remove(r#"protocol"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protocol"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            access_policy: serde_json::from_value::<HypervisorEnvironmentPortV1AccessPolicy>(
+                object
+                    .remove(r#"access_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"access_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            port_exposure_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"port_exposure_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"port_exposure_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"capability_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_state: serde_json::from_value::<HypervisorEnvironmentPortV1ExposureState>(
+                object
+                    .remove(r#"exposure_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            local_or_session_url: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"local_or_session_url"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"local_or_session_url"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            route_binding_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"route_binding_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route_binding_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revoked_at_ms: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"revoked_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revoked_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorEnvironmentPortV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.environment-port.v1"#)]
+    IoiHypervisorEnvironmentPortV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorEnvironmentPortV1Protocol {
+    #[serde(rename = r#"tcp"#)]
+    Tcp,
+    #[serde(rename = r#"udp"#)]
+    Udp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorEnvironmentPortV1AccessPolicy {
+    #[serde(rename = r#"private"#)]
+    Private,
+    #[serde(rename = r#"session_lease"#)]
+    SessionLease,
+    #[serde(rename = r#"shared"#)]
+    Shared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorEnvironmentPortV1ExposureState {
+    #[serde(rename = r#"closed"#)]
+    Closed,
+    #[serde(rename = r#"lease_required"#)]
+    LeaseRequired,
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"conflict"#)]
+    Conflict,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -139909,6 +140066,70 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("hypervisor_environment_port.revocation_names_when_it_happened"),
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
         expected_accept: true,
@@ -153236,6 +153457,94 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-environment-port/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1"#,
         source_fixture_path: Some(
@@ -165653,6 +165962,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","title":"HypervisorDevelopmentEnvironmentRecipe","description":"The admitted reusable development-environment setup contract as the daemon actually produces and persists it (recipe_routes.rs new_recipe / detect_recipe_fields): explicit or repo-detected provenance, substrate, task/service/port declarations, and the required secret and SCM-auth edges that later gate readiness. The recipe declares desired setup; it is never provider truth, storage truth, wallet authority, or runtime execution by itself. Canon declares a richer envelope (content hash, discovery lineage, checkout, policy refs); this v1 registers the shape the implementation produces today and the divergence is recorded at the canonical owner.","x-ioi-schema-version":"ioi.hypervisor.development-environment-recipe.v1","type":"object","additionalProperties":false,"required":["schema_version","recipe_ref","source","project_ref","environment_class_ref","substrate","monitor","isolation_profile","cache_paths","detected_signals","prebuild_tasks","init_tasks","post_start_tasks","services","ports","secret_requirement_refs","scm_auth_requirement_refs","created_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.development-environment-recipe.v1"},"recipe_ref":{"type":"string","pattern":"^recipe_[0-9a-f]{1,32}$"},"source":{"enum":["explicit","repo_detected"]},"project_ref":{"anyOf":[{"type":"string","pattern":"^project:[^\\s]{1,200}$"},{"type":"null"}]},"environment_class_ref":{"type":"string","minLength":1,"maxLength":200},"substrate":{"enum":["local_host","devcontainer","container"]},"monitor":{"type":"null"},"isolation_profile":{"type":"null"},"cache_paths":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":400}},"detected_signals":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"enum":["devcontainer.json","Dockerfile","Cargo.toml","package.json","python","go.mod"]}},"prebuild_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"init_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"post_start_tasks":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/task"}},"services":{"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["name","command","lifecycle","trigger"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"lifecycle":{"enum":["optional","required"]},"trigger":{"enum":["post_start","environment_start"]}}}},"ports":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["port","protocol","access_policy"],"properties":{"port":{"type":"integer","minimum":1,"maximum":65535},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"]}}}},"secret_requirement_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"scm_auth_requirement_refs":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":240}},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"task":{"type":"object","additionalProperties":false,"required":["name","command","trigger","required"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"command":{"type":"string","minLength":1,"maxLength":2000},"trigger":{"enum":["prebuild","environment_start","post_start"]},"required":{"type":"boolean"}}},"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","title":"HypervisorEnvironmentBackup","description":"One durable environment backup aggregate: the captured source state root, the complete content manifest with one per-artifact digest row for every referenced payload artifact, custody/encryption/retention bindings, and the lifecycle status ladder. Only status 'complete' is eligible restore material, and completeness is structural: the declared artifact count, the manifest rows, and the top-level artifact refs must all agree, and the manifest root must recompute from the exact rows. A backup missing any manifest row is invalid, never merely degraded; restore staging references a backup only through this manifest commitment.","x-ioi-schema-version":"ioi.hypervisor-environment-backup.v1","type":"object","additionalProperties":false,"required":["schema_version","backup_ref","environment_ref","session_ref","system_ref","work_subject_ref","backup_policy_ref","trigger","actor_ref","schedule_or_change_plan_ref","source_state_root_ref","source_object_head_refs","source_checkpoint_or_suffix_boundary_refs","capture_profile_ref","execution_substrate_ref","destination_ref","custody_profile_ref","artifact_refs","manifest_artifact_ref","manifest_root","manifest_artifact_count","manifest_rows","content_commitment_refs","encryption_ref","key_epoch_ref","retention_policy_ref","expires_at","hold_refs","authority_requirement_refs","authority_grant_refs","daemon_operation_refs","provider_operation_refs","lifecycle_head_ref","status","evidence_refs","receipt_refs"],"properties":{"schema_version":{"const":"ioi.hypervisor-environment-backup.v1"},"backup_ref":{"type":"string","pattern":"^environment-backup://[^\\s]{1,240}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://[^\\s]{1,240}$"},{"type":"null"}]},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"work_subject_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"backup_policy_ref":{"$ref":"#/$defs/policyRef"},"trigger":{"enum":["manual","scheduled","webhook","pre_change","shutdown","policy"]},"actor_ref":{"anyOf":[{"type":"string","pattern":"^(?:wallet|org|project|runtime)://[^\\s]{1,240}$"},{"type":"null"}]},"schedule_or_change_plan_ref":{"anyOf":[{"type":"string","pattern":"^(?:schedule|change-plan|event)://[^\\s]{1,240}$"},{"type":"null"}]},"source_state_root_ref":{"type":"string","pattern":"^state-root://sha256:[0-9a-f]{64}$"},"source_object_head_refs":{"type":"array","maxItems":64,"items":{"$ref":"#/$defs/canonicalRef"}},"source_checkpoint_or_suffix_boundary_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"capture_profile_ref":{"$ref":"#/$defs/policyRef"},"execution_substrate_ref":{"type":"string","pattern":"^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$"},"destination_ref":{"type":"string","pattern":"^storage://[^\\s]{1,240}$"},"custody_profile_ref":{"$ref":"#/$defs/policyRef"},"artifact_refs":{"type":"array","maxItems":256,"items":{"$ref":"#/$defs/artifactRef"}},"manifest_artifact_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"manifest_root":{"$ref":"#/$defs/hash"},"manifest_artifact_count":{"type":"integer","minimum":0,"maximum":256},"manifest_rows":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["artifact_ref","sha256","size_bytes","role"],"properties":{"artifact_ref":{"$ref":"#/$defs/artifactRef"},"sha256":{"$ref":"#/$defs/hash"},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991},"role":{"enum":["environment_backup_payload","workspace_snapshot","evidence","checkpoint"]}}}},"content_commitment_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^(?:commitment|evidence)://[^\\s]{1,240}$"}},"encryption_ref":{"anyOf":[{"type":"string","pattern":"^encryption://[^\\s]{1,240}$"},{"type":"null"}]},"key_epoch_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"expires_at":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]},"hold_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"authority_requirement_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"authority_grant_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^grant://[^\\s]{1,240}$"}},"daemon_operation_refs":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/canonicalRef"}},"provider_operation_refs":{"type":"array","maxItems":32,"items":{"$ref":"#/$defs/canonicalRef"}},"lifecycle_head_ref":{"$ref":"#/$defs/canonicalRef"},"status":{"enum":["requested","capturing","finalizing","complete","failed","cancelled","expired","pruned"]},"evidence_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"}},"receipt_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}}},"allOf":[{"if":{"properties":{"status":{"const":"complete"}}},"then":{"properties":{"manifest_artifact_count":{"type":"integer","minimum":1,"maximum":256},"manifest_rows":{"type":"array","minItems":1},"artifact_refs":{"type":"array","minItems":1},"content_commitment_refs":{"type":"array","minItems":1},"receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","title":"HypervisorEnvironmentRouteBinding","description":"One immutable admitted route-to-environment binding revision: exact route identity (hostname, path prefix, protocol), the owning principal and optional owning System, the bound environment/port target, provider and policy bindings, and compare-and-swap lineage over predecessor revisions. Desired activation, cutover, detach, and replacement flow through an admitted HypervisorChangePlan; observed DNS, certificate, endpoint, and provider facts are evidence and never mutate the binding. A binding revision is structurally incapable of asserting observed reachability, ownership currency, or TLS validity.","x-ioi-schema-version":"ioi.hypervisor-environment-route-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","route_binding_ref","predecessor_route_binding_ref","route_binding_hash","owner_principal_ref","environment_ref","session_ref","system_ref","service_ref","port_ref","target_endpoint_ref","target_port","target_protocol","hostname_or_address","path_prefix","network_scope","route_provider_ref","dns_provider_ref","certificate_provider_ref","port_exposure_policy_ref","ownership_proof_requirement_ref","tls_policy_ref","renewal_policy_ref","traffic_policy_ref","privacy_and_information_flow_policy_refs","authority_requirement_refs","budget_or_quote_ref","expected_active_head_ref","activation_generation","expected_receipt_contract_refs","asserts_observed_route_truth"],"properties":{"schema_version":{"const":"ioi.hypervisor-environment-route-binding.v1"},"route_binding_ref":{"type":"string","pattern":"^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"},"predecessor_route_binding_ref":{"anyOf":[{"type":"string","pattern":"^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"},{"type":"null"}]},"route_binding_hash":{"$ref":"#/$defs/hash"},"owner_principal_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,240}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://[^\\s]{1,240}$"},{"type":"null"}]},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,240}$"},{"type":"null"}]},"service_ref":{"anyOf":[{"type":"string","pattern":"^environment-service://[^\\s]{1,240}$"},{"type":"null"}]},"port_ref":{"type":"string","pattern":"^environment-port://[^\\s]{1,240}$"},"target_endpoint_ref":{"type":"string","pattern":"^endpoint://[^\\s]{1,240}$"},"target_port":{"type":"integer","minimum":1,"maximum":65535},"target_protocol":{"enum":["http","https","tcp","udp","websocket","grpc"]},"hostname_or_address":{"type":"string","pattern":"^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$"},"path_prefix":{"anyOf":[{"type":"string","pattern":"^/[^\\s]{0,200}$"},{"type":"null"}]},"network_scope":{"enum":["local","private_network","session_scoped","public_internet"]},"route_provider_ref":{"$ref":"#/$defs/nullableProviderRef"},"dns_provider_ref":{"$ref":"#/$defs/nullableProviderRef"},"certificate_provider_ref":{"$ref":"#/$defs/nullableProviderRef"},"port_exposure_policy_ref":{"$ref":"#/$defs/policyRef"},"ownership_proof_requirement_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"tls_policy_ref":{"$ref":"#/$defs/policyRef"},"renewal_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"traffic_policy_ref":{"$ref":"#/$defs/policyRef"},"privacy_and_information_flow_policy_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/policyRef"}},"authority_requirement_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"budget_or_quote_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"expected_active_head_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"activation_generation":{"type":"integer","minimum":1,"maximum":9007199254740991},"expected_receipt_contract_refs":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"string","pattern":"^schema://[^\\s]{1,240}$"}},"asserts_observed_route_truth":{"const":false}},"allOf":[{"if":{"properties":{"predecessor_route_binding_ref":{"type":"null"}}},"then":{"properties":{"activation_generation":{"type":"integer","minimum":1,"maximum":1},"expected_active_head_ref":{"type":"null"}}},"else":{"properties":{"activation_generation":{"type":"integer","minimum":2,"maximum":9007199254740991},"expected_active_head_ref":{"$ref":"#/$defs/canonicalRef"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"nullableProviderRef":{"anyOf":[{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,240}$"},{"type":"null"}]}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-environment-port/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","title":"HypervisorEnvironmentPort","description":"A PORT AS ITS OWN OBJECT, WITH ITS OWN AUTHORITY AND ITS OWN REVOCATION. ACC-11 clause 4 requires ports and route bindings to be their own objects rather than fields on an environment. The route binding has been one since the plane was built; the port has not — it lived as a row inside `environment.status.ports`, reachable only as a path segment under its environment and carrying no identity, no contract and no authority separable from the environment's. WHAT WAS ALREADY RIGHT, AND IS PRESERVED RATHER THAN REBUILT: the typed row already behaved correctly where it mattered most. `admitted_environment_port_target` refuses a preview whose port is absent, in conflict, non-TCP, or whose target is claimed by another non-deleted environment — canon's four conditions exactly, and the reason 'a preview cannot reach another environment's ports' is a property this plane already has. Giving the row an identity does not change that derivation; it gives the thing being derived an owner. WHY A PORT MUST BE ABLE TO BE REVOKED AND NOT MERELY CLOSED: a closed port can be reopened by whoever could open it, so closing is a state and not a decision. Revocation is terminal, and a plane where the only terminal state belongs to the ENVIRONMENT can withdraw a port only by withdrawing everything around it.","x-ioi-schema-version":"ioi.hypervisor.environment-port.v1","type":"object","additionalProperties":false,"required":["schema_version","port_ref","environment_ref","service_ref","port","protocol","access_policy","port_exposure_policy_ref","capability_lease_ref","exposure_state","local_or_session_url","route_binding_refs","revoked_at_ms"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.environment-port.v1"},"port_ref":{"type":"string","pattern":"^environment-port://\\S+$","description":"The port's OWN identity. Until this contract a port had none: it was a row inside `environment.status.ports`, addressable only as a path segment under its environment, which is the shape ACC-11 clause 4 names when it says ports must be their own objects rather than a field on an environment."},"environment_ref":{"$ref":"#/$defs/ref"},"service_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"port":{"type":"integer","minimum":1,"maximum":65535,"description":"The port number a caller SELECTS BY. Canon is explicit that it is a selector for an already-admitted row and never the provider target itself — repeating another environment's number must not proxy into it — so the target is derived from this admitted record rather than from the request."},"protocol":{"enum":["tcp","udp"]},"access_policy":{"enum":["private","session_lease","shared"],"description":"Who may reach it, decided on the port rather than inherited from the environment. A port that inherits its environment's answer cannot be more private than the environment, which is the whole reason canon gives it its own authority."},"port_exposure_policy_ref":{"$ref":"#/$defs/ref"},"capability_lease_ref":{"anyOf":[{"$ref":"#/$defs/ref","description":"The lease that currently permits exposure, present only while one is held. Null is a registered answer — this port is exposed under no lease — and is why the field is present-and-null rather than absent."},{"type":"null"}]},"exposure_state":{"enum":["closed","lease_required","open","conflict","revoked"],"description":"Canon names closed | lease_required | open. Two more are admitted here because the daemon already produces both and a vocabulary that cannot express what the runtime emits forces a caller to guess: `conflict` is the state the preview fence already refuses on, and `revoked` is the terminal state revocation needs — a revoked port is NOT merely closed, because closed can be reopened and revoked cannot."},"local_or_session_url":{"anyOf":[{"type":"string","maxLength":2048},{"type":"null"}]},"route_binding_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The externally addressable routes bound to this port. Canon separates the two deliberately: a port is a daemon-visible socket, a route has independent cardinality, ownership proof, certificate, provider, cutover, cost and REVOCATION semantics. Revoking a route does not close the port, and closing the port does not revoke its routes — which is only expressible because they are two objects."},"revoked_at_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"When revocation happened, or null. Paired with `exposure_state: revoked` rather than replacing it, so a reader can tell a revoked port from a closed one without consulting a clock."},{"type":"null"}]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","title":"HypervisorResourceCleanupObligation","description":"One durable provider-resource cleanup obligation revision that survives deletion or loss of its originating environment, session, plan, or provider connection. Every revision names the exact resource identity commitments, the required disposition, the originating cause, and its compare-and-swap predecessor revision. Closing statuses (completed, quarantined, abandoned) are admitted, receipted dispositions and structurally require at least one receipt; parent or provider loss escalates the obligation with named evidence and can never erase it. Provider not-found closes an obligation only through a receipted disposition, never by garbage-collection inference.","x-ioi-schema-version":"ioi.hypervisor-resource-cleanup-obligation.v1","type":"object","additionalProperties":false,"required":["schema_version","cleanup_obligation_ref","revision","predecessor_obligation_root","originating_plan_ref","originating_execution_ref","originating_daemon_or_provider_operation_ref","environment_ref","session_ref","provider_ref","resource_refs","required_disposition","cause","reclaim_policy_ref","required_authority_refs","lifecycle_head_ref","status","escalation","attempt_count","last_attempt_ref","next_attempt_after","evidence_refs","receipt_refs"],"properties":{"schema_version":{"const":"ioi.hypervisor-resource-cleanup-obligation.v1"},"cleanup_obligation_ref":{"type":"string","pattern":"^cleanup-obligation://[^\\s]{1,240}$"},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"predecessor_obligation_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"originating_plan_ref":{"anyOf":[{"type":"string","pattern":"^change-plan://[^\\s]{1,240}$"},{"type":"null"}]},"originating_execution_ref":{"anyOf":[{"type":"string","pattern":"^execution://[^\\s]{1,240}$"},{"type":"null"}]},"originating_daemon_or_provider_operation_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"environment_ref":{"anyOf":[{"type":"string","pattern":"^environment://[^\\s]{1,240}$"},{"type":"null"}]},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://[^\\s]{1,240}$"},{"type":"null"}]},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,240}$"},"resource_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["resource_kind","canonical_resource_ref","provider_native_evidence_ref","identity_commitment"],"properties":{"resource_kind":{"enum":["vm","container","image","volume","network","route","certificate","lease","reservation","other"]},"canonical_resource_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"provider_native_evidence_ref":{"anyOf":[{"type":"string","pattern":"^evidence://[^\\s]{1,240}$"},{"type":"null"}]},"identity_commitment":{"$ref":"#/$defs/hash"}}}},"required_disposition":{"enum":["destroy","detach","revoke","release","verify_absent","quarantine"]},"cause":{"enum":["owner_deleted","rollback_incomplete","provider_unreachable","partial_execution","unknown_effect","superseded_change","policy"]},"reclaim_policy_ref":{"$ref":"#/$defs/policyRef"},"required_authority_refs":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/canonicalRef"}},"lifecycle_head_ref":{"$ref":"#/$defs/canonicalRef"},"status":{"enum":["pending","retry_scheduled","blocked","reconciling","escalated","completed","quarantined","abandoned"]},"escalation":{"anyOf":[{"$ref":"#/$defs/escalationRecord"},{"type":"null"}]},"attempt_count":{"type":"integer","minimum":0,"maximum":100000},"last_attempt_ref":{"anyOf":[{"type":"string","pattern":"^attempt://[^\\s]{1,240}$"},{"type":"null"}]},"next_attempt_after":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]},"evidence_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"}},"receipt_refs":{"type":"array","maxItems":16,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}}},"allOf":[{"if":{"properties":{"status":{"const":"escalated"}}},"then":{"properties":{"escalation":{"$ref":"#/$defs/escalationRecord"}}}},{"if":{"properties":{"status":{"enum":["pending","retry_scheduled","blocked","reconciling"]}}},"then":{"properties":{"escalation":{"type":"null"}}}},{"if":{"properties":{"revision":{"type":"integer","minimum":1,"maximum":1}}},"then":{"properties":{"predecessor_obligation_root":{"type":"null"}}},"else":{"properties":{"predecessor_obligation_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"},"escalationRecord":{"type":"object","additionalProperties":false,"required":["escalation_reason","lost_parent_ref","evidence_refs"],"properties":{"escalation_reason":{"enum":["parent_loss","provider_loss"]},"lost_parent_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"}}}},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1","title":"HypervisorSessionLaunchRecipeAdmission","description":"The daemon-admitted New-Session launch-recipe record exactly as the runtime kernel produces it (runtime_hypervisor_session_launch_recipe_admission.rs): a recipe becomes launchable only after this admission binds recipe, target binding, project, session route, model route, privacy posture, authority scopes, receipt preview/expectations, and Agentgres operation refs under the daemon gate. Each recipe kind maps to exactly one canonical surface, and a workbench recipe structurally requires its code-editor adapter target. This is the first daemon-side link of the session admission chain; the successor link is HarnessSessionBindingAdmission.","x-ioi-schema-version":"ioi.runtime.hypervisor_session_launch_recipe_admission.v1","type":"object","additionalProperties":false,"required":["schema_version","admission_id","decision","admission_state","recipe_ref","recipe_kind","surface_id","target_binding_ref","project_ref","operator_intent_ref","session_route_ref","code_editor_adapter_target_ref","model_route_ref","privacy_posture_ref","authority_scope_refs","receipt_preview_ref","expected_receipt_refs","agentgres_operation_refs","receipt_refs","state_root","requiresDaemonGate","runtimeTruthSource","admitted_at","recipe_invariant"],"properties":{"schema_version":{"const":"ioi.runtime.hypervisor_session_launch_recipe_admission.v1"},"admission_id":{"type":"string","minLength":1,"maxLength":300},"decision":{"const":"admitted"},"admission_state":{"const":"admitted_for_session_binding"},"recipe_ref":{"type":"string","minLength":1,"maxLength":200},"recipe_kind":{"enum":["mission","workbench","agent","automation","foundry_job","provider_environment_job","privacy_workspace"]},"surface_id":{"enum":["sessions","workbench","agents","automations","foundry","environments","privacy"]},"target_binding_ref":{"type":"string","pattern":"^target-binding:[^\\s]{1,240}$"},"project_ref":{"type":"string","pattern":"^project:[^\\s]{1,200}$"},"operator_intent_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":300},{"type":"null"}]},"session_route_ref":{"type":"string","pattern":"^session-route:[^\\s]{1,240}$"},"code_editor_adapter_target_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"model_route_ref":{"type":"string","pattern":"^model-route:[^\\s]{1,240}$"},"privacy_posture_ref":{"type":"string","pattern":"^privacy:[^\\s]{1,200}$"},"authority_scope_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^scope:[^\\s]{1,200}$"}},"receipt_preview_ref":{"type":"string","pattern":"^receipt-preview:[^\\s]{1,240}$"},"expected_receipt_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^receipt[^\\s]{1,260}$"}},"agentgres_operation_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,240}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"state_root":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"requiresDaemonGate":{"const":true},"runtimeTruthSource":{"const":"daemon-runtime"},"admitted_at":{"$ref":"#/$defs/canonicalDateTime"},"recipe_invariant":{"const":"New Session recipes become launchable only after daemon admission binds recipe, target binding, project, route, model, privacy, authority scopes, receipts, and Agentgres operation refs."}},"allOf":[{"if":{"properties":{"recipe_kind":{"const":"mission"}}},"then":{"properties":{"surface_id":{"const":"sessions"}}}},{"if":{"properties":{"recipe_kind":{"const":"workbench"}}},"then":{"properties":{"surface_id":{"const":"workbench"},"code_editor_adapter_target_ref":{"type":"string","minLength":1,"maxLength":240}}}},{"if":{"properties":{"recipe_kind":{"const":"agent"}}},"then":{"properties":{"surface_id":{"const":"agents"}}}},{"if":{"properties":{"recipe_kind":{"const":"automation"}}},"then":{"properties":{"surface_id":{"const":"automations"}}}},{"if":{"properties":{"recipe_kind":{"const":"foundry_job"}}},"then":{"properties":{"surface_id":{"const":"foundry"}}}},{"if":{"properties":{"recipe_kind":{"const":"provider_environment_job"}}},"then":{"properties":{"surface_id":{"const":"environments"}}}},{"if":{"properties":{"recipe_kind":{"const":"privacy_workspace"}}},"then":{"properties":{"surface_id":{"const":"privacy"}}}}],"$defs":{"canonicalDateTime":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/components/hypervisor/mutation-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/mutation-receipt/v1","title":"HypervisorMutationReceipt","x-ioi-schema-version":"ioi.hypervisor.mutation_receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","operation_ref","state_root_ref","previous_revision","revision","recovery_required"],"properties":{"schema_version":{"const":"ioi.hypervisor.mutation_receipt.v1"},"operation_ref":{"type":"string","pattern":"^agentgres://operation/\\S+$"},"state_root_ref":{"type":"string","pattern":"^agentgres://state-root/\\S+$"},"previous_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"recovery_required":{"type":"boolean"}}}"#),
@@ -165929,6 +166239,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", r#"[{"rule_id":"hypervisor_development_environment_recipe.init_tasks.unique_names","description":"Recipe resolution derives required_task_refs by task name; a duplicated init-task name would double-count or shadow a required edge.","expression":{"operator":"array_unique_by_fields","array_path":"$.init_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.prebuild_tasks.unique_names","description":"Prebuild task names are resolution identities and must be unique within the recipe.","expression":{"operator":"array_unique_by_fields","array_path":"$.prebuild_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.post_start_tasks.unique_names","description":"Post-start task names are resolution identities and must be unique within the recipe.","expression":{"operator":"array_unique_by_fields","array_path":"$.post_start_tasks","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.services.unique_names","description":"Service names gate readiness (required_service_refs match on name); a duplicated service name would make the readiness edge ambiguous.","expression":{"operator":"array_unique_by_fields","array_path":"$.services","fields":["name"]}},{"rule_id":"hypervisor_development_environment_recipe.ports.unique","description":"One declared port row per port number; the resolution's required_port_refs must never double-count a port.","expression":{"operator":"array_unique_by_fields","array_path":"$.ports","fields":["port"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", r#"[{"rule_id":"hypervisor_environment_backup.manifest_rows.match_declared_count","description":"The manifest carries exactly one row per declared artifact; a silently dropped row breaks the record.","expression":{"operator":"array_length_equals","array_path":"$.manifest_rows","count_path":"$.manifest_artifact_count"}},{"rule_id":"hypervisor_environment_backup.artifact_refs.match_declared_count","description":"The top-level artifact refs and the declared artifact count agree; a payload artifact outside the manifest cannot exist.","expression":{"operator":"array_length_equals","array_path":"$.artifact_refs","count_path":"$.manifest_artifact_count"}},{"rule_id":"hypervisor_environment_backup.manifest_rows.unique","description":"Each payload artifact carries at most one manifest row.","expression":{"operator":"array_unique_by_fields","array_path":"$.manifest_rows","fields":["artifact_ref"]}},{"rule_id":"hypervisor_environment_backup.manifest_root.recomputes","description":"The manifest root recomputes over the exact per-artifact digest rows bound to this backup and its captured source state root; restore staging references the backup only through this commitment.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisor-environment-backup-manifest-jcs-sha256.v1"},"backup_ref":{"path":"$.backup_ref"},"environment_ref":{"path":"$.environment_ref"},"source_state_root_ref":{"path":"$.source_state_root_ref"},"rows":{"path":"$.manifest_rows"}},"expected_path":"$.manifest_root","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", r#"[{"rule_id":"hypervisor_environment_route_binding.route_binding_hash.recomputes","description":"The route-binding hash recomputes over the complete immutable body including the allocated ref and exact nullable fields, excluding only route_binding_hash.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.hypervisor-environment-route-binding-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"route_binding_ref":{"path":"$.route_binding_ref"},"predecessor_route_binding_ref":{"path":"$.predecessor_route_binding_ref"},"owner_principal_ref":{"path":"$.owner_principal_ref"},"environment_ref":{"path":"$.environment_ref"},"session_ref":{"path":"$.session_ref"},"system_ref":{"path":"$.system_ref"},"service_ref":{"path":"$.service_ref"},"port_ref":{"path":"$.port_ref"},"target_endpoint_ref":{"path":"$.target_endpoint_ref"},"target_port":{"path":"$.target_port"},"target_protocol":{"path":"$.target_protocol"},"hostname_or_address":{"path":"$.hostname_or_address"},"path_prefix":{"path":"$.path_prefix"},"network_scope":{"path":"$.network_scope"},"route_provider_ref":{"path":"$.route_provider_ref"},"dns_provider_ref":{"path":"$.dns_provider_ref"},"certificate_provider_ref":{"path":"$.certificate_provider_ref"},"port_exposure_policy_ref":{"path":"$.port_exposure_policy_ref"},"ownership_proof_requirement_ref":{"path":"$.ownership_proof_requirement_ref"},"tls_policy_ref":{"path":"$.tls_policy_ref"},"renewal_policy_ref":{"path":"$.renewal_policy_ref"},"traffic_policy_ref":{"path":"$.traffic_policy_ref"},"privacy_and_information_flow_policy_refs":{"path":"$.privacy_and_information_flow_policy_refs"},"authority_requirement_refs":{"path":"$.authority_requirement_refs"},"budget_or_quote_ref":{"path":"$.budget_or_quote_ref"},"expected_active_head_ref":{"path":"$.expected_active_head_ref"},"activation_generation":{"path":"$.activation_generation"},"expected_receipt_contract_refs":{"path":"$.expected_receipt_contract_refs"},"asserts_observed_route_truth":{"path":"$.asserts_observed_route_truth"}},"expected_path":"$.route_binding_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-environment-port/v1", r#"[{"rule_id":"hypervisor_environment_port.revocation_names_when_it_happened","description":"A revoked port says WHEN it was revoked. Revocation is terminal where closure is not, so the difference between the two has to survive being read later by something that was not there — and a terminal state with no time on it is a claim nobody can date, audit or dispute. The condition is a single scalar, which is why this one is expressible here at all: the rule that genuinely needs saying — an OPEN port under a `session_lease` policy must hold a capability lease — is a TWO-condition rule, and `ioi.portable-invariants.v1` cannot express a conjunction. That one is enforced in the admission transaction rather than written here where it would not fire, the same ruling M04.10 and M09.2 reached about their own inexpressible rules.","expression":{"operator":"non_empty_when_in","when_path":"$.exposure_state","values":["revoked"],"path":"$.revoked_at_ms"}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1", r#"[{"rule_id":"hypervisor_resource_cleanup_obligation.resource_refs.unique","description":"Each resource identity commitment appears at most once; one obligation never double-counts a resource.","expression":{"operator":"array_unique_by_fields","array_path":"$.resource_refs","fields":["identity_commitment"]}},{"rule_id":"hypervisor_resource_cleanup_obligation.closing_disposition.receipted","description":"Completion, quarantine, or authorized abandonment is an admitted, receipted disposition, never garbage-collection inference: a closing status requires at least one receipt.","expression":{"operator":"non_empty_when_in","path":"$.receipt_refs","when_path":"$.status","values":["completed","quarantined","abandoned"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1", r#"[{"rule_id":"hypervisor_session_launch_recipe_admission.receipt_preview.bound","description":"The admission's receipt preview must be one of its own expected receipt refs; an admission can never preview a receipt it does not expect (kernel refusal hypervisor_session_launch_recipe_receipt_preview_unbound).","expression":{"operator":"array_contains_value","array_path":"$.expected_receipt_refs","expected_path":"$.receipt_preview_ref"}}]"#),
     ("schema://ioi/components/hypervisor/mutation-receipt/v1", r#"[]"#),
@@ -168054,6 +168365,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^environment-port://[^\s]{1,240}$"#,
         r#"^environment-port://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^environment-port://\S+$"#,
+        r#"^environment-port://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^environment-route-binding://[^\s?#\\]{1,180}/revision/[1-9][0-9]{0,15}$"#,
@@ -171074,6 +171389,14 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json"))),
@@ -172483,6 +172806,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-environment-port/v1" => {
+            serde_json::from_value::<HypervisorEnvironmentPortV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1" => {
             serde_json::from_value::<HypervisorResourceCleanupObligationV1>(value.clone())
                 .map(|_| ())
@@ -173854,6 +174182,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-environment-port/v1" => {
+            let projection = serde_json::from_value::<HypervisorEnvironmentPortV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1" => {
             let projection = serde_json::from_value::<HypervisorResourceCleanupObligationV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -174945,8 +175278,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1335,
-            "the registered golden corpus must remain the explicit 1335-fixture bar",
+            1343,
+            "the registered golden corpus must remain the explicit 1343-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -175188,7 +175521,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 907,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 908,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

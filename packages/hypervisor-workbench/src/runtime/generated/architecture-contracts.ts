@@ -3024,6 +3024,22 @@ export type HypervisorEnvironmentRouteBindingV1 = {
   asserts_observed_route_truth: false;
 };
 
+export type HypervisorEnvironmentPortV1 = {
+  schema_version: "ioi.hypervisor.environment-port.v1";
+  port_ref: string;
+  environment_ref: string;
+  service_ref: string | null;
+  port: number;
+  protocol: "tcp" | "udp";
+  access_policy: "private" | "session_lease" | "shared";
+  port_exposure_policy_ref: string;
+  capability_lease_ref: string | null;
+  exposure_state: "closed" | "lease_required" | "open" | "conflict" | "revoked";
+  local_or_session_url: string | null;
+  route_binding_refs: Array<string>;
+  revoked_at_ms: number | null;
+};
+
 export type HypervisorResourceCleanupObligationV1 = {
   schema_version: "ioi.hypervisor-resource-cleanup-obligation.v1";
   cleanup_obligation_ref: string;
@@ -14862,6 +14878,70 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_environment_port.revocation_names_when_it_happened"
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
     "expected": "accept",
@@ -25799,6 +25879,14 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-closed-private.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-port-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-port/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json","mutation_id":null,"value_json":null}),
@@ -27460,6 +27548,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^environment-backup://[^\\s]{1,240}$",
   "^environment-backup://[^\\s]{1,500}$",
   "^environment-port://[^\\s]{1,240}$",
+  "^environment-port://\\S+$",
   "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$",
   "^environment-service://[^\\s]{1,240}$",
   "^environment-startup-plan://\\S+/revision/[0-9]+$",
@@ -27948,6 +28037,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377",
   "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1": "sha256:c358a0e549989aac8d0ef688f68286317959b6bd77c1b2a2a43ded71c2f616a8",
   "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1": "sha256:6b8e05c397f5ce106af734c9684f4eff933846f012a937bdff341f6909674d86",
+  "schema://ioi/components/hypervisor/hypervisor-environment-port/v1": "sha256:066c0542730db2c7b4713231f2ed6dc041aa5decc42037a834f0270bc3d4053c",
   "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": "sha256:1abc2124c1de5187571c0d42fc3065d97b950ca51fbe293bbd2b238b688b415d",
   "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1": "sha256:689bfc17c504c046e8817d52c077c25d99dd9b55c9e5e3fec7cd1964c2c06c89",
   "schema://ioi/components/hypervisor/mutation-receipt/v1": "sha256:608784081d9e0bb6584543f28ba3082325a75ddbfa7ecdac976af0a83cfa1e7c",
@@ -51854,6 +51944,136 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-environment-port/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+    "title": "HypervisorEnvironmentPort",
+    "description": "A PORT AS ITS OWN OBJECT, WITH ITS OWN AUTHORITY AND ITS OWN REVOCATION. ACC-11 clause 4 requires ports and route bindings to be their own objects rather than fields on an environment. The route binding has been one since the plane was built; the port has not — it lived as a row inside `environment.status.ports`, reachable only as a path segment under its environment and carrying no identity, no contract and no authority separable from the environment's. WHAT WAS ALREADY RIGHT, AND IS PRESERVED RATHER THAN REBUILT: the typed row already behaved correctly where it mattered most. `admitted_environment_port_target` refuses a preview whose port is absent, in conflict, non-TCP, or whose target is claimed by another non-deleted environment — canon's four conditions exactly, and the reason 'a preview cannot reach another environment's ports' is a property this plane already has. Giving the row an identity does not change that derivation; it gives the thing being derived an owner. WHY A PORT MUST BE ABLE TO BE REVOKED AND NOT MERELY CLOSED: a closed port can be reopened by whoever could open it, so closing is a state and not a decision. Revocation is terminal, and a plane where the only terminal state belongs to the ENVIRONMENT can withdraw a port only by withdrawing everything around it.",
+    "x-ioi-schema-version": "ioi.hypervisor.environment-port.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "port_ref",
+      "environment_ref",
+      "service_ref",
+      "port",
+      "protocol",
+      "access_policy",
+      "port_exposure_policy_ref",
+      "capability_lease_ref",
+      "exposure_state",
+      "local_or_session_url",
+      "route_binding_refs",
+      "revoked_at_ms"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.environment-port.v1"
+      },
+      "port_ref": {
+        "type": "string",
+        "pattern": "^environment-port://\\S+$",
+        "description": "The port's OWN identity. Until this contract a port had none: it was a row inside `environment.status.ports`, addressable only as a path segment under its environment, which is the shape ACC-11 clause 4 names when it says ports must be their own objects rather than a field on an environment."
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "service_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "port": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535,
+        "description": "The port number a caller SELECTS BY. Canon is explicit that it is a selector for an already-admitted row and never the provider target itself — repeating another environment's number must not proxy into it — so the target is derived from this admitted record rather than from the request."
+      },
+      "protocol": {
+        "enum": [
+          "tcp",
+          "udp"
+        ]
+      },
+      "access_policy": {
+        "enum": [
+          "private",
+          "session_lease",
+          "shared"
+        ],
+        "description": "Who may reach it, decided on the port rather than inherited from the environment. A port that inherits its environment's answer cannot be more private than the environment, which is the whole reason canon gives it its own authority."
+      },
+      "port_exposure_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "capability_lease_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref",
+            "description": "The lease that currently permits exposure, present only while one is held. Null is a registered answer — this port is exposed under no lease — and is why the field is present-and-null rather than absent."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "exposure_state": {
+        "enum": [
+          "closed",
+          "lease_required",
+          "open",
+          "conflict",
+          "revoked"
+        ],
+        "description": "Canon names closed | lease_required | open. Two more are admitted here because the daemon already produces both and a vocabulary that cannot express what the runtime emits forces a caller to guess: `conflict` is the state the preview fence already refuses on, and `revoked` is the terminal state revocation needs — a revoked port is NOT merely closed, because closed can be reopened and revoked cannot."
+      },
+      "local_or_session_url": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2048
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "route_binding_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "The externally addressable routes bound to this port. Canon separates the two deliberately: a port is a daemon-visible socket, a route has independent cardinality, ownership proof, certificate, provider, cutover, cost and REVOCATION semantics. Revoking a route does not close the port, and closing the port does not revoke its routes — which is only expressible because they are two objects."
+      },
+      "revoked_at_ms": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "When revocation happened, or null. Paired with `exposure_state: revoked` rather than replacing it, so a reader can tell a revoked port from a closed one without consulting a clock."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
       }
     }
   },
@@ -125024,6 +125244,20 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/hypervisor-environment-port/v1": [
+    {
+      "rule_id": "hypervisor_environment_port.revocation_names_when_it_happened",
+      "description": "A revoked port says WHEN it was revoked. Revocation is terminal where closure is not, so the difference between the two has to survive being read later by something that was not there — and a terminal state with no time on it is a claim nobody can date, audit or dispute. The condition is a single scalar, which is why this one is expressible here at all: the rule that genuinely needs saying — an OPEN port under a `session_lease` policy must hold a capability lease — is a TWO-condition rule, and `ioi.portable-invariants.v1` cannot express a conjunction. That one is enforced in the admission transaction rather than written here where it would not fire, the same ruling M04.10 and M09.2 reached about their own inexpressible rules.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.exposure_state",
+        "values": [
+          "revoked"
+        ],
+        "path": "$.revoked_at_ms"
+      }
+    }
+  ],
   "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": [
     {
       "rule_id": "hypervisor_resource_cleanup_obligation.resource_refs.unique",
@@ -139742,6 +139976,12 @@ export function validateHypervisorEnvironmentRouteBindingV1(
   value: unknown,
 ): value is HypervisorEnvironmentRouteBindingV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", value).ok;
+}
+
+export function validateHypervisorEnvironmentPortV1(
+  value: unknown,
+): value is HypervisorEnvironmentPortV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-environment-port/v1", value).ok;
 }
 
 export function validateHypervisorResourceCleanupObligationV1(

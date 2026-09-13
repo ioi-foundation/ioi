@@ -1,0 +1,17 @@
+{
+  "schema_version": "ioi.hypervisor.environment-port.v1",
+  "port_ref": "environment-port://hypervisor/env-1/8080",
+  "environment_ref": "environment://hypervisor/env-1",
+  "service_ref": "service://hypervisor/db",
+  "port": 8080,
+  "protocol": "tcp",
+  "access_policy": "session_lease",
+  "port_exposure_policy_ref": "policy://hypervisor/ports/session-lease",
+  "capability_lease_ref": "capability-lease://hypervisor/preview-1",
+  "exposure_state": "open",
+  "local_or_session_url": "http://127.0.0.1:41234",
+  "route_binding_refs": [
+    "environment-route-binding://hypervisor/env-1/revision/3"
+  ],
+  "revoked_at_ms": null
+}

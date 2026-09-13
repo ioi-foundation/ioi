@@ -4429,6 +4429,73 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-port/v1",
+      "canonical_name": "HypervisorEnvironmentPort",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#hypervisorenvironmentroutebinding",
+      "schema_version": "ioi.hypervisor.environment-port.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-environment-port.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-environment-port/revocation-is-dated/v1",
+          "path": "invariants/hypervisor-environment-port.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorEnvironmentPortV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorEnvironmentPortV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-environment-port-v1/positive-closed-private.json",
+        "fixtures/hypervisor-environment-port-v1/positive-open-under-a-session-lease.json",
+        "fixtures/hypervisor-environment-port-v1/positive-revoked-and-dated.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-environment-port-v1/negative-unknown-exposure-state.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-port-v1/negative-port-zero.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-port-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-port-v1/negative-nullable-field-absent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-environment-port-v1/negative-revoked-without-a-time.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_environment_port.revocation_names_when_it_happened"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
       "canonical_name": "HypervisorResourceCleanupObligation",
       "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#hypervisorresourcecleanupobligation",
