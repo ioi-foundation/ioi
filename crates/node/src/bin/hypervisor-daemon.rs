@@ -1808,6 +1808,20 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/environment-recipes/:id",
             get(recipe_routes::handle_recipe_get),
         )
+        // M09.2 — the startup plan, ACC-11 clause 3's "inspectable before it runs". It sits
+        // beside the resolution it bridges FROM rather than in a module of its own, on the
+        // precedent M04.10 set: the reservation went into the lifecycle module that already
+        // owned what it bounds, and a plan separated from its resolution is one more seam
+        // across which the exact predecessor binding could drift.
+        .route(
+            "/v1/hypervisor/environment-recipes/:id/resolutions",
+            post(recipe_routes::handle_recipe_resolve),
+        )
+        .route(
+            "/v1/hypervisor/environment-startup-plans",
+            get(recipe_routes::handle_startup_plans_list)
+                .post(recipe_routes::handle_startup_plan_create),
+        )
         .route(
             "/v1/hypervisor/recipes",
             get(recipe_routes::handle_recipes_list),

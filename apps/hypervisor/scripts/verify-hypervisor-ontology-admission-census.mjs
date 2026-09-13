@@ -594,6 +594,16 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13 AGAIN (M09.2, the environment startup plan). No module joined — the work
+  // went into `recipe_routes.rs`, already in the walk — but this is the largest literal move of the
+  // leg: tokens 149243 -> 149718, opaque initialisers 2802 -> 2810 and foreign-qualified names
+  // 4621 -> 4633, because a 46-field contract admission names a great many refs and profiles.
+  // THE ONE THAT MATTERS IS THE WRITER BUCKET: non-ODK literal 245 -> 246 while the
+  // runtime-parameter bucket held at 311. The new durable family is written through a NAMED
+  // constant rather than an inline string specifically so this census can resolve it — an inline
+  // family name lands in the bucket of calls the census cannot read, and this file's own argument
+  // is that naming that bucket is what stops it absorbing the calls the census exists to read. A
+  // writer that can be legible to it should be.
   // Re-pinned 2026-09-13 (M08.8, the product-surface compiler). No module joined and no writer
   // moved: the change adds the palette and contextual projections to a handler that was already in
   // the walk, plus the two membership axes on each projected row. Tokens 149190 -> 149243 and
@@ -629,9 +639,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149243,
+  tokenMentions: 149718,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 245, runtimeParameter: 311 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 246, runtimeParameter: 311 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -650,8 +660,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4621,
-    "opaque-initialiser": 2802,
+    "foreign-qualified": 4633,
+    "opaque-initialiser": 2810,
     "bare-undeclared": 536,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
