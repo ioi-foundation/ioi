@@ -149,6 +149,19 @@ fn live_backup() -> Value {
 // incident (kernel product == registered fixture), never a silent success.
 // ---------------------------------------------------------------------------
 
+/// The counterparty's own admitted statement, accounting for the fixture obligation's resource by
+/// the provider's OWN identifier for it. ACC-11 clause 7: a `completed` close is the counterparty's
+/// fact, not the estate's — a receipt the estate writes about its own teardown is its intention.
+fn counterparty_statement() -> Value {
+    json!({
+        "provider_ref": "provider-account://pacc_route_edge",
+        "line_items": [{
+            "exposure_ref": "evidence://route-edge/record/zone-7",
+            "billed_micros": 0,
+        }],
+    })
+}
+
 #[test]
 fn kernel_missing_incident_value_binds_registered_fixtures() {
     let admitted = RuntimeArtifactAvailabilityIncidentAdmissionCore
@@ -483,8 +496,14 @@ fn cleanup_obligation_over_live_backup_resource_requires_receipted_close() {
 
     // Unreceipted close refuses by name: cleanup is never garbage-collection
     // inference over refs a live record still cites.
-    let error = compile_cleanup_satisfy(&obligation, "completed", None, &[])
-        .expect_err("unreceipted close refuses");
+    let error = compile_cleanup_satisfy(
+        &obligation,
+        "completed",
+        None,
+        &[],
+        &[counterparty_statement()],
+    )
+    .expect_err("unreceipted close refuses");
     assert!(error.starts_with("unreceipted_close"), "{error}");
 
     // Loss of the live parent escalates and preserves custody, never erases.
@@ -504,6 +523,7 @@ fn cleanup_obligation_over_live_backup_resource_requires_receipted_close() {
         "completed",
         Some("receipt://local/env-alpha/cleanup/0001"),
         &["evidence://local/env-alpha/cleanup/absent".to_owned()],
+        &[counterparty_statement()],
     )
     .expect("receipted close admits");
     assert!(closed["receipt_refs"]

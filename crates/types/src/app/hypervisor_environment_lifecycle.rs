@@ -1370,7 +1370,23 @@ fn counterparty_accounts_for(obligation: &Value, statement: &Value) -> Result<()
         .and_then(Value::as_array)
         .ok_or("obligation lacks its resource refs")?;
     for resource in resources {
-        let native = required_string(resource, "/provider_native_evidence_ref")?;
+        // A resource with NO provider-native evidence ref cannot be closed against a counterparty
+        // statement, because this join is the only thing that ties the estate's record of a
+        // resource to the provider's. Said plainly rather than as a missing-field error: the lane
+        // that opened this obligation did not observe the provider's own record of the thing, and
+        // that is a gap in what the estate OBSERVES rather than a malformed obligation. It can
+        // still be escalated, quarantined or abandoned.
+        let Some(native) = opt_str(resource, "/provider_native_evidence_ref") else {
+            let canonical = opt_str(resource, "/canonical_resource_ref").unwrap_or("(unnamed)");
+            return Err(err(
+                "unreceipted_close",
+                format!(
+                    "'{canonical}' carries no provider-native evidence ref, so no counterparty \
+                     statement can be matched to it; this obligation cannot be COMPLETED until the \
+                     lane that opened it records the provider's own record of the resource"
+                ),
+            ));
+        };
         if !billed.iter().any(|exposure| *exposure == native) {
             let canonical = opt_str(resource, "/canonical_resource_ref").unwrap_or(native);
             return Err(err(

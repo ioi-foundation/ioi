@@ -23,8 +23,14 @@
 //     authoring a route moves it. Also not in this list; also caught by CI one push late. Added
 //     2026-09-13 for the same reason as the one above, on the same day, which is the argument.
 //
-// FIVE different triggers, none of which announce themselves — and two of the five were found by
-// CI catching what this sweep was built to catch first. The list is the point; recall is not. The estate's own censuses work
+//   * a kernel SIGNATURE change breaks the test code of crates whose suites you did not re-run.
+//     `cargo test -p ioi-node` does not compile `ioi-services`' test targets, so a two-line arity
+//     change passed the daemon suite, the types suite, and this sweep — and died in CI. Added
+//     2026-09-13 as `cargo build --workspace --tests`.
+//
+// SIX different triggers, none of which announce themselves — and THREE of the six were found by
+// CI catching what this sweep was built to catch first, all on one day. The list is the point;
+// recall is not. Every one of the three was a gate that existed and simply was not enumerated here. The estate's own censuses work
 // because they DERIVE their population instead of listing it; this applies the same principle to
 // the habit that guards them.
 //
@@ -58,6 +64,14 @@ const GATES = [
   //
   // It uses the repo's pinned toolchain (rust-toolchain.toml), so it is the same rustfmt CI runs.
   ["rust formatting", "cargo", ["fmt", "--all", "--check"]],
+  // SIXTH TRIGGER, added 2026-09-13. COMPILES every test target in the workspace without running
+  // one. A kernel signature change breaks the test code of crates whose suites you did not think to
+  // re-run — `cargo test -p ioi-node` does not compile `ioi-services`' test targets, so a two-line
+  // arity change passed the daemon suite, the types suite and this sweep, and died in CI.
+  //
+  // Compile-only on purpose: running the workspace's tests costs minutes (the golden corpus alone
+  // is seven), and the class this catches is a COMPILE error. The cheap gate catches it all.
+  ["workspace test targets compile", "cargo", ["build", "--workspace", "--tests"], { slow: true }],
   ["guide structure", "node", ["scripts/implementation-program.mjs", "--check"]],
   ["release-readiness scope", "node", ["scripts/check-release-readiness-scope.mjs"]],
   ["architecture contracts", "node", ["scripts/generate-architecture-contracts.mjs", "--check"]],

@@ -162,6 +162,25 @@ fn mission_launch_recipe_request() -> Value {
 // Positive proofs: registered fixtures are the kernel's own products.
 // ---------------------------------------------------------------------------
 
+/// The counterparty's own admitted statement, accounting for the fixture obligation's resource by
+/// the provider's OWN identifier for it. ACC-11 clause 7: a `completed` close is the counterparty's
+/// fact, not the estate's — a receipt the estate writes about its own teardown is its intention.
+fn counterparty_statement_for(obligation: &Value) -> Value {
+    // DERIVED FROM THE OBLIGATION UNDER TEST, never hard-coded: the statement has to account for
+    // this obligation's own provider and its resource's own native evidence ref, and a fixture's
+    // values copied in would pass for the wrong reason the day the fixture changed.
+    json!({
+        "provider_ref": obligation["provider_ref"],
+        "line_items": (obligation["resource_refs"].as_array().cloned().unwrap_or_default())
+            .iter()
+            .map(|resource| json!({
+                "exposure_ref": resource["provider_native_evidence_ref"],
+                "billed_micros": 0,
+            }))
+            .collect::<Vec<_>>(),
+    })
+}
+
 #[test]
 fn launch_recipe_admission_fixtures_are_kernel_products() {
     let workbench = kernel()
@@ -635,19 +654,46 @@ fn resource_leak_without_custody_row_is_unrepresentable() {
 fn unreceipted_close_of_the_spawned_resource_refuses() {
     let attach = admitted_attach();
     let opened = compile_cleanup_open(&terminal_cleanup_obligation(&attach)).expect("opened");
-    let error = compile_cleanup_satisfy(&opened, "completed", None, &[])
-        .expect_err("closing without a receipt must refuse");
+    let error = compile_cleanup_satisfy(
+        &opened,
+        "completed",
+        None,
+        &[],
+        &[counterparty_statement_for(&opened)],
+    )
+    .expect_err("closing without a receipt must refuse");
     assert!(
         error.contains("unreceipted_close"),
         "refusal is the named unreceipted_close dimension: {error}"
     );
-    // With a receipted disposition the same close succeeds and stays contract-valid.
-    let closed = compile_cleanup_satisfy(
+    // M09.5 — A RECEIPT IS NO LONGER ENOUGH FOR `completed`, AND THIS OBLIGATION SHOWS WHY.
+    // ACC-11 clause 7 requires closure verified against the provider's own billing readback rather
+    // than the estate's intention, and a receipt the estate writes about its own teardown IS its
+    // intention. The counterparty check joins on `provider_native_evidence_ref` — the provider's
+    // own record of the resource — and THIS obligation's resource carries none, because the lane
+    // that opened it never observed one.
+    //
+    // So the close refuses, and the refusal says which resource and why. That is the honest
+    // outcome: the resource may still exist at the provider, and nothing here can prove otherwise.
+    let error = compile_cleanup_satisfy(
         &opened,
         "completed",
         Some("receipt://harness-session/terminal/workbench-default-ioi-0001/cleanup"),
         &[],
+        &[counterparty_statement_for(&opened)],
     )
-    .expect("receipted close");
-    validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, &closed).expect("valid");
+    .expect_err("a completed close needs the counterparty's record");
+    assert!(error.starts_with("unreceipted_close"), "{error}");
+    assert!(error.contains("no provider-native evidence ref"), "{error}");
+
+    // The honest dispositions remain available, which is the point of refusing only `completed`.
+    let parked = compile_cleanup_satisfy(
+        &opened,
+        "quarantined",
+        Some("receipt://harness-session/terminal/workbench-default-ioi-0001/cleanup"),
+        &[],
+        &[],
+    )
+    .expect("an obligation the estate cannot prove closed can still be parked");
+    validate_architecture_contract(CLEANUP_OBLIGATION_CONTRACT, &parked).expect("valid");
 }
