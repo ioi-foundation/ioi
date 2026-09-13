@@ -313,6 +313,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-run-plan/v1", "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd"),
     ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822"),
     ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7"),
+    ("schema://ioi/foundations/objects/foundry-qualified-measurement/v2", "sha256:20d5cdfbe470c7f43830ffc0f28eae2fb759e9f26b3daa096e7e417e5ac511a8"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -135423,6 +135424,1029 @@ impl<'de> serde::Deserialize<'de> for FoundryDraftRunPlanV1PromotionPreviewWould
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2 {
+    pub schema_version: FoundryQualifiedMeasurementV2SchemaVersion,
+    pub verdict: FoundryQualifiedMeasurementV2Verdict,
+    pub quality: FoundryQualifiedMeasurementV2Quality,
+    pub measurement: FoundryQualifiedMeasurementV2Measurement,
+    pub promotion_boundary: FoundryQualifiedMeasurementV2PromotionBoundary,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","title":"FoundryQualifiedMeasurement","description":"A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.","x-ioi-schema-version":"ioi.foundations.foundry-qualified-measurement.v2","type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.foundry-qualified-measurement.v2"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","cost_basis_ref","failure_schedule_ref","model_fingerprint","recipe_fingerprint","software_fingerprint","hardware_fingerprint","topology_fingerprint","time_to_quality"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"enum":["daemon_cpu_process","distributed"]},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"},"model_fingerprint":{"$ref":"#/$defs/modelFingerprint"},"recipe_fingerprint":{"$ref":"#/$defs/recipeFingerprint"},"software_fingerprint":{"$ref":"#/$defs/softwareFingerprint"},"hardware_fingerprint":{"$ref":"#/$defs/hardwareFingerprint"},"topology_fingerprint":{"$ref":"#/$defs/topologyFingerprint"},"time_to_quality":{"$ref":"#/$defs/timeToQuality"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"contentHash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"modelFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.","required":["model_ref","weights_digest","parameter_count"],"properties":{"model_ref":{"$ref":"#/$defs/ref"},"weights_digest":{"$ref":"#/$defs/contentHash"},"parameter_count":{"$ref":"#/$defs/positiveInteger"}}},"recipeFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.","required":["recipe_ref","recipe_body_hash"],"properties":{"recipe_ref":{"$ref":"#/$defs/ref"},"recipe_body_hash":{"$ref":"#/$defs/contentHash"}}},"softwareFingerprint":{"type":"object","additionalProperties":false,"description":"The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.","required":["operating_system","daemon_release_ref","trainer_backend_profile_ref"],"properties":{"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"$ref":"#/$defs/ref"}}},"hardwareFingerprint":{"type":"object","additionalProperties":false,"description":"The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.","required":["hardware_architecture","logical_cpu_count","memory_bytes","accelerator"],"properties":{"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"accelerator":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}},"topologyFingerprint":{"type":"object","additionalProperties":false,"description":"The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.","required":["runtime_node_ref","environment_ref","process_count","node_count","parallelism"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"process_count":{"$ref":"#/$defs/positiveInteger"},"node_count":{"$ref":"#/$defs/positiveInteger"},"parallelism":{"enum":["single_process","multi_process","multi_node"]}}},"timeToQuality":{"type":"object","additionalProperties":false,"description":"How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.","required":["quality_metric","target_value","reached","elapsed_nanoseconds"],"properties":{"quality_metric":{"type":"string","minLength":1},"target_value":{"type":"number"},"reached":{"type":"boolean"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundryQualifiedMeasurementV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verdict: serde_json::from_value::<FoundryQualifiedMeasurementV2Verdict>(
+                object
+                    .remove(r#"verdict"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quality: serde_json::from_value::<FoundryQualifiedMeasurementV2Quality>(
+                object
+                    .remove(r#"quality"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quality"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            measurement: serde_json::from_value::<FoundryQualifiedMeasurementV2Measurement>(
+                object
+                    .remove(r#"measurement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"measurement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotion_boundary: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2PromotionBoundary,
+            >(
+                object
+                    .remove(r#"promotion_boundary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion_boundary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.foundry-qualified-measurement.v2"#)]
+    IoiFoundationsFoundryQualifiedMeasurementV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2Verdict {
+    #[serde(rename = r#"qualified"#)]
+    Qualified,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2Quality {
+    pub token_coverage: f64,
+    pub mean_negative_log_likelihood: f64,
+    pub gate: FoundryQualifiedMeasurementV2QualityGate,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2Quality {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            token_coverage: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"token_coverage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token_coverage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mean_negative_log_likelihood: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"mean_negative_log_likelihood"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mean_negative_log_likelihood"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gate: serde_json::from_value::<FoundryQualifiedMeasurementV2QualityGate>(
+                object
+                    .remove(r#"gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2QualityGate {
+    pub minimum_token_coverage: f64,
+    pub maximum_mean_negative_log_likelihood: f64,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2QualityGate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            minimum_token_coverage: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"minimum_token_coverage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"minimum_token_coverage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maximum_mean_negative_log_likelihood: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"maximum_mean_negative_log_likelihood"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"maximum_mean_negative_log_likelihood"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2Measurement {
+    pub phase: FoundryQualifiedMeasurementV2MeasurementPhase,
+    pub token_numerator: FoundryQualifiedMeasurementV2MeasurementTokenNumerator,
+    pub denominator: FoundryQualifiedMeasurementV2MeasurementDenominator,
+    pub scope: FoundryQualifiedMeasurementV2MeasurementScope,
+    pub raw_tokens: ArchitectureContractInteger,
+    pub effective_tokens: ArchitectureContractInteger,
+    pub elapsed_nanoseconds: ArchitectureContractInteger,
+    pub tokens_per_second: f64,
+    pub includes_compilation: FoundryQualifiedMeasurementV2MeasurementIncludesCompilation,
+    pub includes_loading: FoundryQualifiedMeasurementV2MeasurementIncludesLoading,
+    pub includes_evaluation: FoundryQualifiedMeasurementV2MeasurementIncludesEvaluation,
+    pub includes_checkpoint: FoundryQualifiedMeasurementV2MeasurementIncludesCheckpoint,
+    pub includes_failure_and_recovery:
+        FoundryQualifiedMeasurementV2MeasurementIncludesFailureAndRecovery,
+    pub cost_basis_ref: String,
+    pub failure_schedule_ref: String,
+    pub model_fingerprint: FoundryQualifiedMeasurementV2MeasurementModelFingerprint,
+    pub recipe_fingerprint: FoundryQualifiedMeasurementV2MeasurementRecipeFingerprint,
+    pub software_fingerprint: FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprint,
+    pub hardware_fingerprint: FoundryQualifiedMeasurementV2MeasurementHardwareFingerprint,
+    pub topology_fingerprint: FoundryQualifiedMeasurementV2MeasurementTopologyFingerprint,
+    pub time_to_quality: FoundryQualifiedMeasurementV2MeasurementTimeToQuality,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2Measurement {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","cost_basis_ref","failure_schedule_ref","model_fingerprint","recipe_fingerprint","software_fingerprint","hardware_fingerprint","topology_fingerprint","time_to_quality"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"enum":["daemon_cpu_process","distributed"]},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"},"model_fingerprint":{"$ref":"#/$defs/modelFingerprint"},"recipe_fingerprint":{"$ref":"#/$defs/recipeFingerprint"},"software_fingerprint":{"$ref":"#/$defs/softwareFingerprint"},"hardware_fingerprint":{"$ref":"#/$defs/hardwareFingerprint"},"topology_fingerprint":{"$ref":"#/$defs/topologyFingerprint"},"time_to_quality":{"$ref":"#/$defs/timeToQuality"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            phase: serde_json::from_value::<FoundryQualifiedMeasurementV2MeasurementPhase>(
+                object
+                    .remove(r#"phase"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"phase"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            token_numerator: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementTokenNumerator,
+            >(
+                object
+                    .remove(r#"token_numerator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token_numerator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            denominator: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementDenominator,
+            >(
+                object
+                    .remove(r#"denominator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"denominator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope: serde_json::from_value::<FoundryQualifiedMeasurementV2MeasurementScope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            raw_tokens: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"raw_tokens"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"raw_tokens"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_tokens: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"effective_tokens"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_tokens"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            elapsed_nanoseconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"elapsed_nanoseconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"elapsed_nanoseconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tokens_per_second: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"tokens_per_second"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tokens_per_second"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_compilation: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementIncludesCompilation,
+            >(
+                object
+                    .remove(r#"includes_compilation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_compilation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_loading: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementIncludesLoading,
+            >(
+                object
+                    .remove(r#"includes_loading"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_loading"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_evaluation: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementIncludesEvaluation,
+            >(
+                object
+                    .remove(r#"includes_evaluation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_evaluation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_checkpoint: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementIncludesCheckpoint,
+            >(
+                object
+                    .remove(r#"includes_checkpoint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_checkpoint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_failure_and_recovery: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementIncludesFailureAndRecovery,
+            >(
+                object
+                    .remove(r#"includes_failure_and_recovery"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"includes_failure_and_recovery"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_basis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cost_basis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_basis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_schedule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"failure_schedule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_schedule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_fingerprint: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementModelFingerprint,
+            >(
+                object
+                    .remove(r#"model_fingerprint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_fingerprint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_fingerprint: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementRecipeFingerprint,
+            >(
+                object
+                    .remove(r#"recipe_fingerprint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipe_fingerprint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            software_fingerprint: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprint,
+            >(
+                object
+                    .remove(r#"software_fingerprint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"software_fingerprint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hardware_fingerprint: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementHardwareFingerprint,
+            >(
+                object
+                    .remove(r#"hardware_fingerprint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hardware_fingerprint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            topology_fingerprint: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementTopologyFingerprint,
+            >(
+                object
+                    .remove(r#"topology_fingerprint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"topology_fingerprint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            time_to_quality: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementTimeToQuality,
+            >(
+                object
+                    .remove(r#"time_to_quality"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"time_to_quality"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementPhase {
+    #[serde(rename = r#"evaluation"#)]
+    Evaluation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementTokenNumerator {
+    #[serde(rename = r#"loss_bearing"#)]
+    LossBearing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementDenominator {
+    #[serde(rename = r#"full_wall_clock"#)]
+    FullWallClock,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementScope {
+    #[serde(rename = r#"daemon_cpu_process"#)]
+    DaemonCpuProcess,
+    #[serde(rename = r#"distributed"#)]
+    Distributed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2MeasurementIncludesCompilation {
+    False,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2MeasurementIncludesCompilation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementIncludesCompilation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2MeasurementIncludesLoading {
+    True,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2MeasurementIncludesLoading {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementIncludesLoading {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2MeasurementIncludesEvaluation {
+    True,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2MeasurementIncludesEvaluation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementIncludesEvaluation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2MeasurementIncludesCheckpoint {
+    False,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2MeasurementIncludesCheckpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementIncludesCheckpoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2MeasurementIncludesFailureAndRecovery {
+    False,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2MeasurementIncludesFailureAndRecovery {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryQualifiedMeasurementV2MeasurementIncludesFailureAndRecovery
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2MeasurementModelFingerprint {
+    pub model_ref: String,
+    pub weights_digest: String,
+    pub parameter_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementModelFingerprint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.","required":["model_ref","weights_digest","parameter_count"],"properties":{"model_ref":{"$ref":"#/$defs/ref"},"weights_digest":{"$ref":"#/$defs/contentHash"},"parameter_count":{"$ref":"#/$defs/positiveInteger"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            model_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            weights_digest: serde_json::from_value::<String>(
+                object
+                    .remove(r#"weights_digest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"weights_digest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parameter_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"parameter_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parameter_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2MeasurementRecipeFingerprint {
+    pub recipe_ref: String,
+    pub recipe_body_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementRecipeFingerprint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.","required":["recipe_ref","recipe_body_hash"],"properties":{"recipe_ref":{"$ref":"#/$defs/ref"},"recipe_body_hash":{"$ref":"#/$defs/contentHash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recipe_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipe_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipe_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipe_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipe_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprint {
+    pub operating_system:
+        FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprintOperatingSystem,
+    pub daemon_release_ref: String,
+    pub trainer_backend_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.","required":["operating_system","daemon_release_ref","trainer_backend_profile_ref"],"properties":{"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"$ref":"#/$defs/ref"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            operating_system: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprintOperatingSystem,
+            >(
+                object
+                    .remove(r#"operating_system"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operating_system"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            daemon_release_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"daemon_release_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"daemon_release_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trainer_backend_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"trainer_backend_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"trainer_backend_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementSoftwareFingerprintOperatingSystem {
+    #[serde(rename = r#"linux"#)]
+    Linux,
+    #[serde(rename = r#"macos"#)]
+    Macos,
+    #[serde(rename = r#"windows"#)]
+    Windows,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2MeasurementHardwareFingerprint {
+    pub hardware_architecture:
+        FoundryQualifiedMeasurementV2MeasurementHardwareFingerprintHardwareArchitecture,
+    pub logical_cpu_count: ArchitectureContractInteger,
+    pub memory_bytes: ArchitectureContractInteger,
+    pub accelerator: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementHardwareFingerprint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r#"{"type":"object","additionalProperties":false,"description":"The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.","required":["hardware_architecture","logical_cpu_count","memory_bytes","accelerator"],"properties":{"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"accelerator":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            hardware_architecture: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementHardwareFingerprintHardwareArchitecture,
+            >(
+                object
+                    .remove(r#"hardware_architecture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hardware_architecture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            logical_cpu_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"logical_cpu_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"logical_cpu_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            memory_bytes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"memory_bytes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_bytes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accelerator: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"accelerator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accelerator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementHardwareFingerprintHardwareArchitecture {
+    #[serde(rename = r#"x86_64"#)]
+    X8664,
+    #[serde(rename = r#"aarch64"#)]
+    Aarch64,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2MeasurementTopologyFingerprint {
+    pub runtime_node_ref: String,
+    pub environment_ref: String,
+    pub process_count: ArchitectureContractInteger,
+    pub node_count: ArchitectureContractInteger,
+    pub parallelism: FoundryQualifiedMeasurementV2MeasurementTopologyFingerprintParallelism,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementTopologyFingerprint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.","required":["runtime_node_ref","environment_ref","process_count","node_count","parallelism"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"process_count":{"$ref":"#/$defs/positiveInteger"},"node_count":{"$ref":"#/$defs/positiveInteger"},"parallelism":{"enum":["single_process","multi_process","multi_node"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            runtime_node_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"runtime_node_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_node_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            process_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"process_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"process_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"node_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parallelism: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2MeasurementTopologyFingerprintParallelism,
+            >(
+                object
+                    .remove(r#"parallelism"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parallelism"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryQualifiedMeasurementV2MeasurementTopologyFingerprintParallelism {
+    #[serde(rename = r#"single_process"#)]
+    SingleProcess,
+    #[serde(rename = r#"multi_process"#)]
+    MultiProcess,
+    #[serde(rename = r#"multi_node"#)]
+    MultiNode,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2MeasurementTimeToQuality {
+    pub quality_metric: String,
+    pub target_value: f64,
+    pub reached: bool,
+    pub elapsed_nanoseconds: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2MeasurementTimeToQuality {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.","required":["quality_metric","target_value","reached","elapsed_nanoseconds"],"properties":{"quality_metric":{"type":"string","minLength":1},"target_value":{"type":"number"},"reached":{"type":"boolean"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            quality_metric: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quality_metric"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quality_metric"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_value: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"target_value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reached: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"reached"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reached"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            elapsed_nanoseconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"elapsed_nanoseconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"elapsed_nanoseconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryQualifiedMeasurementV2PromotionBoundary {
+    pub proposal_only: FoundryQualifiedMeasurementV2PromotionBoundaryProposalOnly,
+    pub governance_approval_required:
+        FoundryQualifiedMeasurementV2PromotionBoundaryGovernanceApprovalRequired,
+    pub runtime_activation_performed:
+        FoundryQualifiedMeasurementV2PromotionBoundaryRuntimeActivationPerformed,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2PromotionBoundary {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            proposal_only: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2PromotionBoundaryProposalOnly,
+            >(
+                object
+                    .remove(r#"proposal_only"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_only"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governance_approval_required: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2PromotionBoundaryGovernanceApprovalRequired,
+            >(
+                object
+                    .remove(r#"governance_approval_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"governance_approval_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_activation_performed: serde_json::from_value::<
+                FoundryQualifiedMeasurementV2PromotionBoundaryRuntimeActivationPerformed,
+            >(
+                object
+                    .remove(r#"runtime_activation_performed"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_activation_performed"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2PromotionBoundaryProposalOnly {
+    True,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2PromotionBoundaryProposalOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryQualifiedMeasurementV2PromotionBoundaryProposalOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2PromotionBoundaryGovernanceApprovalRequired {
+    True,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2PromotionBoundaryGovernanceApprovalRequired {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryQualifiedMeasurementV2PromotionBoundaryGovernanceApprovalRequired
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryQualifiedMeasurementV2PromotionBoundaryRuntimeActivationPerformed {
+    False,
+}
+
+impl serde::Serialize for FoundryQualifiedMeasurementV2PromotionBoundaryRuntimeActivationPerformed {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryQualifiedMeasurementV2PromotionBoundaryRuntimeActivationPerformed
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -145965,6 +146989,30 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1",
         path: "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -162079,6 +163127,39 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/foundry-qualified-measurement/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -163761,6 +164842,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-run-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-run-plan/v1","title":"FoundryRunPlan","description":"THE ORDERED STAGES ONE FOUNDRY SPEC IS BUILT THROUGH, REGISTERED SO THE PLAN IS REFUSABLE BEFORE IT RUNS. Like its spec, this family has been served live and free-form: the route minted an unregistered `schema_version` and passed `stages` through untyped, so a plan naming a stage that does not exist was admitted as readily as one that does. THE STAGE VOCABULARY IS CLOSED exactly as canon closes it, and `stages` is `uniqueItems` because a stage listed twice is either a typo or a second pass the plan does not actually describe — both are better refused than run. `artifact_contract_refs` is where a plan names the contracts its outputs must satisfy, which is the seam that keeps a build's products admissible rather than merely produced; it is required, because a plan that promises no contract for its artifacts has promised nothing a consumer can check. `status` carries the same succession canon gives it, so an admitted plan that is replaced is superseded rather than deleted.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","run_plan_id","foundry_spec_ref","stages","executor_bindings","retry_policy_ref","checkpoint_policy_ref","timeout_policy_ref","artifact_contract_refs","status"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-run-plan.v1"},"run_plan_id":{"$ref":"#/$defs/ref"},"foundry_spec_ref":{"$ref":"#/$defs/ref"},"stage_graph_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"stages":{"type":"array","minItems":1,"uniqueItems":true,"description":"Closed exactly as canon closes it, and unique: a stage listed twice is a typo or a second pass the plan does not describe, and both are better refused than run.","items":{"type":"string","enum":["data_prep","training","checkpointing","eval","packaging","registration","route_promotion"]}},"executor_bindings":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"retry_policy_ref":{"$ref":"#/$defs/ref"},"checkpoint_policy_ref":{"$ref":"#/$defs/ref"},"timeout_policy_ref":{"$ref":"#/$defs/ref"},"artifact_contract_refs":{"type":"array","minItems":1,"uniqueItems":true,"description":"The contracts this plan's outputs must satisfy. Required, because a plan promising no contract for its artifacts has promised nothing a consumer can check.","items":{"$ref":"#/$defs/ref"}},"status":{"type":"string","enum":["draft","admitted","running","completed","superseded"]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"}}}"##),
     ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","title":"FoundryDraftSpec","description":"A DRAFT DECLARATION OF A CAPABILITY BUILD, BOUND TO MOUNTS THAT ALREADY EXIST — and deliberately NOT canon's `FoundrySpec`. The daemon's foundation cut served this object under canon's name while sharing exactly ONE field with it (`status`): canon's family is a model-TRAINING pipeline with base models, datasets, a training mode and packaging targets, where this is an eval and route-comparison draft that names existing model routes, providers, backends and endpoints. Registering it under its own name is what lets canon keep its own, and what finally makes this object refusable — its routes are live and, until this contract, minted a `schema_version` present in no registry and validated nothing, so every malformed body was a 201. THE OBJECT IS INERT BY CONSTRUCTION and the shape says so: it NAMES policy and evidence refs and never enforces them, it declares `inputs` it does not execute, and it holds no promotion, alias or registry mutation of any kind. `kind` is closed at the five the daemon admits, because a typo there is a draft that describes the wrong sort of build rather than one that refuses.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","name","description","kind","status","model_route_refs","provider_refs","backend_refs","endpoint_refs","evidence_refs","inputs","authority_policy_ref","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-spec.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_spec"},"id":{"type":"string","pattern":"^fspec_[0-9a-f]+$"},"name":{"type":"string","minLength":1},"description":{"type":"string"},"kind":{"type":"string","description":"Closed at the five the daemon admits. A typo here is a draft describing the wrong sort of build rather than one that refuses.","enum":["model_tune","model_eval","tool_build","inference_endpoint","ontology"]},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"model_route_refs":{"$ref":"#/$defs/refs"},"provider_refs":{"$ref":"#/$defs/refs"},"backend_refs":{"$ref":"#/$defs/refs"},"endpoint_refs":{"$ref":"#/$defs/refs"},"evidence_refs":{"$ref":"#/$defs/refs","description":"Opaque provenance pointers. NAMED, never executed and never enforced — a draft cites evidence, it does not act on it."},"inputs":{"type":"object","description":"Declared build inputs. Deliberately unconstrained in shape and deliberately not executed: this plane dispatches nothing, so constraining them here would assert a contract over something no runtime reads."},"authority_policy_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"A policy this draft NAMES. It crosses no authority and grants none; naming a policy is not applying one."},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
     ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","title":"FoundryDraftRunPlan","description":"THE DRAFT PHASES A CAPABILITY-BUILD DRAFT WOULD RUN, AND THE PROMOTION IT EXPLICITLY DOES NOT PERFORM. Like its spec this is NOT canon's `FoundryRunPlan`: canon has a closed seven-stage vocabulary, executor bindings and required artifact contracts, where this holds opaque `steps`, a target route/provider and a promotion PREVIEW. Registered under its own name so canon keeps its, and so this object stops being unvalidatable. THE TWO FIELDS THAT CARRY THE SAFETY PROPERTY ARE `spec_content_hash` AND `promotion_preview`. The hash pins the spec CONTENT the plan was drafted against, so a later spec edit surfaces as drift on read instead of silently changing what the plan meant — the plan cannot be quietly re-aimed. And `promotion_preview.would_promote` is a const FALSE: this plane performs no promotion, registry alias or model mutation, and a record claiming otherwise is refused OFFLINE rather than trusted at runtime, which is the difference between an inert plane and a plane that says it is inert.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","spec_ref","spec_content_hash","name","description","status","target_route_ref","target_provider_ref","steps","inputs","evidence_refs","promotion_preview","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-run-plan.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_run_plan"},"id":{"type":"string","pattern":"^frun_[0-9a-f]+$"},"spec_ref":{"type":"string","minLength":1},"spec_content_hash":{"type":"string","minLength":1,"description":"Pins the spec CONTENT this plan was drafted against, so a later spec edit surfaces as drift on read rather than silently changing the plan's meaning."},"name":{"type":"string","minLength":1},"description":{"type":"string"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"steps":{"type":"array","description":"Planned phases, opaque by design: nothing here is dispatched. Constraining their shape would assert a contract over something no runtime reads."},"inputs":{"type":"object"},"evidence_refs":{"$ref":"#/$defs/refs"},"promotion_preview":{"$ref":"#/$defs/promotion_preview"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"promotion_preview":{"type":"object","additionalProperties":false,"description":"A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.","required":["would_promote","note","target_route_ref","target_provider_ref","from_spec_kind"],"properties":{"would_promote":{"type":"boolean","const":false},"note":{"type":"string","minLength":1},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"from_spec_kind":{"anyOf":[{"type":"string"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/foundations/objects/foundry-qualified-measurement/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","title":"FoundryQualifiedMeasurement","description":"A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.","x-ioi-schema-version":"ioi.foundations.foundry-qualified-measurement.v2","type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.foundry-qualified-measurement.v2"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","cost_basis_ref","failure_schedule_ref","model_fingerprint","recipe_fingerprint","software_fingerprint","hardware_fingerprint","topology_fingerprint","time_to_quality"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"enum":["daemon_cpu_process","distributed"]},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"},"model_fingerprint":{"$ref":"#/$defs/modelFingerprint"},"recipe_fingerprint":{"$ref":"#/$defs/recipeFingerprint"},"software_fingerprint":{"$ref":"#/$defs/softwareFingerprint"},"hardware_fingerprint":{"$ref":"#/$defs/hardwareFingerprint"},"topology_fingerprint":{"$ref":"#/$defs/topologyFingerprint"},"time_to_quality":{"$ref":"#/$defs/timeToQuality"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"contentHash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"modelFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.","required":["model_ref","weights_digest","parameter_count"],"properties":{"model_ref":{"$ref":"#/$defs/ref"},"weights_digest":{"$ref":"#/$defs/contentHash"},"parameter_count":{"$ref":"#/$defs/positiveInteger"}}},"recipeFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.","required":["recipe_ref","recipe_body_hash"],"properties":{"recipe_ref":{"$ref":"#/$defs/ref"},"recipe_body_hash":{"$ref":"#/$defs/contentHash"}}},"softwareFingerprint":{"type":"object","additionalProperties":false,"description":"The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.","required":["operating_system","daemon_release_ref","trainer_backend_profile_ref"],"properties":{"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"$ref":"#/$defs/ref"}}},"hardwareFingerprint":{"type":"object","additionalProperties":false,"description":"The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.","required":["hardware_architecture","logical_cpu_count","memory_bytes","accelerator"],"properties":{"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"accelerator":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}},"topologyFingerprint":{"type":"object","additionalProperties":false,"description":"The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.","required":["runtime_node_ref","environment_ref","process_count","node_count","parallelism"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"process_count":{"$ref":"#/$defs/positiveInteger"},"node_count":{"$ref":"#/$defs/positiveInteger"},"parallelism":{"enum":["single_process","multi_process","multi_node"]}}},"timeToQuality":{"type":"object","additionalProperties":false,"description":"How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.","required":["quality_metric","target_value","reached","elapsed_nanoseconds"],"properties":{"quality_metric":{"type":"string","minLength":1},"target_value":{"type":"number"},"reached":{"type":"boolean"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -164034,6 +165116,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-run-plan/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/foundry-qualified-measurement/v2", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -169959,6 +171042,9 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -171312,6 +172398,11 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1" => {
             serde_json::from_value::<FoundryDraftRunPlanV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/foundry-qualified-measurement/v2" => {
+            serde_json::from_value::<FoundryQualifiedMeasurementV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -172671,6 +173762,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/foundry-qualified-measurement/v2" => {
+            let projection = serde_json::from_value::<FoundryQualifiedMeasurementV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -172807,8 +173903,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1317,
-            "the registered golden corpus must remain the explicit 1317-fixture bar",
+            1320,
+            "the registered golden corpus must remain the explicit 1320-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

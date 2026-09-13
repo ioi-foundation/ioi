@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+  "title": "FoundryQualifiedMeasurement",
+  "description": "A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.",
+  "x-ioi-schema-version": "ioi.foundations.foundry-qualified-measurement.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict",
+    "quality",
+    "measurement",
+    "promotion_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.foundry-qualified-measurement.v2"
+    },
+    "verdict": {
+      "enum": [
+        "qualified",
+        "rejected"
+      ]
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_coverage",
+        "mean_negative_log_likelihood",
+        "gate"
+      ],
+      "properties": {
+        "token_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mean_negative_log_likelihood": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000000
+        },
+        "gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum_token_coverage",
+            "maximum_mean_negative_log_likelihood"
+          ],
+          "properties": {
+            "minimum_token_coverage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "maximum_mean_negative_log_likelihood": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000000000
+            }
+          }
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "token_numerator",
+        "denominator",
+        "scope",
+        "raw_tokens",
+        "effective_tokens",
+        "elapsed_nanoseconds",
+        "tokens_per_second",
+        "includes_compilation",
+        "includes_loading",
+        "includes_evaluation",
+        "includes_checkpoint",
+        "includes_failure_and_recovery",
+        "cost_basis_ref",
+        "failure_schedule_ref",
+        "model_fingerprint",
+        "recipe_fingerprint",
+        "software_fingerprint",
+        "hardware_fingerprint",
+        "topology_fingerprint",
+        "time_to_quality"
+      ],
+      "properties": {
+        "phase": {
+          "const": "evaluation"
+        },
+        "token_numerator": {
+          "const": "loss_bearing"
+        },
+        "denominator": {
+          "const": "full_wall_clock"
+        },
+        "scope": {
+          "enum": [
+            "daemon_cpu_process",
+            "distributed"
+          ]
+        },
+        "raw_tokens": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "effective_tokens": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "elapsed_nanoseconds": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "tokens_per_second": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "includes_compilation": {
+          "const": false
+        },
+        "includes_loading": {
+          "const": true
+        },
+        "includes_evaluation": {
+          "const": true
+        },
+        "includes_checkpoint": {
+          "const": false
+        },
+        "includes_failure_and_recovery": {
+          "const": false
+        },
+        "cost_basis_ref": {
+          "type": "string",
+          "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$"
+        },
+        "failure_schedule_ref": {
+          "type": "string",
+          "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$"
+        },
+        "model_fingerprint": {
+          "$ref": "#/$defs/modelFingerprint"
+        },
+        "recipe_fingerprint": {
+          "$ref": "#/$defs/recipeFingerprint"
+        },
+        "software_fingerprint": {
+          "$ref": "#/$defs/softwareFingerprint"
+        },
+        "hardware_fingerprint": {
+          "$ref": "#/$defs/hardwareFingerprint"
+        },
+        "topology_fingerprint": {
+          "$ref": "#/$defs/topologyFingerprint"
+        },
+        "time_to_quality": {
+          "$ref": "#/$defs/timeToQuality"
+        }
+      }
+    },
+    "promotion_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_only",
+        "governance_approval_required",
+        "runtime_activation_performed"
+      ],
+      "properties": {
+        "proposal_only": {
+          "const": true
+        },
+        "governance_approval_required": {
+          "const": true
+        },
+        "runtime_activation_performed": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
+    },
+    "modelFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.",
+      "required": [
+        "model_ref",
+        "weights_digest",
+        "parameter_count"
+      ],
+      "properties": {
+        "model_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "weights_digest": {
+          "$ref": "#/$defs/contentHash"
+        },
+        "parameter_count": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "recipeFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.",
+      "required": [
+        "recipe_ref",
+        "recipe_body_hash"
+      ],
+      "properties": {
+        "recipe_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "recipe_body_hash": {
+          "$ref": "#/$defs/contentHash"
+        }
+      }
+    },
+    "softwareFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.",
+      "required": [
+        "operating_system",
+        "daemon_release_ref",
+        "trainer_backend_profile_ref"
+      ],
+      "properties": {
+        "operating_system": {
+          "enum": [
+            "linux",
+            "macos",
+            "windows"
+          ]
+        },
+        "daemon_release_ref": {
+          "type": "string",
+          "pattern": "^release://[^\\s]{1,500}$"
+        },
+        "trainer_backend_profile_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "hardwareFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.",
+      "required": [
+        "hardware_architecture",
+        "logical_cpu_count",
+        "memory_bytes",
+        "accelerator"
+      ],
+      "properties": {
+        "hardware_architecture": {
+          "enum": [
+            "x86_64",
+            "aarch64"
+          ]
+        },
+        "logical_cpu_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "memory_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "accelerator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "topologyFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.",
+      "required": [
+        "runtime_node_ref",
+        "environment_ref",
+        "process_count",
+        "node_count",
+        "parallelism"
+      ],
+      "properties": {
+        "runtime_node_ref": {
+          "type": "string",
+          "pattern": "^runtime://[^\\s]{1,500}$"
+        },
+        "environment_ref": {
+          "type": "string",
+          "pattern": "^environment://[^\\s]{1,500}$"
+        },
+        "process_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "node_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "parallelism": {
+          "enum": [
+            "single_process",
+            "multi_process",
+            "multi_node"
+          ]
+        }
+      }
+    },
+    "timeToQuality": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.",
+      "required": [
+        "quality_metric",
+        "target_value",
+        "reached",
+        "elapsed_nanoseconds"
+      ],
+      "properties": {
+        "quality_metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_value": {
+          "type": "number"
+        },
+        "reached": {
+          "type": "boolean"
+        },
+        "elapsed_nanoseconds": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    }
+  }
+}

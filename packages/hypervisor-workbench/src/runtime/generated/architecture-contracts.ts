@@ -11978,6 +11978,74 @@ export type FoundryDraftRunPlanV1 = {
   updated_at: string;
 };
 
+export type FoundryQualifiedMeasurementV2 = {
+  schema_version: "ioi.foundations.foundry-qualified-measurement.v2";
+  verdict: "qualified" | "rejected";
+  quality: {
+      token_coverage: number;
+      mean_negative_log_likelihood: number;
+      gate: {
+            minimum_token_coverage: number;
+            maximum_mean_negative_log_likelihood: number;
+          };
+    };
+  measurement: {
+      phase: "evaluation";
+      token_numerator: "loss_bearing";
+      denominator: "full_wall_clock";
+      scope: "daemon_cpu_process" | "distributed";
+      raw_tokens: number;
+      effective_tokens: number;
+      elapsed_nanoseconds: number;
+      tokens_per_second: number;
+      includes_compilation: false;
+      includes_loading: true;
+      includes_evaluation: true;
+      includes_checkpoint: false;
+      includes_failure_and_recovery: false;
+      cost_basis_ref: string;
+      failure_schedule_ref: string;
+      model_fingerprint: {
+            model_ref: string;
+            weights_digest: string;
+            parameter_count: number;
+          };
+      recipe_fingerprint: {
+            recipe_ref: string;
+            recipe_body_hash: string;
+          };
+      software_fingerprint: {
+            operating_system: "linux" | "macos" | "windows";
+            daemon_release_ref: string;
+            trainer_backend_profile_ref: string;
+          };
+      hardware_fingerprint: {
+            hardware_architecture: "x86_64" | "aarch64";
+            logical_cpu_count: number;
+            memory_bytes: number;
+            accelerator: string | null;
+          };
+      topology_fingerprint: {
+            runtime_node_ref: string;
+            environment_ref: string;
+            process_count: number;
+            node_count: number;
+            parallelism: "single_process" | "multi_process" | "multi_node";
+          };
+      time_to_quality: {
+            quality_metric: string;
+            target_value: number;
+            reached: boolean;
+            elapsed_nanoseconds: number;
+          };
+    };
+  promotion_boundary: {
+      proposal_only: true;
+      governance_approval_required: true;
+      runtime_activation_performed: false;
+    };
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -22523,6 +22591,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -26493,6 +26585,9 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-spec-v1/negative-unknown-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/positive-complete.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json","contract_id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-draft-run-plan-v1/negative-claims-it-would-promote.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","contract_id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","contract_id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","contract_id":"schema://ioi/foundations/objects/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27835,7 +27930,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-spec/v1": "sha256:a95d1acb99fd566cc2fa6c04c6a2fb326cc606ec93b9d5d2d6fcbed3b0010881",
   "schema://ioi/components/hypervisor/foundry-run-plan/v1": "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd",
   "schema://ioi/components/hypervisor/foundry-draft-spec/v1": "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822",
-  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7"
+  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7",
+  "schema://ioi/foundations/objects/foundry-qualified-measurement/v2": "sha256:20d5cdfbe470c7f43830ffc0f28eae2fb759e9f26b3daa096e7e417e5ac511a8"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -120733,6 +120829,374 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/foundations/objects/foundry-qualified-measurement/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/foundry-qualified-measurement/v2",
+    "title": "FoundryQualifiedMeasurement",
+    "description": "A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.",
+    "x-ioi-schema-version": "ioi.foundations.foundry-qualified-measurement.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "verdict",
+      "quality",
+      "measurement",
+      "promotion_boundary"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.foundry-qualified-measurement.v2"
+      },
+      "verdict": {
+        "enum": [
+          "qualified",
+          "rejected"
+        ]
+      },
+      "quality": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token_coverage",
+          "mean_negative_log_likelihood",
+          "gate"
+        ],
+        "properties": {
+          "token_coverage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "mean_negative_log_likelihood": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "gate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "minimum_token_coverage",
+              "maximum_mean_negative_log_likelihood"
+            ],
+            "properties": {
+              "minimum_token_coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "maximum_mean_negative_log_likelihood": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000
+              }
+            }
+          }
+        }
+      },
+      "measurement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "token_numerator",
+          "denominator",
+          "scope",
+          "raw_tokens",
+          "effective_tokens",
+          "elapsed_nanoseconds",
+          "tokens_per_second",
+          "includes_compilation",
+          "includes_loading",
+          "includes_evaluation",
+          "includes_checkpoint",
+          "includes_failure_and_recovery",
+          "cost_basis_ref",
+          "failure_schedule_ref",
+          "model_fingerprint",
+          "recipe_fingerprint",
+          "software_fingerprint",
+          "hardware_fingerprint",
+          "topology_fingerprint",
+          "time_to_quality"
+        ],
+        "properties": {
+          "phase": {
+            "const": "evaluation"
+          },
+          "token_numerator": {
+            "const": "loss_bearing"
+          },
+          "denominator": {
+            "const": "full_wall_clock"
+          },
+          "scope": {
+            "enum": [
+              "daemon_cpu_process",
+              "distributed"
+            ]
+          },
+          "raw_tokens": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "effective_tokens": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "elapsed_nanoseconds": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "tokens_per_second": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000
+          },
+          "includes_compilation": {
+            "const": false
+          },
+          "includes_loading": {
+            "const": true
+          },
+          "includes_evaluation": {
+            "const": true
+          },
+          "includes_checkpoint": {
+            "const": false
+          },
+          "includes_failure_and_recovery": {
+            "const": false
+          },
+          "cost_basis_ref": {
+            "type": "string",
+            "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$"
+          },
+          "failure_schedule_ref": {
+            "type": "string",
+            "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$"
+          },
+          "model_fingerprint": {
+            "$ref": "#/$defs/modelFingerprint"
+          },
+          "recipe_fingerprint": {
+            "$ref": "#/$defs/recipeFingerprint"
+          },
+          "software_fingerprint": {
+            "$ref": "#/$defs/softwareFingerprint"
+          },
+          "hardware_fingerprint": {
+            "$ref": "#/$defs/hardwareFingerprint"
+          },
+          "topology_fingerprint": {
+            "$ref": "#/$defs/topologyFingerprint"
+          },
+          "time_to_quality": {
+            "$ref": "#/$defs/timeToQuality"
+          }
+        }
+      },
+      "promotion_boundary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_only",
+          "governance_approval_required",
+          "runtime_activation_performed"
+        ],
+        "properties": {
+          "proposal_only": {
+            "const": true
+          },
+          "governance_approval_required": {
+            "const": true
+          },
+          "runtime_activation_performed": {
+            "const": false
+          }
+        }
+      }
+    },
+    "$defs": {
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "contentHash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://\\S+$"
+      },
+      "modelFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.",
+        "required": [
+          "model_ref",
+          "weights_digest",
+          "parameter_count"
+        ],
+        "properties": {
+          "model_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "weights_digest": {
+            "$ref": "#/$defs/contentHash"
+          },
+          "parameter_count": {
+            "$ref": "#/$defs/positiveInteger"
+          }
+        }
+      },
+      "recipeFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.",
+        "required": [
+          "recipe_ref",
+          "recipe_body_hash"
+        ],
+        "properties": {
+          "recipe_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "recipe_body_hash": {
+            "$ref": "#/$defs/contentHash"
+          }
+        }
+      },
+      "softwareFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.",
+        "required": [
+          "operating_system",
+          "daemon_release_ref",
+          "trainer_backend_profile_ref"
+        ],
+        "properties": {
+          "operating_system": {
+            "enum": [
+              "linux",
+              "macos",
+              "windows"
+            ]
+          },
+          "daemon_release_ref": {
+            "type": "string",
+            "pattern": "^release://[^\\s]{1,500}$"
+          },
+          "trainer_backend_profile_ref": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      },
+      "hardwareFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.",
+        "required": [
+          "hardware_architecture",
+          "logical_cpu_count",
+          "memory_bytes",
+          "accelerator"
+        ],
+        "properties": {
+          "hardware_architecture": {
+            "enum": [
+              "x86_64",
+              "aarch64"
+            ]
+          },
+          "logical_cpu_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "memory_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "accelerator": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "topologyFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.",
+        "required": [
+          "runtime_node_ref",
+          "environment_ref",
+          "process_count",
+          "node_count",
+          "parallelism"
+        ],
+        "properties": {
+          "runtime_node_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "process_count": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "node_count": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "parallelism": {
+            "enum": [
+              "single_process",
+              "multi_process",
+              "multi_node"
+            ]
+          }
+        }
+      },
+      "timeToQuality": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.",
+        "required": [
+          "quality_metric",
+          "target_value",
+          "reached",
+          "elapsed_nanoseconds"
+        ],
+        "properties": {
+          "quality_metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_value": {
+            "type": "number"
+          },
+          "reached": {
+            "type": "boolean"
+          },
+          "elapsed_nanoseconds": {
+            "$ref": "#/$defs/positiveInteger"
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -137151,7 +137615,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/foundry-spec/v1": [],
   "schema://ioi/components/hypervisor/foundry-run-plan/v1": [],
   "schema://ioi/components/hypervisor/foundry-draft-spec/v1": [],
-  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": []
+  "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": [],
+  "schema://ioi/foundations/objects/foundry-qualified-measurement/v2": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -139642,4 +140107,10 @@ export function validateFoundryDraftRunPlanV1(
   value: unknown,
 ): value is FoundryDraftRunPlanV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", value).ok;
+}
+
+export function validateFoundryQualifiedMeasurementV2(
+  value: unknown,
+): value is FoundryQualifiedMeasurementV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/foundry-qualified-measurement/v2", value).ok;
 }
