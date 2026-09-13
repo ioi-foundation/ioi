@@ -1,20 +1,29 @@
-// The app catalog — the machine-readable JOIN of the two truths about ported application
-// surfaces: MEMBERSHIP is parity-matrix evidence (every shell-pixel-certified candidate) plus an
-// explicit registry declaration for a read_only_by_contract surface whose completeness comes from
-// its product contract rather than a reference-shell certification. PRESENTATION is registry code
-// truth (display title + app tile icon). This module decides neither.
+// CONTRACT-EVIDENCE ADMISSION for ported surfaces — and nothing about catalog membership.
 //
-// W0.2 role demotion: this projection is IMPLEMENTATION EVIDENCE ONLY — zero catalog authority
-// (canon core-clients-surfaces.md: capture provenance/parity evidence never governs catalog
-// membership). Catalog/nav/palette/launch truth is the compiled product-surface projection
-// (scripts/surface-compiler.mjs), which carries this band on `apps` so the ported tool-surface
-// lanes stay reachable until each one's Wave 1 rehome / Wave 4 cutover.
-import { readFileSync, statSync } from "node:fs";
+// WHAT THIS FILE USED TO BE, and why it is not that any more (M08.8). It built the app catalog by
+// reading `shell_pixel_certified` out of the harvest parity matrix: a screenshot comparison against
+// a reference estate decided which surfaces appeared in a rendered lane. Canon could not be more
+// direct about that — capture provenance, screenshots, pixel certificates and parity matrices
+// "have zero authority over registration class, catalog membership, owner, capability, or
+// maturity" (core-clients-surfaces.md :2006-2008) — and the band had even been LABELLED
+// `catalog_authority: false` while its membership stayed parity-derived. A label is not a boundary,
+// and a verifier downstream had hardened the arrangement into an acceptance test that asserted
+// "catalog membership equals certified surfaces".
+//
+// The fourteen ported surfaces are registrations now (`surface_class: tool_surface`, all eleven
+// axes), and membership comes from the compiled product-surface projection like every other
+// surface's. `buildAppCatalog` is gone rather than corrected: a function whose whole job was to
+// join membership to parity evidence has no smaller honest version.
+//
+// WHAT SURVIVES: `contractCatalogAdmission`, which asks whether a surface's OPERATIONAL-DEPTH
+// CONTRACT EVIDENCE is exact and committed — coordinates, record, module shape and route all
+// agreeing. That is evidence quality, not membership, and it stays useful for exactly the question
+// it answers: has this port proved what it claims about itself?
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SURFACES, boundSurface } from "./surface-registry.mjs";
+import { boundSurface } from "./surface-registry.mjs";
 
-const MATRIX_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "harvest-app-parity-matrix.json");
 const ATLAS_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "application-operational-depth.json");
 const CATALOG_EVIDENCE_SCHEMA = "ioi.hypervisor.catalog-contract-evidence.v1";
 
@@ -50,53 +59,8 @@ export function contractCatalogAdmission(surface, atlas, resolveBinding = (route
   return { admitted: true, reason: "" };
 }
 
-export function buildAppCatalog({ matrix, atlas, surfaces = SURFACES, resolveBinding } = {}) {
-  const bySlug = new Map(surfaces.map((surface) => [surface.slug, surface]));
-  const certified = (matrix.seeds || [])
-    .filter((s) => s.shell_pixel_certified && s.candidate_surface)
-    .map((s) => {
-      const reg = bySlug.get(s.slug) || {};
-      return {
-        slug: s.slug,
-        title: reg.title || s.slug.charAt(0).toUpperCase() + s.slug.slice(1),
-        family: s.owner || "",
-        route: s.candidate_surface.split("?")[0],
-        icon: reg.icon || null,
-      };
-    });
-  const certifiedSlugs = new Set(certified.map((app) => app.slug));
-  const contractComplete = surfaces
-    .filter((surface) => !certifiedSlugs.has(surface.slug)
-      && contractCatalogAdmission(surface, atlas, resolveBinding).admitted)
-    .map((surface) => ({
-      slug: surface.slug,
-      title: surface.title,
-      family: surface.owner,
-      // GRE-2 (owner go 2026-08-20): the LAUNCH route is the surface's canonical click target when
-      // one exists — the registry binds the same module at both mounts, and for seeded families the
-      // canonical is the designated landing (transfer or family splash). The legacy mount stays a
-      // direct-URL lane; launching it from the catalog was the old-vs-new leak the owner caught.
-      route: surface.canonical_route || surface.route,
-      icon: surface.icon || null,
-    }));
-  const apps = [...certified, ...contractComplete]
-    .sort((a, b) => a.family.localeCompare(b.family) || a.title.localeCompare(b.title));
-  return {
-    schema: "ioi.hypervisor.app-catalog.v1",
-    generated_from: "harvest-app-parity-matrix.json + verified operational-depth contract evidence",
-    apps,
-  };
-}
-
-let cached = null, cachedMatrixMtime = 0, cachedAtlasMtime = 0;
-export function appCatalog() {
-  const matrixMtime = statSync(MATRIX_PATH).mtimeMs;
-  const atlasMtime = statSync(ATLAS_PATH).mtimeMs;
-  if (cached && matrixMtime === cachedMatrixMtime && atlasMtime === cachedAtlasMtime) return cached;
-  const matrix = JSON.parse(readFileSync(MATRIX_PATH, "utf8"));
-  const atlas = JSON.parse(readFileSync(ATLAS_PATH, "utf8"));
-  cached = buildAppCatalog({ matrix, atlas });
-  cachedMatrixMtime = matrixMtime;
-  cachedAtlasMtime = atlasMtime;
-  return cached;
+// The operational-depth atlas, read once. It is the evidence record `contractCatalogAdmission`
+// checks against; nothing here assembles a catalog.
+export function operationalDepthAtlas() {
+  return JSON.parse(readFileSync(ATLAS_PATH, "utf8"));
 }

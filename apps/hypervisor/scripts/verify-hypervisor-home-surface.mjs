@@ -17,7 +17,6 @@
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
 
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -95,17 +94,21 @@ async function run() {
   ok("explorer + view router ship in the augmentation", aug.text.includes("ioi-home-explorer") && aug.text.includes("applyAiViews") && aug.text.includes("renderExplorer"));
   ok("composer band retired", !aug.text.includes("ioi-home-band"), "governed-work strips live on the explorer now");
 
-  // 6c. App catalog — every pixel-certified port in the parity matrix is discoverable from /ai.
-  // Membership is matrix truth (shell_pixel_certified seeds), so this assertion self-extends as
-  // the certification wave lands new ports; the launcher lanes must carry each one.
-  const matrix = JSON.parse(readFileSync(join(HERE, "..", "harvest-app-parity-matrix.json"), "utf8"));
-  const portedSeeds = (matrix.seeds || []).filter((s) => s.shell_pixel_certified && s.candidate_surface);
+  // 6c. App catalog — every REGISTERED tool surface is discoverable from /ai.
+  //
+  // M08.8: this block used to read membership out of the harvest parity matrix
+  // (`shell_pixel_certified` seeds) and assert "catalog invents no apps beyond the matrix" — a
+  // screenshot comparison acting as the acceptance test for what the product offers. Canon gives
+  // parity evidence zero authority over catalog membership (core-clients-surfaces.md :2006-2008).
+  // The fourteen ports are registrations now, so the band is checked against the registration
+  // plane the projection itself carries, and the matrix is not read here at all.
   const catRes = await sGet("/__ioi/api/applications");
   let catalog = null; try { catalog = JSON.parse(catRes.text); } catch { /* non-json */ }
-  ok("catalog endpoint serves the compiled product-surface projection (evidence band = matrix truth)", catRes.status === 200 && catalog && catalog.schema === "ioi.hypervisor.compiled-product-surfaces.v1" && Array.isArray(catalog.applications), `status ${catRes.status}`);
+  ok("catalog endpoint serves the compiled product-surface projection", catRes.status === 200 && catalog && catalog.schema === "ioi.hypervisor.compiled-product-surfaces.v1" && Array.isArray(catalog.applications), `status ${catRes.status}`);
+  const registeredTools = ((catalog && catalog.applications) || []).filter((a) => a.surface_class === "tool_surface");
   const catRoutes = [...new Set(((catalog && catalog.apps) || []).map((a) => a.route))];
-  ok("catalog lists every certified seed", portedSeeds.length > 0 && portedSeeds.every((s) => catRoutes.includes(s.candidate_surface.split("?")[0])), `${catRoutes.length} catalog apps vs ${portedSeeds.length} certified seeds`);
-  ok("catalog invents no apps beyond the matrix", ((catalog && catalog.apps) || []).length === portedSeeds.length);
+  ok("catalog lists every registered tool surface", registeredTools.length > 0 && registeredTools.every((t) => catRoutes.includes(t.route)), `${catRoutes.length} band routes vs ${registeredTools.length} registered tool surfaces`);
+  ok("catalog invents no apps beyond the registration plane", ((catalog && catalog.apps) || []).length === registeredTools.length);
   ok("catalog apps carry title + family", ((catalog && catalog.apps) || []).every((a) => a.title && a.family && a.slug));
   ok("estate page lists every catalog app", catRoutes.every((r) => apps.text.includes(`href="${r}"`)), "/__ioi/applications renders the same projection");
   const aiHtml = await sGet("/ai");

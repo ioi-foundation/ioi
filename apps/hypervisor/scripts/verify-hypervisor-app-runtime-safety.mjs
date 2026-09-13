@@ -23,7 +23,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, readdirSync
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { SURFACES, boundSurface } from "./surface-registry.mjs";
-import { buildAppCatalog, contractCatalogAdmission } from "./app-catalog.mjs";
+import { contractCatalogAdmission } from "./app-catalog.mjs";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
@@ -254,16 +254,14 @@ async function run() {
       evidence_key: "__unproven_read_only",
     },
   };
-  const adversarialCatalog = buildAppCatalog({
-    matrix,
-    atlas,
-    surfaces: [...SURFACES, unproven],
-    resolveBinding: (route) => route === unproven.route
-      ? boundSurface(contractReadOnly[0].route, "GET")
-      : boundSurface(route, "GET"),
-  });
-  ok("negative control: a second self-labeled read-only surface cannot enter the catalog without exact evidence",
-    !adversarialCatalog.apps.some((app) => app.slug === unproven.slug));
+  // The control now asks the question directly of the admission function rather than of a catalog
+  // builder, because there is no catalog builder: membership moved to the registration plane
+  // (M08.8) and `contractCatalogAdmission` answers the only question that was ever its own — is
+  // this surface's contract evidence exact and committed?
+  const unprovenAdmission = contractCatalogAdmission(unproven, atlas,
+    (route) => route === unproven.route ? boundSurface(contractReadOnly[0].route, "GET") : boundSurface(route, "GET"));
+  ok("negative control: a second self-labeled read-only surface cannot claim contract admission without exact evidence",
+    !unprovenAdmission.admitted, unprovenAdmission.reason || "admitted (WRONG)");
   const designatedProbe = designatedCandidates[0];
   const designatedProbeRow = designatedBySlug.get(designatedProbe?.slug);
   ok("negative control: a forged designated-native route cannot inherit admission by slug",
@@ -277,14 +275,19 @@ async function run() {
   // 2. Catalog reads registry presentation; pipeline serves through the registry mount.
   const cat = JSON.parse((await sGet("/__ioi/api/applications")).text);
   ok("catalog titles come from the registry", (cat.apps || []).every((a) => regBySlug.get(a.slug)?.title === a.title), `${(cat.apps || []).length} catalog apps`);
-  const admittedCatalogSlugs = new Set([
-    ...certified.map((surface) => surface.slug),
-    ...contractReadOnly.filter((surface) => contractCatalogAdmission(surface, atlas).admitted).map((surface) => surface.slug),
-  ]);
-  ok("catalog membership equals certified surfaces plus exact contract-evidence admissions",
-    (cat.apps || []).length === admittedCatalogSlugs.size
-      && (cat.apps || []).every((app) => admittedCatalogSlugs.has(app.slug))
-      && [...admittedCatalogSlugs].every((slug) => (cat.apps || []).some((app) => app.slug === slug)));
+  // M08.8 — THIS ASSERTION USED TO READ "catalog membership equals certified surfaces plus exact
+  // contract-evidence admissions", which made a screenshot comparison an acceptance test for what
+  // appears in the product. Canon gives parity evidence zero authority over catalog membership
+  // (core-clients-surfaces.md :2006-2008). Membership is the registration plane's answer now, and
+  // what this checks is that the served band reports exactly the registered tool surfaces.
+  const registeredToolSlugs = new Set(
+    (cat.applications || []).filter((app) => app.surface_class === "tool_surface").map((app) => app.key),
+  );
+  ok("catalog band membership equals the registered tool surfaces — parity certification changes it by zero",
+    registeredToolSlugs.size > 0
+      && (cat.apps || []).length === registeredToolSlugs.size
+      && (cat.apps || []).every((app) => registeredToolSlugs.has(app.slug)),
+    `${registeredToolSlugs.size} registered tool surfaces / ${(cat.apps || []).length} band rows`);
   const pipe = await sGet("/__ioi/pipeline");
   ok("pipeline serves through the registry mount", pipe.status === 200 && pipe.text.includes("<title>Pipeline Builder</title>") && pipe.text.includes("Pipeline outputs"), `status ${pipe.status}`);
   const boomLive = await sGet("/__ioi/__test/boom");
