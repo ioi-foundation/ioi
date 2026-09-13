@@ -788,6 +788,14 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:environment-route-binding
 
+      # M09.5. Structure, contract vocabulary and the one live fact reachable without a microVM —
+      # that a succeeded teardown owes nothing and mints nothing.
+      - name: Verify the resource cleanup obligation (M09.5)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:resource-cleanup-obligation
+
       # MOVED HERE FROM build_and_test (2026-09-12). It ran there and PASSED, and its runtime
       # census was collected by nothing: build_and_test sets IOI_VERIFIER_CENSUS_DIR on zero steps
       # and publishes no census artifact, so the verifier-family floor recorded `census_missing`

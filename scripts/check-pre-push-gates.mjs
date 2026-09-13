@@ -77,6 +77,7 @@ const GATES = [
   ["environment startup plan (M09.2)", "npm", ["run", "check:environment-startup-plan", "--silent"], { slow: true }],
   ["canonical environment backup (M09.4)", "npm", ["run", "check:canonical-environment-backup", "--silent"], { slow: true }],
   ["environment route binding (M09.3)", "npm", ["run", "check:environment-route-binding", "--silent"], { slow: true }],
+  ["resource cleanup obligation (M09.5)", "npm", ["run", "check:resource-cleanup-obligation", "--silent"], { slow: true }],
   // ROUTE COUNTS — two gates, two populations. Both, always.
   [
     "route count A (distinct paths)",
