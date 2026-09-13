@@ -6454,6 +6454,15 @@ fn hypervisor_request_identity(
     body: &Value,
 ) -> Result<(String, String), (StatusCode, Json<Value>)> {
     let principal = resolve_principal(&st.data_dir, headers);
+    // THE READ-LANE FALLBACK IS ALREADY FENCED, ONE LAYER UP. An anonymous caller projecting the
+    // legacy `user://local-operator` scope is the documented convenience for READ lanes and this is
+    // one. The question worth asking is what happens when the daemon is reachable from outside,
+    // because the answer here is an ORGANIZATION'S INSTALLED INVENTORY — which applications it has
+    // admitted, installed, enabled and is serving. Measured rather than assumed: an exposed
+    // anonymous request is refused 401 `authentication_required` by the enforcement layer before it
+    // reaches this function, so the disclosure is closed where every route gets it at once. A
+    // second gate here would be a fence around a door that is already shut, and unreachable
+    // refusals rot: nothing exercises them, so nothing notices when they stop being right.
     let principal_ref = principal
         .as_ref()
         .and_then(|record| {
@@ -6515,8 +6524,26 @@ fn hypervisor_request_identity(
 pub(crate) async fn handle_product_surface_projection(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    // IDENTITY BEFORE BODY. With `Json<Value>` here, axum runs the body extractor before the handler
+    // is entered at all, so an anonymous caller sending no body — which is exactly what an
+    // unauthenticated probe looks like — is refused 415 for its content type instead of 401 for
+    // being nobody. The refusal must name the real reason: a caller told "unsupported media type"
+    // learns that fixing its headers is the way in.
+    body: axum::body::Bytes,
 ) -> (StatusCode, Json<Value>) {
+    let body: Value = if body.is_empty() {
+        json!({})
+    } else {
+        match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "code": "hypervisor.malformed_request_body", "detail": error.to_string() })),
+                )
+            }
+        }
+    };
     let (principal_ref, org_ref) = match hypervisor_request_identity(&st, &headers, &body) {
         Ok(identity) => identity,
         Err(response) => return response,
@@ -6607,10 +6634,12 @@ pub(crate) async fn handle_product_surface_projection(
             // 36 requires one registration over ELEVEN INDEPENDENT axes; a projection that collapses
             // them into a boolean has not served them independently, it has served their conjunction.
             //
-            // An axis with no field on any record projects as null rather than as a guess:
-            // `surface_origin` and `surface_creation_method` are named by canon and registered
-            // nowhere, and a projection that invented a value for them would make the absence
-            // invisible.
+            // ALL ELEVEN ARE NOW REGISTERED FACTS. `surface_origin` and `surface_creation_method`
+            // were named by canon and registered nowhere, so this projection served them as
+            // explicit nulls — the honest reading of an axis with no home, and the wrong thing to
+            // leave. They live on the registration contract's SUCCESSOR (v2) and are read off the
+            // record like the other nine. Nothing here defaults them: a registration that reaches
+            // this join without them fails at generation, not silently at read.
             let stage_reasons = {
                 let mut codes: Vec<Value> = Vec::new();
                 if release.is_none() {
@@ -6642,11 +6671,18 @@ pub(crate) async fn handle_product_surface_projection(
                 "surface_enablement_state": installation.map(|record| record["surface_enablement_state"].clone()).unwrap_or(Value::Null),
                 "surface_capability_depth": release.map(|record| record["surface_capability_depth"].clone()).unwrap_or(Value::Null),
                 "surface_operational_state": serving.map(|record| record["surface_operational_state"].clone()).unwrap_or(Value::Null),
-                // Named by canonical-enums.md and registered nowhere. Null is the honest value; a
-                // consumer can tell "not registered" from "registered as X" only if this field
-                // exists and is null rather than absent.
-                "surface_origin": Value::Null,
-                "surface_creation_method": Value::Null
+                // Registered on the v2 registration record and served verbatim. These two are the
+                // only axes fixed at authorship rather than moving over a surface's life, which is
+                // why they sit on the registration and not on the release, installation or serving
+                // binding the other nine are read from.
+                "surface_origin": row["surface_origin"],
+                "surface_creation_method": row["surface_creation_method"],
+                // THE MEMBERSHIP AXES. Carried on the entry so the palette and contextual
+                // projections below can be DERIVED from the registration rather than kept as lists
+                // of their own, and so a consumer can see why a surface is where it is.
+                "supported_placements": row["supported_placements"],
+                "launch_modes": row["launch_modes"],
+                "supported_context_kinds": row["supported_context_kinds"]
             })
         }).collect();
     // W2.3/W2.4 (next-legs III Leg 2) — the launcher feed also consumes the LIVE
@@ -6696,6 +6732,86 @@ pub(crate) async fn handle_product_surface_projection(
             applications.push(entry);
         }
     }
+    // THE PALETTE AND CONTEXTUAL PROJECTIONS (M08.8). ACC-10 clause 2 requires shell, catalog,
+    // palette, contextual and API projections to come from ONE registration over the independent
+    // axes. Two of the five did not exist: the compiler's own header claimed to feed "nav / catalog
+    // / palette / launch state" while returning workspaces and applications only, so every palette
+    // and every contextual launcher downstream had to keep a list — which is the hard-coded catalog
+    // the clause forbids, merely relocated.
+    //
+    // BOTH ARE DERIVED FROM `applications`, WHICH IS ALREADY POLICY-FILTERED. That ordering is the
+    // whole safety property: `allowed`, organization membership and the release/installation/
+    // serving joins have all been applied by this point, so a surface subtracted from the catalog
+    // cannot reappear through the palette. Permission is subtraction, and a projection that
+    // recomputed membership from the registration records here would be a second path to launch
+    // with its own idea of who may see what.
+    //
+    // One registration appears once in each projection and keeps one identity: these carry
+    // `identity_ref` and the launch binding, never a second copy of the surface's truth.
+    let palette_entries: Vec<Value> = applications
+        .iter()
+        .filter(|row| {
+            row["launch_modes"]
+                .as_array()
+                .map(|modes| modes.iter().any(|mode| mode == "command_palette"))
+                .unwrap_or(false)
+        })
+        .map(|row| {
+            json!({
+                "identity_ref": row["identity_ref"],
+                "display_name": row["display_name"],
+                "canonical_route": row["canonical_route"],
+                "resolved_launch_route": row["resolved_launch_route"],
+                // A palette that offers an unlaunchable surface teaches the user that the palette
+                // lies. The entry stays VISIBLE with its typed reasons — canon requires ineligible
+                // launches to be removed immediately, and removing the launch is not the same as
+                // hiding that the surface exists.
+                "launchable": row["launchable"],
+                "disabled_reason_codes": row["disabled_reason_codes"],
+                "surface_class": row["surface_class"]
+            })
+        })
+        .collect();
+    // The requested context is TYPED or it is absent; it is never guessed. An unnamed context
+    // yields an empty projection carrying `no_context_kind_requested`, because a contextual lane
+    // that falls back to "everything" is a catalog wearing a context's name.
+    let requested_context_kind = body
+        .get("context")
+        .and_then(|context| context.get("context_kind"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let contextual_entries: Vec<Value> = match requested_context_kind.as_deref() {
+        None => Vec::new(),
+        Some(kind) => applications
+            .iter()
+            .filter(|row| {
+                row["launch_modes"]
+                    .as_array()
+                    .map(|modes| modes.iter().any(|mode| mode == "contextual"))
+                    .unwrap_or(false)
+                    && row["supported_context_kinds"]
+                        .as_array()
+                        .map(|kinds| kinds.iter().any(|candidate| candidate == kind))
+                        .unwrap_or(false)
+            })
+            .map(|row| {
+                json!({
+                    "identity_ref": row["identity_ref"],
+                    "display_name": row["display_name"],
+                    "canonical_route": row["canonical_route"],
+                    "resolved_launch_route": row["resolved_launch_route"],
+                    "launchable": row["launchable"],
+                    "disabled_reason_codes": row["disabled_reason_codes"],
+                    "matched_context_kind": kind
+                })
+            })
+            .collect(),
+    };
+    let contextual_absence_code = match requested_context_kind.as_deref() {
+        None => Some("no_context_kind_requested"),
+        Some(_) if contextual_entries.is_empty() => Some("no_surface_registers_this_context_kind"),
+        Some(_) => None,
+    };
     let context_material = serde_json::to_string(&json!({
         "principal_ref": principal_ref,
         "org_ref": org_ref,
@@ -6715,6 +6831,12 @@ pub(crate) async fn handle_product_surface_projection(
             "org_ref": org_ref,
             "workspace_entries": workspaces,
             "application_entries": applications,
+            "command_palette_entries": palette_entries,
+            "contextual_entries": contextual_entries,
+            // Absence with a reason. An empty contextual list means one of two different things and
+            // a consumer that cannot tell them apart will render the wrong empty state.
+            "contextual_absence_code": contextual_absence_code,
+            "requested_context_kind": requested_context_kind,
             "policy_decision_refs": [format!("decision://hypervisor/product-surface/{}", &hash[..16])],
             "read_model_only": true
         })),

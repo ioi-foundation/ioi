@@ -594,6 +594,14 @@ const PINNED = {
   // grows — tokens 149075 -> 149161 and foreign-qualified names 4613 -> 4620. That the writer pins
   // held across a change which ADMITS a new durable family is the evidence that it took the shared
   // path rather than minting one.
+  // Re-pinned 2026-09-13 (M08.8, the product-surface compiler). No module joined and no writer
+  // moved: the change adds the palette and contextual projections to a handler that was already in
+  // the walk, plus the two membership axes on each projected row. Tokens 149190 -> 149243 and
+  // foreign-qualified names 4620 -> 4621 — the single new qualified name being `axum::body::Bytes`,
+  // which arrived because the handler stopped taking `Json<Value>`: with the body extractor running
+  // before the handler, an anonymous caller sending nothing was refused 415 for its content type
+  // rather than answered for who it was. Every writer pin holding across a change that adds two
+  // PROJECTIONS is the evidence they are projections and not a second admission path.
   // Re-pinned 2026-09-12 AGAIN, same day and same program (M07.4 item 3, hysteresis on the
   // improvement gate). No module joined this time — `governance_routes.rs` was already in the
   // walk — and no writer moved: the change is one `&[&str]` constant and one refusal function, so
@@ -621,7 +629,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 149190,
+  tokenMentions: 149243,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 245, runtimeParameter: 311 },
   productionFsCalls: 234,
@@ -642,7 +650,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4620,
+    "foreign-qualified": 4621,
     "opaque-initialiser": 2802,
     "bare-undeclared": 536,
     "ambiguous-module": 0,
