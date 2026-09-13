@@ -14,12 +14,11 @@ use ioi_types::app::hypervisor_environment_lifecycle::{
     compile_backup_record, compile_change_plan_declaration, compile_cleanup_escalate,
     compile_cleanup_open, compile_cleanup_satisfy, compile_route_binding_declaration,
     compile_stage_advance, environment_artifact_root, environment_family_roots,
-    environment_plane_root,
-    evaluate_route_binding_observation, obligation_revision_root, replay_environment_lifecycle,
-    route_binding_head, route_identity, BackupDeclaration, EnvironmentEstateBinding,
-    EnvironmentLifecycleLogHead, EnvironmentLifecycleOp, EnvironmentPlaneState, StageEvidence,
-    CHANGE_PLAN_CONTRACT, CLEANUP_OBLIGATION_CONTRACT, ENVIRONMENT_BACKUP_CONTRACT,
-    ENVIRONMENT_OPERATION_PROFILE, ROUTE_BINDING_CONTRACT,
+    environment_plane_root, evaluate_route_binding_observation, obligation_revision_root,
+    replay_environment_lifecycle, route_binding_head, route_identity, BackupDeclaration,
+    EnvironmentEstateBinding, EnvironmentLifecycleLogHead, EnvironmentLifecycleOp,
+    EnvironmentPlaneState, StageEvidence, CHANGE_PLAN_CONTRACT, CLEANUP_OBLIGATION_CONTRACT,
+    ENVIRONMENT_BACKUP_CONTRACT, ENVIRONMENT_OPERATION_PROFILE, ROUTE_BINDING_CONTRACT,
 };
 use serde_json::{json, Value};
 use std::sync::Arc;

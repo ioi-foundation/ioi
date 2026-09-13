@@ -87,11 +87,8 @@ pub const ENVIRONMENT_REFUSAL_DIMENSIONS: [&str; 8] = [
 /// managed backup commits a head an environment restore cannot rebuild, so a restore that tried to
 /// claim environment continuity from one is refused BY NAME instead of by having nothing to
 /// compare. The two lanes answer different questions and now say so in the bytes.
-pub const RESTORE_SUBJECT_FAMILIES: [&str; 3] = [
-    "route_bindings",
-    "cleanup_obligations",
-    "managed_workspace",
-];
+pub const RESTORE_SUBJECT_FAMILIES: [&str; 3] =
+    ["route_bindings", "cleanup_obligations", "managed_workspace"];
 
 /// The subset of family roots a backup commits and a restore is checked against.
 pub fn restore_subject_roots(families: &[Value]) -> Vec<Value> {
@@ -762,9 +759,11 @@ pub fn evaluate_restore_continuity(backup: &Value, recomputed: &[Value]) -> Envi
         .get("source_object_head_refs")
         .and_then(Value::as_array)
     {
-        Some(refs) if !refs.is_empty() => {
-            refs.iter().filter_map(Value::as_str).map(str::to_owned).collect()
-        }
+        Some(refs) if !refs.is_empty() => refs
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect(),
         _ => {
             // A pre-M09.4 backup commits no heads. It is refused rather than waved through,
             // because "nothing to compare" and "everything matched" are the same outcome to a
@@ -791,10 +790,7 @@ pub fn evaluate_restore_continuity(backup: &Value, recomputed: &[Value]) -> Envi
     // same way.
     for head in &committed {
         if !rebuilt.contains(head) {
-            let family = head
-                .rsplit('/')
-                .nth(1)
-                .unwrap_or("unknown");
+            let family = head.rsplit('/').nth(1).unwrap_or("unknown");
             return EnvironmentVerdict::refuse(
                 "incomplete_restoration",
                 format!(
@@ -1148,7 +1144,9 @@ pub fn compile_stage_advance(
             let verdict = evaluate_restore_continuity(backup, &evidence.recomputed_family_roots);
             if !verdict.admitted {
                 return Err(err(
-                    verdict.refusal_dimension.unwrap_or("incomplete_restoration"),
+                    verdict
+                        .refusal_dimension
+                        .unwrap_or("incomplete_restoration"),
                     verdict
                         .refusal_reason
                         .unwrap_or_else(|| "restore continuity refused".to_owned()),
@@ -2063,7 +2061,11 @@ mod tests {
         let heads = backup["source_object_head_refs"]
             .as_array()
             .expect("committed heads");
-        assert_eq!(heads.len(), 2, "one head per RESTORE-SUBJECT family, including the empty ones");
+        assert_eq!(
+            heads.len(),
+            2,
+            "one head per RESTORE-SUBJECT family, including the empty ones"
+        );
         // An EMPTY family still has a head. Its absence would make "this family had no records"
         // indistinguishable from "this backup did not look at this family", and a restore could
         // then repopulate an empty family without contradicting anything.
@@ -2074,9 +2076,10 @@ mod tests {
                 .contains("/cleanup_obligations/")),
             "{heads:?}"
         );
-        assert!(heads
-            .iter()
-            .all(|head| head.as_str().expect("ref").starts_with("object-head://local/")));
+        assert!(heads.iter().all(|head| head
+            .as_str()
+            .expect("ref")
+            .starts_with("object-head://local/")));
     }
 
     #[test]
@@ -2196,13 +2199,23 @@ mod tests {
             &[backup.clone()],
             &[binding.clone()],
         );
-        assert!(applied.is_ok(), "restore_apply sees only bytes: {applied:?}");
+        assert!(
+            applied.is_ok(),
+            "restore_apply sees only bytes: {applied:?}"
+        );
 
         let mut broken = evidence_for(&plan, 3, &backup);
         broken.recomputed_family_roots[0] =
             json!({"family": "route_bindings", "roots": [h(0x51), h(0x56)]});
-        let error = compile_stage_advance(&plan, &[1, 2], 3, &broken, &[backup.clone()], &[binding.clone()])
-            .unwrap_err();
+        let error = compile_stage_advance(
+            &plan,
+            &[1, 2],
+            3,
+            &broken,
+            &[backup.clone()],
+            &[binding.clone()],
+        )
+        .unwrap_err();
         assert!(error.starts_with("incomplete_restoration"), "{error}");
         assert!(error.contains("route_bindings"), "{error}");
     }
@@ -2214,9 +2227,15 @@ mod tests {
         let plan = plan_for(&backup, &binding);
         let mut empty = evidence_for(&plan, 3, &backup);
         empty.recomputed_family_roots = Vec::new();
-        let error = compile_stage_advance(&plan, &[1, 2], 3, &empty, &[backup.clone()], &[binding.clone()])
-            .unwrap_err();
+        let error = compile_stage_advance(
+            &plan,
+            &[1, 2],
+            3,
+            &empty,
+            &[backup.clone()],
+            &[binding.clone()],
+        )
+        .unwrap_err();
         assert!(error.contains("has measured nothing"), "{error}");
     }
-
 }

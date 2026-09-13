@@ -822,7 +822,12 @@ pub(crate) fn admit_startup_plan(
     persist_record(
         data_dir,
         STARTUP_PLAN_RECORDS,
-        &safe_id(&plan["startup_plan_ref"].as_str().unwrap_or_default().to_string()),
+        &safe_id(
+            &plan["startup_plan_ref"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        ),
         &plan,
     )
     .map_err(|error| {
@@ -904,7 +909,10 @@ pub(crate) async fn handle_startup_plan_create(
         }
     };
     match admit_startup_plan(&st.data_dir, &body) {
-        Ok(plan) => (StatusCode::OK, Json(json!({ "ok": true, "startup_plan": plan }))),
+        Ok(plan) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "startup_plan": plan })),
+        ),
         Err(response) => response,
     }
 }
@@ -1195,7 +1203,9 @@ mod m09_2_startup_plan_tests {
         // inspection — asserted that way rather than by string equality, which would have passed
         // only if the rename had not happened.
         assert_eq!(
-            plan["development_environment_recipe_resolution_ref"].as_str().unwrap(),
+            plan["development_environment_recipe_resolution_ref"]
+                .as_str()
+                .unwrap(),
             format!(
                 "environment-recipe-resolution://hypervisor/{}",
                 resolution["resolution_ref"].as_str().unwrap()
@@ -1208,7 +1218,10 @@ mod m09_2_startup_plan_tests {
                 resolution["recipe_ref"].as_str().unwrap()
             )
         );
-        assert_eq!(plan["environment_ref"], json!("environment://hypervisor/env-1"));
+        assert_eq!(
+            plan["environment_ref"],
+            json!("environment://hypervisor/env-1")
+        );
         let recipe = load_recipe(data_dir, resolution["recipe_ref"].as_str().unwrap()).unwrap();
         assert_eq!(
             plan["development_environment_recipe_content_hash"].as_str().unwrap(),
@@ -1216,11 +1229,16 @@ mod m09_2_startup_plan_tests {
             "the content hash is computed from the STORED recipe, not from anything the caller said"
         );
         assert_eq!(
-            plan["development_environment_recipe_resolution_hash"].as_str().unwrap(),
+            plan["development_environment_recipe_resolution_hash"]
+                .as_str()
+                .unwrap(),
             jcs_sha256(&resolution).unwrap()
         );
         // Revision-exact, because canon requires a successor for every change.
-        assert!(plan["startup_plan_ref"].as_str().unwrap().ends_with("/revision/1"));
+        assert!(plan["startup_plan_ref"]
+            .as_str()
+            .unwrap()
+            .ends_with("/revision/1"));
         // A plan never carries a blockage.
         assert!(plan.get("blocked_reason").is_none());
     }
@@ -1251,12 +1269,18 @@ mod m09_2_startup_plan_tests {
                 plan.get(*field).is_some(),
                 "{field} must be present so the hash can cover it"
             );
-            assert!(plan[*field].is_null(), "{field} defaults to a registered null");
+            assert!(
+                plan[*field].is_null(),
+                "{field} defaults to a registered null"
+            );
         }
         // And the nullables genuinely move the hash: a plan serving a System is different bytes.
         let mut with_system = hashable.clone();
         with_system["system_ref"] = json!("system://hypervisor/sys-1");
-        assert_ne!(jcs_sha256(&with_system).unwrap(), jcs_sha256(&hashable).unwrap());
+        assert_ne!(
+            jcs_sha256(&with_system).unwrap(),
+            jcs_sha256(&hashable).unwrap()
+        );
     }
 
     #[test]
@@ -1291,7 +1315,10 @@ mod m09_2_startup_plan_tests {
         persist_record(data_dir, "recipe-resolutions", &id, &resolution).expect("persist");
 
         let error = admit_startup_plan(data_dir, &posture(&id)).expect_err("must refuse");
-        assert_eq!(code(&error), "environment_startup_plan_from_a_blocked_resolution");
+        assert_eq!(
+            code(&error),
+            "environment_startup_plan_from_a_blocked_resolution"
+        );
     }
 
     #[test]
@@ -1330,7 +1357,10 @@ mod m09_2_startup_plan_tests {
         // passes. The resolution requires 5432; this declares 5433.
         body["port_refs"] = json!(["port://hypervisor/env-1/5433"]);
         let error = admit_startup_plan(data_dir, &body).expect_err("must refuse");
-        assert_eq!(code(&error), "environment_startup_plan_undeclared_required_edge");
+        assert_eq!(
+            code(&error),
+            "environment_startup_plan_undeclared_required_edge"
+        );
         assert!(
             error.1["detail"].as_str().unwrap().contains("5432"),
             "the refusal names the port that is missing, not merely that one is"
@@ -1350,8 +1380,14 @@ mod m09_2_startup_plan_tests {
         changed["placement_decision_ref"] = json!("placement-decision://hypervisor/pld-2");
         let second = admit_startup_plan(data_dir, &changed).expect("second");
 
-        assert!(first["startup_plan_ref"].as_str().unwrap().ends_with("/revision/1"));
-        assert!(second["startup_plan_ref"].as_str().unwrap().ends_with("/revision/2"));
+        assert!(first["startup_plan_ref"]
+            .as_str()
+            .unwrap()
+            .ends_with("/revision/1"));
+        assert!(second["startup_plan_ref"]
+            .as_str()
+            .unwrap()
+            .ends_with("/revision/2"));
         assert_ne!(first["plan_hash"], second["plan_hash"]);
         // The first plan is untouched on disk: a successor is not an edit.
         let stored = read_record_dir(data_dir, STARTUP_PLAN_RECORDS);
@@ -1361,7 +1397,10 @@ mod m09_2_startup_plan_tests {
             .find(|row| row["startup_plan_ref"] == first["startup_plan_ref"])
             .expect("the first plan is still there");
         assert_eq!(reread["plan_hash"], first["plan_hash"]);
-        assert_eq!(reread["placement_decision_ref"], first["placement_decision_ref"]);
+        assert_eq!(
+            reread["placement_decision_ref"],
+            first["placement_decision_ref"]
+        );
     }
 
     #[test]
@@ -1372,16 +1411,22 @@ mod m09_2_startup_plan_tests {
         let mut body = posture(resolution["resolution_ref"].as_str().unwrap());
         body.as_object_mut().unwrap().remove("stop_policy_ref");
         let error = admit_startup_plan(data_dir, &body).expect_err("must refuse");
-        assert_eq!(code(&error), "environment_startup_plan_undeclared_posture_field");
+        assert_eq!(
+            code(&error),
+            "environment_startup_plan_undeclared_posture_field"
+        );
     }
 
     #[test]
     fn a_resolution_this_daemon_cannot_read_mints_nothing() {
         let dir = scratch("absent");
         let data_dir = dir.to_str().unwrap();
-        let error = admit_startup_plan(data_dir, &posture("reso_does_not_exist"))
-            .expect_err("must refuse");
-        assert_eq!(code(&error), "environment_startup_plan_resolution_not_found");
+        let error =
+            admit_startup_plan(data_dir, &posture("reso_does_not_exist")).expect_err("must refuse");
+        assert_eq!(
+            code(&error),
+            "environment_startup_plan_resolution_not_found"
+        );
         assert!(read_record_dir(data_dir, STARTUP_PLAN_RECORDS).is_empty());
     }
 
@@ -1408,7 +1453,10 @@ mod m09_2_startup_plan_tests {
         );
         assert_ne!(local["plan_hash"], hosted["plan_hash"]);
         assert_eq!(local["provider_account_ref"], Value::Null);
-        assert_eq!(hosted["provider_account_ref"], json!("provider-account://hypervisor/acct-1"));
+        assert_eq!(
+            hosted["provider_account_ref"],
+            json!("provider-account://hypervisor/acct-1")
+        );
         validate_architecture_contract(PLAN_CONTRACT, &hosted).expect("managed plan validates");
     }
 
@@ -1419,12 +1467,28 @@ mod m09_2_startup_plan_tests {
         // A recipe the registered contract refuses. Before M09.2 this persisted silently: the
         // module's three validation calls were all inside its test module, so the check ran where
         // a running daemon never reaches.
-        let mut broken = new_recipe("recipe_0b0e", &json!({ "substrate": "container" }), "explicit", None);
+        let mut broken = new_recipe(
+            "recipe_0b0e",
+            &json!({ "substrate": "container" }),
+            "explicit",
+            None,
+        );
         broken["substrate"] = json!("not-a-registered-substrate");
-        assert!(broken["recipe_ref"].is_string(), "otherwise the refusal could be about identity");
+        assert!(
+            broken["recipe_ref"].is_string(),
+            "otherwise the refusal could be about identity"
+        );
         let refused = persist_recipe(data_dir, &broken);
-        assert!(refused.is_err(), "a record the contract refuses is not written");
-        assert!(!std::path::Path::new(data_dir).join("recipes").join("recipe_0b0e.json").exists(),
-            "and it is refused BEFORE the write, not written and then explained");
+        assert!(
+            refused.is_err(),
+            "a record the contract refuses is not written"
+        );
+        assert!(
+            !std::path::Path::new(data_dir)
+                .join("recipes")
+                .join("recipe_0b0e.json")
+                .exists(),
+            "and it is refused BEFORE the write, not written and then explained"
+        );
     }
 }

@@ -6539,7 +6539,9 @@ pub(crate) async fn handle_product_surface_projection(
             Err(error) => {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(json!({ "ok": false, "code": "hypervisor.malformed_request_body", "detail": error.to_string() })),
+                    Json(
+                        json!({ "ok": false, "code": "hypervisor.malformed_request_body", "detail": error.to_string() }),
+                    ),
                 )
             }
         }

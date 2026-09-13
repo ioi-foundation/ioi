@@ -16,8 +16,11 @@
 //     not a change that makes an author think "census". I skipped it.
 //   * `check:named-gap-truth` counts absence-worded assertions across ALL verifiers, so AUTHORING
 //     A GATE moves it even when no daemon code changed at all.
+//   * `cargo fmt --check` moves on EVERY Rust edit and was not in this list at all, so the only
+//     thing that could catch a formatting red was CI — one push too late. Added 2026-09-13 after
+//     exactly that: ten commits pushed, `Check format` red on three of them, no semantic change.
 //
-// Three different triggers, none of which announce themselves. The estate's own censuses work
+// Four different triggers, none of which announce themselves. The estate's own censuses work
 // because they DERIVE their population instead of listing it; this applies the same principle to
 // the habit that guards them.
 //
@@ -42,6 +45,15 @@ const fast = process.argv.includes("--fast");
 // Each row: [label, command, argv, {battery}] — `battery` marks a gate that plants defects and
 // restores the tree, which is slower and skippable with --fast but never skipped by default.
 const GATES = [
+  // FIRST, because it is the cheapest and it is the one that got away. `cargo fmt --check` is a CI
+  // gate whose population moves on EVERY Rust edit, and it was not in this list — so the only thing
+  // that could ever catch a formatting red was CI itself, one push too late. That is a fourth
+  // trigger to add to the three in the header: not a pinned count, not a census, just a gate this
+  // sweep never knew about. The lesson is the same one the file already argues — a habit that
+  // enumerates is complete, a habit that recollects is complete for what you remember.
+  //
+  // It uses the repo's pinned toolchain (rust-toolchain.toml), so it is the same rustfmt CI runs.
+  ["rust formatting", "cargo", ["fmt", "--all", "--check"]],
   ["guide structure", "node", ["scripts/implementation-program.mjs", "--check"]],
   ["release-readiness scope", "node", ["scripts/check-release-readiness-scope.mjs"]],
   ["architecture contracts", "node", ["scripts/generate-architecture-contracts.mjs", "--check"]],
