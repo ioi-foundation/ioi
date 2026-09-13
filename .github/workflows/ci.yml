@@ -754,6 +754,15 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
 
+      # M08.8. Boots its own daemon on a free port and reaps it, like the six above. Its first
+      # assertion refuses a binary older than the sources it measures, so a cache that restored a
+      # stale target/ fails loudly here instead of reporting on code this revision does not have.
+      - name: Verify the product-surface compiler (M08.8)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:product-surface-compiler
+
       # MOVED HERE FROM build_and_test (2026-09-12). It ran there and PASSED, and its runtime
       # census was collected by nothing: build_and_test sets IOI_VERIFIER_CENSUS_DIR on zero steps
       # and publishes no census artifact, so the verifier-family floor recorded `census_missing`

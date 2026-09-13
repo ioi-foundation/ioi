@@ -42,6 +42,11 @@ const GATES = [
   ["architecture contracts", "node", ["scripts/generate-architecture-contracts.mjs", "--check"]],
   ["surface records", "node", ["scripts/generate-hypervisor-surface-records.mjs", "--check"]],
   ["architecture docs + work items", "npm", ["run", "check:architecture-docs", "--silent"]],
+  // Brings up its OWN debug daemon on a free port and reaps it — never the shared dev daemon. It
+  // reads `target/debug/hypervisor-daemon` without building it, so it refuses outright when that
+  // binary is older than the sources it claims to measure rather than reporting on code that is
+  // not there.
+  ["product-surface compiler (M08.8)", "npm", ["run", "check:product-surface-compiler", "--silent"], { slow: true }],
   // ROUTE COUNTS — two gates, two populations. Both, always.
   [
     "route count A (distinct paths)",
