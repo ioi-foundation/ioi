@@ -61,6 +61,22 @@ const GATES = [
     "npm",
     ["run", "check:ontology-admission-census", "--workspace=@ioi/hypervisor-app", "--silent"],
   ],
+  // The census's own battery. It is listed because it BLOCKS rather than scores when the census is
+  // red on the unmutated tree, so a stale census pin fails here as a blocked battery rather than as
+  // a mismatched count — a different symptom for the same cause, and one CI reported twice in this
+  // leg while the sweep stayed silent. Omitting it was the same recollection failure this file
+  // exists to end, committed inside the file itself.
+  //
+  // RUN IT ALONE. Two mutation batteries against one tree plant and restore against each other:
+  // that happened here, produced a phantom "stranded defect", an 18/27 census read mid-plant and a
+  // 45/46 anchor score, and none of the three were real — run by itself the same battery scores
+  // 46/46. This sweep is sequential for that reason and must stay sequential.
+  [
+    "admission census battery",
+    "npm",
+    ["run", "mutate:ontology-admission-census", "--workspace=@ioi/hypervisor-app", "--silent"],
+    { battery: true },
+  ],
 ];
 
 const failures = [];
