@@ -213,6 +213,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/lifecycle-transition/v1", "sha256:8ba0b1d0a026d44d9738ad024e467b62557c421f576e98447eb8ab4b0a476ea5"),
     ("schema://ioi/foundations/lost-suffix-record/v1", "sha256:1ded4482cebaa8bec1f16059aa88fab34dd15ca7bfb8faa185c5547d695123c6"),
     ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2"),
+    ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v2", "sha256:7dcfc5a0c9914e3d7f50fee0fa6765060b8fd8a556bebcc0ad3ea517280d0fb7"),
     ("schema://ioi/foundations/ontology-assertion/v1", "sha256:b8d08e5d17982fd3c458c260c3c6ad2470864880e6a5960a4cbae0551a863095"),
     ("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", "sha256:520168cb04de8dd898ca9a038066ec8e64ca98c10ea74673ce0c745bf168792e"),
     ("schema://ioi/foundations/ontology-version/v1", "sha256:61b25cda079d98021d7dc96f07706e418d8ec23d83c83b291a66cd0dbef80fd8"),
@@ -75753,6 +75754,2244 @@ pub enum ManagedWorkBillingLedgerBundleV1AssuranceStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2 {
+    pub schema_version: ManagedWorkBillingLedgerBundleV2SchemaVersion,
+    pub bundle_ref: String,
+    pub billing_account_ref: String,
+    pub work_ref: String,
+    pub rate_card: ManagedWorkBillingLedgerBundleV2RateCard,
+    pub plan: ManagedWorkBillingLedgerBundleV2Plan,
+    pub quote: ManagedWorkBillingLedgerBundleV2Quote,
+    pub holds: Vec<ManagedWorkBillingLedgerBundleV2HoldsItem>,
+    pub usage_records: Vec<ManagedWorkBillingLedgerBundleV2UsageRecordsItem>,
+    pub overrun_decisions: Vec<ManagedWorkBillingLedgerBundleV2OverrunDecisionsItem>,
+    pub final_debit: Option<ManagedWorkBillingLedgerBundleV2FinalDebit>,
+    pub adjustments: Vec<ManagedWorkBillingLedgerBundleV2AdjustmentsItem>,
+    pub ledger_head_hash: String,
+    pub exported_at_ms: ArchitectureContractInteger,
+    pub assurance_status: ManagedWorkBillingLedgerBundleV2AssuranceStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","title":"ManagedWorkBillingLedgerBundle","description":"Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.","x-ioi-schema-version":"ioi.foundations.managed-work-billing-ledger-bundle.v2","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","billing_account_ref","work_ref","rate_card","plan","quote","holds","usage_records","overrun_decisions","final_debit","adjustments","ledger_head_hash","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.managed-work-billing-ledger-bundle.v2"},"bundle_ref":{"$ref":"#/$defs/ref"},"billing_account_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"rate_card":{"$ref":"#/$defs/rate_card"},"plan":{"$ref":"#/$defs/plan"},"quote":{"$ref":"#/$defs/quote"},"holds":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/hold"}},"usage_records":{"type":"array","items":{"$ref":"#/$defs/usage_record"}},"overrun_decisions":{"type":"array","items":{"$ref":"#/$defs/overrun_decision"}},"final_debit":{"anyOf":[{"$ref":"#/$defs/final_debit"},{"type":"null"}]},"adjustments":{"type":"array","items":{"$ref":"#/$defs/adjustment"}},"ledger_head_hash":{"$ref":"#/$defs/hash"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"enum":["internal_event_log","supplier_partially_reconciled","supplier_reconciled"]}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"work_credit_amount":{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}},"cost_breakdown":{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}},"meter_rate":{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}},"rate_card":{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"plan":{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"quote":{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"hold":{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}},"usage_record":{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms","metering_dimensions","quote_body_hash","rate_card_body_hash","plan_body_hash","measurement_interval","idempotency_key","idempotency_identity","entitlement_consumption"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"},"metering_dimensions":{"$ref":"#/$defs/metering_dimensions"},"quote_body_hash":{"$ref":"#/$defs/hash"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_body_hash":{"$ref":"#/$defs/hash"},"measurement_interval":{"$ref":"#/$defs/measurement_interval"},"idempotency_key":{"type":"string","minLength":1,"maxLength":256},"idempotency_identity":{"$ref":"#/$defs/hash"},"entitlement_consumption":{"$ref":"#/$defs/entitlement_consumption"}}},"overrun_decision":{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"final_debit":{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}},"adjustment":{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"metering_dimensions":{"description":"Owner-DERIVED attribution of one usage record (M07.5): read from the cited runtime receipts' owner records, never accepted from the caller. A dimension no owner record carries is a typed null; a record no owner record could inform is marked derivation caller_asserted and is telemetry-grade.","type":"object","additionalProperties":false,"required":["tenant_ref","principal_ref","worker_instance_ref","package_release_ref","goal_run_ref","session_ref","environment_ref","provider_ref","model_route_ref","model_id","resource_class","usage_class","derivation"],"properties":{"tenant_ref":{"type":"string","pattern":"^(?:org|project)://\\S+$"},"principal_ref":{"anyOf":[{"type":"string","pattern":"^user://\\S+$"},{"type":"null"}]},"worker_instance_ref":{"anyOf":[{"type":"string","pattern":"^worker-instance://\\S+$"},{"type":"null"}]},"package_release_ref":{"anyOf":[{"type":"string","pattern":"^package://\\S+/release/\\S+$"},{"type":"null"}]},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^goal-run://\\S+$"},{"type":"null"}]},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://\\S+$"},{"type":"null"}]},"environment_ref":{"anyOf":[{"type":"string","pattern":"^environment://\\S+$"},{"type":"null"}]},"provider_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"model_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"resource_class":{"enum":["model","compute","storage","network","verifier","telemetry"]},"usage_class":{"type":"string","minLength":1,"maxLength":200},"derivation":{"enum":["owner_receipt","caller_asserted"]}}},"measurement_interval":{"type":"object","additionalProperties":false,"required":["started_at_ms","ended_at_ms","interval_basis"],"properties":{"started_at_ms":{"$ref":"#/$defs/safe_integer"},"ended_at_ms":{"$ref":"#/$defs/safe_integer"},"interval_basis":{"enum":["receipt_timestamps","admission_time"]}}},"entitlement_consumption":{"type":"object","additionalProperties":false,"required":["plan_ref","included_work_credits","consumed_before","consumed_after","covered_by"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"consumed_before":{"$ref":"#/$defs/work_credit_amount"},"consumed_after":{"$ref":"#/$defs/work_credit_amount"},"covered_by":{"enum":["plan_allowance","credit_hold","plan_allowance_and_credit_hold"]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<ManagedWorkBillingLedgerBundleV2SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            bundle_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            billing_account_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"billing_account_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"billing_account_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2RateCard>(
+                object
+                    .remove(r#"rate_card"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2Plan>(
+                object
+                    .remove(r#"plan"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2Quote>(
+                object
+                    .remove(r#"quote"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holds: serde_json::from_value::<Vec<ManagedWorkBillingLedgerBundleV2HoldsItem>>(
+                object
+                    .remove(r#"holds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_records: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV2UsageRecordsItem>,
+            >(
+                object
+                    .remove(r#"usage_records"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_records"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overrun_decisions: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV2OverrunDecisionsItem>,
+            >(
+                object
+                    .remove(r#"overrun_decisions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overrun_decisions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            final_debit:
+                serde_json::from_value::<Option<ManagedWorkBillingLedgerBundleV2FinalDebit>>(
+                    object
+                        .remove(r#"final_debit"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"final_debit"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            adjustments: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV2AdjustmentsItem>,
+            >(
+                object
+                    .remove(r#"adjustments"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjustments"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ledger_head_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ledger_head_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ledger_head_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exported_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"exported_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exported_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_status: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2AssuranceStatus,
+            >(
+                object
+                    .remove(r#"assurance_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.managed-work-billing-ledger-bundle.v2"#)]
+    IoiFoundationsManagedWorkBillingLedgerBundleV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2RateCard {
+    pub rate_card_ref: String,
+    pub version: ArchitectureContractInteger,
+    pub body_hash: String,
+    pub currency_code: String,
+    pub meter_rates: Vec<ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItem>,
+    pub ioi_fee_policy_ref: String,
+    pub issued_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2RateCard {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            rate_card_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_card_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            currency_code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"currency_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"currency_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            meter_rates: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItem>,
+            >(
+                object
+                    .remove(r#"meter_rates"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"meter_rates"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ioi_fee_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ioi_fee_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ioi_fee_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItem {
+    pub meter_class: String,
+    pub work_credit_micro_units_per_meter_unit: ArchitectureContractInteger,
+    pub charge_component: ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItemChargeComponent,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            meter_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"meter_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"meter_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_credit_micro_units_per_meter_unit: serde_json::from_value::<
+                ArchitectureContractInteger,
+            >(
+                object
+                    .remove(r#"work_credit_micro_units_per_meter_unit"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"work_credit_micro_units_per_meter_unit"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            charge_component: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItemChargeComponent,
+            >(
+                object
+                    .remove(r#"charge_component"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"charge_component"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2RateCardMeterRatesItemChargeComponent {
+    #[serde(rename = r#"managed_model"#)]
+    ManagedModel,
+    #[serde(rename = r#"managed_runtime"#)]
+    ManagedRuntime,
+    #[serde(rename = r#"broker"#)]
+    Broker,
+    #[serde(rename = r#"participant"#)]
+    Participant,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"ioi_managed_service"#)]
+    IoiManagedService,
+    #[serde(rename = r#"non_billable_telemetry"#)]
+    NonBillableTelemetry,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2Plan {
+    pub plan_ref: String,
+    pub version: ArchitectureContractInteger,
+    pub body_hash: String,
+    pub rate_card_ref: String,
+    pub rate_card_body_hash: String,
+    pub included_work_credits: ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCredits,
+    pub reset_policy: ManagedWorkBillingLedgerBundleV2PlanResetPolicy,
+    pub issued_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2Plan {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_card_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_card_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            included_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCredits,
+            >(
+                object
+                    .remove(r#"included_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"included_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reset_policy:
+                serde_json::from_value::<ManagedWorkBillingLedgerBundleV2PlanResetPolicy>(
+                    object
+                        .remove(r#"reset_policy"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"reset_policy"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            issued_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCredits {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2PlanIncludedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2PlanResetPolicy {
+    #[serde(rename = r#"non_resetting"#)]
+    NonResetting,
+    #[serde(rename = r#"monthly_expiring"#)]
+    MonthlyExpiring,
+    #[serde(rename = r#"contract_term_expiring"#)]
+    ContractTermExpiring,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2Quote {
+    pub quote_ref: String,
+    pub body_hash: String,
+    pub rate_card_ref: String,
+    pub rate_card_body_hash: String,
+    pub plan_ref: String,
+    pub plan_body_hash: String,
+    pub estimated_work_credits: ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCredits,
+    pub required_hold: ManagedWorkBillingLedgerBundleV2QuoteRequiredHold,
+    pub overrun_policy: ManagedWorkBillingLedgerBundleV2QuoteOverrunPolicy,
+    pub max_attempt_count: ArchitectureContractInteger,
+    pub allowed_commercial_postures:
+        Vec<ManagedWorkBillingLedgerBundleV2QuoteAllowedCommercialPosturesItem>,
+    pub issued_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2Quote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            quote_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quote_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_card_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_card_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            estimated_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCredits,
+            >(
+                object
+                    .remove(r#"estimated_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"estimated_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_hold: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2QuoteRequiredHold,
+            >(
+                object
+                    .remove(r#"required_hold"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_hold"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overrun_policy: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2QuoteOverrunPolicy,
+            >(
+                object
+                    .remove(r#"overrun_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overrun_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_attempt_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_attempt_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_attempt_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allowed_commercial_postures: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV2QuoteAllowedCommercialPosturesItem>,
+            >(
+                object
+                    .remove(r#"allowed_commercial_postures"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"allowed_commercial_postures"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCredits {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2QuoteEstimatedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2QuoteRequiredHold {
+    pub unit: ManagedWorkBillingLedgerBundleV2QuoteRequiredHoldUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2QuoteRequiredHold {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2QuoteRequiredHoldUnit>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2QuoteRequiredHoldUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2QuoteOverrunPolicy {
+    #[serde(rename = r#"block"#)]
+    Block,
+    #[serde(rename = r#"exact_additional_hold"#)]
+    ExactAdditionalHold,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2QuoteAllowedCommercialPosturesItem {
+    #[serde(rename = r#"managed"#)]
+    Managed,
+    #[serde(rename = r#"customer_byok"#)]
+    CustomerByok,
+    #[serde(rename = r#"customer_byoa"#)]
+    CustomerByoa,
+    #[serde(rename = r#"customer_cloud"#)]
+    CustomerCloud,
+    #[serde(rename = r#"self_hosted"#)]
+    SelfHosted,
+    #[serde(rename = r#"local"#)]
+    Local,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2HoldsItem {
+    pub hold_ref: String,
+    pub body_hash: String,
+    pub quote_ref: String,
+    pub idempotency_key: String,
+    pub hold_kind: ManagedWorkBillingLedgerBundleV2HoldsItemHoldKind,
+    pub overrun_decision_ref: Option<String>,
+    pub amount: ManagedWorkBillingLedgerBundleV2HoldsItemAmount,
+    pub created_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
+    pub status: ManagedWorkBillingLedgerBundleV2HoldsItemStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2HoldsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            hold_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hold_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hold_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quote_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hold_kind: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2HoldsItemHoldKind>(
+                object
+                    .remove(r#"hold_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hold_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overrun_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"overrun_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overrun_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            amount: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2HoldsItemAmount>(
+                object
+                    .remove(r#"amount"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"amount"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"created_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2HoldsItemStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2HoldsItemHoldKind {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"exact_additional"#)]
+    ExactAdditional,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2HoldsItemAmount {
+    pub unit: ManagedWorkBillingLedgerBundleV2HoldsItemAmountUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2HoldsItemAmount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2HoldsItemAmountUnit>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2HoldsItemAmountUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2HoldsItemStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"consumed"#)]
+    Consumed,
+    #[serde(rename = r#"released"#)]
+    Released,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItem {
+    pub usage_ref: String,
+    pub body_hash: String,
+    pub quote_ref: String,
+    pub sequence: ArchitectureContractInteger,
+    pub previous_usage_hash: Option<String>,
+    pub runtime_receipt_refs: Vec<String>,
+    pub supplier_statement_refs: Vec<String>,
+    pub meter_class: String,
+    pub quantity_units: ArchitectureContractInteger,
+    pub rate_work_credit_micro_units_per_meter_unit: ArchitectureContractInteger,
+    pub charged_work_credits: ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCredits,
+    pub commercial_posture: ManagedWorkBillingLedgerBundleV2UsageRecordsItemCommercialPosture,
+    pub cost_breakdown: ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdown,
+    pub coarse_ocu_projection: bool,
+    pub occurred_at_ms: ArchitectureContractInteger,
+    pub metering_dimensions: ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensions,
+    pub quote_body_hash: String,
+    pub rate_card_body_hash: String,
+    pub plan_body_hash: String,
+    pub measurement_interval: ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementInterval,
+    pub idempotency_key: String,
+    pub idempotency_identity: String,
+    pub entitlement_consumption:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumption,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2UsageRecordsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms","metering_dimensions","quote_body_hash","rate_card_body_hash","plan_body_hash","measurement_interval","idempotency_key","idempotency_identity","entitlement_consumption"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"},"metering_dimensions":{"$ref":"#/$defs/metering_dimensions"},"quote_body_hash":{"$ref":"#/$defs/hash"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_body_hash":{"$ref":"#/$defs/hash"},"measurement_interval":{"$ref":"#/$defs/measurement_interval"},"idempotency_key":{"type":"string","minLength":1,"maxLength":256},"idempotency_identity":{"$ref":"#/$defs/hash"},"entitlement_consumption":{"$ref":"#/$defs/entitlement_consumption"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            usage_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"usage_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quote_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_usage_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_usage_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"previous_usage_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"runtime_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supplier_statement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"supplier_statement_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supplier_statement_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            meter_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"meter_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"meter_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quantity_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"quantity_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quantity_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_work_credit_micro_units_per_meter_unit: serde_json::from_value::<
+                ArchitectureContractInteger,
+            >(
+                object
+                    .remove(r#"rate_work_credit_micro_units_per_meter_unit"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"rate_work_credit_micro_units_per_meter_unit"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            charged_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCredits,
+            >(
+                object
+                    .remove(r#"charged_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"charged_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            commercial_posture: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemCommercialPosture,
+            >(
+                object
+                    .remove(r#"commercial_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commercial_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_breakdown: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdown,
+            >(
+                object
+                    .remove(r#"cost_breakdown"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_breakdown"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coarse_ocu_projection: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"coarse_ocu_projection"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coarse_ocu_projection"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            occurred_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"occurred_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"occurred_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            metering_dimensions: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensions,
+            >(
+                object
+                    .remove(r#"metering_dimensions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"metering_dimensions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quote_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_card_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            measurement_interval: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementInterval,
+            >(
+                object
+                    .remove(r#"measurement_interval"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"measurement_interval"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_identity: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_identity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_identity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entitlement_consumption: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumption,
+            >(
+                object
+                    .remove(r#"entitlement_consumption"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entitlement_consumption"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCredits
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemChargedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemCommercialPosture {
+    #[serde(rename = r#"managed"#)]
+    Managed,
+    #[serde(rename = r#"customer_byok"#)]
+    CustomerByok,
+    #[serde(rename = r#"customer_byoa"#)]
+    CustomerByoa,
+    #[serde(rename = r#"customer_cloud"#)]
+    CustomerCloud,
+    #[serde(rename = r#"self_hosted"#)]
+    SelfHosted,
+    #[serde(rename = r#"local"#)]
+    Local,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdown {
+    pub currency_code: String,
+    pub provider_cost_minor: ArchitectureContractInteger,
+    pub broker_fee_minor: ArchitectureContractInteger,
+    pub participant_cost_minor: ArchitectureContractInteger,
+    pub verifier_cost_minor: ArchitectureContractInteger,
+    pub ioi_fee_minor: ArchitectureContractInteger,
+    pub excluded_customer_borne_provider_cost_minor: ArchitectureContractInteger,
+    pub supplier_reconciliation_state:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdownSupplierReconciliationState,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdown
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            currency_code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"currency_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"currency_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_cost_minor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"provider_cost_minor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_cost_minor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            broker_fee_minor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"broker_fee_minor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"broker_fee_minor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_cost_minor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"participant_cost_minor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_cost_minor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_cost_minor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"verifier_cost_minor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_cost_minor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ioi_fee_minor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"ioi_fee_minor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ioi_fee_minor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            excluded_customer_borne_provider_cost_minor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"excluded_customer_borne_provider_cost_minor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"excluded_customer_borne_provider_cost_minor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supplier_reconciliation_state: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdownSupplierReconciliationState>(
+                object
+                    .remove(r#"supplier_reconciliation_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supplier_reconciliation_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemCostBreakdownSupplierReconciliationState {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"estimated"#)]
+    Estimated,
+    #[serde(rename = r#"supplier_statement_reconciled"#)]
+    SupplierStatementReconciled,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensions {
+    pub tenant_ref: String,
+    pub principal_ref: Option<String>,
+    pub worker_instance_ref: Option<String>,
+    pub package_release_ref: Option<String>,
+    pub goal_run_ref: Option<String>,
+    pub session_ref: Option<String>,
+    pub environment_ref: Option<String>,
+    pub provider_ref: Option<String>,
+    pub model_route_ref: Option<String>,
+    pub model_id: Option<String>,
+    pub resource_class:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensionsResourceClass,
+    pub usage_class: String,
+    pub derivation: ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensionsDerivation,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensions
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r#"{"description":"Owner-DERIVED attribution of one usage record (M07.5): read from the cited runtime receipts' owner records, never accepted from the caller. A dimension no owner record carries is a typed null; a record no owner record could inform is marked derivation caller_asserted and is telemetry-grade.","type":"object","additionalProperties":false,"required":["tenant_ref","principal_ref","worker_instance_ref","package_release_ref","goal_run_ref","session_ref","environment_ref","provider_ref","model_route_ref","model_id","resource_class","usage_class","derivation"],"properties":{"tenant_ref":{"type":"string","pattern":"^(?:org|project)://\\S+$"},"principal_ref":{"anyOf":[{"type":"string","pattern":"^user://\\S+$"},{"type":"null"}]},"worker_instance_ref":{"anyOf":[{"type":"string","pattern":"^worker-instance://\\S+$"},{"type":"null"}]},"package_release_ref":{"anyOf":[{"type":"string","pattern":"^package://\\S+/release/\\S+$"},{"type":"null"}]},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^goal-run://\\S+$"},{"type":"null"}]},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://\\S+$"},{"type":"null"}]},"environment_ref":{"anyOf":[{"type":"string","pattern":"^environment://\\S+$"},{"type":"null"}]},"provider_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"model_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"resource_class":{"enum":["model","compute","storage","network","verifier","telemetry"]},"usage_class":{"type":"string","minLength":1,"maxLength":200},"derivation":{"enum":["owner_receipt","caller_asserted"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_instance_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"worker_instance_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_instance_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_release_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"package_release_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_release_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"goal_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"provider_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_route_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"model_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"model_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_class: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensionsResourceClass,
+            >(
+                object
+                    .remove(r#"resource_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"usage_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derivation: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensionsDerivation,
+            >(
+                object
+                    .remove(r#"derivation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derivation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensionsResourceClass {
+    #[serde(rename = r#"model"#)]
+    Model,
+    #[serde(rename = r#"compute"#)]
+    Compute,
+    #[serde(rename = r#"storage"#)]
+    Storage,
+    #[serde(rename = r#"network"#)]
+    Network,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"telemetry"#)]
+    Telemetry,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeteringDimensionsDerivation {
+    #[serde(rename = r#"owner_receipt"#)]
+    OwnerReceipt,
+    #[serde(rename = r#"caller_asserted"#)]
+    CallerAsserted,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementInterval {
+    pub started_at_ms: ArchitectureContractInteger,
+    pub ended_at_ms: ArchitectureContractInteger,
+    pub interval_basis:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementIntervalIntervalBasis,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementInterval
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["started_at_ms","ended_at_ms","interval_basis"],"properties":{"started_at_ms":{"$ref":"#/$defs/safe_integer"},"ended_at_ms":{"$ref":"#/$defs/safe_integer"},"interval_basis":{"enum":["receipt_timestamps","admission_time"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            started_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"started_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"started_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ended_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"ended_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ended_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interval_basis: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementIntervalIntervalBasis,
+            >(
+                object
+                    .remove(r#"interval_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interval_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemMeasurementIntervalIntervalBasis {
+    #[serde(rename = r#"receipt_timestamps"#)]
+    ReceiptTimestamps,
+    #[serde(rename = r#"admission_time"#)]
+    AdmissionTime,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumption {
+    pub plan_ref: String,
+    pub included_work_credits:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCredits,
+    pub consumed_before:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBefore,
+    pub consumed_after:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfter,
+    pub covered_by: ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionCoveredBy,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumption
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["plan_ref","included_work_credits","consumed_before","consumed_after","covered_by"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"consumed_before":{"$ref":"#/$defs/work_credit_amount"},"consumed_after":{"$ref":"#/$defs/work_credit_amount"},"covered_by":{"enum":["plan_allowance","credit_hold","plan_allowance_and_credit_hold"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            included_work_credits: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCredits>(
+                object
+                    .remove(r#"included_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"included_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consumed_before: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBefore>(
+                object
+                    .remove(r#"consumed_before"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consumed_before"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consumed_after: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfter>(
+                object
+                    .remove(r#"consumed_after"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consumed_after"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            covered_by: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionCoveredBy>(
+                object
+                    .remove(r#"covered_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"covered_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCredits
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCreditsUnit>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionIncludedWorkCreditsUnit
+{
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBefore {
+    pub unit:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBeforeUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBefore
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBeforeUnit>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedBeforeUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfter {
+    pub unit:
+        ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfterUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfter
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfterUnit>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionConsumedAfterUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2UsageRecordsItemEntitlementConsumptionCoveredBy {
+    #[serde(rename = r#"plan_allowance"#)]
+    PlanAllowance,
+    #[serde(rename = r#"credit_hold"#)]
+    CreditHold,
+    #[serde(rename = r#"plan_allowance_and_credit_hold"#)]
+    PlanAllowanceAndCreditHold,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2OverrunDecisionsItem {
+    pub overrun_decision_ref: String,
+    pub body_hash: String,
+    pub quote_ref: String,
+    pub usage_head_hash: Option<String>,
+    pub held_work_credits: ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCredits,
+    pub projected_work_credits:
+        ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCredits,
+    pub exact_overage_work_credits:
+        ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCredits,
+    pub decision: ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemDecision,
+    pub additional_hold_amount:
+        ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmount,
+    pub created_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2OverrunDecisionsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            overrun_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overrun_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overrun_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quote_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_head_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"usage_head_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_head_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            held_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCredits,
+            >(
+                object
+                    .remove(r#"held_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"held_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projected_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCredits,
+            >(
+                object
+                    .remove(r#"projected_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projected_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exact_overage_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCredits,
+            >(
+                object
+                    .remove(r#"exact_overage_work_credits"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"exact_overage_work_credits"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            additional_hold_amount: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmount,
+            >(
+                object
+                    .remove(r#"additional_hold_amount"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"additional_hold_amount"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"created_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCredits
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemHeldWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCredits
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemProjectedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCredits
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemExactOverageWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemDecision {
+    #[serde(rename = r#"block"#)]
+    Block,
+    #[serde(rename = r#"exact_additional_hold"#)]
+    ExactAdditionalHold,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmount {
+    pub unit: ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmountUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmount
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmountUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2OverrunDecisionsItemAdditionalHoldAmountUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2FinalDebit {
+    pub final_debit_ref: String,
+    pub body_hash: String,
+    pub quote_ref: String,
+    pub usage_head_hash: Option<String>,
+    pub usage_record_refs: Vec<String>,
+    pub hold_refs: Vec<String>,
+    pub debited_work_credits: ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCredits,
+    pub finalized_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2FinalDebit {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            final_debit_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"final_debit_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"final_debit_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quote_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_head_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"usage_head_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_head_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_record_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"usage_record_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_record_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hold_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"hold_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hold_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            debited_work_credits: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCredits,
+            >(
+                object
+                    .remove(r#"debited_work_credits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"debited_work_credits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finalized_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"finalized_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finalized_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCredits {
+    pub unit: ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCreditsUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCredits {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCreditsUnit,
+            >(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2FinalDebitDebitedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2AdjustmentsItem {
+    pub adjustment_ref: String,
+    pub body_hash: String,
+    pub final_debit_ref: String,
+    pub previous_adjustment_hash: Option<String>,
+    pub adjustment_kind: ManagedWorkBillingLedgerBundleV2AdjustmentsItemAdjustmentKind,
+    pub amount: ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmount,
+    pub reason_code: String,
+    pub evidence_refs: Vec<String>,
+    pub created_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2AdjustmentsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            adjustment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adjustment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjustment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            final_debit_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"final_debit_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"final_debit_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_adjustment_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_adjustment_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"previous_adjustment_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjustment_kind: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV2AdjustmentsItemAdjustmentKind,
+            >(
+                object
+                    .remove(r#"adjustment_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjustment_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            amount:
+                serde_json::from_value::<ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmount>(
+                    object
+                        .remove(r#"amount"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"amount"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"created_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2AdjustmentsItemAdjustmentKind {
+    #[serde(rename = r#"refund"#)]
+    Refund,
+    #[serde(rename = r#"writeoff"#)]
+    Writeoff,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmount {
+    pub unit: ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmountUnit,
+    pub units: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unit:
+                serde_json::from_value::<ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmountUnit>(
+                    object
+                        .remove(r#"unit"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2AdjustmentsItemAmountUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV2AssuranceStatus {
+    #[serde(rename = r#"internal_event_log"#)]
+    InternalEventLog,
+    #[serde(rename = r#"supplier_partially_reconciled"#)]
+    SupplierPartiallyReconciled,
+    #[serde(rename = r#"supplier_reconciled"#)]
+    SupplierReconciled,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OntologyAssertionV1 {
     pub schema_version: OntologyAssertionV1SchemaVersion,
     pub assertion_id: String,
@@ -146116,6 +148355,62 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/ontology-assertion/v1",
         path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json",
         expected_accept: true,
@@ -160984,6 +163279,83 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json"#,
         contract_id: r#"schema://ioi/foundations/ontology-assertion/v1"#,
         source_fixture_path: Some(
@@ -171025,6 +173397,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/lifecycle-transition/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/lifecycle-transition/v1","title":"LifecycleTransition","description":"Evidence-, decision-, authority-, and root-bound proposal or record for one System lifecycle transition.","x-ioi-schema-version":"ioi.lifecycle-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","resulting_or_related_system_id","lifecycle_profile_ref","transition_kind","genesis_ref","manifest_ref","admitted_manifest_root","previous_state","proposed_state","trigger_evidence_refs","oracle_evidence_profile_refs","proposal_ref","decision_ref","authority_grant_refs","challenge_opened_at","challenge_closes_at","predecessor_state_root","resulting_state_root","operation_commitment","state_transition_commitment_ref","lineage_ref","identity_continuity_decision_ref","disposition_receipt_refs","receipt_refs","public_commitment_ref","status"],"properties":{"schema_version":{"const":"ioi.lifecycle-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"resulting_or_related_system_id":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"transition_kind":{"enum":["initialize","activate","pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","initiate_succession","complete_succession","initiate_dissolution","complete_dissolution","migrate","fork","adopt","retire","archive","revoke","decommission"]},"genesis_ref":{"$ref":"#/$defs/nullableGenesisRef"},"manifest_ref":{"$ref":"#/$defs/nullablePackageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/nullableHash"},"previous_state":{"$ref":"#/$defs/lifecycleState"},"proposed_state":{"$ref":"#/$defs/lifecycleState"},"trigger_evidence_refs":{"$ref":"#/$defs/evidenceRefs"},"oracle_evidence_profile_refs":{"type":"array","items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"challenge_opened_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"challenge_closes_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/nullableHash"},"operation_commitment":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"anyOf":[{"type":"string","pattern":"^transition://[^\\s]{1,248}$"},{"type":"null"}]},"lineage_ref":{"anyOf":[{"type":"string","pattern":"^provenance://[^\\s]{1,248}$"},{"type":"null"}]},"identity_continuity_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"disposition_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"receipt_refs":{"$ref":"#/$defs/receiptRefs"},"public_commitment_ref":{"anyOf":[{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","challenge_open","approved","executing","committed","rejected","rolled_back","failed_closed"]}},"allOf":[{"if":{"properties":{"transition_kind":{"enum":["initialize","activate"]}},"required":["transition_kind"]},"then":{"properties":{"genesis_ref":{"$ref":"#/$defs/genesisRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"genesis_ref":{"type":"null"},"manifest_ref":{"type":"null"},"admitted_manifest_root":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"challenge_open"}},"required":["status"]},"then":{"properties":{"challenge_opened_at":{"$ref":"#/$defs/canonicalDateTime"},"challenge_closes_at":{"$ref":"#/$defs/canonicalDateTime"}}}},{"if":{"properties":{"status":{"const":"proposed"}},"required":["status"]},"then":{"properties":{"decision_ref":{"type":"null"},"authority_grant_refs":{"type":"array","maxItems":0},"resulting_state_root":{"type":"null"},"operation_commitment":{"type":"null"},"state_transition_commitment_ref":{"type":"null"},"disposition_receipt_refs":{"type":"array","maxItems":0},"receipt_refs":{"type":"array","maxItems":0},"public_commitment_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"committed"}},"required":["status"]},"then":{"properties":{"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","minItems":1},"resulting_state_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"receipt_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"status":{"const":"committed"},"transition_kind":{"enum":["initialize","activate"]}},"required":["status","transition_kind"]},"then":{"required":["operation_commitment"],"properties":{"operation_commitment":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"nullableGenesisRef":{"anyOf":[{"$ref":"#/$defs/genesisRef"},{"type":"null"}]},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"},"nullablePackageReleaseRef":{"anyOf":[{"$ref":"#/$defs/packageReleaseRef"},{"type":"null"}]},"lifecycleState":{"enum":["draft","initialized","active","degraded","paused","suspended","dormant","recovering","quarantined","succession_pending","successor_governed","dissolution_pending","dissolving","dissolved","retired","archived","decommissioned","revoked"]},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableCanonicalDateTime":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##),
     ("schema://ioi/foundations/lost-suffix-record/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/lost-suffix-record/v1","title":"LostSuffixRecord","description":"Recovery custody of the operations acknowledged under a deposed writer epoch but excluded from the new authoritative history. The record binds both writer epochs through its writer-epoch transition, retains one custody row per excluded operation with an explicit resolved | refused | retained_ambiguous status, and can never close while any row remains retained_ambiguous: ambiguous outcomes are retained for reconciliation, never silently dropped and never silently replayed.","x-ioi-schema-version":"ioi.lost-suffix-record.v1","type":"object","additionalProperties":false,"required":["schema_version","lost_suffix_record_id","system_id","writer_epoch_transition_ref","prior_writer_epoch","successor_writer_epoch","last_common","authoritative_head","excluded_suffix","classification","reconciliation_policy_ref","disposition","disposition_receipt_refs","predecessor_record_root","status","recorded_at"],"properties":{"schema_version":{"const":"ioi.lost-suffix-record.v1"},"lost_suffix_record_id":{"type":"string","pattern":"^lost-suffix://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"writer_epoch_transition_ref":{"type":"string","pattern":"^writer-transition://[^\\s]{1,248}$"},"prior_writer_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"successor_writer_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"last_common":{"type":"object","additionalProperties":false,"required":["operation_offset","state_root"],"properties":{"operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"state_root":{"$ref":"#/$defs/hash"}}},"authoritative_head":{"type":"object","additionalProperties":false,"required":["operation_offset","state_root"],"properties":{"operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"state_root":{"$ref":"#/$defs/hash"}}},"excluded_suffix":{"type":"object","additionalProperties":false,"required":["first_offset","last_offset","operation_count","commitment_refs","custody_artifact_refs","entries"],"properties":{"first_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"last_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_count":{"type":"integer","minimum":1,"maximum":256},"commitment_refs":{"type":"array","items":{"type":"string","pattern":"^(?:commitment|evidence)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"custody_artifact_refs":{"type":"array","items":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"entries":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["operation_offset","operation_commitment_ref","custody_status","resolution_receipt_ref","resolution_evidence_refs"],"properties":{"operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_commitment_ref":{"type":"string","pattern":"^(?:commitment|evidence)://[^\\s]{1,248}$"},"custody_status":{"enum":["resolved","refused","retained_ambiguous"]},"resolution_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"resolution_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}},"allOf":[{"if":{"properties":{"custody_status":{"enum":["resolved","refused"]}},"type":"object"},"then":{"properties":{"resolution_receipt_ref":{"type":"string"}},"type":"object"},"else":{"properties":{"resolution_receipt_ref":{"type":"null"}},"type":"object"}}]},"minItems":1,"maxItems":256}}},"classification":{"enum":["lost_unacknowledged","orphaned_acknowledged_below_required_durability","ambiguous"]},"reconciliation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"disposition":{"enum":["retained_for_forensics","compensating_transition_required","adjudication_required","destroyed_under_policy"]},"disposition_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":16,"uniqueItems":true},"predecessor_record_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"status":{"enum":["open","reconciled","adjudicated","closed"]},"recorded_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"if":{"properties":{"status":{"enum":["reconciled","adjudicated","closed"]}},"type":"object"},"then":{"properties":{"excluded_suffix":{"properties":{"entries":{"items":{"properties":{"custody_status":{"enum":["resolved","refused"]}},"type":"object"},"type":"array"}},"type":"object"},"disposition_receipt_refs":{"minItems":1,"type":"array"}},"type":"object"}},{"if":{"properties":{"disposition":{"const":"destroyed_under_policy"}},"type":"object"},"then":{"properties":{"disposition_receipt_refs":{"minItems":1,"type":"array"}},"type":"object"}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"}}}"##),
     ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","title":"ManagedWorkBillingLedgerBundle","description":"Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.","x-ioi-schema-version":"ioi.foundations.managed-work-billing-ledger-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","billing_account_ref","work_ref","rate_card","plan","quote","holds","usage_records","overrun_decisions","final_debit","adjustments","ledger_head_hash","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.managed-work-billing-ledger-bundle.v1"},"bundle_ref":{"$ref":"#/$defs/ref"},"billing_account_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"rate_card":{"$ref":"#/$defs/rate_card"},"plan":{"$ref":"#/$defs/plan"},"quote":{"$ref":"#/$defs/quote"},"holds":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/hold"}},"usage_records":{"type":"array","items":{"$ref":"#/$defs/usage_record"}},"overrun_decisions":{"type":"array","items":{"$ref":"#/$defs/overrun_decision"}},"final_debit":{"anyOf":[{"$ref":"#/$defs/final_debit"},{"type":"null"}]},"adjustments":{"type":"array","items":{"$ref":"#/$defs/adjustment"}},"ledger_head_hash":{"$ref":"#/$defs/hash"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"enum":["internal_event_log","supplier_partially_reconciled","supplier_reconciled"]}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"work_credit_amount":{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}},"cost_breakdown":{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}},"meter_rate":{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}},"rate_card":{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"plan":{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"quote":{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"hold":{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}},"usage_record":{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"}}},"overrun_decision":{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"final_debit":{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}},"adjustment":{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}}}}"##),
+    ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","title":"ManagedWorkBillingLedgerBundle","description":"Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.","x-ioi-schema-version":"ioi.foundations.managed-work-billing-ledger-bundle.v2","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","billing_account_ref","work_ref","rate_card","plan","quote","holds","usage_records","overrun_decisions","final_debit","adjustments","ledger_head_hash","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.managed-work-billing-ledger-bundle.v2"},"bundle_ref":{"$ref":"#/$defs/ref"},"billing_account_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"rate_card":{"$ref":"#/$defs/rate_card"},"plan":{"$ref":"#/$defs/plan"},"quote":{"$ref":"#/$defs/quote"},"holds":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/hold"}},"usage_records":{"type":"array","items":{"$ref":"#/$defs/usage_record"}},"overrun_decisions":{"type":"array","items":{"$ref":"#/$defs/overrun_decision"}},"final_debit":{"anyOf":[{"$ref":"#/$defs/final_debit"},{"type":"null"}]},"adjustments":{"type":"array","items":{"$ref":"#/$defs/adjustment"}},"ledger_head_hash":{"$ref":"#/$defs/hash"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"enum":["internal_event_log","supplier_partially_reconciled","supplier_reconciled"]}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"work_credit_amount":{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}},"cost_breakdown":{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}},"meter_rate":{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}},"rate_card":{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"plan":{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"quote":{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"hold":{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}},"usage_record":{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms","metering_dimensions","quote_body_hash","rate_card_body_hash","plan_body_hash","measurement_interval","idempotency_key","idempotency_identity","entitlement_consumption"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"},"metering_dimensions":{"$ref":"#/$defs/metering_dimensions"},"quote_body_hash":{"$ref":"#/$defs/hash"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_body_hash":{"$ref":"#/$defs/hash"},"measurement_interval":{"$ref":"#/$defs/measurement_interval"},"idempotency_key":{"type":"string","minLength":1,"maxLength":256},"idempotency_identity":{"$ref":"#/$defs/hash"},"entitlement_consumption":{"$ref":"#/$defs/entitlement_consumption"}}},"overrun_decision":{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"final_debit":{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}},"adjustment":{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"metering_dimensions":{"description":"Owner-DERIVED attribution of one usage record (M07.5): read from the cited runtime receipts' owner records, never accepted from the caller. A dimension no owner record carries is a typed null; a record no owner record could inform is marked derivation caller_asserted and is telemetry-grade.","type":"object","additionalProperties":false,"required":["tenant_ref","principal_ref","worker_instance_ref","package_release_ref","goal_run_ref","session_ref","environment_ref","provider_ref","model_route_ref","model_id","resource_class","usage_class","derivation"],"properties":{"tenant_ref":{"type":"string","pattern":"^(?:org|project)://\\S+$"},"principal_ref":{"anyOf":[{"type":"string","pattern":"^user://\\S+$"},{"type":"null"}]},"worker_instance_ref":{"anyOf":[{"type":"string","pattern":"^worker-instance://\\S+$"},{"type":"null"}]},"package_release_ref":{"anyOf":[{"type":"string","pattern":"^package://\\S+/release/\\S+$"},{"type":"null"}]},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^goal-run://\\S+$"},{"type":"null"}]},"session_ref":{"anyOf":[{"type":"string","pattern":"^session://\\S+$"},{"type":"null"}]},"environment_ref":{"anyOf":[{"type":"string","pattern":"^environment://\\S+$"},{"type":"null"}]},"provider_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"model_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"resource_class":{"enum":["model","compute","storage","network","verifier","telemetry"]},"usage_class":{"type":"string","minLength":1,"maxLength":200},"derivation":{"enum":["owner_receipt","caller_asserted"]}}},"measurement_interval":{"type":"object","additionalProperties":false,"required":["started_at_ms","ended_at_ms","interval_basis"],"properties":{"started_at_ms":{"$ref":"#/$defs/safe_integer"},"ended_at_ms":{"$ref":"#/$defs/safe_integer"},"interval_basis":{"enum":["receipt_timestamps","admission_time"]}}},"entitlement_consumption":{"type":"object","additionalProperties":false,"required":["plan_ref","included_work_credits","consumed_before","consumed_after","covered_by"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"consumed_before":{"$ref":"#/$defs/work_credit_amount"},"consumed_after":{"$ref":"#/$defs/work_credit_amount"},"covered_by":{"enum":["plan_allowance","credit_hold","plan_allowance_and_credit_hold"]}}}}}"##),
     ("schema://ioi/foundations/ontology-assertion/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion/v1","title":"OntologyAssertion","description":"Attributed, time-bounded and challengeable semantic assertion. Admission records operational truth, not universal truth.","x-ioi-schema-version":"ioi.ontology-assertion.v1","type":"object","additionalProperties":false,"required":["schema_version","assertion_id","assertion_profile","ontology_ref","fact_class_ref","subject_ref","predicate_ref","object_or_value_ref","valid_time","transaction_time","source_and_observation_context_refs","confidence_or_uncertainty","supporting_evidence_refs","contradicting_assertion_refs","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","ontology_assertion_admission_receipt_ref","applicability_scope_ref","permitted_consequence_scope_refs","causal_or_counterfactual_context_ref","supersedes_ref","dispute_ref","status"],"properties":{"schema_version":{"const":"ioi.ontology-assertion.v1"},"assertion_id":{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"},"assertion_profile":{"const":"provenance_assertion"},"ontology_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"fact_class_ref":{"oneOf":[{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},{"type":"null"}]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"predicate_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"object_or_value_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":2048},{"type":"number","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"boolean"},{"type":"null"}]},"valid_time":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"$ref":"#/$defs/dateTime"}}}]},"transaction_time":{"$ref":"#/$defs/dateTime"},"source_and_observation_context_refs":{"$ref":"#/$defs/canonicalRefs"},"confidence_or_uncertainty":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"supporting_evidence_refs":{"$ref":"#/$defs/evidenceRefs"},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,248}$"}},"oracle_evidence_profile_ref":{"oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"ontology_assertion_admission_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"causal_or_counterfactual_context_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|finding)://[^\\s]{1,248}$"},{"type":"null"}]},"supersedes_ref":{"oneOf":[{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"},{"type":"null"}]},"dispute_ref":{"oneOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","contradicted","superseded","disputed","rejected"]}},"allOf":[{"if":{"properties":{"status":{"const":"admitted"}},"required":["status"]},"then":{"properties":{"fact_class_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"oracle_evidence_profile_ref":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"oracle_evidence_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"ontology_assertion_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"status":{"const":"proposed"}},"required":["status"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"null"},"ontology_assertion_admission_receipt_ref":{"type":"null"}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/canonicalRef"}},"evidenceRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"nullableReceiptRef":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]}}}"##),
     ("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion-admission-receipt/v1","title":"OntologyAssertionAdmissionReceipt","description":"Separate exact-head Agentgres/domain admission decision over one ontology assertion.","x-ioi-schema-version":"ioi.ontology-assertion-admission-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","system_id","assertion_ref","assertion_commitment","fact_class_ref","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","applicability_scope_ref","permitted_consequence_scope_refs","decision","expected_predecessor_assertion_head_ref","expected_predecessor_assertion_head_hash","resulting_assertion_head_hash","policy_ref","authority_refs","agentgres_operation_ref"],"properties":{"schema_version":{"const":"ioi.ontology-assertion-admission-receipt.v1"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"ontology_assertion_admission"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"assertion_ref":{"$ref":"#/$defs/assertionRef"},"assertion_commitment":{"$ref":"#/$defs/hash"},"fact_class_ref":{"oneOf":[{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},{"type":"null"}]},"oracle_evidence_profile_ref":{"oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"decision":{"enum":["admitted","rejected"]},"expected_predecessor_assertion_head_ref":{"oneOf":[{"$ref":"#/$defs/assertionRef"},{"type":"null"}]},"expected_predecessor_assertion_head_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_assertion_head_hash":{"$ref":"#/$defs/hash"},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"authority_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|lease)://[^\\s]{1,248}$"}},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"decision":{"const":"admitted"}},"required":["decision"]},"then":{"properties":{"fact_class_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"oracle_evidence_profile_ref":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"oracle_evidence_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"expected_predecessor_assertion_head_ref":{"type":"null"}},"required":["expected_predecessor_assertion_head_ref"]},"then":{"properties":{"expected_predecessor_assertion_head_hash":{"type":"null"}}},"else":{"properties":{"expected_predecessor_assertion_head_hash":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/canonicalRef"}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"assertionRef":{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"}}}"##),
     ("schema://ioi/foundations/ontology-version/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-version/v1","title":"OntologyVersion","description":"A DomainOntologyEnvelope carrying ontology_record_profile ontology_version: one immutable, owner-qualified ontology revision. Identity is cross-namespace, valid time and transaction time are separate axes, and admission records local operational truth rather than global canonicality. Meaning never grants authority.","x-ioi-schema-version":"ioi.ontology-version.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_id","ontology_family_ref","ontology_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","entity_types","relationship_types","event_types","action_types","invariant_refs","compatibility_profile_ref","deprecation_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-version.v1"},"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_family_ref":{"$ref":"#/$defs/ontologyFamilyRef"},"ontology_record_profile":{"const":"ontology_version"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"entity_types":{"$ref":"#/$defs/termSet"},"relationship_types":{"$ref":"#/$defs/termSet"},"event_types":{"$ref":"#/$defs/termSet"},"action_types":{"$ref":"#/$defs/termSet"},"invariant_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^invariant://[^\\s]{1,240}$"}},"compatibility_profile_ref":{"oneOf":[{"type":"string","pattern":"^compatibility://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor","term_mappings"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false},"term_mappings":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["from_term_id","to_term_id","disposition"],"properties":{"from_term_id":{"$ref":"#/$defs/termRef"},"to_term_id":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"disposition":{"enum":["retained","renamed","added","removed","narrowed","widened"]}}}}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,95}$"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"authority_nonclaim":{"const":"ontology_version_grants_no_authority"},"status":{"enum":["draft","active","deprecated","revoked"]}},"allOf":[{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"},"term_mappings":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]},"term_mappings":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"status":{"const":"draft"}},"required":["status"]},"then":{"properties":{"admission":{"type":"null"},"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"admission":{"type":"object"},"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"deprecated"}},"required":["status"]},"then":{"properties":{"admission":{"type":"object"}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"termSet":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}}}}"##),
@@ -171318,6 +173691,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/lifecycle-transition/v1", r#"[{"rule_id":"lifecycle_transition.evidence.required_when_pending","description":"An evidence-pending transition binds at least one trigger evidence ref.","expression":{"operator":"non_empty_when_in","path":"$.trigger_evidence_refs","when_path":"$.status","values":["evidence_pending"]}}]"#),
     ("schema://ioi/foundations/lost-suffix-record/v1", r#"[{"rule_id":"lost_suffix_record.entries.match_declared_count","description":"The custody rows cover exactly the declared excluded-operation count: a silently dropped row breaks the record.","expression":{"operator":"array_length_equals","array_path":"$.excluded_suffix.entries","count_path":"$.excluded_suffix.operation_count"}},{"rule_id":"lost_suffix_record.entries.unique_offsets","description":"Each excluded operation offset has exactly one custody row.","expression":{"operator":"array_unique_by_fields","array_path":"$.excluded_suffix.entries","fields":["operation_offset"]}}]"#),
     ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", r#"[{"rule_id":"managed_work_billing.rate_card.window","description":"A RateCard has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.rate_card.issued_at_ms","$.rate_card.expires_at_ms"]}},{"rule_id":"managed_work_billing.plan.window","description":"A Plan has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.plan.issued_at_ms","$.plan.expires_at_ms"]}},{"rule_id":"managed_work_billing.quote.window","description":"An immutable WorkQuote has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.quote.issued_at_ms","$.quote.expires_at_ms"]}},{"rule_id":"managed_work_billing.hold.required","description":"An exportable admitted billing chain contains at least one finite CreditHold.","expression":{"operator":"non_empty","path":"$.holds"}},{"rule_id":"managed_work_billing.ledger_head.required","description":"The bundle binds the current append-only ledger head.","expression":{"operator":"non_empty","path":"$.ledger_head_hash"}}]"#),
+    ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v2", r#"[{"rule_id":"managed_work_billing.rate_card.window","description":"A RateCard has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.rate_card.issued_at_ms","$.rate_card.expires_at_ms"]}},{"rule_id":"managed_work_billing.plan.window","description":"A Plan has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.plan.issued_at_ms","$.plan.expires_at_ms"]}},{"rule_id":"managed_work_billing.quote.window","description":"An immutable WorkQuote has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.quote.issued_at_ms","$.quote.expires_at_ms"]}},{"rule_id":"managed_work_billing.hold.required","description":"An exportable admitted billing chain contains at least one finite CreditHold.","expression":{"operator":"non_empty","path":"$.holds"}},{"rule_id":"managed_work_billing.ledger_head.required","description":"The bundle binds the current append-only ledger head.","expression":{"operator":"non_empty","path":"$.ledger_head_hash"}}]"#),
     ("schema://ioi/foundations/ontology-assertion/v1", r#"[]"#),
     ("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", r#"[]"#),
     ("schema://ioi/foundations/ontology-version/v1", r#"[{"rule_id":"ontology_version.identity.binds_family_revision_path","description":"A revision id is its family's ref plus an explicit revision path; it can never name another family's lineage.","expression":{"operator":"field_starts_with_path","path":"$.ontology_id","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_version.family.binds_owner_namespace","description":"Identity is owner-qualified: the family ref opens with the owning namespace, so two domains may hold the same local name without colliding.","expression":{"operator":"field_starts_with_path","path":"$.ontology_family_ref","prefix":"ontology://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"ontology_version.family.binds_local_name","description":"The family ref carries this domain's own local name verbatim.","expression":{"operator":"field_ends_with","path":"$.ontology_family_ref","expected_path":"$.name"}},{"rule_id":"ontology_version.identity.binds_version_label","description":"The readable version label is the revision segment of the identity; a relabelled version no longer addresses its own object.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.ontology_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"ontology_version.content_hash.commits_semantic_content_and_valid_time","description":"The content hash commits identity, lineage, every declared term set, governing policy and VALID time. Transaction time is deliberately excluded: when a fact was true is content, when it was recorded is admission.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-version-content-commitment-jcs-sha256.v1"},"ontology_family_ref":{"path":"$.ontology_family_ref"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"entity_types":{"path":"$.entity_types"},"relationship_types":{"path":"$.relationship_types"},"event_types":{"path":"$.event_types"},"action_types":{"path":"$.action_types"},"invariant_refs":{"path":"$.invariant_refs"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"compatibility_profile_ref":{"path":"$.compatibility_profile_ref"},"deprecation_policy_ref":{"path":"$.deprecation_policy_ref"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_version.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor, never from a substituted one.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"ontology_version.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the revision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"ontology_version.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces; equal or later sources are forks and gaps wearing successor clothing.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"ontology_version.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not an edit.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_version.admission.binds_this_revision","description":"Admission evidence names this exact revision; a borrowed admission cannot make another version durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_id","expected_path":"$.ontology_id"}},{"rule_id":"ontology_version.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
@@ -171989,6 +174363,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:org|project)://\S*$"#,
         r#"^(?:org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^(?:org|project)://\S+$"#,
+        r#"^(?:org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:org|project|service|system|wallet)://[^\s]{1,240}$"#,
@@ -173418,6 +175796,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^environment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^environment://\S+$"#,
+        r#"^environment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^episode://[a-z0-9][a-z0-9._-]{0,127}$"#,
         r#"^episode://[a-z0-9][a-z0-9._-]{0,127}$"#,
     ),
@@ -173531,6 +175913,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^goal-run-profile://[^\s]+/revision/[^\s]+$"#,
         r#"^goal-run-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+/revision/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^goal-run://\S+$"#,
+        r#"^goal-run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^goal://[^\s]+$"#,
@@ -174536,6 +176922,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^session://[a-z0-9][a-z0-9._:-]{0,190}$"#,
     ),
     (
+        r#"^session://\S+$"#,
+        r#"^session://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^settlement://[^\s]+$"#,
         r#"^settlement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -174822,6 +177212,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^user://[^\s/?#\\]+$"#,
         r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]+$"#,
     ),
+    (
+        r#"^user://\S+$"#,
+        r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
     (r#"^v[1-9][0-9]{0,8}$"#, r#"^v[1-9][0-9]{0,8}$"#),
     (
         r#"^vault://[^\s]{1,248}$"#,
@@ -174955,6 +177349,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^work_run://[^\s]{1,500}$"#,
         r#"^work_run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^worker-instance://\S+$"#,
+        r#"^worker-instance://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^worker://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -176767,6 +179165,13 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json"))),
@@ -178392,6 +180797,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2" => {
+            serde_json::from_value::<ManagedWorkBillingLedgerBundleV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/ontology-assertion/v1" => {
             serde_json::from_value::<OntologyAssertionV1>(value.clone())
                 .map(|_| ())
@@ -179848,6 +182258,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2" => {
+            let projection = serde_json::from_value::<ManagedWorkBillingLedgerBundleV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/ontology-assertion/v1" => {
             let projection = serde_json::from_value::<OntologyAssertionV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -180584,8 +182999,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1414,
-            "the registered golden corpus must remain the explicit 1414-fixture bar",
+            1421,
+            "the registered golden corpus must remain the explicit 1421-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -180827,7 +183242,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 925,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 931,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

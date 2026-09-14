@@ -1,0 +1,95 @@
+{
+  "format": "ioi.cargo_test_population.v1",
+  "script": "check:substrate-metering-contract",
+  "unit": "M07.5",
+  "pinned_on": "2026-09-14",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved. The source pins hold the daemon to the derivations the tests exercise, and the supplementary commands keep the registered contract bar and M07.1's budget gate green on the same tree.",
+  "families": [
+    {
+      "name": "usage_chain_metering",
+      "package": "ioi-node",
+      "target": [
+        "--bin",
+        "hypervisor-daemon"
+      ],
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "tests": [
+        "economics_routes::economics_tests::a_receipt_is_metered_at_most_once_per_tenant_and_never_across_tenants",
+        "economics_routes::economics_tests::caller_supplied_charges_and_hashes_refuse",
+        "economics_routes::economics_tests::customer_borne_postures_carry_no_provider_cost",
+        "economics_routes::economics_tests::the_full_chain_holds_charges_debits_and_adjusts_with_authority",
+        "economics_routes::economics_tests::the_plan_allowance_is_consumed_then_exhausted_typed_and_a_hold_covers_the_excess",
+        "economics_routes::economics_tests::usage_aggregation_is_a_read_projection_over_admitted_chains",
+        "economics_routes::economics_tests::usage_dimensions_are_derived_from_the_invocation_record_and_never_from_the_caller"
+      ]
+    }
+  ],
+  "source_pins": [
+    {
+      "label": "the metering dimensions are derived from the cited receipts' owner records before the append is admitted",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "let metering_dimensions =\\n\\s*derive_metering_dimensions\\(data_dir, caller, &receipt_refs, &meter_class, component\\)\\?;",
+      "expect": 1
+    },
+    {
+      "label": "a model-invocation receipt is read through the invocation plane's published reader, never by opening its records here",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "super::provider_transport::admitted_invocation\\(data_dir, id\\)",
+      "expect": 1
+    },
+    {
+      "label": "a receipt is metered at most once per tenant and a foreign tenant's receipt refuses by name (the two refusal sites, not the tests that assert them)",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "\"economics_receipt_already_metered\",\\s*format!\\(|\"economics_receipt_foreign_owner\",\\s*format!\\(",
+      "expect": 2
+    },
+    {
+      "label": "the plan allowance is consumed per append and exhaustion refuses by name (the one refusal site, not the tests that assert it)",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "\"economics_entitlement_exhausted\",\\s*format!\\(",
+      "expect": 1
+    },
+    {
+      "label": "every metering member is server-derived and refused when the caller supplies it",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "\"metering_dimensions\",\\n\\s*\"quote_body_hash\",\\n\\s*\"rate_card_body_hash\",\\n\\s*\"plan_body_hash\",\\n\\s*\"measurement_interval\",\\n\\s*\"idempotency_key\",\\n\\s*\"idempotency_identity\",\\n\\s*\"entitlement_consumption\",",
+      "expect": 1
+    },
+    {
+      "label": "the exporter names the contract it met (v2 when every record is metered, v1 otherwise) instead of letting a reader infer it",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "\\(BUNDLE_SCHEMA_V2, BUNDLE_CONTRACT_ID_V2\\)",
+      "expect": 1
+    },
+    {
+      "label": "the aggregate is keyed only by a registered dimension",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "pattern": "if !AGGREGATE_DIMENSIONS\\.contains\\(&by\\)",
+      "expect": 1
+    },
+    {
+      "label": "the registered v2 usage record requires the metering members",
+      "path": "docs/architecture/_meta/schemas/managed-work-billing-ledger-bundle.v2.schema.json",
+      "pattern": "\"metering_dimensions\",\\n\\s*\"quote_body_hash\",\\n\\s*\"rate_card_body_hash\",\\n\\s*\"plan_body_hash\",\\n\\s*\"measurement_interval\",\\n\\s*\"idempotency_key\",\\n\\s*\"idempotency_identity\",\\n\\s*\"entitlement_consumption\"",
+      "expect": 1
+    }
+  ],
+  "supplementary": [
+    {
+      "label": "the registered contract bar (bundle v1 and v2 with their fixtures) is current",
+      "argv": [
+        "npm",
+        "run",
+        "-s",
+        "check:architecture-contracts"
+      ]
+    },
+    {
+      "label": "M07.1's budget gate still holds on the same source",
+      "argv": [
+        "node",
+        "scripts/check-work-credit-budget-contract.mjs"
+      ]
+    }
+  ]
+}

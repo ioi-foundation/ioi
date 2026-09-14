@@ -6999,6 +6999,201 @@ export type ManagedWorkBillingLedgerBundleV1 = {
   assurance_status: "internal_event_log" | "supplier_partially_reconciled" | "supplier_reconciled";
 };
 
+export type ManagedWorkBillingLedgerBundleV2 = {
+  schema_version: "ioi.foundations.managed-work-billing-ledger-bundle.v2";
+  bundle_ref: string;
+  billing_account_ref: string;
+  work_ref: string;
+  rate_card: {
+      rate_card_ref: string;
+      version: number;
+      body_hash: string;
+      currency_code: string;
+      meter_rates: Array<{
+              meter_class: string;
+              work_credit_micro_units_per_meter_unit: number;
+              charge_component: "managed_model" | "managed_runtime" | "broker" | "participant" | "verifier" | "ioi_managed_service" | "non_billable_telemetry";
+            }>;
+      ioi_fee_policy_ref: string;
+      issued_at_ms: number;
+      expires_at_ms: number;
+    };
+  plan: {
+      plan_ref: string;
+      version: number;
+      body_hash: string;
+      rate_card_ref: string;
+      rate_card_body_hash: string;
+      included_work_credits: {
+            unit: "micro_work_credit";
+            units: number;
+          };
+      reset_policy: "non_resetting" | "monthly_expiring" | "contract_term_expiring";
+      issued_at_ms: number;
+      expires_at_ms: number;
+    };
+  quote: {
+      quote_ref: string;
+      body_hash: string;
+      rate_card_ref: string;
+      rate_card_body_hash: string;
+      plan_ref: string;
+      plan_body_hash: string;
+      estimated_work_credits: {
+            unit: "micro_work_credit";
+            units: number;
+          };
+      required_hold: {
+            unit: "micro_work_credit";
+            units: number;
+          };
+      overrun_policy: "block" | "exact_additional_hold";
+      max_attempt_count: number;
+      allowed_commercial_postures: Array<"managed" | "customer_byok" | "customer_byoa" | "customer_cloud" | "self_hosted" | "local">;
+      issued_at_ms: number;
+      expires_at_ms: number;
+    };
+  holds: Array<{
+        hold_ref: string;
+        body_hash: string;
+        quote_ref: string;
+        idempotency_key: string;
+        hold_kind: "initial" | "exact_additional";
+        overrun_decision_ref: string | null;
+        amount: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        created_at_ms: number;
+        expires_at_ms: number;
+        status: "active" | "consumed" | "released";
+      }>;
+  usage_records: Array<{
+        usage_ref: string;
+        body_hash: string;
+        quote_ref: string;
+        sequence: number;
+        previous_usage_hash: string | null;
+        runtime_receipt_refs: Array<string>;
+        supplier_statement_refs: Array<string>;
+        meter_class: string;
+        quantity_units: number;
+        rate_work_credit_micro_units_per_meter_unit: number;
+        charged_work_credits: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        commercial_posture: "managed" | "customer_byok" | "customer_byoa" | "customer_cloud" | "self_hosted" | "local";
+        cost_breakdown: {
+                currency_code: string;
+                provider_cost_minor: number;
+                broker_fee_minor: number;
+                participant_cost_minor: number;
+                verifier_cost_minor: number;
+                ioi_fee_minor: number;
+                excluded_customer_borne_provider_cost_minor: number;
+                supplier_reconciliation_state: "not_applicable" | "estimated" | "supplier_statement_reconciled";
+              };
+        coarse_ocu_projection: boolean;
+        occurred_at_ms: number;
+        metering_dimensions: {
+                tenant_ref: string;
+                principal_ref: string | null;
+                worker_instance_ref: string | null;
+                package_release_ref: string | null;
+                goal_run_ref: string | null;
+                session_ref: string | null;
+                environment_ref: string | null;
+                provider_ref: string | null;
+                model_route_ref: string | null;
+                model_id: string | null;
+                resource_class: "model" | "compute" | "storage" | "network" | "verifier" | "telemetry";
+                usage_class: string;
+                derivation: "owner_receipt" | "caller_asserted";
+              };
+        quote_body_hash: string;
+        rate_card_body_hash: string;
+        plan_body_hash: string;
+        measurement_interval: {
+                started_at_ms: number;
+                ended_at_ms: number;
+                interval_basis: "receipt_timestamps" | "admission_time";
+              };
+        idempotency_key: string;
+        idempotency_identity: string;
+        entitlement_consumption: {
+                plan_ref: string;
+                included_work_credits: {
+                          unit: "micro_work_credit";
+                          units: number;
+                        };
+                consumed_before: {
+                          unit: "micro_work_credit";
+                          units: number;
+                        };
+                consumed_after: {
+                          unit: "micro_work_credit";
+                          units: number;
+                        };
+                covered_by: "plan_allowance" | "credit_hold" | "plan_allowance_and_credit_hold";
+              };
+      }>;
+  overrun_decisions: Array<{
+        overrun_decision_ref: string;
+        body_hash: string;
+        quote_ref: string;
+        usage_head_hash: string | null;
+        held_work_credits: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        projected_work_credits: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        exact_overage_work_credits: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        decision: "block" | "exact_additional_hold";
+        additional_hold_amount: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        created_at_ms: number;
+      }>;
+  final_debit: {
+      final_debit_ref: string;
+      body_hash: string;
+      quote_ref: string;
+      usage_head_hash: string | null;
+      usage_record_refs: Array<string>;
+      hold_refs: Array<string>;
+      debited_work_credits: {
+            unit: "micro_work_credit";
+            units: number;
+          };
+      finalized_at_ms: number;
+    } | null;
+  adjustments: Array<{
+        adjustment_ref: string;
+        body_hash: string;
+        final_debit_ref: string;
+        previous_adjustment_hash: string | null;
+        adjustment_kind: "refund" | "writeoff";
+        amount: {
+                unit: "micro_work_credit";
+                units: number;
+              };
+        reason_code: string;
+        evidence_refs: Array<string>;
+        created_at_ms: number;
+      }>;
+  ledger_head_hash: string;
+  exported_at_ms: number;
+  assurance_status: "internal_event_log" | "supplier_partially_reconciled" | "supplier_reconciled";
+};
+
 export type OntologyAssertionV1 = {
   schema_version: "ioi.ontology-assertion.v1";
   assertion_id: string;
@@ -17645,6 +17840,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/ontology-assertion/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json",
     "expected": "accept",
@@ -27093,6 +27344,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json","contract_id":"schema://ioi/foundations/lost-suffix-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json","contract_id":"schema://ioi/foundations/ontology-assertion/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json","contract_id":"schema://ioi/foundations/ontology-assertion/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json","contract_id":"schema://ioi/foundations/ontology-assertion-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json","mutation_id":null,"value_json":null}),
@@ -28164,6 +28422,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
   "^(?:org|project)://\\S*$",
+  "^(?:org|project)://\\S+$",
   "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
   "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
@@ -28541,6 +28800,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^environment-startup-plan://\\S+/revision/[0-9]+$",
   "^environment://[^\\s]{1,240}$",
   "^environment://[^\\s]{1,500}$",
+  "^environment://\\S+$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^estop://[^\\s]+$",
@@ -28572,6 +28832,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^goal-run-profile://[^\\s]+$",
   "^goal-run-profile://[^\\s]+/revision/[^\\s]+$",
+  "^goal-run://\\S+$",
   "^goal://[^\\s]+$",
   "^goal://[^\\s]{1,500}$",
   "^grant://[A-Za-z0-9._~:/-]+$",
@@ -28834,6 +29095,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^session://[^\\s]{1,240}$",
   "^session://[^\\s]{1,500}$",
   "^session://[a-z0-9][a-z0-9._:-]{0,190}$",
+  "^session://\\S+$",
   "^settlement://[^\\s]+$",
   "^settlement://[^\\s]{1,248}$",
   "^sha256:[0-9a-f]{64}$",
@@ -28908,6 +29170,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^transition://state-transition/sha256:[0-9a-f]{64}$",
   "^trun_[0-9a-f]{12,32}$",
   "^user://[^\\s/?#\\\\]+$",
+  "^user://\\S+$",
   "^v[1-9][0-9]{0,8}$",
   "^vault://[^\\s]{1,248}$",
   "^verification://[^\\s]{1,248}$",
@@ -28943,6 +29206,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^work-run://[^\\s]{1,248}$",
   "^work_item://[^\\s]{1,500}$",
   "^work_run://[^\\s]{1,500}$",
+  "^worker-instance://\\S+$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s/?#\\\\]{1,160}$",
   "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -29124,6 +29388,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/lifecycle-transition/v1": "sha256:8ba0b1d0a026d44d9738ad024e467b62557c421f576e98447eb8ab4b0a476ea5",
   "schema://ioi/foundations/lost-suffix-record/v1": "sha256:1ded4482cebaa8bec1f16059aa88fab34dd15ca7bfb8faa185c5547d695123c6",
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
+  "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2": "sha256:7dcfc5a0c9914e3d7f50fee0fa6765060b8fd8a556bebcc0ad3ea517280d0fb7",
   "schema://ioi/foundations/ontology-assertion/v1": "sha256:b8d08e5d17982fd3c458c260c3c6ad2470864880e6a5960a4cbae0551a863095",
   "schema://ioi/foundations/ontology-assertion-admission-receipt/v1": "sha256:520168cb04de8dd898ca9a038066ec8e64ca98c10ea74673ce0c745bf168792e",
   "schema://ioi/foundations/ontology-version/v1": "sha256:61b25cda079d98021d7dc96f07706e418d8ec23d83c83b291a66cd0dbef80fd8",
@@ -82825,6 +83090,948 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+    "title": "ManagedWorkBillingLedgerBundle",
+    "description": "Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.",
+    "x-ioi-schema-version": "ioi.foundations.managed-work-billing-ledger-bundle.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "bundle_ref",
+      "billing_account_ref",
+      "work_ref",
+      "rate_card",
+      "plan",
+      "quote",
+      "holds",
+      "usage_records",
+      "overrun_decisions",
+      "final_debit",
+      "adjustments",
+      "ledger_head_hash",
+      "exported_at_ms",
+      "assurance_status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.managed-work-billing-ledger-bundle.v2"
+      },
+      "bundle_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "billing_account_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "work_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "rate_card": {
+        "$ref": "#/$defs/rate_card"
+      },
+      "plan": {
+        "$ref": "#/$defs/plan"
+      },
+      "quote": {
+        "$ref": "#/$defs/quote"
+      },
+      "holds": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/hold"
+        }
+      },
+      "usage_records": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/usage_record"
+        }
+      },
+      "overrun_decisions": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/overrun_decision"
+        }
+      },
+      "final_debit": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/final_debit"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "adjustments": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/adjustment"
+        }
+      },
+      "ledger_head_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "exported_at_ms": {
+        "$ref": "#/$defs/safe_integer"
+      },
+      "assurance_status": {
+        "enum": [
+          "internal_event_log",
+          "supplier_partially_reconciled",
+          "supplier_reconciled"
+        ]
+      }
+    },
+    "$defs": {
+      "safe_integer": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positive_safe_integer": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "work_credit_amount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit",
+          "units"
+        ],
+        "properties": {
+          "unit": {
+            "const": "micro_work_credit"
+          },
+          "units": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      },
+      "cost_breakdown": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "currency_code",
+          "provider_cost_minor",
+          "broker_fee_minor",
+          "participant_cost_minor",
+          "verifier_cost_minor",
+          "ioi_fee_minor",
+          "excluded_customer_borne_provider_cost_minor",
+          "supplier_reconciliation_state"
+        ],
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "provider_cost_minor": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "broker_fee_minor": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "participant_cost_minor": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "verifier_cost_minor": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "ioi_fee_minor": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "excluded_customer_borne_provider_cost_minor": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "supplier_reconciliation_state": {
+            "enum": [
+              "not_applicable",
+              "estimated",
+              "supplier_statement_reconciled"
+            ]
+          }
+        }
+      },
+      "meter_rate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "meter_class",
+          "work_credit_micro_units_per_meter_unit",
+          "charge_component"
+        ],
+        "properties": {
+          "meter_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "work_credit_micro_units_per_meter_unit": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "charge_component": {
+            "enum": [
+              "managed_model",
+              "managed_runtime",
+              "broker",
+              "participant",
+              "verifier",
+              "ioi_managed_service",
+              "non_billable_telemetry"
+            ]
+          }
+        }
+      },
+      "rate_card": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rate_card_ref",
+          "version",
+          "body_hash",
+          "currency_code",
+          "meter_rates",
+          "ioi_fee_policy_ref",
+          "issued_at_ms",
+          "expires_at_ms"
+        ],
+        "properties": {
+          "rate_card_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "version": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "currency_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "meter_rates": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/meter_rate"
+            }
+          },
+          "ioi_fee_policy_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "issued_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "expires_at_ms": {
+            "$ref": "#/$defs/positive_safe_integer"
+          }
+        }
+      },
+      "plan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plan_ref",
+          "version",
+          "body_hash",
+          "rate_card_ref",
+          "rate_card_body_hash",
+          "included_work_credits",
+          "reset_policy",
+          "issued_at_ms",
+          "expires_at_ms"
+        ],
+        "properties": {
+          "plan_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "version": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "rate_card_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "rate_card_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "included_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "reset_policy": {
+            "enum": [
+              "non_resetting",
+              "monthly_expiring",
+              "contract_term_expiring"
+            ]
+          },
+          "issued_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "expires_at_ms": {
+            "$ref": "#/$defs/positive_safe_integer"
+          }
+        }
+      },
+      "quote": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "quote_ref",
+          "body_hash",
+          "rate_card_ref",
+          "rate_card_body_hash",
+          "plan_ref",
+          "plan_body_hash",
+          "estimated_work_credits",
+          "required_hold",
+          "overrun_policy",
+          "max_attempt_count",
+          "allowed_commercial_postures",
+          "issued_at_ms",
+          "expires_at_ms"
+        ],
+        "properties": {
+          "quote_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "rate_card_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "rate_card_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "plan_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "plan_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "estimated_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "required_hold": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "overrun_policy": {
+            "enum": [
+              "block",
+              "exact_additional_hold"
+            ]
+          },
+          "max_attempt_count": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "allowed_commercial_postures": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "managed",
+                "customer_byok",
+                "customer_byoa",
+                "customer_cloud",
+                "self_hosted",
+                "local"
+              ]
+            }
+          },
+          "issued_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "expires_at_ms": {
+            "$ref": "#/$defs/positive_safe_integer"
+          }
+        }
+      },
+      "hold": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hold_ref",
+          "body_hash",
+          "quote_ref",
+          "idempotency_key",
+          "hold_kind",
+          "overrun_decision_ref",
+          "amount",
+          "created_at_ms",
+          "expires_at_ms",
+          "status"
+        ],
+        "properties": {
+          "hold_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "quote_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hold_kind": {
+            "enum": [
+              "initial",
+              "exact_additional"
+            ]
+          },
+          "overrun_decision_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amount": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "created_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "expires_at_ms": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "consumed",
+              "released"
+            ]
+          }
+        }
+      },
+      "usage_record": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "usage_ref",
+          "body_hash",
+          "quote_ref",
+          "sequence",
+          "previous_usage_hash",
+          "runtime_receipt_refs",
+          "supplier_statement_refs",
+          "meter_class",
+          "quantity_units",
+          "rate_work_credit_micro_units_per_meter_unit",
+          "charged_work_credits",
+          "commercial_posture",
+          "cost_breakdown",
+          "coarse_ocu_projection",
+          "occurred_at_ms",
+          "metering_dimensions",
+          "quote_body_hash",
+          "rate_card_body_hash",
+          "plan_body_hash",
+          "measurement_interval",
+          "idempotency_key",
+          "idempotency_identity",
+          "entitlement_consumption"
+        ],
+        "properties": {
+          "usage_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "quote_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "sequence": {
+            "$ref": "#/$defs/positive_safe_integer"
+          },
+          "previous_usage_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runtime_receipt_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "supplier_statement_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "meter_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity_units": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "rate_work_credit_micro_units_per_meter_unit": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "charged_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "commercial_posture": {
+            "enum": [
+              "managed",
+              "customer_byok",
+              "customer_byoa",
+              "customer_cloud",
+              "self_hosted",
+              "local"
+            ]
+          },
+          "cost_breakdown": {
+            "$ref": "#/$defs/cost_breakdown"
+          },
+          "coarse_ocu_projection": {
+            "type": "boolean"
+          },
+          "occurred_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "metering_dimensions": {
+            "$ref": "#/$defs/metering_dimensions"
+          },
+          "quote_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "rate_card_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "plan_body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "measurement_interval": {
+            "$ref": "#/$defs/measurement_interval"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "idempotency_identity": {
+            "$ref": "#/$defs/hash"
+          },
+          "entitlement_consumption": {
+            "$ref": "#/$defs/entitlement_consumption"
+          }
+        }
+      },
+      "overrun_decision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "overrun_decision_ref",
+          "body_hash",
+          "quote_ref",
+          "usage_head_hash",
+          "held_work_credits",
+          "projected_work_credits",
+          "exact_overage_work_credits",
+          "decision",
+          "additional_hold_amount",
+          "created_at_ms"
+        ],
+        "properties": {
+          "overrun_decision_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "quote_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "usage_head_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "held_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "projected_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "exact_overage_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "decision": {
+            "enum": [
+              "block",
+              "exact_additional_hold"
+            ]
+          },
+          "additional_hold_amount": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "created_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      },
+      "final_debit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "final_debit_ref",
+          "body_hash",
+          "quote_ref",
+          "usage_head_hash",
+          "usage_record_refs",
+          "hold_refs",
+          "debited_work_credits",
+          "finalized_at_ms"
+        ],
+        "properties": {
+          "final_debit_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "quote_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "usage_head_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usage_record_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "hold_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "debited_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "finalized_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      },
+      "adjustment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "adjustment_ref",
+          "body_hash",
+          "final_debit_ref",
+          "previous_adjustment_hash",
+          "adjustment_kind",
+          "amount",
+          "reason_code",
+          "evidence_refs",
+          "created_at_ms"
+        ],
+        "properties": {
+          "adjustment_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "final_debit_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "previous_adjustment_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "adjustment_kind": {
+            "enum": [
+              "refund",
+              "writeoff"
+            ]
+          },
+          "amount": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "created_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          }
+        }
+      },
+      "metering_dimensions": {
+        "description": "Owner-DERIVED attribution of one usage record (M07.5): read from the cited runtime receipts' owner records, never accepted from the caller. A dimension no owner record carries is a typed null; a record no owner record could inform is marked derivation caller_asserted and is telemetry-grade.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant_ref",
+          "principal_ref",
+          "worker_instance_ref",
+          "package_release_ref",
+          "goal_run_ref",
+          "session_ref",
+          "environment_ref",
+          "provider_ref",
+          "model_route_ref",
+          "model_id",
+          "resource_class",
+          "usage_class",
+          "derivation"
+        ],
+        "properties": {
+          "tenant_ref": {
+            "type": "string",
+            "pattern": "^(?:org|project)://\\S+$"
+          },
+          "principal_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^user://\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "worker_instance_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^worker-instance://\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "package_release_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^package://\\S+/release/\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal_run_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^goal-run://\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "session_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^session://\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "environment_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^environment://\\S+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_route_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resource_class": {
+            "enum": [
+              "model",
+              "compute",
+              "storage",
+              "network",
+              "verifier",
+              "telemetry"
+            ]
+          },
+          "usage_class": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "derivation": {
+            "enum": [
+              "owner_receipt",
+              "caller_asserted"
+            ]
+          }
+        }
+      },
+      "measurement_interval": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "started_at_ms",
+          "ended_at_ms",
+          "interval_basis"
+        ],
+        "properties": {
+          "started_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "ended_at_ms": {
+            "$ref": "#/$defs/safe_integer"
+          },
+          "interval_basis": {
+            "enum": [
+              "receipt_timestamps",
+              "admission_time"
+            ]
+          }
+        }
+      },
+      "entitlement_consumption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plan_ref",
+          "included_work_credits",
+          "consumed_before",
+          "consumed_after",
+          "covered_by"
+        ],
+        "properties": {
+          "plan_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "included_work_credits": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "consumed_before": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "consumed_after": {
+            "$ref": "#/$defs/work_credit_amount"
+          },
+          "covered_by": {
+            "enum": [
+              "plan_allowance",
+              "credit_hold",
+              "plan_allowance_and_credit_hold"
+            ]
+          }
+        }
+      }
+    }
+  },
   "schema://ioi/foundations/ontology-assertion/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/ontology-assertion/v1",
@@ -134542,6 +135749,57 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2": [
+    {
+      "rule_id": "managed_work_billing.rate_card.window",
+      "description": "A RateCard has a finite non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.rate_card.issued_at_ms",
+          "$.rate_card.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.plan.window",
+      "description": "A Plan has a finite non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.plan.issued_at_ms",
+          "$.plan.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.quote.window",
+      "description": "An immutable WorkQuote has a finite non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.quote.issued_at_ms",
+          "$.quote.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.hold.required",
+      "description": "An exportable admitted billing chain contains at least one finite CreditHold.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.holds"
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.ledger_head.required",
+      "description": "The bundle binds the current append-only ledger head.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.ledger_head_hash"
+      }
+    }
+  ],
   "schema://ioi/foundations/ontology-assertion/v1": [],
   "schema://ioi/foundations/ontology-assertion-admission-receipt/v1": [],
   "schema://ioi/foundations/ontology-version/v1": [
@@ -144023,6 +145281,12 @@ export function validateManagedWorkBillingLedgerBundleV1(
   value: unknown,
 ): value is ManagedWorkBillingLedgerBundleV1 {
   return validateArchitectureContract("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", value).ok;
+}
+
+export function validateManagedWorkBillingLedgerBundleV2(
+  value: unknown,
+): value is ManagedWorkBillingLedgerBundleV2 {
+  return validateArchitectureContract("schema://ioi/foundations/managed-work-billing-ledger-bundle/v2", value).ok;
 }
 
 export function validateOntologyAssertionV1(

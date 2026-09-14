@@ -1,0 +1,67 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m07-5-substrate-metering",
+  "stage_id": "M07",
+  "required_work": [
+    "M07.5"
+  ],
+  "status": "evidence_ready",
+  "objective": "Meter the substrate without monetizing it: complete owner-derived ingestion into the existing durable UsageRecord chain so every charge is attributed (tenant, principal, provider, model route, model, resource and usage class — derived from the cited runtime receipts' owner records), bound to the exact frozen prices, metered at most once per tenant, accounted against the plan allowance, and aggregable as a read projection — while the substrate defines and sells no product value.",
+  "falsifiable_claim": "POST /v1/hypervisor/economics/usage admits a v2 UsageRecord (managed-work-billing-ledger-bundle/v2 successor) whose metering_dimensions are DERIVED from the cited receipts' owner records (a model-invocation:// receipt is read through provider_transport's published reader and must belong to the caller's tenant; other schemes yield typed nulls and derivation caller_asserted; none of the metering members may be supplied by the caller), which carries the frozen quote/rate-card/plan body hashes, an admission-time measurement interval that says so, the caller's idempotency key and the owner's idempotency identity, and an entitlement_consumption record; a receipt already metered under a different key refuses economics_receipt_already_metered, a foreign tenant's receipt refuses economics_receipt_foreign_owner, an unresolved invocation refuses economics_receipt_unresolved, and an append past the plan allowance refuses economics_entitlement_exhausted unless the quote's uncovered active holds cover the excess (the record names which covered it). GET /v1/hypervisor/economics/usage/aggregate?by=<registered dimension> is a read-derived integer projection over the caller's admitted chains. The ledger-bundle export names the contract it met (v2 when every record is metered, v1 otherwise). npm run check:substrate-metering-contract pins all of it as a closed cargo test population with eight source pins and two supplementary gates.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/economics-and-settlement.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "literal": "fn derive_metering_dimensions",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "literal": "fn receipt_already_metered",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "literal": "fn entitlement_consumption_for",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/economics_routes.rs",
+      "literal": "fn usage_aggregate",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_transport.rs",
+      "literal": "pub(crate) fn admitted_invocation",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/managed-work-billing-ledger-bundle.v2.schema.json",
+      "literal": "metering_dimensions",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/test-populations/substrate-metering-contract.v1.json",
+      "literal": "usage_chain_metering",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "economics_routes::tests 13/13 (four new): dimensions derived from a seeded invocation record and caller-supplied derivations refused for six members; the same receipt under a new key refused by name with the binding record named, a foreign tenant's invocation refused 403, an unresolved invocation refused, the chain unchanged after each; a 100-credit allowance consumed over two appends, the third refused, an exact 50-credit hold covering exactly one more (covered_by credit_hold) and the next refused again; the aggregate by principal and by meter class with an unattributed bucket for a caller-asserted record, an unregistered dimension refused, and an outsider identity seeing nothing. The population gate's --mutation self-drill refuses a planted absent test, an unlistable name and an empty family. The generated fixture bar was proven to evaluate the new v2 negatives by making one valid and watching check:architecture-contracts go red.",
+  "remaining_nonclaims": [
+    "Session, GoalRun, environment, worker-instance and package-release attribution are typed nulls today: no runtime receipt this module can read carries them; the invocation record carries principal, provider, route and model only.",
+    "measurement_interval is the admission instant with interval_basis admission_time: no receipt this module reads carries a measured interval; a receipt-timestamped interval is a later producer's fact.",
+    "Supplier reconciliation is M07.3's: supplier_reconciliation_state stays estimated until a statement binds, and the bundle's assurance_status remains internal_event_log.",
+    "The substrate meters, attests, authorizes, records or settles; it defines and sells no product value — no price, plan or product rule is minted here.",
+    "check:substrate-metering-contract is a root population gate and is not CI-bound as a step of its own; its children are (the daemon tests in Build and Test, check:architecture-contracts, and M07.1's gate).",
+    "A same-key retry of a usage append is the substrate's replay; the test asserts only that it never doubles the chain and is never read as already metered, because the record's occurred_at_ms is the admission instant."
+  ],
+  "source_provenance": "Authored and gated on the main tree 2026-09-14 (ledger LXXXII, ruling R-148). MVP finish-line program, leg 3.",
+  "last_status_transaction": "2026-09-14"
+}

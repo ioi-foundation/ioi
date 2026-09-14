@@ -3941,6 +3941,12 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/economics/usage",
             post(economics_routes::handle_usage_append),
         )
+        // M07.5 — a read-derived usage aggregate over the caller's admitted chains, keyed by one
+        // registered metering dimension; a projection, never a ledger.
+        .route(
+            "/v1/hypervisor/economics/usage/aggregate",
+            get(economics_routes::handle_usage_aggregate),
+        )
         .route(
             "/v1/hypervisor/economics/overrun-decisions",
             post(economics_routes::handle_overrun_create),

@@ -128,6 +128,8 @@
     "mutate:acceptance-operator-workday": "node scripts/check-acceptance-operator-workday.mjs --mutation",
     "check:packages-product-lifecycle": "node scripts/check-packages-product-lifecycle.mjs",
     "mutate:packages-product-lifecycle": "node scripts/check-packages-product-lifecycle.mjs --mutation",
+    "check:substrate-metering-contract": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/substrate-metering-contract.v1.json",
+    "mutate:substrate-metering-contract": "node scripts/check-cargo-test-population.mjs --population scripts/test-populations/substrate-metering-contract.v1.json --mutation",
     "check:acceptance-environment-lifecycle-spend": "node scripts/check-acceptance-environment-lifecycle-spend.mjs",
     "mutate:acceptance-environment-lifecycle-spend": "node scripts/check-acceptance-environment-lifecycle-spend.mjs --mutation",
     "check:acceptance-bounded-improvement": "node scripts/check-acceptance-bounded-improvement.mjs",

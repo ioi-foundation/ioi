@@ -104,6 +104,16 @@ fn load_invocation(data_dir: &str, id: &str) -> Option<Value> {
     .ok()
 }
 
+/// THIS PLANE'S PUBLISHED READER FOR THE ECONOMICS PLANE (M07.5). A usage record that cites a
+/// `model-invocation://` receipt is attributed from the invocation this plane admitted — owner,
+/// acting principal, route, model, transport — read here rather than by the economics module
+/// opening this plane's records itself, which would be a second interpretation of this plane's
+/// truth. Returns the admitted projection or `None`; authorization is the caller's to apply
+/// (the economics module refuses an owner mismatch by name).
+pub(crate) fn admitted_invocation(data_dir: &str, id: &str) -> Option<Value> {
+    load_invocation(data_dir, id)
+}
+
 // ---------------------------------------------------------------- the transport contract
 
 /// What a transport is asked to do. Everything here is resolved by an owner ABOVE the transport:

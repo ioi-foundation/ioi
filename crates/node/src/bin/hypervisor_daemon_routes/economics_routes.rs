@@ -27,7 +27,7 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
@@ -60,6 +60,30 @@ pub(crate) fn usage_chain_ref_for(quote_ref: &str) -> String {
 }
 
 const BUNDLE_CONTRACT_ID: &str = "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1";
+// M07.5 — the bundle's v2 successor carries the usage record's owner-derived metering members
+// (dimensions, frozen price hashes, interval, idempotency identity, entitlement consumption). A
+// chain whose every record carries them exports under v2; a chain with pre-M07.5 records still
+// exports under v1, which remains registered and valid — the exporter says which contract it met.
+const BUNDLE_CONTRACT_ID_V2: &str =
+    "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2";
+const BUNDLE_SCHEMA_V1: &str = "ioi.foundations.managed-work-billing-ledger-bundle.v1";
+const BUNDLE_SCHEMA_V2: &str = "ioi.foundations.managed-work-billing-ledger-bundle.v2";
+/// The one runtime-receipt scheme whose owner record this module can read for metering
+/// dimensions today (the model-invocation plane). Every other scheme yields typed nulls and a
+/// `caller_asserted` derivation — said on the record, never guessed.
+const MODEL_INVOCATION_PREFIX: &str = "model-invocation://";
+/// The dimensions a usage aggregate may be keyed by. Read-derived over admitted chains; a key
+/// outside this set refuses rather than aggregating by a field nobody registered.
+const AGGREGATE_DIMENSIONS: &[&str] = &[
+    "tenant_ref",
+    "principal_ref",
+    "provider_ref",
+    "model_route_ref",
+    "package_release_ref",
+    "worker_instance_ref",
+    "meter_class",
+    "resource_class",
+];
 const MAX_VALIDITY_SECONDS: u64 = 31_536_000; // one year
 const MICRO_PER_WORK_CREDIT: u64 = 1_000_000;
 /// The registered charge components (`meter_rate.charge_component`).
@@ -1095,6 +1119,15 @@ pub(crate) struct UsageTarget {
     rate_work_credit_micro_units_per_meter_unit: u64,
     charge_component: String,
     currency_code: String,
+    // M07.5 — the exact prices a charge was produced under, and the plan allowance it draws on,
+    // resolved here once so the record and the entitlement check cannot disagree about them.
+    quote_body_hash: String,
+    rate_card_body_hash: String,
+    plan_ref: String,
+    plan_body_hash: String,
+    plan_included_units: u64,
+    plan_reset_policy: String,
+    plan_issued_at_ms: u64,
 }
 
 /// PURE READ. Resolves and authorizes a metered append without admitting anything, so a probe on a
@@ -1162,6 +1195,24 @@ pub(crate) fn resolve_usage_target(
             "meter_class is not priced by the quote's rate card",
         ));
     };
+    // The plan the quote froze is resolved the same way the card is: exact bytes or nothing. A
+    // substituted plan would change the allowance a charge is measured against, silently.
+    let plan_ref = quote_object["plan_ref"].as_str().unwrap_or("").to_string();
+    let Some(plan) = load(data_dir, KIND_PLAN, tail_of(&plan_ref)) else {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "economics_plan_missing",
+            "the quote's plan projection is unavailable; replay to reconcile",
+        ));
+    };
+    let plan_object = object_of(&plan);
+    if plan_object["body_hash"] != quote_object["plan_body_hash"] {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "economics_plan_substituted",
+            "the stored plan no longer matches the quote's exact bytes; nothing is charged against a substituted plan",
+        ));
+    }
     Ok(UsageTarget {
         rate_work_credit_micro_units_per_meter_unit: meter
             ["work_credit_micro_units_per_meter_unit"]
@@ -1172,7 +1223,396 @@ pub(crate) fn resolve_usage_target(
             .as_str()
             .unwrap_or("USD")
             .to_string(),
+        quote_body_hash: quote_object["body_hash"].as_str().unwrap_or("").to_string(),
+        rate_card_body_hash: card_object["body_hash"].as_str().unwrap_or("").to_string(),
+        plan_ref,
+        plan_body_hash: plan_object["body_hash"].as_str().unwrap_or("").to_string(),
+        plan_included_units: wc_units(&plan_object["included_work_credits"]),
+        plan_reset_policy: plan_object["reset_policy"]
+            .as_str()
+            .unwrap_or("")
+            .to_string(),
+        plan_issued_at_ms: plan_object["issued_at_ms"].as_u64().unwrap_or(0),
     })
+}
+
+// ================================ M07.5 — metering the substrate ==============================
+//
+// The substrate meters, attests, authorizes, records or settles; only a product owner defines and
+// sells product value. What this section adds to the usage chain is ATTRIBUTION and ACCOUNTING,
+// never price: every record now says whose work it was (derived from the cited runtime receipts'
+// owner records, never from the caller), under which exact frozen prices, over which interval,
+// under which idempotent command, and how much of the plan's allowance it consumed — and the chain
+// refuses to meter one receipt twice, to charge another tenant's receipt here, or to draw past the
+// allowance without a hold that covers the excess.
+
+/// The metering dimensions one append is attributed with, DERIVED from the cited runtime
+/// receipts. A `model-invocation://` receipt is read through the model-invocation plane's own
+/// admitted record and must belong to the caller's tenant; any other scheme yields typed nulls.
+/// The tenant is always the caller's owner (the scope the append was authorized under).
+fn derive_metering_dimensions(
+    data_dir: &str,
+    caller: &WriteCaller,
+    receipt_refs: &[String],
+    meter_class: &str,
+    charge_component: &str,
+) -> Result<Value, Reply> {
+    let mut principal: Option<Option<String>> = None;
+    let mut provider: Option<Option<String>> = None;
+    let mut route: Option<Option<String>> = None;
+    let mut model: Option<Option<String>> = None;
+    let mut resolved_any = false;
+    // Merge one dimension across several receipts: equal values keep, a disagreement reads as
+    // null (mixed), and a receipt that carries nothing leaves the merge untouched.
+    let merge = |slot: &mut Option<Option<String>>, value: Option<String>| match slot {
+        None => *slot = Some(value),
+        Some(existing) => {
+            if *existing != value {
+                *existing = None;
+            }
+        }
+    };
+    for reference in receipt_refs {
+        let Some(id) = reference.strip_prefix(MODEL_INVOCATION_PREFIX) else {
+            continue;
+        };
+        let Some(invocation) = super::provider_transport::admitted_invocation(data_dir, id) else {
+            return Err(bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "economics_receipt_unresolved",
+                format!("{reference} names no admitted model invocation; a charge binds to evidence that exists"),
+            ));
+        };
+        if invocation["owner_ref"].as_str() != Some(caller.owner_ref.as_str()) {
+            return Err(bad(
+                StatusCode::FORBIDDEN,
+                "economics_receipt_foreign_owner",
+                format!("{reference} was admitted for another tenant; a tenant's quote cannot be charged with another tenant's work"),
+            ));
+        }
+        resolved_any = true;
+        merge(
+            &mut principal,
+            invocation["acting_principal_ref"]
+                .as_str()
+                .filter(|value| value.starts_with("user://"))
+                .map(str::to_owned),
+        );
+        merge(
+            &mut provider,
+            match (
+                invocation["transport"].as_str(),
+                invocation["base_url"].as_str(),
+            ) {
+                (Some(transport), Some(base_url)) => Some(format!("{transport}:{base_url}")),
+                _ => None,
+            },
+        );
+        merge(
+            &mut route,
+            invocation["route_ref"].as_str().map(str::to_owned),
+        );
+        merge(
+            &mut model,
+            invocation["model_id"].as_str().map(str::to_owned),
+        );
+    }
+    let resource_class = match (meter_class, charge_component) {
+        (METER_MODEL_TOKENS, _) => "model",
+        (_, "non_billable_telemetry") => "telemetry",
+        (_, "managed_runtime") => "compute",
+        (_, "verifier") => "verifier",
+        (_, "managed_model") => "model",
+        _ => "network",
+    };
+    let flat = |slot: &Option<Option<String>>| -> Value {
+        slot.clone()
+            .flatten()
+            .map(Value::String)
+            .unwrap_or(Value::Null)
+    };
+    Ok(json!({
+        "tenant_ref": caller.owner_ref,
+        "principal_ref": flat(&principal),
+        "worker_instance_ref": Value::Null,
+        "package_release_ref": Value::Null,
+        "goal_run_ref": Value::Null,
+        "session_ref": Value::Null,
+        "environment_ref": Value::Null,
+        "provider_ref": flat(&provider),
+        "model_route_ref": flat(&route),
+        "model_id": flat(&model),
+        "resource_class": resource_class,
+        "usage_class": meter_class,
+        "derivation": if resolved_any { "owner_receipt" } else { "caller_asserted" },
+    }))
+}
+
+/// Every usage chain this owner has admitted, as (quote_id, chain record) pairs — the population
+/// dedup and entitlement are derived over. Read from the owner's projections on every call;
+/// nothing here is a second index.
+fn owner_usage_chains(data_dir: &str, owner_ref: &str) -> Vec<(String, Value)> {
+    read_record_dir(data_dir, KIND_USAGE_CHAIN)
+        .into_iter()
+        .filter(|chain| chain["owner_ref"].as_str() == Some(owner_ref))
+        .map(|chain| {
+            let quote_id = tail_of(chain["object"]["quote_ref"].as_str().unwrap_or("")).to_string();
+            (quote_id, chain)
+        })
+        .collect()
+}
+
+/// A runtime receipt is metered AT MOST ONCE per tenant. The one exception is the same command
+/// replaying under the same idempotency key, which the substrate answers with the stored append;
+/// a record that cites the receipt under a DIFFERENT key (or a pre-M07.5 record with no key) is a
+/// second charge for the same work and is named here.
+fn receipt_already_metered(
+    data_dir: &str,
+    owner_ref: &str,
+    receipt_refs: &[String],
+    idempotency_key: &str,
+) -> Option<(String, String)> {
+    for (_, chain) in owner_usage_chains(data_dir, owner_ref) {
+        for record in chain["object"]["usage_records"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            if record["idempotency_key"].as_str() == Some(idempotency_key) {
+                continue;
+            }
+            let cited = record["runtime_receipt_refs"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str);
+            for reference in cited {
+                if receipt_refs.iter().any(|candidate| candidate == reference) {
+                    return Some((
+                        reference.to_owned(),
+                        record["usage_ref"].as_str().unwrap_or("").to_owned(),
+                    ));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The first millisecond of the UTC month containing `now_ms` (civil-from-days, no clock crate).
+fn utc_month_start_ms(now_ms: u64) -> u64 {
+    let days = (now_ms / 86_400_000) as i64;
+    // Howard Hinnant's civil_from_days.
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day_of_month = doy - (153 * mp + 2) / 5; // 0-based
+    let month_start_days = days - day_of_month;
+    (month_start_days.max(0) as u64) * 86_400_000
+}
+
+/// The plan allowance this owner has already drawn under `plan_ref` in the current reset period:
+/// the checked sum of every admitted charge on the owner's chains whose quote froze that plan.
+fn plan_allowance_consumed(
+    data_dir: &str,
+    owner_ref: &str,
+    target: &UsageTarget,
+    now: u64,
+) -> Result<u64, Reply> {
+    let period_start = match target.plan_reset_policy.as_str() {
+        "monthly_expiring" => utc_month_start_ms(now),
+        "contract_term_expiring" => target.plan_issued_at_ms,
+        _ => 0,
+    };
+    let mut consumed: u64 = 0;
+    for (quote_id, chain) in owner_usage_chains(data_dir, owner_ref) {
+        let Some(quote) = load(data_dir, KIND_QUOTE, &quote_id) else {
+            continue;
+        };
+        if object_of(&quote)["plan_ref"].as_str() != Some(target.plan_ref.as_str()) {
+            continue;
+        }
+        for record in chain["object"]["usage_records"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            if record["occurred_at_ms"].as_u64().unwrap_or(0) < period_start {
+                continue;
+            }
+            consumed = consumed
+                .checked_add(wc_units(&record["charged_work_credits"]))
+                .ok_or_else(|| {
+                    bad(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "economics_charge_overflow",
+                        "the plan's consumed allowance exceeds the safe integer domain",
+                    )
+                })?;
+        }
+    }
+    Ok(consumed)
+}
+
+/// How this charge is covered, or a typed refusal: the plan allowance first, then the quote's
+/// active holds for the excess (net of what earlier hold-covered charges on the quote already
+/// drew). Nothing here permits an approximate or unbounded draw.
+fn entitlement_consumption_for(
+    data_dir: &str,
+    caller: &WriteCaller,
+    target: &UsageTarget,
+    quote_ref: &str,
+    prior_records: &[Value],
+    charged: u64,
+    now: u64,
+) -> Result<Value, Reply> {
+    let consumed_before = plan_allowance_consumed(data_dir, &caller.owner_ref, target, now)?;
+    let allowance_left = target.plan_included_units.saturating_sub(consumed_before);
+    let covered_by = if charged <= allowance_left {
+        "plan_allowance"
+    } else {
+        let excess = charged - allowance_left;
+        let active_holds: u64 = holds_for_quote(data_dir, quote_ref)
+            .iter()
+            .filter(|hold| hold["object"]["status"].as_str() == Some("active"))
+            .map(|hold| wc_units(&hold["object"]["amount"]))
+            .sum();
+        let already_hold_covered: u64 = prior_records
+            .iter()
+            .filter(|record| {
+                record["entitlement_consumption"]["covered_by"]
+                    .as_str()
+                    .is_some_and(|covered| covered != "plan_allowance")
+            })
+            .map(|record| wc_units(&record["charged_work_credits"]))
+            .sum();
+        if active_holds.saturating_sub(already_hold_covered) < excess {
+            return Err(bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "economics_entitlement_exhausted",
+                format!(
+                    "this charge of {charged} micro work credits exceeds the plan allowance left ({allowance_left}) and the quote's uncovered active holds ({}); reserve an exact additional hold through the overrun decision or stop",
+                    active_holds.saturating_sub(already_hold_covered)
+                ),
+            ));
+        }
+        if allowance_left > 0 {
+            "plan_allowance_and_credit_hold"
+        } else {
+            "credit_hold"
+        }
+    };
+    let Some(consumed_after) = consumed_before.checked_add(charged) else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "economics_charge_overflow",
+            "consumed allowance plus this charge exceeds the safe integer domain",
+        ));
+    };
+    Ok(json!({
+        "plan_ref": target.plan_ref,
+        "included_work_credits": work_credits(target.plan_included_units),
+        "consumed_before": work_credits(consumed_before),
+        "consumed_after": work_credits(consumed_after),
+        "covered_by": covered_by,
+    }))
+}
+
+/// GET /v1/hypervisor/economics/usage/aggregate?by=<dimension> — a READ-DERIVED projection over
+/// the caller's admitted usage chains, keyed by one registered metering dimension. Integer sums
+/// with checked arithmetic; records admitted before M07.5 carry no dimensions and are counted as
+/// `unattributed` rather than dropped. A projection, never a ledger and never settlement.
+pub(crate) async fn handle_usage_aggregate(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Reply {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return scope_refusal_reply(error),
+    };
+    let by = params.get("by").map(String::as_str).unwrap_or("");
+    match usage_aggregate(&st.data_dir, &identity, by) {
+        Ok(projection) => (StatusCode::OK, Json(projection)),
+        Err(reply) => reply,
+    }
+}
+
+/// The aggregate's derivation, separable from transport so the projection can be tested as the
+/// pure function of admitted chains it is.
+fn usage_aggregate(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    by: &str,
+) -> Result<Value, Reply> {
+    if !AGGREGATE_DIMENSIONS.contains(&by) {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "economics_aggregate_dimension_unknown",
+            format!("by must be one of {AGGREGATE_DIMENSIONS:?}"),
+        ));
+    }
+    let mut buckets: std::collections::BTreeMap<String, (u64, u64, u64)> =
+        std::collections::BTreeMap::new();
+    let mut without_dimensions: u64 = 0;
+    for chain in read_record_dir(data_dir, KIND_USAGE_CHAIN) {
+        let Some(owner_ref) = chain["owner_ref"].as_str() else {
+            continue;
+        };
+        if !identity.authorizes_tenant(owner_ref) {
+            continue;
+        }
+        for record in chain["object"]["usage_records"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            let key = match by {
+                "meter_class" => record["meter_class"].as_str().map(str::to_owned),
+                _ => {
+                    if record.get("metering_dimensions").is_none() {
+                        without_dimensions += 1;
+                        None
+                    } else {
+                        record["metering_dimensions"][by]
+                            .as_str()
+                            .map(str::to_owned)
+                    }
+                }
+            }
+            .unwrap_or_else(|| "unattributed".to_string());
+            let entry = buckets.entry(key).or_insert((0, 0, 0));
+            entry.0 += 1;
+            entry.1 = entry
+                .1
+                .saturating_add(record["quantity_units"].as_u64().unwrap_or(0));
+            entry.2 = entry
+                .2
+                .saturating_add(wc_units(&record["charged_work_credits"]));
+        }
+    }
+    let rows: Vec<Value> = buckets
+        .into_iter()
+        .map(|(key, (records, quantity, charged))| {
+            json!({
+                "key": key,
+                "records": records,
+                "quantity_units": quantity,
+                "charged_work_credits": work_credits(charged),
+            })
+        })
+        .collect();
+    Ok(json!({
+        "ok": true,
+        "by": by,
+        "buckets": rows,
+        "records_without_dimensions": without_dimensions,
+        "projection_source": "economics_usage_chains",
+        "nonclaim": "A read-derived projection over admitted usage chains: integer sums by one registered dimension. Not a ledger, not a debit, not settlement, and not supplier-reconciled unless the underlying records say so."
+    }))
 }
 
 /// The FIRST production path for the `model_tokens` meter class. Until this cut the class existed
@@ -1219,6 +1659,16 @@ fn append_usage(
             "sequence",
             "previous_usage_hash",
             "occurred_at_ms",
+            // M07.5 — attribution and accounting are the OWNER's derivations. A caller who can
+            // name their own dimensions can bill another tenant's work to a quote of their choice.
+            "metering_dimensions",
+            "quote_body_hash",
+            "rate_card_body_hash",
+            "plan_body_hash",
+            "measurement_interval",
+            "idempotency_key",
+            "idempotency_identity",
+            "entitlement_consumption",
         ],
     )?;
     let quote_ref = require_ref(body, "quote_ref")?;
@@ -1292,13 +1742,47 @@ fn append_usage(
         .and_then(|r| r["body_hash"].as_str())
         .map(|h| json!(h))
         .unwrap_or(Value::Null);
+    // M07.5 — METERED ONCE, ATTRIBUTED BY THE OWNER, ACCOUNTED AGAINST THE PLAN. All three are
+    // derived from admitted truth before the append is admitted, so a refusal leaves the chain
+    // exactly as it was and an admitted record carries what it was measured against.
+    let receipt_refs = refs("runtime_receipt_refs");
+    if let Some((receipt, usage_ref)) = receipt_already_metered(
+        data_dir,
+        &caller.owner_ref,
+        &receipt_refs,
+        &caller.idempotency_key,
+    ) {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "economics_receipt_already_metered",
+            format!("{receipt} is already bound to {usage_ref}; a runtime receipt is metered at most once per tenant, and a retry of that command must reuse its idempotency key"),
+        ));
+    }
+    let metering_dimensions =
+        derive_metering_dimensions(data_dir, caller, &receipt_refs, &meter_class, component)?;
+    let mut sorted_receipts = receipt_refs.clone();
+    sorted_receipts.sort();
+    let idempotency_identity = body_hash_of(&json!({
+        "quote_ref": quote_ref,
+        "meter_class": meter_class,
+        "runtime_receipt_refs": sorted_receipts,
+    }))?;
+    let entitlement_consumption = entitlement_consumption_for(
+        data_dir,
+        caller,
+        &target,
+        &quote_ref,
+        &prior_records,
+        charged,
+        now,
+    )?;
     let usage_id = format!("{}-{}", quote_id, sequence);
     let mut usage = json!({
         "usage_ref": format!("usage://{usage_id}"),
         "quote_ref": quote_ref,
         "sequence": sequence,
         "previous_usage_hash": previous_usage_hash,
-        "runtime_receipt_refs": refs("runtime_receipt_refs"),
+        "runtime_receipt_refs": receipt_refs,
         "supplier_statement_refs": refs("supplier_statement_refs"),
         "meter_class": meter_class,
         "quantity_units": quantity,
@@ -1308,6 +1792,17 @@ fn append_usage(
         "cost_breakdown": breakdown,
         "coarse_ocu_projection": coarse,
         "occurred_at_ms": now,
+        "metering_dimensions": metering_dimensions,
+        "quote_body_hash": target.quote_body_hash,
+        "rate_card_body_hash": target.rate_card_body_hash,
+        "plan_body_hash": target.plan_body_hash,
+        // No runtime receipt this module can read carries a measured interval yet, so the
+        // interval is the admission instant and SAYS so; a receipt-timestamped interval is a
+        // later producer's fact, never this module's guess.
+        "measurement_interval": { "started_at_ms": now, "ended_at_ms": now, "interval_basis": "admission_time" },
+        "idempotency_key": caller.idempotency_key,
+        "idempotency_identity": idempotency_identity,
+        "entitlement_consumption": entitlement_consumption,
     });
     usage["body_hash"] = json!(body_hash_of(&usage)?);
     let admitted = json!({
@@ -1966,8 +2461,19 @@ pub(crate) async fn handle_ledger_bundle(
         .or(quote_object["body_hash"].as_str())
         .unwrap_or_default()
         .to_string();
+    // M07.5 — a chain whose every record carries the owner-derived metering members exports under
+    // the v2 successor; a chain with pre-M07.5 records exports under v1 (still registered, still
+    // valid). The exporter names the contract it met rather than letting a reader infer it.
+    let all_metered = usage_records
+        .iter()
+        .all(|record| record.get("metering_dimensions").is_some());
+    let (bundle_schema, bundle_contract_id) = if all_metered {
+        (BUNDLE_SCHEMA_V2, BUNDLE_CONTRACT_ID_V2)
+    } else {
+        (BUNDLE_SCHEMA_V1, BUNDLE_CONTRACT_ID)
+    };
     let bundle = json!({
-        "schema_version": "ioi.foundations.managed-work-billing-ledger-bundle.v1",
+        "schema_version": bundle_schema,
         "bundle_ref": format!("billing-bundle://{id}"),
         "billing_account_ref": quote["billing_account_ref"],
         "work_ref": quote["work_ref"],
@@ -1987,7 +2493,7 @@ pub(crate) async fn handle_ledger_bundle(
     });
     if let Err(error) =
         ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-            BUNDLE_CONTRACT_ID,
+            bundle_contract_id,
             &bundle,
         )
     {
@@ -2001,7 +2507,7 @@ pub(crate) async fn handle_ledger_bundle(
     }
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "ledger_bundle": bundle })),
+        Json(json!({ "ok": true, "contract_id": bundle_contract_id, "ledger_bundle": bundle })),
     )
 }
 
@@ -2600,6 +3106,326 @@ mod economics_tests {
              .0
             .to_string()
             .contains("economics_customer_borne_provider_cost"));
+        reset_handle_for_test();
+    }
+
+    // -------------------------------------------------- M07.5: metering the substrate
+
+    fn seed_plan_with_allowance(
+        fxt: &Fx,
+        card_ref: &str,
+        key: &str,
+        included_units: u64,
+    ) -> String {
+        let (plan, _) = mint_plan(
+            &fxt.data_dir,
+            &caller(key),
+            &json!({
+                "rate_card_ref": card_ref,
+                "included_work_credit_units": included_units,
+                "reset_policy": "non_resetting",
+                "validity_seconds": 3600,
+            }),
+        )
+        .unwrap();
+        plan["object"]["plan_ref"].as_str().unwrap().to_owned()
+    }
+
+    /// An admitted model-invocation projection as the invocation plane persists it — the owner
+    /// record a `model-invocation://` receipt resolves through.
+    fn seed_invocation(fxt: &Fx, id: &str, owner_ref: &str) -> String {
+        persist_record(
+            &fxt.data_dir,
+            "model-invocations",
+            id,
+            &json!({
+                "invocation_id": id,
+                "owner_ref": owner_ref,
+                "acting_principal_ref": "user://operator-7",
+                "route_id": "managed-default",
+                "route_ref": "route://managed/default",
+                "transport": "openai_compatible",
+                "model_id": "example-large",
+                "base_url": "https://api.example.test/v1",
+            }),
+        )
+        .unwrap();
+        format!("model-invocation://{id}")
+    }
+
+    fn usage_body(quote: &str, quantity: u64, receipt: &str) -> Value {
+        json!({
+            "quote_ref": quote,
+            "meter_class": "model_tokens",
+            "quantity_units": quantity,
+            "commercial_posture": "managed",
+            "runtime_receipt_refs": [receipt],
+        })
+    }
+
+    fn chain_length(fxt: &Fx, quote: &str) -> usize {
+        usage_chain(&fxt.data_dir, tail_of(quote))
+            .and_then(|chain| chain["object"]["usage_records"].as_array().map(Vec::len))
+            .unwrap_or(0)
+    }
+
+    #[test]
+    fn usage_dimensions_are_derived_from_the_invocation_record_and_never_from_the_caller() {
+        let fxt = fx();
+        let card = seed_card(&fxt);
+        let plan = seed_plan_with_allowance(&fxt, &card, "plan-m075-a", 10_000);
+        let quote = seed_quote(&fxt, &card, &plan, 1_000);
+        let receipt = seed_invocation(&fxt, "inv-a1", TENANT);
+        let (u1, _) = append_usage(
+            &fxt.data_dir,
+            &caller("m075-a-1"),
+            &usage_body(&quote, 12, &receipt),
+        )
+        .unwrap();
+        let dims = &u1["metering_dimensions"];
+        assert_eq!(dims["tenant_ref"], json!(TENANT));
+        assert_eq!(dims["principal_ref"], json!("user://operator-7"));
+        assert_eq!(
+            dims["provider_ref"],
+            json!("openai_compatible:https://api.example.test/v1")
+        );
+        assert_eq!(dims["model_route_ref"], json!("route://managed/default"));
+        assert_eq!(dims["model_id"], json!("example-large"));
+        assert_eq!(dims["resource_class"], json!("model"));
+        assert_eq!(dims["usage_class"], json!("model_tokens"));
+        assert_eq!(dims["derivation"], json!("owner_receipt"));
+        assert_eq!(dims["session_ref"], Value::Null);
+        assert_eq!(dims["package_release_ref"], Value::Null);
+        for hash in ["quote_body_hash", "rate_card_body_hash", "plan_body_hash"] {
+            assert!(u1[hash].as_str().unwrap().starts_with("sha256:"), "{hash}");
+        }
+        assert_eq!(
+            u1["measurement_interval"]["interval_basis"],
+            json!("admission_time")
+        );
+        assert_eq!(u1["idempotency_key"], json!("m075-a-1"));
+        assert!(u1["idempotency_identity"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert_eq!(
+            u1["entitlement_consumption"]["covered_by"],
+            json!("plan_allowance")
+        );
+        assert_eq!(
+            u1["entitlement_consumption"]["consumed_before"]["units"],
+            json!(0)
+        );
+        assert_eq!(
+            u1["entitlement_consumption"]["consumed_after"]["units"],
+            json!(60)
+        );
+        // A receipt no owner record can inform is typed caller_asserted — never invented.
+        let (u2, _) = append_usage(
+            &fxt.data_dir,
+            &caller("m075-a-2"),
+            &usage_body(&quote, 1, "receipt://runtime/opaque-1"),
+        )
+        .unwrap();
+        assert_eq!(
+            u2["metering_dimensions"]["derivation"],
+            json!("caller_asserted")
+        );
+        assert_eq!(u2["metering_dimensions"]["principal_ref"], Value::Null);
+        assert_eq!(u2["metering_dimensions"]["tenant_ref"], json!(TENANT));
+        // The caller may author none of the derivations.
+        for field in [
+            "metering_dimensions",
+            "entitlement_consumption",
+            "idempotency_identity",
+            "idempotency_key",
+            "quote_body_hash",
+            "measurement_interval",
+        ] {
+            let mut forged = usage_body(&quote, 1, "receipt://runtime/opaque-2");
+            forged[field] = json!({ "tenant_ref": "org://other" });
+            let error = append_usage(&fxt.data_dir, &caller("m075-a-forged"), &forged).unwrap_err();
+            assert!(
+                error
+                    .1
+                     .0
+                    .to_string()
+                    .contains("economics_server_derived_field"),
+                "{field}"
+            );
+        }
+        assert_eq!(chain_length(&fxt, &quote), 2);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_receipt_is_metered_at_most_once_per_tenant_and_never_across_tenants() {
+        let fxt = fx();
+        let card = seed_card(&fxt);
+        let plan = seed_plan_with_allowance(&fxt, &card, "plan-m075-b", 10_000);
+        let quote = seed_quote(&fxt, &card, &plan, 1_000);
+        let receipt = seed_invocation(&fxt, "inv-b1", TENANT);
+        let body = usage_body(&quote, 3, &receipt);
+        let (first, len1) = append_usage(&fxt.data_dir, &caller("m075-b-1"), &body).unwrap();
+        assert_eq!(len1, 1);
+        // The same command under the same key is the substrate's replay, not a second charge:
+        // whatever it answers, the chain holds one record and nothing calls it "already metered".
+        match append_usage(&fxt.data_dir, &caller("m075-b-1"), &body) {
+            Ok((replayed, length)) => {
+                assert_eq!(length, 1);
+                assert_eq!(replayed["usage_ref"], first["usage_ref"]);
+            }
+            Err(error) => assert!(!error
+                .1
+                 .0
+                .to_string()
+                .contains("economics_receipt_already_metered")),
+        }
+        assert_eq!(chain_length(&fxt, &quote), 1);
+        // The same receipt under a NEW key is a second charge for the same work — refused by
+        // name, naming the record that already binds it, chain unchanged.
+        let error = append_usage(&fxt.data_dir, &caller("m075-b-2"), &body).unwrap_err();
+        let text = error.1 .0.to_string();
+        assert!(text.contains("economics_receipt_already_metered"), "{text}");
+        assert!(
+            text.contains(first["usage_ref"].as_str().unwrap()),
+            "{text}"
+        );
+        assert_eq!(chain_length(&fxt, &quote), 1);
+        // Another tenant's invocation cannot be charged to this tenant's quote.
+        let foreign = seed_invocation(&fxt, "inv-b-foreign", "org://someone-else");
+        let error = append_usage(
+            &fxt.data_dir,
+            &caller("m075-b-3"),
+            &usage_body(&quote, 3, &foreign),
+        )
+        .unwrap_err();
+        assert_eq!(error.0, StatusCode::FORBIDDEN);
+        assert!(error
+            .1
+             .0
+            .to_string()
+            .contains("economics_receipt_foreign_owner"));
+        // An invocation ref that resolves to nothing is unresolved, not silently attributed.
+        let error = append_usage(
+            &fxt.data_dir,
+            &caller("m075-b-4"),
+            &usage_body(&quote, 3, "model-invocation://does-not-exist"),
+        )
+        .unwrap_err();
+        assert!(error
+            .1
+             .0
+            .to_string()
+            .contains("economics_receipt_unresolved"));
+        assert_eq!(chain_length(&fxt, &quote), 1);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn the_plan_allowance_is_consumed_then_exhausted_typed_and_a_hold_covers_the_excess() {
+        let fxt = fx();
+        let card = seed_card(&fxt);
+        // 100 micro work credits of allowance; each append below charges 10 units x rate 5 = 50.
+        let plan = seed_plan_with_allowance(&fxt, &card, "plan-m075-c", 100);
+        let quote = seed_quote(&fxt, &card, &plan, 1_000);
+        let body = |n: u32| usage_body(&quote, 10, &format!("receipt://runtime/e-{n}"));
+        let (u1, _) = append_usage(&fxt.data_dir, &caller("m075-c-1"), &body(1)).unwrap();
+        assert_eq!(
+            u1["entitlement_consumption"]["covered_by"],
+            json!("plan_allowance")
+        );
+        let (u2, _) = append_usage(&fxt.data_dir, &caller("m075-c-2"), &body(2)).unwrap();
+        assert_eq!(
+            u2["entitlement_consumption"]["consumed_after"]["units"],
+            json!(100)
+        );
+        // Past the allowance with no hold: refused by name, chain unchanged.
+        let error = append_usage(&fxt.data_dir, &caller("m075-c-3"), &body(3)).unwrap_err();
+        assert!(error
+            .1
+             .0
+            .to_string()
+            .contains("economics_entitlement_exhausted"));
+        assert_eq!(chain_length(&fxt, &quote), 2);
+        // An exact finite hold covers exactly one more charge, and the record says the hold did.
+        mint_hold(
+            &fxt.data_dir,
+            &caller("m075-c-hold"),
+            &json!({ "quote_ref": quote, "amount_units": 50, "hold_kind": "initial" }),
+        )
+        .unwrap();
+        let (u3, length) = append_usage(&fxt.data_dir, &caller("m075-c-4"), &body(4)).unwrap();
+        assert_eq!(length, 3);
+        assert_eq!(
+            u3["entitlement_consumption"]["covered_by"],
+            json!("credit_hold")
+        );
+        let error = append_usage(&fxt.data_dir, &caller("m075-c-5"), &body(5)).unwrap_err();
+        assert!(error
+            .1
+             .0
+            .to_string()
+            .contains("economics_entitlement_exhausted"));
+        assert_eq!(chain_length(&fxt, &quote), 3);
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn usage_aggregation_is_a_read_projection_over_admitted_chains() {
+        let fxt = fx();
+        let card = seed_card(&fxt);
+        let plan = seed_plan_with_allowance(&fxt, &card, "plan-m075-d", 10_000);
+        let quote = seed_quote(&fxt, &card, &plan, 1_000);
+        let receipt = seed_invocation(&fxt, "inv-d1", TENANT);
+        append_usage(
+            &fxt.data_dir,
+            &caller("m075-d-1"),
+            &usage_body(&quote, 4, &receipt),
+        )
+        .unwrap();
+        append_usage(
+            &fxt.data_dir,
+            &caller("m075-d-2"),
+            &usage_body(&quote, 6, "receipt://runtime/opaque-d"),
+        )
+        .unwrap();
+        let identity = request_identity_for_test(PRINCIPAL, [TENANT.to_string()]);
+        let by_principal = usage_aggregate(&fxt.data_dir, &identity, "principal_ref").unwrap();
+        let buckets = by_principal["buckets"].as_array().unwrap();
+        let find = |key: &str| {
+            buckets
+                .iter()
+                .find(|row| row["key"] == json!(key))
+                .cloned()
+                .unwrap_or(Value::Null)
+        };
+        assert_eq!(find("user://operator-7")["records"], json!(1));
+        assert_eq!(find("user://operator-7")["quantity_units"], json!(4));
+        assert_eq!(
+            find("user://operator-7")["charged_work_credits"]["units"],
+            json!(20)
+        );
+        assert_eq!(find("unattributed")["records"], json!(1));
+        assert_eq!(find("unattributed")["quantity_units"], json!(6));
+        let by_meter = usage_aggregate(&fxt.data_dir, &identity, "meter_class").unwrap();
+        assert_eq!(by_meter["buckets"][0]["key"], json!("model_tokens"));
+        assert_eq!(by_meter["buckets"][0]["records"], json!(2));
+        assert_eq!(
+            by_meter["buckets"][0]["charged_work_credits"]["units"],
+            json!(50)
+        );
+        // An unregistered dimension refuses rather than aggregating by a field nobody registered.
+        let error = usage_aggregate(&fxt.data_dir, &identity, "favourite_colour").unwrap_err();
+        assert!(error
+            .1
+             .0
+            .to_string()
+            .contains("economics_aggregate_dimension_unknown"));
+        // Another tenant's identity sees nothing of this tenant's chains.
+        let outsider = request_identity_for_test("outsider", ["org://someone-else".to_string()]);
+        let empty = usage_aggregate(&fxt.data_dir, &outsider, "meter_class").unwrap();
+        assert!(empty["buckets"].as_array().unwrap().is_empty());
         reset_handle_for_test();
     }
 

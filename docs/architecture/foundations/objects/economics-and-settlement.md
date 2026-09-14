@@ -147,7 +147,56 @@ UsageRecord:
   cost_breakdown: ManagedWorkCostBreakdown
   coarse_ocu_projection: boolean
   occurred_at_ms: integer
+  metering_dimensions:
+    tenant_ref: org://... | project://...
+    principal_ref: user://... | null
+    worker_instance_ref: worker-instance://... | null
+    package_release_ref: package://.../release/... | null
+    goal_run_ref: goal-run://... | null
+    session_ref: session://... | null
+    environment_ref: environment://... | null
+    provider_ref: string | null
+    model_route_ref: string | null
+    model_id: string | null
+    resource_class: model | compute | storage | network | verifier | telemetry
+    usage_class: string
+    derivation: owner_receipt | caller_asserted
+  quote_body_hash: hash
+  rate_card_body_hash: hash
+  plan_body_hash: hash
+  measurement_interval:
+    started_at_ms: integer
+    ended_at_ms: integer
+    interval_basis: receipt_timestamps | admission_time
+  idempotency_key: string
+  idempotency_identity: hash
+  entitlement_consumption:
+    plan_ref: plan://...
+    included_work_credits: WorkCreditAmount
+    consumed_before: WorkCreditAmount
+    consumed_after: WorkCreditAmount
+    covered_by: plan_allowance | credit_hold | plan_allowance_and_credit_hold
 ```
+
+A UsageRecord's `metering_dimensions` are DERIVED by the owner from the cited
+runtime receipts, never accepted from the caller: a model-invocation receipt
+yields the acting principal, provider, model route and model; a receipt whose
+owner record carries no dimension yields a typed null, and a record no owner
+record could inform is marked `derivation: caller_asserted` and is
+telemetry-grade. The frozen quote, rate-card and plan body hashes travel on the
+record so a relying party can tell which exact prices produced a charge. A
+runtime receipt is metered at most once per tenant: a second append citing a
+receipt already bound to a UsageRecord under a different idempotency key
+refuses, the same key replays, and a receipt admitted for another tenant cannot
+be charged to this tenant's quote. `idempotency_identity` is the owner's digest
+of the command (quote, meter class and the sorted receipt refs), so two keys for
+one command are visible as such. Every append records the plan allowance it
+consumed (`entitlement_consumption`): an append that would exceed the plan's
+`included_work_credits` for the reset period refuses unless an active hold on
+the quote covers the excess, and the record says which of the two covered it.
+Aggregations over tenants, principals, providers, model routes, releases and
+workers are read-derived over admitted chains — projections, never a second
+ledger.
 
 The first hold is positive, finite, no larger than the quote's required hold,
 and no later than the quote expiry. An additional hold requires the exact

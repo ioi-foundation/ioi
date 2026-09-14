@@ -161,6 +161,11 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 877 -> 878 (2026-09-14, M07.5): the usage aggregate,
+  // `/v1/hypervisor/economics/usage/aggregate` (GET) — a read-derived projection over the caller's
+  // admitted usage chains keyed by one registered metering dimension. One distinct path here, one
+  // handler in verify-hypervisor-environment-owner-source.mjs, both pins moved in the SAME commit
+  // as the route. 879 `.route(` occurrences, 879 with a path literal, 878 distinct paths.
   // 876 -> 877 (2026-09-14, M08.10 slice C): the serving binding,
   // `/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/serving-binding`,
   // carrying POST (Applications binds one registered, enabled binding to the DomainApp runtime
@@ -216,7 +221,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 877,
+  registeredRoutes: 878,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

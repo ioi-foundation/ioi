@@ -633,6 +633,24 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M07.5 — metering the substrate: owner-derived metering dimensions,
+  // receipt dedup, plan-allowance consumption and the read-derived aggregate on the usage chain).
+  // Tokens 151710 -> 152110 (+400), attributed per file with the extractor on the HEAD and working
+  // copies: economics_routes.rs 1343 -> 1736 (+393: the bundle v2 / invocation-prefix / aggregate
+  // constants, `derive_metering_dimensions` with its dimension keys, the dedup and entitlement
+  // readers and their refusals, the aggregate projection, the v1/v2 exporter choice, and four
+  // tests with their seeded invocation record), provider_transport.rs 632 -> 638 (+6: the
+  // published `admitted_invocation` reader's doc comment), and hypervisor-daemon.rs +1 by
+  // subtraction (the one new route path literal). Foreign-qualified 4689 -> 4700 (+11):
+  // `StatusCode::` occurrences 77 -> 88 in economics_routes.rs, measured by member
+  // (UNPROCESSABLE_ENTITY ×4, CONFLICT ×3, FORBIDDEN ×2, BAD_REQUEST, OK) — the new refusals
+  // and the aggregate's answers; no other qualified name moved. Opaque-initialiser 2824 -> 2828
+  // over the two slices today: +2 here for `AGGREGATE_DIMENSIONS` (definition + use), a
+  // `&[&str]` slice constant naming no record family. EVERY WRITER BUCKET HELD (family 57,
+  // non-ODK literal 254, runtime 311), production filesystem calls 242, judged positions 281,
+  // family mentions 285, bare-undeclared 541: the metering members ride the same
+  // `admit_owner_scoped_write` the usage chain always used, and the invocation record is read
+  // through its own plane's reader.
   // Re-pinned 2026-09-14 (M08.10 slice D — the recall impact record derived at the recall
   // admission). Tokens 151560 -> 151710 (+150), ALL of it package_registry_routes.rs (1755 -> 1905
   // measured with the extractor on the HEAD and working copies: the three impact constants,
@@ -840,7 +858,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 151710,
+  tokenMentions: 152110,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -861,8 +879,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4689,
-    "opaque-initialiser": 2826,
+    "foreign-qualified": 4700,
+    "opaque-initialiser": 2828,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

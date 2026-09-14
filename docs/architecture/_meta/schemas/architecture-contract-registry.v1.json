@@ -8964,10 +8964,10 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
         "compatibility": "initial",
         "migration_policy": "none",
-        "predecessor_remains_valid": false,
+        "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "none"
       },
@@ -8997,6 +8997,71 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v2",
+      "canonical_name": "ManagedWorkBillingLedgerBundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/economics-and-settlement.md#managed-work-billing-object-family",
+      "schema_version": "ioi.foundations.managed-work-billing-ledger-bundle.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "successor_only",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "managed-work-billing-ledger-bundle.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/managed-work-billing-ledger-bundle/fixed-chain/v2",
+          "path": "invariants/managed-work-billing-ledger-bundle.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ManagedWorkBillingLedgerBundleV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ManagedWorkBillingLedgerBundleV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/managed-work-billing-ledger-bundle-v2/positive-complete.json",
+        "fixtures/managed-work-billing-ledger-bundle-v2/positive-caller-asserted.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/managed-work-billing-ledger-bundle-v2/negative-floating-credit-units.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/managed-work-billing-ledger-bundle-v2/negative-missing-metering-dimensions.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/managed-work-billing-ledger-bundle-v2/negative-foreign-tenant-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-derivation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/managed-work-billing-ledger-bundle-v2/negative-unknown-coverage.json",
           "expected_failure": "schema"
         }
       ]
