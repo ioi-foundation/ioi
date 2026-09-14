@@ -25,7 +25,8 @@ use axum::http::HeaderMap;
 use axum::Json;
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use ioi_types::app::hypervisor_machine_lifecycle::{
-    admit_machine_operation, admitted_request_hash, compile_refusal_receipt, MachineVerdict,
+    admit_machine_operation, admitted_request_hash, compile_effect_receipt,
+    compile_refusal_receipt, execute_reference_operation, MachineVerdict,
     MACHINE_OPERATION_CONTRACT,
 };
 use serde_json::{json, Value};
@@ -110,6 +111,34 @@ fn observed_head_for(data_dir: &str, workload_ref: &str) -> String {
         .filter_map(|record| record["admitted_request_hash"].as_str().map(str::to_owned))
         .last()
         .unwrap_or_else(|| MACHINE_GENESIS_HEAD.to_owned())
+}
+
+/// The workload's generations as last OBSERVED, from its receipts. A workload with no succeeded
+/// receipt is at generation zero, which is a state rather than an absence.
+///
+/// Read from receipts and not from the operations, because a generation is a fact about EFFECT:
+/// an admitted operation that came back ambiguous advanced nothing, and reading the operation
+/// records would have it advance the moment it was admitted.
+fn current_generations(data_dir: &str, workload_ref: &str) -> (u64, u64) {
+    let operations = read_record_dir(data_dir, MACHINE_OPERATION_RECORDS);
+    let receipt_for = |receipt: &Value| -> bool {
+        let operation_ref = receipt["operation_ref"].as_str().unwrap_or_default();
+        operations.iter().any(|record| {
+            record["operation_ref"].as_str() == Some(operation_ref)
+                && record["operation"]["workload_ref"].as_str() == Some(workload_ref)
+        })
+    };
+    read_record_dir(data_dir, MACHINE_RECEIPT_RECORDS)
+        .into_iter()
+        .filter(|receipt| receipt["result"].as_str() == Some("succeeded") && receipt_for(receipt))
+        .filter_map(|receipt| {
+            Some((
+                receipt["desired_generation_after"].as_u64()?,
+                receipt["observed_generation_after"].as_u64()?,
+            ))
+        })
+        .last()
+        .unwrap_or((0, 0))
 }
 
 /// Every idempotency hash already applied for this workload. Read from the durable record set
@@ -221,15 +250,45 @@ pub(crate) async fn handle_machine_operation_submit(
         })));
     }
 
-    // ADMITTED AND AWAITING EFFECT. No receipt: nothing has been attempted, and a receipt naming a
-    // result would describe an effect that did not happen.
-    persist_operation(&st.data_dir, &operation, &verdict, None);
-    Ok(Json(json!({
-        "ok": true,
-        "operation_ref": operation_ref,
-        "state": "admitted_awaiting_effect",
-        "receipt_ref": Value::Null,
-    })))
+    // ADMITTED. Whether it can be EXECUTED is a separate question with an honest answer either way.
+    let (desired_before, observed_before) = current_generations(&st.data_dir, &workload_ref);
+    match execute_reference_operation(&operation, &declaration) {
+        Ok(outcome) => {
+            let receipt_ref = receipt_ref_for(&operation_ref);
+            let receipt = compile_effect_receipt(
+                &operation,
+                &receipt_ref,
+                &outcome,
+                desired_before,
+                observed_before,
+                &[],
+                DAEMON_VERIFIER_PROFILE,
+            )
+            .map_err(|error| AppError(axum::http::StatusCode::INTERNAL_SERVER_ERROR, error))?;
+            let result = receipt["result"].as_str().unwrap_or("succeeded").to_owned();
+            persist_operation(&st.data_dir, &operation, &verdict, Some(&receipt));
+            Ok(Json(json!({
+                "ok": true,
+                "operation_ref": operation_ref,
+                "state": result,
+                "receipt_ref": receipt_ref,
+            })))
+        }
+        Err(reason) => {
+            // NO EXECUTOR FOR THIS BACKEND. A real (live or declared) backend is admitted and left
+            // awaiting effect with NO receipt, because this daemon has nothing that can act on it
+            // yet and a receipt naming a result would describe an effect nothing attempted. The
+            // reference executor refusing here is the fence working, not a failure.
+            persist_operation(&st.data_dir, &operation, &verdict, None);
+            Ok(Json(json!({
+                "ok": true,
+                "operation_ref": operation_ref,
+                "state": "admitted_awaiting_effect",
+                "detail": reason,
+                "receipt_ref": Value::Null,
+            })))
+        }
+    }
 }
 
 fn persist_operation(
@@ -415,6 +474,64 @@ mod tests {
             resolve_capability_declaration(d, "capability://backend/absent/1").is_none(),
             "an unresolvable declaration is a refusal with a receipt, never a silent default"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn generations_come_from_receipts_and_an_ambiguous_outcome_advances_nothing() {
+        // A generation is a fact about EFFECT. Reading the OPERATION records would advance it the
+        // moment something was admitted, which is the difference between reporting state and
+        // reporting intentions.
+        let dir = temp_dir();
+        let d = dir.to_str().unwrap();
+        let workload = "virtual-machine-workload://vm_a";
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "a1",
+            &admitted_record(
+                workload,
+                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                "k1",
+            ),
+        );
+        assert_eq!(
+            current_generations(d, workload),
+            (0, 0),
+            "no succeeded receipt yet"
+        );
+
+        let op_ref = format!("machine-operation://hypervisor/{workload}/start/k1");
+        write(
+            &dir,
+            MACHINE_RECEIPT_RECORDS,
+            "a1",
+            &json!({
+                "operation_ref": op_ref, "result": "succeeded",
+                "desired_generation_after": 7, "observed_generation_after": 7,
+            }),
+        );
+        // The receipt must be tied to an operation of THIS workload; the record above is.
+        let mut record = admitted_record(
+            workload,
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "k1",
+        );
+        record["operation_ref"] = json!(op_ref);
+        write(&dir, MACHINE_OPERATION_RECORDS, "a1", &record);
+        assert_eq!(current_generations(d, workload), (7, 7));
+
+        // An AMBIGUOUS receipt advances nothing, so the workload stays where it was.
+        write(
+            &dir,
+            MACHINE_RECEIPT_RECORDS,
+            "a2",
+            &json!({
+                "operation_ref": op_ref, "result": "ambiguous",
+                "desired_generation_after": 7, "observed_generation_after": 7,
+            }),
+        );
+        assert_eq!(current_generations(d, workload), (7, 7));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -633,6 +633,15 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M09.11, the reference executor). Tokens 150670 -> 150721 and
+  // foreign-qualified 4640 -> 4641 — the single new qualified name being
+  // `StatusCode::INTERNAL_SERVER_ERROR` at the effect-receipt compile site, which is the same
+  // qualifier the refusal path already used and therefore adds one occurrence rather than a name.
+  // EVERY WRITER BUCKET HELD (family 57, non-ODK literal 254, runtime 311) and so did production
+  // filesystem calls at 242: the executor writes through the SAME two `persist_record_durable`
+  // calls the route plane already had, because an executed operation and a refused one are the
+  // same two records with different contents. A cut that adds an execution path and moves no
+  // writer count is a cut that added an outcome, not a second way to write.
   // Re-pinned 2026-09-14 (M09.11, the machine-operation route plane). A MODULE JOINED, 119 -> 120:
   // `machine_routes.rs`. Tokens 150474 -> 150670 and foreign-qualified 4638 -> 4640.
   // **A WRITER BUCKET MOVED FOR THE FIRST TIME IN THIS PROGRAM'S CUTS**, and that is the number to
@@ -754,7 +763,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150670,
+  tokenMentions: 150721,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -775,7 +784,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4640,
+    "foreign-qualified": 4641,
     "opaque-initialiser": 2824,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

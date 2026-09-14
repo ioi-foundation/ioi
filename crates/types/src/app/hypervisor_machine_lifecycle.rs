@@ -263,6 +263,53 @@ pub fn admit_machine_operation(
     MachineVerdict::admit()
 }
 
+/// THE DETERMINISTIC REFERENCE EXECUTOR, and the fence that keeps it out of a real deployment.
+///
+/// ACC-20's merge lane runs against deterministic reference backends; a release claim needs fresh
+/// backend evidence for each named profile, and simulated-only evidence may validate the contract
+/// and may never qualify a public host or attached-estate matrix. Those are two different claims,
+/// and this function is only ever allowed to serve the first.
+///
+/// SO IT REFUSES ANY DECLARATION THAT IS NOT `evidence_mode: simulated`. A backend declaring `live`
+/// or `declared` evidence is a real backend, and answering for it here would be manufacturing the
+/// simulated success the journey's negative clauses refuse by name. The fence is the whole reason
+/// this can live beside production code rather than only in a test.
+///
+/// WHY `migrate` IS AMBIGUOUS RATHER THAN SUCCESSFUL. Not a test hook: migration completion is
+/// genuinely observed externally, and a reference backend that reported every verb as confirmed
+/// would never exercise the third member of the result vocabulary — leaving the estate's handling
+/// of "I do not know" unproven precisely where it matters most.
+pub fn execute_reference_operation(
+    operation: &Value,
+    resolved_declaration: &Value,
+) -> Result<MachineEffectOutcome, String> {
+    let mode = resolved_declaration
+        .get("evidence_mode")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if mode != "simulated" {
+        return Err(format!(
+            "reference_executor_refuses_non_simulated_backend: evidence_mode is '{mode}'"
+        ));
+    }
+    let verb = required_string(operation, "/operation")?;
+    let desired = operation
+        .get("desired_generation")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| "operation carries no desired_generation".to_string())?;
+    if verb == "migrate" {
+        return Ok(MachineEffectOutcome::Ambiguous {
+            backend_native_operation_id: Some(format!("reference-migrate-{desired}")),
+            reason: "external_completion_unconfirmed".to_string(),
+        });
+    }
+    Ok(MachineEffectOutcome::Succeeded {
+        backend_native_operation_id: Some(format!("reference-{verb}-{desired}")),
+        desired_generation_after: desired,
+        observed_generation_after: desired,
+    })
+}
+
 /// The hash of an operation AS ADMITTED. One definition, used by the receipt compiler and by the
 /// durable plane that advances a workload's head — because two places computing "the same" hash is
 /// how a head and a receipt come to disagree about which operation they describe.
@@ -760,6 +807,88 @@ mod tests {
         assert_eq!(
             replayed.refusal_dimension,
             Some("operation_already_applied")
+        );
+    }
+
+    #[test]
+    fn the_reference_executor_refuses_a_backend_that_is_not_simulated() {
+        // THE FENCE. A live or declared backend is a real backend; answering for it here would
+        // manufacture exactly the simulated success the journey refuses by name.
+        for mode in ["live", "declared"] {
+            let mut declaration = declaration("start", true);
+            declaration["evidence_mode"] = json!(mode);
+            let error =
+                execute_reference_operation(&operation("start", &declaration), &declaration)
+                    .expect_err(
+                        "a non-simulated backend must not be executed by the reference executor",
+                    );
+            assert!(
+                error.contains("reference_executor_refuses_non_simulated_backend"),
+                "{error}"
+            );
+        }
+        let simulated = declaration("start", true);
+        assert!(execute_reference_operation(&operation("start", &simulated), &simulated).is_ok());
+    }
+
+    #[test]
+    fn the_reference_executor_produces_an_ambiguous_outcome_for_migration() {
+        // Not a test hook: migration completion is genuinely observed externally, and a reference
+        // backend confirming every verb would leave the third result member unexercised.
+        let attached = attached_reference();
+        let outcome =
+            execute_reference_operation(&operation("migrate", &attached), &attached).unwrap();
+        assert!(
+            matches!(outcome, MachineEffectOutcome::Ambiguous { .. }),
+            "{outcome:?}"
+        );
+
+        let receipt = compile_effect_receipt(
+            &operation("migrate", &attached),
+            "machine-operation-receipt://mor_09",
+            &outcome,
+            6,
+            6,
+            &[],
+            "verifier-profile://infrastructure_attached_v1",
+        )
+        .expect("an ambiguous receipt is a valid receipt");
+        assert_eq!(receipt["result"], json!("ambiguous"));
+        assert_eq!(
+            receipt["desired_generation_after"],
+            json!(6),
+            "ambiguity advances nothing"
+        );
+        assert_eq!(receipt["observed_generation_after"], json!(6));
+    }
+
+    #[test]
+    fn a_reference_success_advances_both_generations_to_the_operations_desired_one() {
+        let hosted = hosted_reference();
+        let op = operation("start", &hosted);
+        let outcome = execute_reference_operation(&op, &hosted).unwrap();
+        let receipt = compile_effect_receipt(
+            &op,
+            "machine-operation-receipt://mor_10",
+            &outcome,
+            6,
+            6,
+            &[],
+            "verifier-profile://workstation_hosted_v1",
+        )
+        .unwrap();
+        assert_eq!(receipt["result"], json!("succeeded"));
+        assert_eq!(receipt["desired_generation_after"], json!(7));
+        assert_eq!(receipt["observed_generation_after"], json!(7));
+        assert_eq!(
+            receipt["backend_native_operation_id"],
+            json!("reference-start-7"),
+            "the backend's own id is carried as EVIDENCE, and it is not the canonical identity"
+        );
+        assert_eq!(
+            receipt["operation_ref"],
+            json!("machine-operation://mop_01"),
+            "canonical identity stays the daemon's"
         );
     }
 
