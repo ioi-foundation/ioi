@@ -42,6 +42,7 @@ pub mod harness;
 /// manifest-complete backups, staged restore/activation plans, and durable
 /// cleanup obligations.
 pub mod hypervisor_environment_lifecycle;
+pub mod hypervisor_machine_lifecycle;
 /// HypervisorOS node-attestation plane: boot profiles, boot receipts,
 /// sealed-identity binding, temporal freshness, and readiness derivation.
 pub mod hypervisoros_node_attestation;
