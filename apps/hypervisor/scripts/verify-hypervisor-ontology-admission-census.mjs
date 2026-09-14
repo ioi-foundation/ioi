@@ -633,6 +633,20 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (d5d3e83ed — five discarded writes this program's M09.3 and M09.5 cuts
+  // had left behind, found by running the R-18-red mutation-coverage gates to write an exact
+  // fence). Tokens 150758 -> 150790, attributed per file with the extractor on the pre- and
+  // post-fix sources: environment_routes.rs 3549 -> 3566 (+17: the returned Result in
+  // `persist_environment_ports`, the error observation in `handle_environment_action`, the named
+  // 500 in `handle_env_port_revoke`) and provider_routes.rs 7490 -> 7505 (+15: the
+  // `durable_copy_persisted` / `durable_copy_error` disposition fields at the three adapter
+  // teardown sites). Foreign-qualified 4642 -> 4643: one more `StatusCode::INTERNAL_SERVER_ERROR`
+  // occurrence, at the revoke handler's projection write — the same qualifier the sibling record
+  // write two lines above already used. EVERY WRITER BUCKET HELD (family 57, non-ODK literal 254,
+  // runtime 311), judged positions 281, family mentions 285 and production filesystem calls 242
+  // all unchanged: the fix CHECKS the result of persist calls that already existed and adds no
+  // call, no family and no lane — a census that moved only tokens and one qualified-name count
+  // is the census agreeing that nothing structural changed.
   // Re-pinned 2026-09-14 (M09.11, the fork-rule head and the conformance gate). Tokens
   // 150721 -> 150758 and foreign-qualified 4641 -> 4642 (one more `StatusCode::` occurrence at the
   // fork-refusal site). EVERY WRITER BUCKET HELD AGAIN, and the filesystem count too: the fork
@@ -770,7 +784,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150758,
+  tokenMentions: 150790,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -791,7 +805,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4642,
+    "foreign-qualified": 4643,
     "opaque-initialiser": 2824,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

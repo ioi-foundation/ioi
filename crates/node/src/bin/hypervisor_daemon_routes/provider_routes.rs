@@ -1978,19 +1978,26 @@ impl EnvironmentProvider for VastProvider {
             let id = obligation["cleanup_obligation_ref"]
                 .as_str()
                 .unwrap_or_default();
-            let _ = persist_record(
+            // The obligation's durable copy is the one write this object exists for — a resource
+            // that may still exist with no record saying so. A failed persist is therefore
+            // recorded on the instance's own projection (`durable_copy_persisted: false`, the same
+            // convergence the environment lane took) rather than discarded by the handler.
+            if let Err(error) = persist_record(
                 data_dir,
                 super::hypervisor_environment_routes::CLEANUP_DIR,
                 &safe(id),
                 &obligation,
-            );
+            ) {
+                inst["deletion_disposition"]["durable_copy_persisted"] = json!(false);
+                inst["deletion_disposition"]["durable_copy_error"] = json!(error.to_string());
+            }
         }
         self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": inst["deletion_disposition"].clone() }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -2510,19 +2517,26 @@ impl EnvironmentProvider for RunPodProvider {
             let id = obligation["cleanup_obligation_ref"]
                 .as_str()
                 .unwrap_or_default();
-            let _ = persist_record(
+            // The obligation's durable copy is the one write this object exists for — a resource
+            // that may still exist with no record saying so. A failed persist is therefore
+            // recorded on the instance's own projection (`durable_copy_persisted: false`, the same
+            // convergence the environment lane took) rather than discarded by the handler.
+            if let Err(error) = persist_record(
                 data_dir,
                 super::hypervisor_environment_routes::CLEANUP_DIR,
                 &safe(id),
                 &obligation,
-            );
+            ) {
+                inst["deletion_disposition"]["durable_copy_persisted"] = json!(false);
+                inst["deletion_disposition"]["durable_copy_error"] = json!(error.to_string());
+            }
         }
         self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": inst["deletion_disposition"].clone() }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -3079,19 +3093,26 @@ impl EnvironmentProvider for LambdaProvider {
             let id = obligation["cleanup_obligation_ref"]
                 .as_str()
                 .unwrap_or_default();
-            let _ = persist_record(
+            // The obligation's durable copy is the one write this object exists for — a resource
+            // that may still exist with no record saying so. A failed persist is therefore
+            // recorded on the instance's own projection (`durable_copy_persisted: false`, the same
+            // convergence the environment lane took) rather than discarded by the handler.
+            if let Err(error) = persist_record(
                 data_dir,
                 super::hypervisor_environment_routes::CLEANUP_DIR,
                 &safe(id),
                 &obligation,
-            );
+            ) {
+                inst["deletion_disposition"]["durable_copy_persisted"] = json!(false);
+                inst["deletion_disposition"]["durable_copy_error"] = json!(error.to_string());
+            }
         }
         self.save_instance(data_dir, &inst)?;
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": inst["deletion_disposition"].clone() }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {

@@ -1057,7 +1057,17 @@ pub(crate) fn load_environment_port(
 /// Persist the admitted port set for one environment, validating each against its
 /// registered contract BEFORE the write. A record that would not survive the offline
 /// verifier is never written and then explained.
-pub(crate) fn persist_environment_ports(data_dir: &str, environment_id: &str, rows: &[Value]) {
+///
+/// The write's result is RETURNED, never discarded: a port record that failed to persist is a
+/// projection row with no owner, which is the drift M09.3 exists to prevent, and a handler that
+/// swallowed the error would be a mutating handler whose success no longer means the write landed
+/// (MEF-GAP-008's two tests). Every row is attempted; the first failure is what comes back.
+pub(crate) fn persist_environment_ports(
+    data_dir: &str,
+    environment_id: &str,
+    rows: &[Value],
+) -> Result<(), String> {
+    let mut first_failure = None;
     for row in rows {
         let port = row.get("port").and_then(Value::as_u64).unwrap_or(0);
         if port == 0 {
@@ -1069,7 +1079,14 @@ pub(crate) fn persist_environment_ports(data_dir: &str, environment_id: &str, ro
             continue;
         }
         let id = safe_id(record["port_ref"].as_str().unwrap_or_default());
-        let _ = persist_record(data_dir, ENVIRONMENT_PORT_RECORDS, &id, &record);
+        if let Err(error) = persist_record(data_dir, ENVIRONMENT_PORT_RECORDS, &id, &record) {
+            first_failure
+                .get_or_insert_with(|| format!("port record {id} failed to persist: {error}"));
+        }
+    }
+    match first_failure {
+        Some(failure) => Err(failure),
+        None => Ok(()),
     }
 }
 
@@ -1350,7 +1367,8 @@ mod m09_3_port_object_tests {
         let dir = scratch("persist");
         let data_dir = dir.to_str().unwrap();
         // Port 0 is not a port. It is skipped rather than written and then explained.
-        persist_environment_ports(data_dir, "env-1", &[row(5432), row(8080), row(0)]);
+        persist_environment_ports(data_dir, "env-1", &[row(5432), row(8080), row(0)])
+            .expect("port records persist");
         let written = read_record_dir(data_dir, ENVIRONMENT_PORT_RECORDS);
         assert_eq!(written.len(), 2, "{written:?}");
         for record in &written {
@@ -1642,7 +1660,17 @@ pub(crate) async fn handle_env_port_revoke(
         }
     }
     let env_id = safe_id(&id);
-    let _ = persist_record(&st.data_dir, "environments", &env_id, &env);
+    // The revocation record above IS the decision and is already durable; the projection write is
+    // checked rather than discarded so that a failure here is reported as what it is — a durable
+    // decision whose projection did not follow — instead of a 2xx over a write that never landed.
+    persist_record(&st.data_dir, "environments", &env_id, &env).map_err(|error| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!(
+                "port {port} is revoked (record {record_id} persisted) but the environment projection failed to persist: {error}"
+            ),
+        )
+    })?;
     Ok(Json(json!({ "ok": true, "port": record })))
 }
 
@@ -4228,7 +4256,27 @@ pub(crate) async fn handle_environment_action(
                 // The typed rows keep serving the projection callers already read; persisting them
                 // as records is what gives that projection an owner (M09.3). Done here rather than
                 // in a separate lane so the record set cannot drift from the rows it describes.
-                persist_environment_ports(&st.data_dir, &id, &ports);
+                // A persist failure is exactly that drift, so it is surfaced on the environment's
+                // own status as an error observation rather than swallowed.
+                if let Err(error) = persist_environment_ports(&st.data_dir, &id, &ports) {
+                    set_component(
+                        &mut env,
+                        "connectivity",
+                        "degraded",
+                        "port records failed to persist",
+                    );
+                    let message = format!(
+                        "port records failed to persist; the port projection has no durable owner: {error}"
+                    );
+                    observe(
+                        &mut env,
+                        "checking_connectivity",
+                        "ports",
+                        "port_records_not_persisted",
+                        "error",
+                        &message,
+                    );
+                }
                 if any_conflict {
                     set_component(&mut env, "connectivity", "degraded", "host port conflict");
                     observe(
