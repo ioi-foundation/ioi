@@ -129,6 +129,15 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
+  // Re-pinned 2026-09-14 (M08.10 slice B) from 1132 to 1134 registered handlers: the extension
+  // registration route `.../installations/:installation_id/registration` carries TWO handlers on
+  // ONE path — POST admits the v2 registration over an installed binding, GET reads it or the
+  // typed absence — so this census moves by 2 while the distinct-path census in
+  // verify-hypervisor-named-gap-truth.mjs moves by 1, and both pins moved in the same commit as
+  // the route. WORKSPACE HANDLERS (40) AND CANDIDATES (47) HELD: Applications admitting an
+  // extension registration is a package-plane act over admitted release and binding truth, not an
+  // environment-plane owner act and not a new owner-resolvable environment surface; unresolved 0,
+  // unclassified 0.
   // Re-pinned 2026-09-14 (M09.11) from 1130 to 1132 registered handlers: the machine-operation
   // plane adds ONE route path carrying TWO handlers — POST to submit a proposal, GET to read what
   // was recorded — so this census moves by 2 while the distinct-path census beside it moves by 1.
@@ -201,7 +210,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
-  census.registered_route_handlers === 1132 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1134 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

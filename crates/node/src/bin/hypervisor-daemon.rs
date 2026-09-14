@@ -2542,6 +2542,13 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/uninstall",
             post(package_registry_routes::handle_installation_uninstall),
         )
+        // M08.10 slice B — Applications admits the `extension_application` registration over one
+        // installed binding (the typed absence this plane refused by name since W2.3).
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/registration",
+            get(package_registry_routes::handle_installation_registration_get)
+                .post(package_registry_routes::handle_installation_registration_create),
+        )
         // Compatibility list aliases for the previously-404 top-level paths (GET only). No
         // /domain-apps alias — it stays 404 until it has a real plane. Blueprints now have one:
         // canonical at /v1/hypervisor/studio/blueprints (studio_routes, OQ-11); no top-level alias.

@@ -161,6 +161,14 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 875 -> 876 (2026-09-14, M08.10 slice B): the extension registration,
+  // `/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/registration`,
+  // carrying POST (Applications admits the v2 registration over one installed binding) and GET
+  // (read what was admitted, or the typed absence) on ONE path — so this distinct-path census moves
+  // by one while the registered-handler census in verify-hypervisor-environment-owner-source.mjs
+  // moves by two, and both pins were moved in the SAME commit as the route this time. 877 `.route(`
+  // occurrences, 877 with a path literal, 876 distinct paths. The absence-probe population held:
+  // the packages journey's new assertions are worded as admissions and refusals, not absences.
   // 874 -> 875 (2026-09-14, M09.11): the machine-operation plane's single route,
   // `/v1/hypervisor/machines/:workload/operations`, carrying POST (submit a proposal for
   // admission) and GET (read what was recorded) on ONE path — which is why the distinct-path
@@ -200,7 +208,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 875,
+  registeredRoutes: 876,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

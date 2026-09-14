@@ -53,6 +53,19 @@ const INSTALLATION_SCHEMA: &str = "ioi.hypervisor.surface_installation_binding.v
 const RELEASE_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/surface-release-record/v2";
 const INSTALLATION_CONTRACT_ID: &str =
     "schema://ioi/components/hypervisor/surface-installation-binding/v1";
+// M08.10 slice B — the `extension_application` registration this module's own nonclaim said was
+// missing. Applications admits exactly ONE v2 `HypervisorApplicationSurfaceRegistration` per
+// installed binding over an active release; the record is the SAME contract the 29 first-party
+// registrations satisfy, so the compiled product-surface join reads it as a second source rather
+// than a special case. Registration starts no process, serves no route and grants no authority.
+const REGISTRATION_SCOPE_KIND: &str = "hypervisor-extension-registration";
+const REGISTRATION_ADMISSION_SCHEMA: &str = "ioi.hypervisor.package_registration_admission.v1";
+const REGISTRATION_SCHEMA: &str = "ioi.hypervisor.application_surface_registration.v2";
+const REGISTRATION_CONTRACT_ID: &str =
+    "schema://ioi/components/hypervisor/application-surface-registration/v2";
+const EXTENSION_SURFACE_PREFIX: &str = "surface://extensions/";
+const EXTENSION_ROUTE_PREFIX: &str = "/__ioi/extensions/";
+const EXTENSION_OWNER_DOC_REF: &str = "doc://architecture/hypervisor/packages";
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -125,6 +138,22 @@ struct UninstallRequest {
 struct RecallRequest {
     expected_release_head: String,
     reason: String,
+    idempotency_key: String,
+    recorded_at_ms: Option<u64>,
+}
+
+/// The caller-authored half of an extension registration. Everything else on the v2 record is
+/// DERIVED from the admitted release and binding (surface ref, key, class, route, contracts,
+/// origin, creation method, effect boundary) — a caller that could name its own class or route
+/// would be registering a first-party surface from outside.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RegistrationRequest {
+    expected_installation_head: String,
+    display_name: String,
+    supported_placements: Vec<String>,
+    launch_modes: Vec<String>,
+    supported_context_kinds: Vec<String>,
     idempotency_key: String,
     recorded_at_ms: Option<u64>,
 }
@@ -858,11 +887,13 @@ fn release_recall_facts(release: &ExactProjection) -> (String, Value) {
 }
 
 /// Why this binding cannot launch, derived at read time from admitted truth:
-/// its own terminal state, the current release disposition, and the structural
-/// pair this packet never claims away (no registration, no serving binding).
+/// its own terminal state, the current release disposition, whether Applications
+/// has admitted the extension registration, and the serving binding this packet
+/// still never claims (slice C).
 fn derived_disabled_reason_codes(
     installation_state: &str,
     release_disposition: &str,
+    registered: bool,
 ) -> Vec<&'static str> {
     let mut codes = Vec::new();
     if installation_state == "uninstalled" {
@@ -871,15 +902,34 @@ fn derived_disabled_reason_codes(
     if release_disposition == "recalled" {
         codes.push("surface_release_recalled");
     }
-    codes.push("extension_application_registration_absent");
+    if !registered {
+        codes.push("extension_application_registration_absent");
+    }
     codes.push("surface_serving_binding_absent");
     codes
+}
+
+/// The registration admitted over this binding, if Applications has admitted one. Read from the
+/// registration stream keyed by the binding's own ref, never inferred from the binding's fields.
+fn registration_for(data_dir: &str, installation: &ExactProjection) -> Option<ExactProjection> {
+    let installation_ref =
+        installation.operation.payload["installation"]["installation_ref"].as_str()?;
+    read_registration(data_dir, installation_ref)
+}
+
+fn read_registration(data_dir: &str, installation_ref: &str) -> Option<ExactProjection> {
+    let tail = hash_tail("registration", installation_ref);
+    super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+        .ok()
+        .flatten()
+        .filter(|exact| exact.operation.payload["schema_version"] == REGISTRATION_ADMISSION_SCHEMA)
 }
 
 fn render_installation(
     exact: &ExactProjection,
     replayed: Option<bool>,
     release: &ExactProjection,
+    registration: Option<&ExactProjection>,
 ) -> Value {
     let (release_disposition, recall_reason) = release_recall_facts(release);
     let installation_state = exact.operation.payload["installation"]["surface_installation_state"]
@@ -889,11 +939,13 @@ fn render_installation(
     json!({
         "record": exact.operation.payload["installation"],
         "release_head": exact.operation.payload["release_head"],
-        "registration_state": "absent",
+        "registration_state": if registration.is_some() { "admitted" } else { "absent" },
+        "registration": registration.map(|reg| reg.operation.payload["registration"].clone()).unwrap_or(Value::Null),
+        "registration_head": registration.map(|reg| json!(reg.head)).unwrap_or(Value::Null),
         "launch_eligible": false,
         "release_disposition": release_disposition,
         "release_recall_reason": recall_reason,
-        "disabled_reason_codes": derived_disabled_reason_codes(&installation_state, &release_disposition),
+        "disabled_reason_codes": derived_disabled_reason_codes(&installation_state, &release_disposition, registration.is_some()),
         "agentgres": agentgres_metadata(exact, replayed),
     })
 }
@@ -1789,7 +1841,7 @@ pub(crate) async fn handle_installation_create(
             StatusCode::CREATED,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&commit.projection, Some(commit.replayed), &release)
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, registration_for(&st.data_dir, &commit.projection).as_ref())
             })),
         ),
         Err(reply) => reply,
@@ -1841,7 +1893,13 @@ pub(crate) async fn handle_installation_list(
             && record["release_ref"] == target_release_ref
             && allowed.contains(resource_ref)
         {
-            installations.push(render_installation(&exact, None, &release));
+            let registration = registration_for(&st.data_dir, &exact);
+            installations.push(render_installation(
+                &exact,
+                None,
+                &release,
+                registration.as_ref(),
+            ));
         }
     }
     installations.sort_by(|left, right| {
@@ -1884,11 +1942,484 @@ pub(crate) async fn handle_installation_get(
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&exact, None, &release)
+                "installation": render_installation(&exact, None, &release, registration_for(&st.data_dir, &exact).as_ref())
             })),
         ),
         Err(reply) => reply,
     }
+}
+
+fn valid_display_name(value: &str) -> bool {
+    let trimmed = value.trim();
+    !trimmed.is_empty() && trimmed.chars().count() <= 96 && !trimmed.chars().any(char::is_control)
+}
+
+fn validate_registration_request(request: &RegistrationRequest) -> Result<(), Reply> {
+    if !valid_hash(&request.expected_installation_head) {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "extension_registration_expected_head_invalid",
+            "expected_installation_head must be a canonical sha256 head",
+        ));
+    }
+    if !valid_display_name(&request.display_name) {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "extension_registration_display_name_invalid",
+            "display_name is required, at most 96 characters, and contains no control characters",
+        ));
+    }
+    if request.supported_placements.is_empty()
+        || request.launch_modes.is_empty()
+        || !unique_nonempty(&request.supported_placements)
+        || !unique_nonempty(&request.launch_modes)
+        || !unique_nonempty(&request.supported_context_kinds)
+    {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "extension_registration_request_invalid",
+            "supported_placements and launch_modes must be non-empty; every membership list must be unique and non-blank",
+        ));
+    }
+    if !valid_idempotency_key(&request.idempotency_key) {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "package_idempotency_key_invalid",
+            "idempotency_key is required, bounded, and contains no control characters",
+        ));
+    }
+    Ok(())
+}
+
+/// The effect boundary is DERIVED from the admitted release's capability depth rather than
+/// declared by the registrant: a surface that may `act` is effectful whatever it says about
+/// itself, and one that may only `browse` or `inspect` cannot register a wider boundary.
+fn effect_boundary_for_depth(depth: &str) -> &'static str {
+    match depth {
+        "browse" | "inspect" => "inspect_only",
+        "propose" => "propose_only",
+        _ => "effectful",
+    }
+}
+
+/// Build the v2 registration record for one installed binding over one active release. Every
+/// field that names WHAT the surface is comes from admitted truth; the request contributes only
+/// the display name and the membership lists, and the whole record is checked against the
+/// registered contract before anything is written — a caller-shaped refusal is 400, never 500.
+fn build_registration(
+    package_id: &str,
+    release: &ExactProjection,
+    installation: &ExactProjection,
+    request: &RegistrationRequest,
+) -> Result<Value, Reply> {
+    let release_record = &release.operation.payload["release"];
+    let binding = &installation.operation.payload["installation"];
+    let surface_ref = binding["surface_ref"].as_str().unwrap_or_default();
+    if !surface_ref.starts_with(EXTENSION_SURFACE_PREFIX) {
+        return Err(bad(
+            StatusCode::FORBIDDEN,
+            "extension_registration_namespace_refused",
+            format!(
+                "{surface_ref} is outside {EXTENSION_SURFACE_PREFIX}; this seam admits extension applications only — a first-party surface registers through the taxonomy, never through Packages"
+            ),
+        ));
+    }
+    // `surface_key` is the package id, and the registration contract's key grammar is narrower
+    // than a package id's (no `_` or `.`). A package whose id cannot be a surface key is refused
+    // rather than rewritten: an identity the daemon silently reshaped would be two identities.
+    let key_is_canonical = !package_id.is_empty()
+        && package_id.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        });
+    if !key_is_canonical {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "extension_registration_surface_key_invalid",
+            format!(
+                "package id {package_id} is not a canonical surface key ([a-z0-9]+(-[a-z0-9]+)*)"
+            ),
+        ));
+    }
+    let registration = json!({
+        "schema_version": REGISTRATION_SCHEMA,
+        "surface_ref": surface_ref,
+        "surface_key": package_id,
+        "surface_class": "extension_application",
+        "display_name": request.display_name.trim(),
+        // An organization-installed extension is available to that organization: `limited` is the
+        // product-availability axis, and it is independent of launchability, which the serving
+        // binding (slice C) earns.
+        "surface_availability": "limited",
+        "canonical_route": format!("{EXTENSION_ROUTE_PREFIX}{package_id}"),
+        "canonical_owner_doc_ref": EXTENSION_OWNER_DOC_REF,
+        "effect_boundary": effect_boundary_for_depth(
+            release_record["surface_capability_depth"].as_str().unwrap_or_default()
+        ),
+        // The binding's ALLOWED subsets, not the release's full sets: an installation narrows, and
+        // the registration must not re-widen what the organization chose to allow.
+        "declared_object_contract_refs": binding["allowed_object_contract_refs"],
+        "declared_action_contract_refs": binding["allowed_action_refs"],
+        "context_route_resolver_refs": [],
+        "surface_origin": "organization",
+        "surface_creation_method": "developer_kit_generated",
+        "supported_placements": request.supported_placements,
+        "launch_modes": request.launch_modes,
+        "supported_context_kinds": request.supported_context_kinds,
+    });
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        REGISTRATION_CONTRACT_ID,
+        &registration,
+    )
+    .map_err(|error| {
+        bad(
+            StatusCode::BAD_REQUEST,
+            "extension_registration_contract_refused",
+            format!("the registration does not satisfy {REGISTRATION_CONTRACT_ID}: {error}"),
+        )
+    })?;
+    Ok(registration)
+}
+
+fn render_registration(exact: &ExactProjection, replayed: Option<bool>) -> Value {
+    json!({
+        "record": exact.operation.payload["registration"],
+        "installation_ref": exact.operation.payload["installation_ref"],
+        "installation_head": exact.operation.payload["installation_head"],
+        "release_ref": exact.operation.payload["release_ref"],
+        "release_head": exact.operation.payload["release_head"],
+        "registration_state": "admitted",
+        "serving_binding_state": exact.operation.payload["serving_binding_state"],
+        "launch_eligible": false,
+        "disabled_reason_codes": exact.operation.payload["disabled_reason_codes"],
+        "nonclaim": exact.operation.payload["nonclaim"],
+        "agentgres": agentgres_metadata(exact, replayed),
+    })
+}
+
+/// GET .../installations/:installation_id/registration — the admitted extension registration,
+/// or a typed absence naming what is missing.
+pub(crate) async fn handle_installation_registration_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath((package_id, release_digest, installation_id)): AxumPath<(String, String, String)>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    if let Err(reply) =
+        read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest)
+    {
+        return reply;
+    }
+    let installation = match read_installation_authorized(
+        &st.data_dir,
+        &identity,
+        &package_id,
+        &release_digest,
+        &installation_id,
+    ) {
+        Ok(exact) => exact,
+        Err(reply) => return reply,
+    };
+    match registration_for(&st.data_dir, &installation) {
+        Some(exact) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "registration": render_registration(&exact, None) })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "extension_application_registration_absent",
+                    "message": "no extension registration has been admitted over this installation binding"
+                }
+            })),
+        ),
+    }
+}
+
+/// POST .../installations/:installation_id/registration — Applications admits the extension
+/// registration over one installed binding on one active release, exactly once, under exact-head
+/// CAS on the binding; the binding's enablement follows as an immutable successor revision on the
+/// installation stream, because a registered extension is what the organization admitted.
+pub(crate) async fn handle_installation_registration_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath((package_id, release_digest, installation_id)): AxumPath<(String, String, String)>,
+    Json(body): Json<Value>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    let request: RegistrationRequest = match parse(body, "extension_registration_request_invalid") {
+        Ok(request) => request,
+        Err(reply) => return reply,
+    };
+    if let Err(reply) = validate_registration_request(&request) {
+        return reply;
+    }
+    let release =
+        match read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest) {
+            Ok(release) => release,
+            Err(reply) => return reply,
+        };
+    let installation = match read_installation_authorized(
+        &st.data_dir,
+        &identity,
+        &package_id,
+        &release_digest,
+        &installation_id,
+    ) {
+        Ok(exact) => exact,
+        Err(reply) => return reply,
+    };
+    let (release_disposition, _) = release_recall_facts(&release);
+    if release_disposition != "active" {
+        return bad(
+            StatusCode::CONFLICT,
+            "extension_registration_release_not_active",
+            format!("the release carries disposition {release_disposition}; only an active release may be registered"),
+        );
+    }
+    let binding = installation.operation.payload["installation"].clone();
+    if binding["surface_installation_state"].as_str() != Some("installed") {
+        return bad(
+            StatusCode::CONFLICT,
+            "extension_registration_installation_not_installed",
+            "only an installed binding may carry an extension registration",
+        );
+    }
+    let installation_ref = binding["installation_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let owner_ref = installation.operation.payload["owner_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    // Exactly one registration per binding: an exact retry replays the original admission and
+    // nothing else; a second registration under a fresh key refuses by name. The replay check
+    // comes BEFORE the head check on purpose — the admission itself advanced the binding's head
+    // (the enablement successor), so an exact retry necessarily quotes the head it quoted the
+    // first time, and idempotent replay is the promise that such a retry is harmless.
+    if let Some(existing) = read_registration(&st.data_dir, &installation_ref) {
+        if existing.operation.idem_key == request.idempotency_key {
+            let current = read_installation_authorized(
+                &st.data_dir,
+                &identity,
+                &package_id,
+                &release_digest,
+                &installation_id,
+            );
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "registration": render_registration(&existing, Some(true)),
+                    "installation": current.ok().map(|exact| render_installation(&exact, Some(true), &release, Some(&existing))).unwrap_or(Value::Null)
+                })),
+            );
+        }
+        return bad(
+            StatusCode::CONFLICT,
+            "extension_registration_already_admitted",
+            "this installation binding already carries an admitted extension registration; registrations are not re-issued",
+        );
+    }
+    if request.expected_installation_head != installation.head {
+        return bad(
+            StatusCode::CONFLICT,
+            "extension_registration_expected_head_conflict",
+            "expected_installation_head is not the current admitted installation head",
+        );
+    }
+    let registration = match build_registration(&package_id, &release, &installation, &request) {
+        Ok(value) => value,
+        Err(reply) => return reply,
+    };
+    let admission = json!({
+        "schema_version": REGISTRATION_ADMISSION_SCHEMA,
+        "registration": registration,
+        "owner_ref": owner_ref,
+        "installation_ref": installation_ref,
+        "installation_head": installation.head,
+        "release_ref": binding["release_ref"],
+        "release_head": release.head,
+        "registration_state": "admitted",
+        "serving_binding_state": "absent",
+        "launch_eligible": false,
+        "disabled_reason_codes": ["surface_serving_binding_absent"],
+        "nonclaim": "Registration admits the surface into the compiled product-surface projection under its declared placements and launch modes and enables the organization's installation binding; it starts no process, serves no route, binds no System and grants no authority — launchability is earned by a serving binding."
+    });
+    let scope = match bind_scope(
+        &st.data_dir,
+        &identity,
+        REGISTRATION_SCOPE_KIND,
+        &installation_ref,
+        &owner_ref,
+        &request.idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    let registration_commit = match admit(
+        &st.data_dir,
+        true,
+        &identity,
+        &scope,
+        REGISTRATION_SCOPE_KIND,
+        &installation_ref,
+        &hash_tail("registration", &installation_ref),
+        "event_stream.hypervisor_extension_registration_admitted",
+        None,
+        &admission,
+        request.recorded_at_ms.unwrap_or_default(),
+        &request.idempotency_key,
+    ) {
+        Ok(commit) => commit,
+        Err(reply) => return reply,
+    };
+    // Enablement follows registration as a successor revision on the installation stream under
+    // the SAME expected head the caller quoted — the binding's bytes are not edited, a revision is
+    // appended, and a stale head refuses here exactly as it does on uninstall.
+    let mut enabled = binding.clone();
+    enabled["surface_enablement_state"] = json!("enabled");
+    enabled["revision"] = json!(binding["revision"].as_u64().unwrap_or(1) + 1);
+    if let Err(reply) = validate_canonical_contract(
+        INSTALLATION_CONTRACT_ID,
+        &enabled,
+        "package_installation_contract_failed",
+    ) {
+        return reply;
+    }
+    let enablement = json!({
+        "schema_version": INSTALLATION_ADMISSION_SCHEMA,
+        "installation": enabled,
+        "owner_ref": owner_ref,
+        "release_head": installation.operation.payload["release_head"],
+        "registration_state": "admitted",
+        "registration_head": registration_commit.projection.head,
+        "launch_eligible": false,
+        "disabled_reason_codes": ["surface_serving_binding_absent"],
+        "transition": "enabled_by_registration",
+        "nonclaim": "Enablement records that Applications admitted the extension registration; no runtime, route, or launch effect is claimed until a serving binding exists."
+    });
+    let install_scope = match bind_scope(
+        &st.data_dir,
+        &identity,
+        INSTALLATION_SCOPE_KIND,
+        &installation_ref,
+        &owner_ref,
+        &format!("{}:enabled-by-registration", request.idempotency_key),
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    match admit(
+        &st.data_dir,
+        false,
+        &identity,
+        &install_scope,
+        INSTALLATION_SCOPE_KIND,
+        &installation_ref,
+        &hash_tail("installation", &installation_ref),
+        "event_stream.hypervisor_surface_installation_enabled",
+        Some(&installation.head),
+        &enablement,
+        request.recorded_at_ms.unwrap_or_default(),
+        &format!("{}:enabled-by-registration", request.idempotency_key),
+    ) {
+        Ok(commit) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "ok": true,
+                "registration": render_registration(&registration_commit.projection, Some(registration_commit.replayed)),
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, Some(&registration_commit.projection))
+            })),
+        ),
+        Err(reply) => reply,
+    }
+}
+
+/// The registry-backed half of the product-surface join (M08.10 slice B): every admitted
+/// extension registration for this organization whose binding is still installed and whose
+/// release is still active, together with the release record and installation binding the
+/// compiled join needs to run its three stages over it. The serving stage is left to the static
+/// serving bindings (none exist for extensions until slice C), so the join's typed reason for an
+/// extension today is exactly `no_serving_binding` — and it reaches that reason through the SAME
+/// code every first-party surface does.
+pub(crate) fn registered_extension_surfaces(
+    data_dir: &str,
+    org_ref: &str,
+) -> Result<(Vec<Value>, Vec<Value>, Vec<Value>), String> {
+    let tails = super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE)
+        .map_err(|error| error.to_string())?;
+    let mut registrations = Vec::new();
+    let mut releases = Vec::new();
+    let mut installations = Vec::new();
+    for tail in tails
+        .into_iter()
+        .filter(|tail| tail.starts_with("registration."))
+    {
+        let Some(registration) =
+            super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+                .map_err(|error| error.to_string())?
+        else {
+            continue;
+        };
+        if registration.operation.payload["schema_version"] != REGISTRATION_ADMISSION_SCHEMA
+            || registration.operation.payload["owner_ref"].as_str() != Some(org_ref)
+        {
+            continue;
+        }
+        let Some(installation_ref) = registration.operation.payload["installation_ref"].as_str()
+        else {
+            continue;
+        };
+        let Some(installation) = super::substrate_store::read_event_stream_operation(
+            data_dir,
+            NAMESPACE,
+            &hash_tail("installation", installation_ref),
+        )
+        .map_err(|error| error.to_string())?
+        else {
+            continue;
+        };
+        let binding = installation.operation.payload["installation"].clone();
+        if installation.operation.payload["schema_version"] != INSTALLATION_ADMISSION_SCHEMA
+            || binding["surface_installation_state"].as_str() != Some("installed")
+        {
+            continue;
+        }
+        let Some(release_ref) = binding["release_ref"].as_str() else {
+            continue;
+        };
+        let Some(release) = super::substrate_store::read_event_stream_operation(
+            data_dir,
+            NAMESPACE,
+            &hash_tail("release", release_ref),
+        )
+        .map_err(|error| error.to_string())?
+        else {
+            continue;
+        };
+        let release_record = release.operation.payload["release"].clone();
+        if release.operation.payload["schema_version"] != RELEASE_ADMISSION_SCHEMA
+            || release_record["surface_package_disposition"].as_str() != Some("active")
+        {
+            continue;
+        }
+        registrations.push(registration.operation.payload["registration"].clone());
+        releases.push(release_record);
+        installations.push(binding);
+    }
+    Ok((registrations, releases, installations))
 }
 
 fn prior_idempotent_projection(
@@ -1960,7 +2491,7 @@ pub(crate) async fn handle_installation_uninstall(
                 StatusCode::OK,
                 Json(json!({
                     "ok": true,
-                    "installation": render_installation(&prior, Some(true), &release)
+                    "installation": render_installation(&prior, Some(true), &release, registration_for(&st.data_dir, &prior).as_ref())
                 })),
             )
         }
@@ -2062,7 +2593,7 @@ pub(crate) async fn handle_installation_uninstall(
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&commit.projection, Some(commit.replayed), &release)
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, registration_for(&st.data_dir, &commit.projection).as_ref())
             })),
         ),
         Err(reply) => reply,
@@ -2297,6 +2828,13 @@ pub(crate) fn launcher_registry_application_entries(
         {
             continue;
         }
+        // A REGISTERED binding reaches the projection through the compiled join's second source
+        // (`registered_extension_surfaces`) with its real registration; this ineligible-entry lane
+        // is for bindings Applications has not admitted yet, so a registered one is skipped here
+        // rather than listed twice with two different stories.
+        if registration_for(data_dir, &exact).is_some() {
+            continue;
+        }
         let entry = json!({
             "identity_ref": surface_ref,
             "display_name": surface_ref.rsplit('/').next().unwrap_or(surface_ref),
@@ -2304,7 +2842,7 @@ pub(crate) fn launcher_registry_application_entries(
             "canonical_route": Value::Null,
             "resolved_launch_route": Value::Null,
             "launchable": false,
-            "disabled_reason_codes": derived_disabled_reason_codes("installed", "active"),
+            "disabled_reason_codes": derived_disabled_reason_codes("installed", "active", false),
             "surface_capability_depth": release_record["surface_capability_depth"],
             "surface_operational_state": Value::Null,
             "installation_ref": installation_ref,
@@ -2729,7 +3267,8 @@ mod tests {
 
         // Before recall: the binding derives the structural pair only, and the
         // launcher feed carries exactly one honest ineligible entry.
-        let rendered = render_installation(&installation.projection, None, &release.projection);
+        let rendered =
+            render_installation(&installation.projection, None, &release.projection, None);
         assert_eq!(rendered["release_disposition"], "active");
         assert_eq!(
             rendered["disabled_reason_codes"],
@@ -2796,7 +3335,8 @@ mod tests {
         // After recall: the binding read derives the recall reason code without
         // any binding mutation, new installs refuse typed, and the launcher
         // feed loses the surface entirely.
-        let rendered = render_installation(&installation.projection, None, &recall.projection);
+        let rendered =
+            render_installation(&installation.projection, None, &recall.projection, None);
         assert_eq!(rendered["launch_eligible"], false);
         assert_eq!(rendered["release_disposition"], "recalled");
         assert_eq!(
@@ -3080,6 +3620,230 @@ mod tests {
         assert_eq!(after_recall.0, StatusCode::CONFLICT);
         assert!(refusal_code(&after_recall).contains("package_release_dependency_recalled"));
         super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn an_extension_registration_is_derived_from_admitted_truth_and_feeds_the_compiled_join() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "operator",
+            ["org://local".to_string()],
+        );
+        let (release_resource, release, _release_scope, _release_tail, _release_payload) =
+            admit_release_for_test(data_dir, &identity, vec![]);
+        let request = candidate_request();
+        let install_request = InstallationRequest {
+            installation_id: "primary".into(),
+            expected_release_head: release.projection.head.clone(),
+            project_ref: None,
+            visibility: "organization".into(),
+            allowed_object_contract_refs: vec!["object-model://telesupport".into()],
+            allowed_action_refs: vec![],
+            idempotency_key: "install-create-1".into(),
+            recorded_at_ms: Some(3),
+        };
+        let (installation_resource, install_payload) = build_installation_admission(
+            &request.package_id,
+            &release.projection,
+            &install_request,
+        )
+        .unwrap();
+        let install_scope = bind_scope(
+            data_dir,
+            &identity,
+            INSTALLATION_SCOPE_KIND,
+            &installation_resource,
+            "org://local",
+            &install_request.idempotency_key,
+        )
+        .unwrap();
+        let installation = admit(
+            data_dir,
+            true,
+            &identity,
+            &install_scope,
+            INSTALLATION_SCOPE_KIND,
+            &installation_resource,
+            &hash_tail("installation", &installation_resource),
+            "event_stream.hypervisor_surface_installation_admitted",
+            None,
+            &install_payload,
+            3,
+            &install_request.idempotency_key,
+        )
+        .unwrap();
+
+        // Before registration: absent, typed, and the launcher lane carries the ineligible entry.
+        assert!(registration_for(data_dir, &installation.projection).is_none());
+        let before = render_installation(&installation.projection, None, &release.projection, None);
+        assert_eq!(before["registration_state"], "absent");
+        assert!(before["disabled_reason_codes"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("extension_application_registration_absent")));
+        assert_eq!(
+            launcher_registry_application_entries(data_dir, "org://local")
+                .unwrap()
+                .len(),
+            1
+        );
+        let (registrations, _, _) = registered_extension_surfaces(data_dir, "org://local").unwrap();
+        assert!(registrations.is_empty());
+
+        // The record is DERIVED: class, route, key, origin, method, effect boundary and the
+        // binding's allowed subsets come from admitted truth, not from the request.
+        let registration_request = RegistrationRequest {
+            expected_installation_head: installation.projection.head.clone(),
+            display_name: "Telesupport".into(),
+            supported_placements: vec!["applications_catalog".into(), "open_application".into()],
+            launch_modes: vec!["direct".into(), "open_application".into()],
+            supported_context_kinds: vec!["project".into()],
+            idempotency_key: "register-1".into(),
+            recorded_at_ms: Some(4),
+        };
+        let registration = build_registration(
+            &request.package_id,
+            &release.projection,
+            &installation.projection,
+            &registration_request,
+        )
+        .unwrap();
+        assert_eq!(registration["schema_version"], REGISTRATION_SCHEMA);
+        assert_eq!(registration["surface_class"], "extension_application");
+        assert_eq!(
+            registration["surface_ref"],
+            surface_ref(&request.package_id)
+        );
+        assert_eq!(registration["surface_key"], request.package_id);
+        assert_eq!(
+            registration["canonical_route"],
+            format!("{EXTENSION_ROUTE_PREFIX}{}", request.package_id)
+        );
+        assert_eq!(registration["effect_boundary"], "propose_only");
+        assert_eq!(registration["surface_origin"], "organization");
+        assert_eq!(
+            registration["surface_creation_method"],
+            "developer_kit_generated"
+        );
+        assert_eq!(
+            registration["declared_object_contract_refs"],
+            json!(["object-model://telesupport"])
+        );
+        assert_eq!(registration["declared_action_contract_refs"], json!([]));
+
+        // A membership value outside the registered vocabulary is a CALLER refusal (400), not a
+        // daemon-built-record failure, and a first-party namespace cannot be registered here.
+        let widened = RegistrationRequest {
+            supported_placements: vec!["everywhere".into()],
+            ..registration_request_clone(&registration_request)
+        };
+        let refused = build_registration(
+            &request.package_id,
+            &release.projection,
+            &installation.projection,
+            &widened,
+        )
+        .unwrap_err();
+        assert_eq!(refused.0, StatusCode::BAD_REQUEST);
+        assert!(refusal_code(&refused).contains("extension_registration_contract_refused"));
+        let mut first_party = installation.projection.clone();
+        first_party.operation.payload["installation"]["surface_ref"] =
+            json!("surface://hypervisor/studio");
+        let refused = build_registration(
+            &request.package_id,
+            &release.projection,
+            &first_party,
+            &registration_request,
+        )
+        .unwrap_err();
+        assert_eq!(refused.0, StatusCode::FORBIDDEN);
+        assert!(refusal_code(&refused).contains("extension_registration_namespace_refused"));
+
+        // Admit it the way the handler does, then the binding reads back registered, the launcher
+        // lane no longer duplicates it, and the compiled join's second source carries it for its
+        // organization only.
+        let admission = json!({
+            "schema_version": REGISTRATION_ADMISSION_SCHEMA,
+            "registration": registration,
+            "owner_ref": "org://local",
+            "installation_ref": installation_resource,
+            "installation_head": installation.projection.head,
+            "release_ref": release_resource,
+            "release_head": release.projection.head,
+            "registration_state": "admitted",
+            "serving_binding_state": "absent",
+            "launch_eligible": false,
+            "disabled_reason_codes": ["surface_serving_binding_absent"],
+            "nonclaim": "test"
+        });
+        let scope = bind_scope(
+            data_dir,
+            &identity,
+            REGISTRATION_SCOPE_KIND,
+            &installation_resource,
+            "org://local",
+            "register-1",
+        )
+        .unwrap();
+        admit(
+            data_dir,
+            true,
+            &identity,
+            &scope,
+            REGISTRATION_SCOPE_KIND,
+            &installation_resource,
+            &hash_tail("registration", &installation_resource),
+            "event_stream.hypervisor_extension_registration_admitted",
+            None,
+            &admission,
+            4,
+            "register-1",
+        )
+        .unwrap();
+        let registered = registration_for(data_dir, &installation.projection).unwrap();
+        let after = render_installation(
+            &installation.projection,
+            None,
+            &release.projection,
+            Some(&registered),
+        );
+        assert_eq!(after["registration_state"], "admitted");
+        assert_eq!(
+            after["disabled_reason_codes"],
+            json!(["surface_serving_binding_absent"])
+        );
+        assert!(
+            launcher_registry_application_entries(data_dir, "org://local")
+                .unwrap()
+                .is_empty()
+        );
+        let (registrations, releases, installations) =
+            registered_extension_surfaces(data_dir, "org://local").unwrap();
+        assert_eq!(registrations.len(), 1);
+        assert_eq!(releases.len(), 1);
+        assert_eq!(installations.len(), 1);
+        assert_eq!(
+            registrations[0]["surface_ref"],
+            surface_ref(&request.package_id)
+        );
+        assert_eq!(installations[0]["installation_ref"], installation_resource);
+        let (foreign, _, _) = registered_extension_surfaces(data_dir, "org://other").unwrap();
+        assert!(foreign.is_empty());
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    fn registration_request_clone(base: &RegistrationRequest) -> RegistrationRequest {
+        RegistrationRequest {
+            expected_installation_head: base.expected_installation_head.clone(),
+            display_name: base.display_name.clone(),
+            supported_placements: base.supported_placements.clone(),
+            launch_modes: base.launch_modes.clone(),
+            supported_context_kinds: base.supported_context_kinds.clone(),
+            idempotency_key: base.idempotency_key.clone(),
+            recorded_at_ms: base.recorded_at_ms,
+        }
     }
 
     #[test]

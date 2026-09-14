@@ -1,9 +1,10 @@
 // Packages — the canonical /packages surface packet (W2.3 bar, next-legs II Leg 2; recall +
 // launcher join, next-legs III Leg 2).
 //
-// One module, two mounts, over the CLOSED daemon package family (MEF-CLOSED-003 — exactly eight
+// One module, two mounts, over the CLOSED daemon package family (MEF-CLOSED-003 — exactly nine
 // /v1/hypervisor/packages/* routes: candidate create/list/get, release create/list/get, release
-// recall, installation create/list/get, uninstall):
+// recall, installation create/list/get, uninstall, and — M08.10 slice B — the extension
+// registration over one installed binding, GET + POST):
 //
 //   registry     — /packages (+ fresh legacy lane /__ioi/packages/registry): the package
 //                  lifecycle projection. Candidates (frozen ODK source meshes), immutable
@@ -51,10 +52,11 @@
 //   - deprecate / supersede / revoke: no daemon verb exists — recall is the family's ONE
 //     disposition successor. The other enum values render disabled with
 //     data-ioi-disabled-reason, never wired to an invented path.
-//   - enable / registration / serving: installs are born disabled and the family owns no verb to
-//     change that; the missing extension_application registration is named by the daemon's own
-//     disabled_reason_codes, rendered verbatim. A launcher-feed entry is INVENTORY presence,
-//     never launchability.
+//   - serving: installs are born disabled; REGISTRATION (M08.10 slice B) is the verb that
+//     admits the extension into the compiled projection and appends the enabled successor on the
+//     binding, and the daemon's own disabled_reason_codes then name exactly what is still missing
+//     (surface_serving_binding_absent — slice C), rendered verbatim. There is no standalone enable
+//     verb by design. A launcher-feed entry is INVENTORY presence, never launchability.
 import { escHtml, GRE1_LIGHT, GRE1_LIGHT_FONT_FACES } from "../kit.mjs";
 
 const esc = escHtml;
@@ -78,10 +80,13 @@ const CANDIDATE_SCHEMA = "ioi.hypervisor.package_candidate.v1";
 // the successor landed — the declaration and the daemon move together.
 const RELEASE_SCHEMA = "ioi.hypervisor.surface_release_record.v2";
 const INSTALLATION_SCHEMA = "ioi.hypervisor.surface_installation_binding.v1";
+// M08.10 slice B: the extension registration Applications admits over an installed binding is the
+// SAME v2 registration contract the first-party surfaces satisfy.
+const REGISTRATION_SCHEMA = "ioi.hypervisor.application_surface_registration.v2";
 const PACKAGES_PLANE = "/v1/hypervisor/packages";
 
 const DISPOSITION_GAP_REASON = "no daemon verb exists — recall is the family's one disposition successor (active → recalled); the registered enum also names 'deprecated' and 'superseded' but no route can set them, so these controls stay disabled instead of pretending";
-const ENABLE_GAP_REASON = "no daemon verb exists — installation bindings are born surface_enablement_state 'disabled' (extension_application registration absent) and the family owns no enable/registration/serving route";
+const ENABLE_GAP_REASON = "no standalone enable verb exists — a binding is born surface_enablement_state 'disabled' and becomes 'enabled' as the immutable successor revision the daemon appends when Applications admits the extension registration (below); there is no way to enable a binding without registering it, by design";
 const LAUNCHER_JOIN_NOTE = "Launcher feed (live join): the product-surface projection consumes the package registry namespace on every read — an installed binding on an active release appears in application_entries as an honest INELIGIBLE entry (launchable:false with the exact derived reasons); a recalled or uninstalled surface is absent by derivation, immediately and after restart. Feed presence is inventory truth, never launchability.";
 const MARKETPLACE_LADDER_REASON = "marketplace ladder actions (draft/patch/delete, publish candidate, review decide, publish, offer) operate on the /__ioi/marketplace legacy owner lane until the marketplace-actions leg — this mode is read-first";
 
@@ -145,6 +150,7 @@ export const actions = [
   { id: "recall-release", method: "POST", route: "/:id/recall", fields: ["idempotency_key", "release_digest", "expected_release_head", "reason"], fieldMax: 600, context: ["id"], authority: RECALL_AUTHORITY, receipt: RELEASE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "install-release", method: "POST", route: "/:id/install", fields: ["idempotency_key", "release_digest", "expected_release_head", "installation_id", "project_ref", "visibility", "allowed_object_contract_refs", "allowed_action_refs"], fieldMax: 4096, context: ["id"], authority: INST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "uninstall", method: "POST", route: "/:id/uninstall", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head"], context: ["id"], authority: UNINST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "register-extension", method: "POST", route: "/:id/register", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head", "display_name", "supported_placements", "launch_modes", "supported_context_kinds"], fieldMax: 2048, context: ["id"], authority: { plane: "hypervisor.packages", operation: "POST .../installations/:installation_id/registration (expected_installation_head CAS, once per binding; enablement follows as a successor revision)" }, receipt: REGISTRATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
 ];
 
 // The authored ref-list fields arrive as one text blob; the daemon wants exact JSON arrays.
@@ -195,6 +201,16 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     path = `${PACKAGES_PLANE}/${enc(id)}/releases/${enc(fields.release_digest || "")}/installations/${enc(fields.installation_id || "")}/uninstall`;
     body.expected_installation_head = fields.expected_installation_head;
     redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(fields.release_digest || "")}&inst=${enc(fields.installation_id || "")}`;
+  } else if (action.id === "register-extension") {
+    // The App forwards the operator's declaration and nothing more: class, route, key, contracts,
+    // origin and effect boundary are the daemon's to derive from the admitted release and binding.
+    path = `${PACKAGES_PLANE}/${enc(id)}/releases/${enc(fields.release_digest || "")}/installations/${enc(fields.installation_id || "")}/registration`;
+    body.expected_installation_head = fields.expected_installation_head;
+    body.display_name = fields.display_name;
+    body.supported_placements = refList(fields.supported_placements);
+    body.launch_modes = refList(fields.launch_modes);
+    body.supported_context_kinds = refList(fields.supported_context_kinds);
+    redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(fields.release_digest || "")}&inst=${enc(fields.installation_id || "")}`;
   } else {
     return { kind: "failure", http: 500, code: "action_unknown", message: `undeclared action '${action.id}'` };
   }
@@ -218,7 +234,12 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
   }
   // Admission evidence or nothing: the family envelope ({package|release|installation}) must
   // carry the record under the DECLARED schema plus agentgres.receipt_ref. Fail closed otherwise.
-  const envelope = payload.package || payload.release || payload.installation || null;
+  // A registration answers with BOTH the registration and the enabled binding; the declared
+  // receipt for that action is the registration record, so it is read first and the binding is
+  // presentation on the installation page, never the admission evidence.
+  const envelope = action.id === "register-extension"
+    ? (payload.registration || null)
+    : (payload.package || payload.release || payload.installation || null);
   const record = envelope?.record || null;
   const receiptRef = typeof envelope?.agentgres?.receipt_ref === "string" ? envelope.agentgres.receipt_ref : "";
   if (!record || record.schema_version !== action.receipt || !receiptRef.startsWith("receipt://")) {
@@ -240,6 +261,9 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
         ? (record.surface_package_disposition || "recalled")
         : `${record.surface_admission_state || ""}/${record.surface_package_disposition || ""}`);
     redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(digest)}`;
+  } else if (action.id === "register-extension") {
+    created = record.surface_ref || "";
+    status = replayed ? "replayed" : "registered";
   } else {
     created = fields.installation_id || String(record.installation_ref || "").split("/").at(-1) || "";
     status = replayed ? "replayed" : (record.surface_installation_state || "");
@@ -494,7 +518,9 @@ function installationView(model, base, pkg, rel, inst) {
       <dt>Release</dt><dd><a href="${base}?pkg=${enc(pkg)}&rel=${enc(rel)}">${code(ir.release_ref)}</a></dd>
       <dt>Org · project</dt><dd>${code(ir.org_ref)} ${ir.project_ref ? code(ir.project_ref) : `<span class="sub" style="margin:0;text-transform:none;letter-spacing:0">org-wide</span>`}</dd>
       <dt>Binding truth</dt><dd data-testid="inst-binding-truth">${bindingTruth(entry)}</dd>
-      <dt>Registration</dt><dd>${pill("warn", `registration ${entry.registration_state || "absent"}`)}</dd>
+      <dt>Registration</dt><dd data-testid="inst-registration">${entry.registration_state === "admitted"
+        ? `${pill("ok", "registration admitted")} ${code(entry.registration?.canonical_route)} ${pill("muted", entry.registration?.surface_class || "extension_application")} ${pill("muted", `availability ${entry.registration?.surface_availability || "—"}`)} ${pill("muted", `effect ${entry.registration?.effect_boundary || "—"}`)}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">placements: ${esc((entry.registration?.supported_placements || []).join(", ") || "—")} · launch modes: ${esc((entry.registration?.launch_modes || []).join(", ") || "—")} · contexts: ${esc((entry.registration?.supported_context_kinds || []).join(", ") || "none")}</div>`
+        : pill("warn", `registration ${entry.registration_state || "absent"}`)}</dd>
       <dt>Visibility · revision</dt><dd>${pill("muted", ir.visibility || "—")} · rev ${esc(String(ir.revision ?? "—"))}</dd>
       <dt>Allowed objects</dt><dd>${(ir.allowed_object_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Allowed actions</dt><dd>${(ir.allowed_action_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
@@ -506,6 +532,21 @@ function installationView(model, base, pkg, rel, inst) {
       <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">Recall operates on the <a href="${base}?pkg=${enc(pkg)}&rel=${enc(rel)}">release</a>, never on one binding — a recalled release reads back here as <code>surface_release_recalled</code> with launch eligibility derived false, and the surface leaves the launcher feed.</p>
       <p class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">${esc(LAUNCHER_JOIN_NOTE)}</p>
     </div>
+    <h3 style="margin:16px 0 6px;font-size:13px">Register as an extension application</h3>
+    ${entry.registration_state === "admitted"
+      ? `<div class="empty">Registered — the surface is in the compiled product-surface projection under its declared placements and launch modes (with <code>no_serving_binding</code> as its typed reason until a serving binding exists); re-submitting the original registration replays it and a second registration refuses.</div>`
+      : `<form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/register">
+      <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
+      <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?pkg=${enc(pkg)}&rel=${enc(rel)}&inst=${enc(inst)}`)}">
+      <input type="hidden" name="release_digest" value="${esc(rel)}">
+      <input type="hidden" name="installation_id" value="${esc(inst)}">
+      ${head ? `<input type="hidden" name="expected_installation_head" value="${esc(head)}">` : ""}
+      <label class="fl">Display name<input name="display_name" maxlength="96" placeholder="What the catalog shows"${dis}></label>
+      <label class="fl">Supported placements (comma/whitespace separated: applications_catalog open_application project system work goal_run outcome_room automation_run session organization_admin operator_console home permanent_shell)<textarea name="supported_placements" rows="2" placeholder="applications_catalog open_application"${dis}></textarea></label>
+      <label class="fl">Launch modes (direct open_application command_palette contextual api)<textarea name="launch_modes" rows="1" placeholder="direct open_application"${dis}></textarea></label>
+      <label class="fl">Supported context kinds (organization project system goal_run outcome_room automation_run session work_queue work_item work_run — may be empty)<textarea name="supported_context_kinds" rows="1" placeholder="project"${dis}></textarea></label>
+      <button class="act" type="submit"${dis}>Register extension application</button> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">surface class, route, contracts, origin and effect boundary are derived by the daemon from the admitted release and binding — only the display name and the membership lists are yours to declare</span>
+    </form>`}
     <h3 style="margin:16px 0 6px;font-size:13px">Uninstall</h3>
     ${uninstalled ? `<div class="empty">Already uninstalled (revision ${esc(String(ir.revision ?? ""))}) — the transition is immutable history; re-submitting the original uninstall replays it.</div>` : ""}
     <form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/uninstall">

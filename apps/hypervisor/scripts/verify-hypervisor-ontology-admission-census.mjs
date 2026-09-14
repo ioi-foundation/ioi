@@ -633,6 +633,21 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M08.10 slice B — the extension registration route and the compiled
+  // join's second registration source). Tokens 150908 -> 151237 (+329), attributed per file with
+  // the extractor on the HEAD and working copies: package_registry_routes.rs 1123 -> 1446 (+323:
+  // seven registration constants, the request struct, `build_registration` with its derived
+  // record, the two handlers, `registered_extension_surfaces`, and one test), lifecycle_routes.rs
+  // 14158 -> 14163 (+5: the second-source splice and its typed refusal), and hypervisor-daemon.rs
+  // +1 by subtraction (the one new route path literal). Foreign-qualified 4653 -> 4671 (+18):
+  // `StatusCode::` occurrences 98 -> 115 in package_registry_routes.rs (the registration handler's
+  // typed refusals and their test assertions) and one `StatusCode::SERVICE_UNAVAILABLE` in
+  // lifecycle_routes.rs for an unreadable registry. EVERY WRITER BUCKET HELD (family 57, non-ODK
+  // literal 254, runtime 311), production filesystem calls 242, judged positions 281, family
+  // mentions 285; the module's constants 11 -> 18 are all string-literal initialisers the census
+  // reads (opaque-initialiser and bare-undeclared HELD) and none names a record family: the
+  // registration writes through the same owner-scoped `admit` path every other package mutation
+  // uses, on the same namespace.
   // Re-pinned 2026-09-14 (M08.10 slice A — `dependency_release_refs` on the v2 release record,
   // resolved at admission). Tokens 150790 -> 150908, ALL of it package_registry_routes.rs
   // (1005 -> 1123 measured with the extractor on the HEAD and working copies): the successor's
@@ -796,7 +811,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150908,
+  tokenMentions: 151237,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -817,7 +832,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4653,
+    "foreign-qualified": 4671,
     "opaque-initialiser": 2824,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

@@ -66,10 +66,10 @@
     },
     {
       "id": "MEF-CLOSED-003",
-      "plane": "ODK package candidates, immutable releases, disabled installation bindings, release recall, and uninstall",
+      "plane": "ODK package candidates, immutable releases, installation bindings, the extension-application registration with its enablement successor, release recall, and uninstall",
       "source": "crates/node/src/bin/hypervisor_daemon_routes/package_registry_routes.rs",
       "status": "closed",
-      "bounded_scope": "Stages 5, 6, and the disabled installation-binding half of stage 7 only, plus the one disposition successor (release recall, active to recalled, with read-derived binding cascade and launcher-feed loss); no extension-application registration, executable activation, System binding, mount, serve, upgrade, or rollback claim",
+      "bounded_scope": "Stages 5, 6, and the disabled installation-binding half of stage 7 only, plus the one disposition successor (release recall, active to recalled, with read-derived binding cascade and launcher-feed loss); no extension-application registration, executable activation, System binding, mount, serve, upgrade, or rollback claim M08.10 slice B (2026-09-14) adds the ninth route: POST/GET .../installations/:installation_id/registration admits exactly one v2 HypervisorApplicationSurfaceRegistration per installed binding on an active release through the same owner-scoped admission and receipt boundary, and appends the binding's enabled successor revision under the caller's exact head; no serving binding, route, process or System binding is created (slice C/D).",
       "evidence": [
         "package admission freezes the exact DomainApp, ODK manifest, and domain-app surface-descriptor bytes under an authenticated organization owner",
         "candidate creation is expected-absent and release/install/recall/uninstall successors require explicit exact heads",
@@ -77,7 +77,8 @@
         "release and installation payloads validate against the generated canonical architecture contracts",
         "installation can only narrow release contracts and is forced disabled and nonlaunchable while registration is absent",
         "authorized inventory reconstructs current heads from Agentgres after daemon restart",
-        "the executable smoke proves exact retry, same-scope stale-head refusal, restart recovery, narrowing refusal, and CAS uninstall"
+        "the executable smoke proves exact retry, same-scope stale-head refusal, restart recovery, narrowing refusal, and CAS uninstall",
+        "the extension registration is derived from admitted truth (surface ref, key, class, route, origin, creation method, effect boundary and the binding's allowed contract subsets), validated against the registered v2 registration contract before the write, admitted once per binding with exact retry replay and typed refusal of a second registration, and its enablement successor is appended on the installation stream under exact-head CAS — proven by package_registry_routes::tests and the packages journey (registration, replay, already-admitted, restart)"
       ]
     },
     {

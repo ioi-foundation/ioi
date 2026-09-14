@@ -203,8 +203,10 @@ async function run() {
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations", methods: ["GET", "POST"] },
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id", methods: ["GET"] },
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/uninstall", methods: ["POST"] },
+    // M08.10 slice B: Applications' extension registration over one installed binding (GET + POST).
+    { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/registration", methods: ["GET", "POST"] },
   ].sort((left, right) => left.path.localeCompare(right.path));
-  ok("recall verb LANDS: the package family route inventory is exactly the eight-route slice — the seven W2.3 routes plus POST .../recall, and still no deprecate/revoke/enable route",
+  ok("the package family route inventory is exactly the nine-route slice — the seven W2.3 routes, POST .../recall, and the M08.10 registration path (GET+POST) — and still no deprecate/revoke/enable route",
     JSON.stringify(familyRoutes) === JSON.stringify(expectedRoutes),
     JSON.stringify(familyRoutes.map((r) => r.path)));
 
@@ -523,6 +525,93 @@ async function run() {
       && feedEntry.surface_enablement_state === "disabled",
     JSON.stringify(feedEntry ?? {}).slice(0, 200));
 
+  // -- REGISTRATION (M08.10 slice B): Applications admits the extension registration ----------
+  // The typed absence this family refused by name since W2.3 now has a verb. Identity-first,
+  // exact-head CAS on the binding, once per binding; enablement follows as a successor revision
+  // on the installation stream; the surface then enters the COMPILED join under its declared
+  // placements with `no_serving_binding` as its one typed reason (slice C earns launchability).
+  const REG_ROUTE = `/__ioi/extensions/${PKG}`;
+  const registrationFields = {
+    release_digest: releaseDigest,
+    installation_id: INST,
+    expected_installation_head: installationHead,
+    display_name: "Packages Journey App",
+    supported_placements: "applications_catalog open_application",
+    launch_modes: "direct open_application command_palette",
+    supported_context_kinds: "project",
+    return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`,
+  };
+  const anonRegister = await act(`/${PKG}/register`, { idempotency_key: "packages-journey-register-anon", ...registrationFields }, { authenticated: false });
+  ok("an ANONYMOUS registration refuses TYPED (request_principal_required) — identity-first on the registration verb, the binding stays disabled",
+    anonRegister.status === 303 && anonRegister.q.get("refused") === "request_principal_required"
+      && (await instGet(releaseDigest)).installation?.record?.surface_enablement_state === "disabled",
+    anonRegister.q.get("refused") || "");
+  const registered = await act(`/${PKG}/register`, { idempotency_key: "packages-journey-register-1", ...registrationFields });
+  ok("registration crosses with admission evidence (303 acted + receipt + the surface ref as the created record)",
+    registered.status === 303 && registered.q.get("acted") === "register-extension"
+      && (registered.q.get("receipt") || "").startsWith("receipt://") && registered.q.get("record") === SURFACE_REF
+      && registered.q.get("result") === "registered",
+    registered.location.slice(0, 160));
+  binding = await instGet(releaseDigest);
+  const enabledHead = binding.installation?.agentgres?.head || "";
+  ok("the binding reads back REGISTERED and ENABLED as an immutable successor revision (rev 2, head advanced), with exactly the serving-binding absence left as its typed reason",
+    binding.ok === true
+      && binding.installation?.registration_state === "admitted"
+      && binding.installation?.record?.surface_enablement_state === "enabled"
+      && binding.installation?.record?.revision === 2
+      && binding.installation?.launch_eligible === false
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_serving_binding_absent"])
+      && !!enabledHead && enabledHead !== installationHead,
+    JSON.stringify(binding.installation?.disabled_reason_codes));
+  const regRead = await jd(`/v1/hypervisor/packages/${PKG}/releases/${encodeURIComponent(releaseDigest)}/installations/${INST}/registration`);
+  ok("the registration record is DERIVED from admitted truth: v2 contract, class extension_application, the extensions route, organization origin, developer-kit creation, effect boundary from the release's depth, contracts = the binding's allowed subsets",
+    regRead.status === 200 && regRead.body?.ok === true
+      && regRead.body.registration?.record?.schema_version === "ioi.hypervisor.application_surface_registration.v2"
+      && regRead.body.registration?.record?.surface_class === "extension_application"
+      && regRead.body.registration?.record?.surface_ref === SURFACE_REF
+      && regRead.body.registration?.record?.canonical_route === REG_ROUTE
+      && regRead.body.registration?.record?.surface_origin === "organization"
+      && regRead.body.registration?.record?.surface_creation_method === "developer_kit_generated"
+      && regRead.body.registration?.record?.effect_boundary === "propose_only"
+      && JSON.stringify(regRead.body.registration?.record?.declared_object_contract_refs) === JSON.stringify(["object-model://packages-journey"])
+      && regRead.body.registration?.launch_eligible === false,
+    JSON.stringify(regRead.body?.registration?.record ?? regRead.body).slice(0, 200));
+  const registerReplay = await act(`/${PKG}/register`, { idempotency_key: "packages-journey-register-1", ...registrationFields });
+  ok("an exact registration retry REPLAYS the original admission (same surface, result replayed, binding head unchanged)",
+    registerReplay.status === 303 && registerReplay.q.get("result") === "replayed" && registerReplay.q.get("record") === SURFACE_REF
+      && (await instGet(releaseDigest)).installation?.agentgres?.head === enabledHead,
+    registerReplay.location.slice(0, 160));
+  const registerAgain = await act(`/${PKG}/register`, { idempotency_key: "packages-journey-register-2", ...registrationFields, expected_installation_head: enabledHead });
+  ok("a SECOND registration under a fresh key refuses TYPED (extension_registration_already_admitted) — registrations are not re-issued",
+    registerAgain.status === 303 && registerAgain.q.get("refused") === "extension_registration_already_admitted",
+    registerAgain.q.get("refused") || "");
+  const widened = await act(`/${PKG}/register`, { idempotency_key: "packages-journey-register-widen", ...registrationFields, supported_placements: "everywhere", expected_installation_head: enabledHead });
+  ok("a placement outside the registered vocabulary refuses TYPED (or, already registered, refuses as already admitted) — the closed vocabularies are the contract's, not the App's",
+    widened.status === 303 && ["extension_registration_contract_refused", "extension_registration_already_admitted"].includes(widened.q.get("refused") || ""),
+    widened.q.get("refused") || "");
+  feed = await launcherFeed();
+  feedEntry = (feed.application_entries || []).find((e) => e.identity_ref === SURFACE_REF);
+  ok("after registration the surface enters the COMPILED JOIN (no registry-lane entry): its route, class and origin come from the registration, launchable false with exactly no_serving_binding as the typed stage reason",
+    !!feedEntry && feedEntry.entry_source !== "hypervisor-package-registry"
+      && feedEntry.canonical_route === REG_ROUTE
+      && feedEntry.surface_class === "extension_application"
+      && feedEntry.surface_origin === "organization"
+      && feedEntry.launchable === false
+      && JSON.stringify(feedEntry.disabled_reason_codes) === JSON.stringify(["no_serving_binding"])
+      && feedEntry.surface_installation_state === "installed"
+      && feedEntry.surface_enablement_state === "enabled"
+      && (feed.application_entries || []).filter((e) => e.identity_ref === SURFACE_REF).length === 1,
+    JSON.stringify(feedEntry ?? {}).slice(0, 220));
+  ok("the palette projection is DERIVED from the registration's launch modes: the extension appears in the command palette because it registered command_palette, still ineligible",
+    Array.isArray(feed.command_palette_entries) && feed.command_palette_entries.some((e) => e.identity_ref === SURFACE_REF && e.launchable === false),
+    `palette entries ${feed.command_palette_entries?.length ?? "none"}`);
+  const regPage = await pageText(`/packages?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`);
+  ok("the installation page renders the admitted registration VERBATIM: route, class, availability, effect boundary, and the enable gap now says enablement followed registration",
+    regPage.status === 200 && regPage.text.includes("registration admitted") && regPage.text.includes(REG_ROUTE)
+      && regPage.text.includes("extension_application") && regPage.text.includes("surface_serving_binding_absent")
+      && !regPage.text.includes("extension_application_registration_absent"),
+    "");
+
   // -- RECALL: identity-first, successor revision, receipts, replay, CAS ------
   const anonRecall = await act(`/${PKG}/recall`, {
     idempotency_key: "packages-journey-recall-anon",
@@ -591,14 +680,15 @@ async function run() {
 
   // -- the CASCADE is derived at read: binding ineligible naming the recall ---
   binding = await instGet(releaseDigest);
-  ok("the recall CASCADES to the binding at read time WITHOUT mutating it: same admitted head and revision, launch_eligible false, surface_release_recalled leads the derived reasons, the bounded reason travels verbatim",
+  ok("the recall CASCADES to the binding at read time WITHOUT mutating it: same admitted head and revision (the enablement successor), launch_eligible false, surface_release_recalled leads the derived reasons, the bounded reason travels verbatim, the registration stays admitted",
     binding.ok === true
-      && binding.installation?.agentgres?.head === installationHead
-      && binding.installation?.record?.revision === 1
+      && binding.installation?.agentgres?.head === enabledHead
+      && binding.installation?.record?.revision === 2
       && binding.installation?.launch_eligible === false
       && binding.installation?.release_disposition === "recalled"
       && binding.installation?.release_recall_reason === RECALL_REASON
-      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "extension_application_registration_absent", "surface_serving_binding_absent"]),
+      && binding.installation?.registration_state === "admitted"
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "surface_serving_binding_absent"]),
     JSON.stringify(binding.installation?.disabled_reason_codes));
   const installOnRecalled = await act(`/${PKG}/install`, {
     idempotency_key: "packages-journey-install-after-recall",
@@ -644,14 +734,15 @@ async function run() {
   ok("candidate, recalled release, and installation reconstruct after a daemon restart with EXACT heads",
     candidate.package?.agentgres?.head === candidateHead
       && release.release?.agentgres?.head === recallHead
-      && binding.installation?.agentgres?.head === installationHead,
+      && binding.installation?.agentgres?.head === enabledHead,
     "");
   feed = await launcherFeed();
-  ok("the recalled disposition, the derived binding cascade, and the launcher-feed absence all SURVIVE restart (derived from admitted truth, not process state)",
+  ok("the recalled disposition, the derived binding cascade, the admitted registration and the launcher-feed absence all SURVIVE restart (derived from admitted truth, not process state)",
     release.release?.record?.surface_package_disposition === "recalled"
       && release.release?.recall_reason === RECALL_REASON
       && binding.installation?.release_disposition === "recalled"
-      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "extension_application_registration_absent", "surface_serving_binding_absent"])
+      && binding.installation?.registration_state === "admitted"
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "surface_serving_binding_absent"])
       && Array.isArray(feed.application_entries) && feed.application_entries.length > 0
       && !JSON.stringify(feed).includes(SURFACE_REF),
     "");
@@ -670,7 +761,7 @@ async function run() {
     idempotency_key: "packages-journey-uninstall-1",
     release_digest: releaseDigest,
     installation_id: INST,
-    expected_installation_head: installationHead,
+    expected_installation_head: enabledHead,
     return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`,
   });
   const uninstallReceipt = uninstalled.q.get("receipt") || "";
@@ -680,13 +771,13 @@ async function run() {
     uninstalled.location.slice(0, 140));
   binding = await instGet(releaseDigest);
   const uninstalledHead = binding.installation?.agentgres?.head || "";
-  ok("uninstall IMMEDIATELY revokes the binding: state uninstalled, immutable revision 2, launch_eligible stays false, the derived reasons name BOTH the uninstall and the recall, head advanced",
+  ok("uninstall IMMEDIATELY revokes the binding: state uninstalled, immutable revision 3 (after the enablement successor), launch_eligible stays false, the derived reasons name BOTH the uninstall and the recall, head advanced",
     binding.installation?.record?.surface_installation_state === "uninstalled"
-      && binding.installation?.record?.revision === 2
+      && binding.installation?.record?.revision === 3
       && binding.installation?.record?.surface_enablement_state === "disabled"
       && binding.installation?.launch_eligible === false
-      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_installation_uninstalled", "surface_release_recalled", "extension_application_registration_absent", "surface_serving_binding_absent"])
-      && !!uninstalledHead && uninstalledHead !== installationHead,
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_installation_uninstalled", "surface_release_recalled", "surface_serving_binding_absent"])
+      && !!uninstalledHead && uninstalledHead !== enabledHead,
     `state ${binding.installation?.record?.surface_installation_state} rev ${binding.installation?.record?.revision}`);
   const uninstallReplay = await act(`/${PKG}/uninstall`, {
     idempotency_key: "packages-journey-uninstall-1",

@@ -1,0 +1,53 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-10-packages-lifecycle",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.10"
+  ],
+  "status": "evidence_ready",
+  "objective": "Complete the Packages owner surface over its partial backend in both directions: an immutable release that carries its dependencies, the extension_application registration the plane refused by name, compiler/serving integration, and affected-System impact on recall — with recall landing with the registry.",
+  "falsifiable_claim": "Slice A: POST /v1/hypervisor/packages/:id/releases admits a v2 HypervisorSurfaceReleaseRecord whose dependency_release_refs resolve at admission (unknown, foreign-owner and recalled refs refuse by name) and are bound into the release digest. Slice B: POST .../installations/:installation_id/registration admits exactly one v2 HypervisorApplicationSurfaceRegistration per installed binding on an active release, derived from admitted truth (class extension_application, route /__ioi/extensions/{package_id}, origin organization, effect boundary from the release's depth, contracts = the binding's allowed subsets), appends the binding's enabled successor revision under the caller's exact head, and the compiled product-surface join reads registered extensions as a second registration source so their typed reason is exactly no_serving_binding. npm run check:packages-journey --workspace=@ioi/hypervisor-app drives all of it against an isolated daemon and serve lane.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/package_registry_routes.rs",
+      "literal": "fn resolve_release_dependencies",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/package_registry_routes.rs",
+      "literal": "fn handle_installation_registration_create",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "registered_extension_surfaces",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-surface-release-record.v2.schema.json",
+      "literal": "dependency_release_refs",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
+      "literal": "register-extension",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "package_registry_routes::tests 10/10: the release digest binds dependency refs and a v1-shaped record fails the v2 contract; unknown, foreign-owner and recalled dependencies refuse; the registration is derived (namespace and vocabulary refusals are the caller's, 400/403, never a daemon 500) and feeds the compiled join for its organization only. The packages journey (61/61) plants an anonymous registration, a second registration under a fresh key, a widened placement, and an exact retry, and re-pins the recall cascade and uninstall on the enablement head. The golden fixture bar was proven to evaluate the new v2 negatives by making one valid and watching check:architecture-contracts go red.",
+  "remaining_nonclaims": [
+    "Slice C (a serving binding over the DomainApp serve runtime) is unbuilt: every extension stays launchable:false with no_serving_binding as its typed reason.",
+    "Slice D (affected-System impact recorded on recall, and check:packages-product-lifecycle) is unbuilt: M08.10's manifest check stays To be authored and the release-readiness blocker count does not move on slices A and B.",
+    "Registration enables the organization's installation binding; it starts no process, serves no route, binds no System and grants no authority."
+  ],
+  "source_provenance": "Slice A 0062ddd6b (2026-09-14, ledger LXXVII); slice B authored in a worktree while the ACC-13 composed run held the main tree and landed the same day (ledger LXXVIII). MVP finish-line program, leg 3 (R-142).",
+  "last_status_transaction": "2026-09-14"
+}

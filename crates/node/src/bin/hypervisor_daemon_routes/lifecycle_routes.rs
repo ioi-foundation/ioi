@@ -6595,11 +6595,11 @@ pub(crate) async fn handle_product_surface_projection(
             })
         })
         .collect();
-    let releases = surface_records["releases"]
+    let mut releases = surface_records["releases"]
         .as_array()
         .cloned()
         .unwrap_or_default();
-    let installations = surface_records["installations"]
+    let mut installations = surface_records["installations"]
         .as_array()
         .cloned()
         .unwrap_or_default();
@@ -6607,7 +6607,34 @@ pub(crate) async fn handle_product_surface_projection(
         .as_array()
         .cloned()
         .unwrap_or_default();
-    let applications: Vec<Value> = surface_records["registrations"].as_array().cloned().unwrap_or_default()
+    // M08.10 slice B — THE SECOND REGISTRATION SOURCE. Extension registrations Applications has
+    // admitted over installed bindings on active releases join the compiled-in registrations and
+    // run through the SAME three stages below with their own release record and installation
+    // binding; nothing about an extension is special-cased in the join, which is the point of
+    // registering it under the same contract. Registry unreadability is a typed refusal, never a
+    // thinner catalog.
+    let mut registration_rows = surface_records["registrations"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    match super::package_registry_routes::registered_extension_surfaces(&st.data_dir, &org_ref) {
+        Ok((extension_registrations, extension_releases, extension_installations)) => {
+            registration_rows.extend(extension_registrations);
+            releases.extend(extension_releases);
+            installations.extend(extension_installations);
+        }
+        Err(detail) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.package_registry_projection_unavailable",
+                    "detail": detail
+                })),
+            )
+        }
+    }
+    let applications: Vec<Value> = registration_rows
         .into_iter().filter(|row| allowed.as_ref().map(|set| row["surface_ref"].as_str().map(|value| set.contains(value)).unwrap_or(false)).unwrap_or(true))
         .map(|row| {
             let surface_ref = row["surface_ref"].as_str().unwrap_or_default();
