@@ -1539,6 +1539,17 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:verified-work-graph --workspace=@ioi/hypervisor-app
 
+      # The transition seam the graph is projected over. This gate was authored before M06.1
+      # landed and never bound here; M06.1's own landing then moved the module (the WorkResult
+      # resolver arm, the replay-identity ruling, twelve focused tests) and the gate sat red at
+      # 82/86 for two weeks with nothing to say so (R-144, 2026-09-14). Bound beside the graph
+      # gate it composes with, on the same daemon build, publishing into the same census.
+      - name: Verify the assurance transition seam
+        if: ${{ !cancelled() }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:assurance-transition-receipt --workspace=@ioi/hypervisor-app
+
       - name: Publish the M06.1 verifier census
         uses: actions/upload-artifact@v4
         with:

@@ -465,12 +465,16 @@ async function run() {
       "request_resource_scope_required",
       "landed owner resolver, scope-first non-oracle refusal",
     ],
+    // M06.1 (34a0e0100) landed the WorkResult arm behind this seam: the owner's own resolver answers
+    // under the owner's own visibility, and absence and not-entitled share ONE code and ONE status by
+    // construction, so the pair cannot be separated by a 404-vs-403 side channel. This row read
+    // `501 unresolvable` until 2026-09-14 (R-144) — a pin that outlived the landing it was about.
     [
       "work_result",
       "work-result://room/one",
-      501,
-      "assurance_transition_subject_family_unresolvable",
-      "no landed resolver",
+      422,
+      "work_result_subject_not_admitted",
+      "landed owner resolver (M06.1): absence and not-entitled share one code and one status",
     ],
     [
       "finding",
@@ -1398,6 +1402,13 @@ function sourceCensus() {
     `admitters: ${admitters.join(", ") || "none"}`,
   );
   const source = fs.readFileSync(ROUTE_SOURCE, "utf8");
+  // THE PRODUCTION HALF: everything before the module's `#[cfg(test)]`. The focused tests load the
+  // registered Verified Work Graph fixtures from disk (M06.1, 34a0e0100) — a test reading the
+  // canonical corpus is not a second store — so a filesystem assertion over the WHOLE file failed
+  // on the tests' fixture loader (found 2026-09-14, R-144) and said nothing about the module that
+  // serves requests. The test-population pin below reads the whole file on purpose: the tests are
+  // exactly the half it is about.
+  const productionSource = source.split(/^#\[cfg\(test\)\]\s*$/mu)[0];
   const ontologyResolverCalls = (
     source.match(/resolve_admitted_revision\(/gu) ?? []
   ).length;
@@ -1417,11 +1428,13 @@ function sourceCensus() {
     `ontology ${ontologyResolverCalls}, mapping ${mappingResolverCalls}, assertion ${assertionResolverCalls} owner-resolver call(s)`,
   );
   ok(
-    "the module writes NO file of its own: it makes no raw filesystem call at all, which is what makes 'no second store' structural rather than asserted",
-    !/\bstd::fs::(write|create_dir_all|remove_file|rename|copy|read)\s*\(/u.test(
-      source,
-    ),
-    "no raw filesystem calls in the production module",
+    "the module writes NO file of its own: its production half makes no raw filesystem call at all, which is what makes 'no second store' structural rather than asserted (the focused tests' fixture loader is outside that half and is counted by the population pin instead)",
+    productionSource.length > 0 &&
+      productionSource.length < source.length &&
+      !/\bstd::fs::(write|create_dir_all|remove_file|rename|copy|read)\s*\(/u.test(
+        productionSource,
+      ),
+    `no raw filesystem calls in the production module (${productionSource.length} of ${source.length} bytes precede #[cfg(test)])`,
   );
   ok(
     "the module consults NO authority: no capability, lease, grant, policy decision or effect admission is read anywhere in it, so 'a receipt grants nothing' is entailed from the source rather than promised in prose",
@@ -1450,25 +1463,29 @@ function sourceCensus() {
       !/visible\.retain\([\s\S]{0,200}recorded_at/u.test(source),
     "history truncated by recorded_at_ms before project_ladder",
   );
+  // The replay-intent field set is read from the const's OWN initialiser, not from any mention of
+  // its name: the module's focused test asserts `!REPLAY_INTENT_FIELDS.contains("subject_content_hash")`
+  // and a proximity regex over the whole file would have read that negative as a positive.
+  const replayIntentBlock =
+    source.match(/const REPLAY_INTENT_FIELDS: &\[&str\] = &\[([\s\S]*?)\];/u)?.[1] ?? "";
+  const replayIntentFields = [...replayIntentBlock.matchAll(/"([a-z_]+)"/gu)].map((m) => m[1]);
   ok(
-    "the replay path compares CURRENT REQUEST INTENT against the admitted record before returning it, over a pinned field set that covers subject, subject hash, outcome, evidence, nonclaims and validity",
+    "the replay path compares CURRENT REQUEST INTENT against the admitted record before returning it, over a pinned field set that covers subject, outcome, evidence, nonclaims, validity and challenge resolution — with the subject HASH deliberately outside it: replay identity is the stored subject version, not today's owner hash (M06.1 341c0440c, pinned by the module's own test), so a WorkResult that gained an owner-admitted backlink after the transition still replays as the command it was",
     /fn replay_intent_divergence\(/u.test(source) &&
-      /replay_intent_divergence\(&document, &proposal, &subject, &body\)/u.test(
-        source,
-      ) &&
-      [
-        "subject_ref",
-        "subject_content_hash",
-        "outcome_class",
-        "evidence_refs",
-        "does_not_assert",
-        "valid_time",
-      ].every((field) =>
-        new RegExp(`REPLAY_INTENT_FIELDS[\\s\\S]{0,400}"${field}"`, "u").test(
-          source,
-        ),
+      /replay_intent_divergence\(&document, &proposal, &body\)/u.test(source) &&
+      JSON.stringify(replayIntentFields) ===
+        JSON.stringify([
+          "subject_ref",
+          "outcome_class",
+          "evidence_refs",
+          "does_not_assert",
+          "valid_time",
+          "challenge_resolution",
+        ]) &&
+      /to_stage/u.test(
+        source.slice(source.indexOf("fn replay_intent_divergence("), source.indexOf("fn replay_intent_divergence(") + 2000),
       ),
-    "intent comparison precedes the replay answer over all six pinned fields",
+    `intent comparison precedes the replay answer over the six pinned fields [${replayIntentFields.join(", ")}] plus the asserted stage`,
   );
   ok(
     "the actor is bound from the AUTHENTICATED PRINCIPAL in source, not from the request's owner context — `owner_ref` appears nowhere as the actor",
@@ -1484,18 +1501,35 @@ function sourceCensus() {
   const testNames = [...source.matchAll(/#\[test\]\s*\n\s*fn\s+([a-z0-9_]+)/gu)]
     .map((match) => match[1])
     .sort();
+  // 11 -> 23 (2026-09-14, R-144): the twelve added by M06.1's landing (34a0e0100, 341c0440c —
+  // the WorkResult arm, the Verified Work Graph projection and the replay-identity ruling) had
+  // been in the module since 2026-09-01 while this pin still read the eleven it was born with;
+  // the gate was not CI-bound, so the drift it exists to catch went unreported. Every name below
+  // was read from the module and checked against the commit that added it.
   const PINNED_TESTS = [
+    "a_downgraded_or_unknown_graph_contract_is_refused_not_served",
+    "a_projection_may_not_strip_the_transitions_own_nonclaims",
+    "a_row_about_another_work_result_or_family_is_refused",
+    "a_stale_or_skipped_stage_row_carries_nothing",
     "admission_targeted_negatives_diverge_only_in_the_field_they_target",
+    "an_empty_ladder_cannot_borrow_a_reached_stage",
     "content_commitment_excludes_transaction_time_and_admission",
+    "duplicate_bound_versions_collapse_a_distinction_and_are_refused",
     "every_ladder_member_is_the_canonical_enum_in_canonical_order",
     "every_non_admission_fixture_matches_the_producer_ref_shapes",
     "every_registered_fixture_agrees_with_the_generated_projection",
+    "graph_nonclaims_are_the_complete_closed_canonical_set",
     "malformed_assertions_are_refused_rather_than_read_as_absent",
     "outcome_classes_carry_every_negative_member_acc8_requires",
+    "replay_identity_uses_the_stored_subject_version_not_todays_owner_hash",
     "subject_family_classification_prefers_the_longer_scheme",
     "subject_hash_echo_rule_fires_on_its_own_finding",
+    "the_graph_contract_is_registered_and_its_positives_validate",
+    "the_graph_refuses_to_declare_itself_a_store",
+    "the_two_outcome_vocabularies_are_never_mapped_onto_each_other",
     "transition_identity_binds_the_subject_family_and_ordinal",
     "two_subjects_never_share_one_transition_identity",
+    "work_result_is_the_only_family_this_build_newly_resolves",
   ];
   ok(
     "the module's focused Rust test population is PINNED BY NAME in both directions — a filtered cargo run can pass with zero tests, so a deleted or renamed case fails here rather than silently emptying the filter",
