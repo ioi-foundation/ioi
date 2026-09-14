@@ -633,6 +633,14 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-13 (M13.10, the LIVE guest probe and the loopback fix it found). Tokens
+  // 150336 -> 150389 and opaque initialisers 2822 -> 2823. NOTHING ELSE MOVED: modules 119,
+  // production filesystem calls 239, and all three writer buckets. That the filesystem count held
+  // is the informative part — the new code is a `#[cfg(test)]` probe that reads a serial log and
+  // makes a staging directory, and the production bucket did not see either, which is the census
+  // agreeing that the probe is a probe. The one production change in this cut is a single added
+  // shell word in the guest staging command (`ip link set lo up`), which is a string literal and
+  // moves tokens only. Baseline is slice B's commit (93166b824), measured green at the pins above.
   // Re-pinned 2026-09-13 (M13.10 slice B, arming the channel and staging its guest end). NO MODULE
   // JOINED — 119 holds — because slice A already put the file in the walk and this is the wiring
   // into `environment_routes.rs` and `microvm.rs`, both long since walked. The baseline this time
@@ -712,7 +720,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150336,
+  tokenMentions: 150389,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
   productionFsCalls: 239,
@@ -734,7 +742,7 @@ const PINNED = {
    */
   unadjudicable: {
     "foreign-qualified": 4638,
-    "opaque-initialiser": 2822,
+    "opaque-initialiser": 2823,
     "bare-undeclared": 539,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

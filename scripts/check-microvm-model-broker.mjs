@@ -7,13 +7,19 @@
 // whole unit: ADMITTED, which means the destination survives refusals rather than being configured,
 // and DIFFERENT PROFILE, which means a reader can tell the two apart from the record.
 //
-// WHAT THIS GATE PROVES AND WHAT IT CANNOT. Everything on the HOST side is proven here and in the
-// Rust suite it drives: the destination refusals, the per-port socket, bytes crossing verbatim, the
-// silence of an unreachable destination, and the declaration naming the channel only when one is
-// armed. What no offline gate can prove is the guest half — that cloud-hypervisor surfaces a
-// guest-initiated connection on `<sock_path>_<port>` exactly as its convention states, with no
-// handshake bytes of its own in that direction. That is one live boot away and is the alpha
-// journey's to settle; it is named here as outstanding rather than implied to be covered.
+// WHAT THIS GATE PROVES, INCLUDING THE PART THAT NEEDED A REAL GUEST. The host side is proven in
+// the Rust suite it drives: the destination refusals, the per-port socket, bytes crossing verbatim,
+// the silence of an unreachable destination, and the declaration naming the channel only when one
+// is armed. The guest half — that cloud-hypervisor surfaces a guest-initiated connection on
+// `<sock_path>_<port>` with no handshake bytes of its own — was written up here as unprovable
+// offline and scheduled as outstanding. It is no longer outstanding: it is proven by a LIVE probe
+// on a real cloud-hypervisor/KVM boot, which this gate RUNS when the host can host one and reports
+// as not-run, by name, when it cannot. A missing KVM blocks a run, never a unit.
+//
+// That live probe earned its keep immediately. It found that the guest's LOOPBACK INTERFACE IS
+// DOWN — the initramfs never brings `lo` up, because every earlier channel in this estate is vsock
+// and needed no interface at all — so the proxy bound 127.0.0.1 and the guest still could not reach
+// it. Nothing offline would have found that, and it would have shipped inside a 47/47 green gate.
 //
 // THE RESIDUAL THIS GATE DELIBERATELY DOES NOT FENCE. A tunnel carries a host and a port, not a
 // path, so an admitted model endpoint is reachable in full — including a model server's own
@@ -225,9 +231,38 @@ try {
 ok("the host end's behaviour is proven by its Rust suite (bytes verbatim, silence on failure, refusals)",
   rust.pass, rust.detail);
 
+// ---- 11. THE LIVE GUEST-INITIATED DIRECTION — run it where it can run, name it where it cannot --
+const liveCapable = fs.existsSync("/dev/kvm")
+  && fs.existsSync(path.join(process.env.IOI_VM_TOOLCHAIN_DIR
+    || path.join(process.env.HOME || "", ".ioi/vm-toolchain"), "supply-manifest.json"));
+if (!liveCapable) {
+  // NOT a pass. The gate says what it did not run and why, rather than counting a skip as evidence.
+  console.log("SKIP  the live guest-initiated probe — this host has no /dev/kvm or no provisioned "
+    + "toolchain; the channel's guest half is NOT claimed by this run");
+} else {
+  let live = { pass: false, detail: "" };
+  try {
+    const out = execFileSync(
+      "cargo",
+      ["test", "-p", "ioi-node", "--bin", "hypervisor-daemon",
+        "the_brokered_channel_carries_guest_bytes", "--", "--ignored"],
+      { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 900_000 });
+    const line = out.split("\n").filter((l) => l.startsWith("test result:")).pop() ?? "";
+    live = { pass: /1 passed; 0 failed/.test(line), detail: line.trim() };
+  } catch (error) {
+    live = { pass: false, detail: String(error?.stdout ?? error?.message ?? error).split("\n").slice(-6).join(" ") };
+  }
+  ok("LIVE: a real KVM guest dials out and its bytes reach the host VERBATIM, with zero network devices",
+    live.pass, live.detail);
+}
+
 const failed = RESULTS.filter((r) => !r.pass);
 console.log(`\n${failed.length === 0 ? "PASS" : "FAIL"} check:microvm-model-broker — ${RESULTS.length - failed.length}/${RESULTS.length} assertion(s)`
   + (failed.length ? ` · failing: ${failed.map((r) => r.label).join(" | ")}` : ""));
-console.log("OUTSTANDING, and not claimed by this gate: the guest-initiated direction end to end "
-  + "(cloud-hypervisor's per-port socket under a live boot) — the alpha journey's to settle.");
+console.log(liveCapable
+  ? "The guest-initiated direction was PROVEN on a live boot in this run, not deferred. What remains "
+    + "scheduled-outstanding for M13.10 is the alpha journey under IOI_ALPHA_EXECUTION_VENUE=microvm, "
+    + "which needs a model endpoint and a wallet fixture, and the harness-in-guest lane it runs on."
+  : "The guest-initiated direction was NOT exercised on this host (no /dev/kvm or no provisioned "
+    + "toolchain). This run claims the host half only.");
 process.exit(failed.length === 0 ? 0 : 1);

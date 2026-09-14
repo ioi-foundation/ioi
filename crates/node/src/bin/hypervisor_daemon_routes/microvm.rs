@@ -1457,8 +1457,19 @@ pub(crate) fn stage_and_start_model_proxy(
     // One shell: move it out of the exported tree, make it executable, start it detached with its
     // streams closed. The streams matter — the guest agent reads the child's pipe to EOF, so a
     // background process still holding it would hang the exec rather than return.
+    // LOOPBACK MUST BE UP, and it is brought up HERE rather than in the boot image — measured, not
+    // assumed: on a live guest the proxy bound 127.0.0.1 fine and the probe still failed with
+    // "Network is unreachable", because the initramfs `/init` mounts, insmods and execs the agent
+    // and never touches `lo`. Nothing had needed it before: every earlier channel is vsock, which
+    // is not a network device and needs no interface at all.
+    //
+    // THIS IS NOT A NETWORK DEVICE AND DOES NOT WEAKEN THE PROFILE. `lo` is a kernel pseudo-device
+    // present in every network namespace, attached by no VMM, reaching nothing outside the guest;
+    // `network_device_count` counts virtual NICs the monitor attaches, and stays 0. It is done in
+    // STAGING so it happens only where a channel was declared — a VM with no model channel keeps a
+    // guest whose loopback is down, exactly as it was before this unit existed.
     let start = format!(
-        "set -e; mv ./{staged_name} {guest_path}; chmod +x {guest_path}; \
+        "set -e; /bin/busybox ip link set lo up; mv ./{staged_name} {guest_path}; chmod +x {guest_path}; \
          {guest_path} {listen} {vsock} >/dev/null 2>&1 & echo $! > {pid_file}",
         staged_name = GUEST_PROXY_STAGED_NAME,
         guest_path = GUEST_PROXY_GUEST_PATH,
@@ -1791,6 +1802,173 @@ mod tests {
             );
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    /// M13.10 — THE ONE CLAIM NO OFFLINE GATE CAN MAKE: that cloud-hypervisor actually surfaces a
+    /// GUEST-INITIATED vsock connection on the per-port socket beside the main one, and that bytes
+    /// written inside the guest arrive on the host unaltered.
+    ///
+    /// Every other part of this channel is proven without a VM. This part cannot be: the convention
+    /// `<sock_path>_<port>` is cloud-hypervisor's, and whether it sends a handshake of its own in
+    /// that direction — as it does in the host→guest direction, with `CONNECT <port>` / `OK` — is a
+    /// property of the VMM, not of this code. Reading its documentation would be reading someone's
+    /// claim about it. This boots a real guest and finds out.
+    ///
+    /// The probe is deliberately NOT an HTTP request. A tunnel has no opinion about what it carries,
+    /// so the sharpest test sends a byte string with no protocol at all and requires it back
+    /// verbatim — if any party inserted a handshake, framing or error page, the comparison fails
+    /// and names what arrived.
+    ///
+    /// EVERY WAIT HERE IS BOUNDED. The first cut of this probe joined the stand-in endpoint's
+    /// thread unconditionally, so when the guest never dialled, the thread sat in `accept()` and
+    /// the test HUNG instead of failing. A test that hangs on the failure it exists to detect is
+    /// worse than no test: it reports nothing, and it reports it slowly.
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn the_brokered_channel_carries_guest_bytes_to_the_host_on_a_live_guest() {
+        use std::io::{Read as _, Write as _};
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let run = tempfile::tempdir().expect("probe run dir");
+        let vm_dir = run.path().join("vm-broker");
+
+        // The host end of the model lane, standing in for the model server: it replies with a
+        // token the guest could not have produced, so a pass cannot come from an echo anywhere.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("stand-in model endpoint");
+        let port = listener.local_addr().unwrap().port();
+        listener.set_nonblocking(true).expect("bounded accept");
+        let upstream = std::thread::spawn(move || -> Option<Vec<u8>> {
+            let deadline = Instant::now() + Duration::from_secs(180);
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let _ = stream.set_nonblocking(false);
+                        let _ = stream.set_read_timeout(Some(Duration::from_secs(30)));
+                        let mut got = [0u8; 64];
+                        let n = stream.read(&mut got).ok()?;
+                        stream.write_all(b"HOST-SIDE-REPLY-9e1f\n").ok()?;
+                        let _ = stream.flush();
+                        return Some(got[..n].to_vec());
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        if Instant::now() > deadline {
+                            return None;
+                        }
+                        std::thread::sleep(Duration::from_millis(50));
+                    }
+                    Err(_) => return None,
+                }
+            }
+        });
+
+        let mut spec = build_vm_spec(&home, "cloud-hypervisor", vm_dir.clone(), 1, 384)
+            .expect("verified VM spec");
+        spec.sock_path = short_sock_path(&format!("m1310-{}", std::process::id())).unwrap();
+        spec.model_broker = Some(
+            super::super::microvm_model_broker::admit_model_broker_destination(
+                &format!("http://127.0.0.1:{port}/v1"),
+                None,
+            )
+            .expect("a loopback model endpoint is admitted"),
+        );
+
+        // The host end comes up before the guest can dial, exactly as provisioning orders it.
+        let broker = super::super::microvm_model_broker::start_model_broker(
+            &spec.sock_path,
+            spec.model_broker.as_ref().unwrap(),
+        )
+        .expect("host end binds the per-port socket");
+
+        let monitor = CloudHypervisorMonitor;
+        let boot = monitor.start(&spec);
+        let serial_tail = |dir: &Path| -> String {
+            std::fs::read_to_string(dir.join("serial.log"))
+                .map(|text| text.lines().rev().take(25).collect::<Vec<_>>().join(" | "))
+                .unwrap_or_else(|e| format!("<no serial log: {e}>"))
+        };
+        let mut vm = match boot {
+            Ok(vm) => vm,
+            Err(error) => {
+                drop(broker);
+                panic!(
+                    "guest did not boot: {error}; serial: {}",
+                    serial_tail(&vm_dir)
+                );
+            }
+        };
+
+        let outcome = (|| -> Result<(String, String), String> {
+            // An empty workspace import first, so staging merges into a real directory the way it
+            // does in provisioning rather than into whatever the boot left behind.
+            let empty = run.path().join("ws");
+            std::fs::create_dir_all(&empty).map_err(|e| e.to_string())?;
+            monitor.import_workspace(&vm, &tar_dir(&empty)?)?;
+            stage_and_start_model_proxy(&monitor, &vm, &home, spec.model_broker.as_ref().unwrap())?;
+
+            // Inside the guest, with no network device: write raw bytes at the proxy's loopback
+            // port and read whatever comes back.
+            let probe = monitor.exec(
+                &vm,
+                &format!(
+                    "printf 'GUEST-SIDE-PROBE-4c7a\\n' | /bin/busybox nc 127.0.0.1 {} 2>&1",
+                    super::super::microvm_model_broker::GUEST_LISTEN_PORT
+                ),
+            )?;
+            // And confirm the guest really has no NIC, so nothing here could have gone around.
+            let nics = monitor.exec(
+                &vm,
+                "/bin/busybox ip -o link 2>/dev/null | /bin/busybox grep -vc ' lo:' || echo 0",
+            )?;
+            // Guest-side diagnosis for the case the bytes do not arrive: is the proxy alive, is it
+            // listening, and what did the guest's own kernel say about the vsock dial?
+            let diag = monitor.exec(
+                &vm,
+                "echo -n 'proxy='; [ -d /proc/$(cat /tmp/ioi-model-proxy.pid) ] && echo up || echo down; \
+                 echo -n 'modules='; /bin/busybox grep -c vsock /proc/modules 2>/dev/null || echo ?; \
+                 echo -n 'cid='; /bin/busybox cat /sys/devices/virtual/misc/vsock/* 2>/dev/null | /bin/busybox head -1 || echo none; \
+                 echo -n 'dmesg='; /bin/busybox dmesg 2>/dev/null | /bin/busybox grep -i vsock | /bin/busybox tail -3 || echo none",
+            )?;
+            Ok((
+                format!("{} || DIAG {}", probe.output.trim(), diag.output.trim()),
+                nics.output,
+            ))
+        })();
+
+        let _ = monitor.stop(&mut vm);
+        let reached_host = upstream.join().unwrap_or(None);
+        let accepted = broker.accepted_connections();
+        drop(broker);
+
+        let (guest_saw, nic_count) = match outcome {
+            Ok(values) => values,
+            Err(error) => panic!(
+                "the live brokered probe failed: {error}; serial: {}",
+                serial_tail(&vm_dir)
+            ),
+        };
+        assert_eq!(
+            accepted,
+            1,
+            "the host end must have accepted exactly one guest-initiated connection; \
+             0 means cloud-hypervisor never surfaced the guest's dial on `<sock>_<port>`. \
+             guest said: {guest_saw:?}; nics: {:?}; serial: {}",
+            nic_count.trim(),
+            serial_tail(&vm_dir)
+        );
+        assert_eq!(
+            reached_host.as_deref(),
+            Some(&b"GUEST-SIDE-PROBE-4c7a\n"[..]),
+            "the host end must receive the guest's bytes VERBATIM — any handshake or framing \
+             inserted by the VMM in the guest-initiated direction would show up here"
+        );
+        assert!(
+            guest_saw.contains("HOST-SIDE-REPLY-9e1f"),
+            "the guest must receive the host's reply through the tunnel, got: {guest_saw:?}"
+        );
+        assert_eq!(
+            nic_count.trim().lines().next().unwrap_or("?"),
+            "0",
+            "the guest reached the model with NO network device, which is the whole claim"
+        );
     }
 
     #[test]

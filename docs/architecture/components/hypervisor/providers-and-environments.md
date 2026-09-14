@@ -1522,6 +1522,18 @@ task runs — the exported workspace is written back over the operator's checkou
 so a binary left in it would be a change to the host tree that the venue exists
 to avoid making.
 
+Staging also raises the guest's loopback interface, and that is worth stating
+because it looks adjacent to the thing this profile refuses. The boot image never
+brings `lo` up — it mounts the pseudo-filesystems, loads the vsock chain and
+execs the agent — because every other channel here is vsock, which is not a
+network device and needs no interface at all. A guest proxy presenting HTTP on
+loopback does need one, and without it the proxy binds successfully and the guest
+still cannot reach it. `lo` is a kernel pseudo-device present in every network
+namespace, attached by no monitor and reaching nothing outside the guest, so
+`network_device_count` remains zero and the refusal that keeps it zero is
+untouched. It is raised in staging rather than at boot, so a VM that declared no
+model channel keeps a guest whose loopback is down.
+
 The enforcement declaration records the channel instead of leaving a reader to
 infer it. `HypervisorVmEnforcementDeclaration` v2 is an additive successor to v1
 carrying `broker_channel`, which is
@@ -1531,6 +1543,13 @@ when none is — required in both cases, because an absent field is not a claim.
 host-initiated, length-bounded one, and the broker sits beside it rather than
 replacing it. The workload-bound profile refuses the binding altogether, so the
 two profiles are told apart by reading one field of one record.
+
+The brokered channel's own check is `check:microvm-model-broker`, which proves
+the host half offline and runs a live cloud-hypervisor/KVM guest where the host
+can host one: the guest dials out with no network device and its bytes arrive on
+the host unaltered, which is also how the loopback defect above was found rather
+than reasoned about. A host without KVM is reported as not-run by name; a skip is
+never counted as evidence.
 
 The executable check is `check:workload-bound-effect-boundary`; `--live` boots
 the pinned Cloud Hypervisor/KVM guest as root and exercises the broker through
