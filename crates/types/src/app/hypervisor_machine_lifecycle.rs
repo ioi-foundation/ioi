@@ -33,6 +33,10 @@ pub const MACHINE_OPERATION_CONTRACT: &str =
 /// Registered machine operation receipt.
 pub const MACHINE_OPERATION_RECEIPT_CONTRACT: &str =
     "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1";
+/// The ALREADY-REGISTERED backend capability declaration this kernel consults. Named here because
+/// the first cut of this file invented a shape instead of looking for one that existed.
+pub const BACKEND_CAPABILITY_DECLARATION_CONTRACT: &str =
+    "schema://ioi/components/hypervisor/backend-capability-declaration/v1";
 
 /// Canon's minimum lifecycle vocabulary, in canon's order. Held here as well as in the contract
 /// because the kernel must be able to answer "is this a verb at all" without a schema round-trip,
@@ -156,8 +160,22 @@ pub fn admit_machine_operation(
         Ok(value) => value,
         Err(error) => return MachineVerdict::refuse("operation_contract_invalid", error),
     };
+    // THE DECLARATION IS A REGISTERED CONTRACT, AND IT IS VALIDATED AS ONE. The first cut of this
+    // kernel invented a `{cells: {verb: {supported}}}` shape without checking, and
+    // `backend-capability-declaration/v1` was already registered with a different one entirely —
+    // so every real declaration would have been refused as unresolvable. Validating here means the
+    // shape can never drift away from the contract silently again.
+    if let Err(error) = validate_architecture_contract(
+        BACKEND_CAPABILITY_DECLARATION_CONTRACT,
+        resolved_declaration,
+    ) {
+        return MachineVerdict::refuse(
+            "capability_declaration_not_resolved",
+            format!("resolved declaration is not a valid capability declaration: {error}"),
+        );
+    }
     let resolved_ref = resolved_declaration
-        .get("capability_declaration_ref")
+        .get("declaration_ref")
         .and_then(Value::as_str)
         .unwrap_or_default();
     if resolved_ref.is_empty() || resolved_ref != declared_ref {
@@ -170,36 +188,45 @@ pub fn admit_machine_operation(
     }
 
     // THE DRIFT CHECK. Not "did we find a declaration" but "is it the one this operation was
-    // written against". A ref alone cannot answer that, which is why canon binds the hash too.
+    // written against". The declaration carries its OWN `declaration_hash`; a republished
+    // declaration carries a different one, so an operation pinned to the old hash refuses here
+    // rather than reading cells that moved under it. A ref alone cannot see that.
     let declared_hash = match required_string(operation, "/capability_declaration_hash") {
         Ok(value) => value,
         Err(error) => return MachineVerdict::refuse("operation_contract_invalid", error),
     };
-    // `jcs_hash` already returns the `sha256:` prefix; prefixing again produced `sha256:sha256:…`
-    // and the contract's pattern caught it, which is the pattern doing its job.
-    let resolved_hash = match jcs_hash(resolved_declaration) {
-        Ok(hash) => hash,
-        Err(error) => return MachineVerdict::refuse("capability_declaration_not_resolved", error),
-    };
-    if resolved_hash.as_str() != declared_hash {
+    let resolved_hash = resolved_declaration
+        .get("declaration_hash")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if resolved_hash != declared_hash {
         return MachineVerdict::refuse(
             "capability_declaration_drifted",
             format!("declaration hash is {resolved_hash}, operation was admitted against {declared_hash}"),
         );
     }
 
-    // THE CAPABILITY MATRIX IS CONSULTED, NOT ASSUMED. An absent cell is unsupported: silence from
-    // a backend is not permission, and a lowest-common-denominator default would be the
-    // "simulated success" the journey's negative clauses refuse outright.
+    // THE CAPABILITY MATRIX IS CONSULTED, NOT ASSUMED, and it is the contract's own matrix:
+    // `supported_operations` is a list of names, `unsupported_operations` a list of
+    // {operation, reason_code} — which is where canon's "exact typed reason from the current
+    // capability declaration" actually lives.
     let supported = resolved_declaration
-        .pointer(&format!("/cells/{verb}/supported"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
+        .get("supported_operations")
+        .and_then(Value::as_array)
+        .is_some_and(|list| list.iter().any(|item| item.as_str() == Some(verb)));
     if !supported {
+        // A verb named in neither list is UNSUPPORTED. Silence from a backend is not permission,
+        // and a lowest-common-denominator default would be the simulated success the journey's
+        // negative clauses refuse outright.
         let reason = resolved_declaration
-            .pointer(&format!("/cells/{verb}/unsupported_reason"))
-            .and_then(Value::as_str)
-            .unwrap_or("capability_cell_unsupported");
+            .get("unsupported_operations")
+            .and_then(Value::as_array)
+            .and_then(|list| {
+                list.iter()
+                    .find(|item| item.get("operation").and_then(Value::as_str) == Some(verb))
+                    .and_then(|item| item.get("reason_code").and_then(Value::as_str))
+            })
+            .unwrap_or("operation_absent_from_declaration");
         return MachineVerdict::refuse(
             "capability_cell_unsupported",
             format!("backend does not support '{verb}': {reason}"),
@@ -333,15 +360,47 @@ mod tests {
     const H_HEAD: &str = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
     const H_KEY: &str = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
 
+    const DECL_HASH: &str =
+        "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
+    /// A VALID `backend-capability-declaration/v1` — the registered contract, not an invented
+    /// shape. `supported_operations` may also name backend capabilities that are not lifecycle
+    /// verbs (the estate's own fixture lists `kernel_initramfs_boot` beside `start`), and the
+    /// kernel only ever asks about the verb at hand.
     fn declaration(verb: &str, supported: bool) -> Value {
+        let (supported_ops, unsupported_ops) = if supported {
+            (json!(["kernel_initramfs_boot", verb]), json!([]))
+        } else {
+            (
+                json!(["kernel_initramfs_boot"]),
+                json!([{ "operation": verb, "reason_code": "backend_lacks_live_migration" }]),
+            )
+        };
         json!({
-            "capability_declaration_ref": "machine-capability-declaration://cap_01",
-            "cells": { verb: { "supported": supported, "unsupported_reason": "backend_lacks_live_migration" } }
+            "schema_version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+            "declaration_ref": "capability://backend/local-kvm/1",
+            "declaration_hash": DECL_HASH,
+            "producer_ref": "runtime://daemon/node-1",
+            "producer_release_ref": "release://hypervisor/0.1.0",
+            "backend_registration_ref": "backend://local/microvm",
+            "adapter_release_ref": "release://adapter/microvm/0.1.0",
+            "scope_ref": "runtime-node://local/node-1",
+            "observed_backend_version": "1.0.0",
+            "evidence_mode": "simulated",
+            "discovery_method_ref": "evaluator://backend-preflight/v1",
+            "supported_machine_architectures": ["x86_64"],
+            "supported_operations": supported_ops,
+            "unsupported_operations": unsupported_ops,
+            "limitations": [],
+            "evaluator_ref": "evaluator://backend-capability/v1",
+            "signature_or_attestation_ref": "evidence://signature/backend-capability-1",
+            "temporal_verification_evidence_ref": "evidence://temporal/backend-capability-1",
+            "currentness_evaluation_ref": "evaluation://currentness/backend-capability-1",
+            "provenance_evidence_refs": ["evidence://preflight/backend-capability-1"]
         })
     }
 
     fn operation(verb: &str, declaration: &Value) -> Value {
-        let hash = jcs_hash(declaration).unwrap();
         json!({
             "schema_version": "ioi.hypervisor.machine-operation.v1",
             "operation_ref": "machine-operation://mop_01",
@@ -352,8 +411,8 @@ mod tests {
             "owner_ref": "principal://owner_01",
             "environment_ref": "environment://env_01",
             "backend_registration_ref": "machine-backend-registration://bk_01",
-            "capability_declaration_ref": "machine-capability-declaration://cap_01",
-            "capability_declaration_hash": hash,
+            "capability_declaration_ref": declaration["declaration_ref"].clone(),
+            "capability_declaration_hash": declaration["declaration_hash"].clone(),
             "affected_image_bindings": [],
             "affected_volume_bindings": [],
             "affected_network_bindings": [],
@@ -365,6 +424,24 @@ mod tests {
             "durability_boundary_ref": "durability-boundary://declared_01",
             "observation_boundary_ref": "observation-boundary://declared_01"
         })
+    }
+
+    #[test]
+    fn a_declaration_that_is_not_a_valid_capability_declaration_is_not_resolved() {
+        // The defect this test exists for: the first cut of this kernel invented a
+        // `{cells: {...}}` shape and would have refused every REAL declaration in the estate.
+        let invented = json!({ "capability_declaration_ref": "capability://backend/local-kvm/1",
+                               "cells": { "start": { "supported": true } } });
+        let verdict = admit_machine_operation(
+            &operation("start", &declaration("start", true)),
+            &invented,
+            H_HEAD,
+            &[],
+        );
+        assert_eq!(
+            verdict.refusal_dimension,
+            Some("capability_declaration_not_resolved")
+        );
     }
 
     #[test]
@@ -419,8 +496,14 @@ mod tests {
         // admission and effect, which is exactly what the journey requires to refuse.
         let admitted_against = declaration("start", true);
         let operation = operation("start", &admitted_against);
+        // A REPUBLISHED DECLARATION CARRIES A DIFFERENT HASH. Same ref, new bytes, new
+        // `declaration_hash` — the operation is pinned to the old one and must refuse.
         let mut drifted = admitted_against.clone();
-        drifted["cells"]["start"]["supported"] = json!(false);
+        drifted["supported_operations"] = json!(["kernel_initramfs_boot"]);
+        drifted["unsupported_operations"] =
+            json!([{ "operation": "start", "reason_code": "withdrawn" }]);
+        drifted["declaration_hash"] =
+            json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         let verdict = admit_machine_operation(&operation, &drifted, H_HEAD, &[]);
         assert!(!verdict.admitted);
         assert_eq!(
@@ -447,13 +530,22 @@ mod tests {
             .unwrap()
             .contains("backend_lacks_live_migration"));
 
-        // SILENCE IS NOT PERMISSION. A declaration with no cell for the verb refuses too — a
+        // SILENCE IS NOT PERMISSION. A verb named in NEITHER list refuses too — a
         // lowest-common-denominator default would be the simulated success the journey refuses.
-        let silent = json!({ "capability_declaration_ref": "machine-capability-declaration://cap_01", "cells": {} });
-        let verdict = admit_machine_operation(&operation("migrate", &silent), &silent, H_HEAD, &[]);
+        let mut silent = declaration("migrate", true);
+        silent["supported_operations"] = json!(["kernel_initramfs_boot"]);
+        let op = operation("migrate", &silent);
+        let verdict = admit_machine_operation(&op, &silent, H_HEAD, &[]);
         assert_eq!(
             verdict.refusal_dimension,
             Some("capability_cell_unsupported")
+        );
+        assert!(
+            verdict
+                .refusal_reason
+                .unwrap()
+                .contains("operation_absent_from_declaration"),
+            "a verb in neither list is unsupported, and the reason says which case it was"
         );
     }
 
