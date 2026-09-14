@@ -1,0 +1,49 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-12-bounded-improvement-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-12"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-12 journey (improvement is proposed, judged, and never self-promoting) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-bounded-improvement runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, M10.3's institutional learning boundary, M10.5's Foundry spec contracts, architecture contracts and docs, work items and the daemon suite; the multi-hour learning-boundary battery runs with --mutation-batteries; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:acceptance-bounded-improvement).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-bounded-improvement.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-bounded-improvement\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:acceptance-bounded-improvement plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "the two cited improvement verifiers target the shared daemon at :8765 with a served shell, an operator session token and Playwright — not isolated, not composed (M10.1 / M12.5, R-137)",
+    "clause 1's spine objects and clause 5 (M10.1, check:improvement-governance-spine)",
+    "clauses 2, 3, 4 and 6 (M10.2, check:improvement-role-separation)",
+    "clauses 6 and 9 (M10.4, check:governed-evaluation-plane)",
+    "clauses 10-12 and N3 (M10.8, check:capability-construction-cycle)",
+    "clause 13 and N4 (M10.9, check:collective-controller-qualification)"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}

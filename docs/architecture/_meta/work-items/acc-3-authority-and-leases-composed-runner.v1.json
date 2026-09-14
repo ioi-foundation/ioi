@@ -1,0 +1,46 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-3-authority-and-leases-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-3"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-3 journey (authority is delegated, bounded, and revoked) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-authority-and-leases runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, M03.1/M03.2 env-lease authority, M03.5 and M03.6 grant-chain populations and drills, M03.10/M03.12 standing envelope and lease lifecycle, M06.2 typed effect recovery, M03.8 device-held principal and device custody boundary, M03.3 named-gap truth with architecture contracts and docs, M03.7 SIWE link_owner v2 and drill, M03.13 worker secret non-possession, standing authority, M03.11/M03.14 drawdown metering and trajectory admission, M08.13/M08.14 the standing consumer loop, session authority, model-route authority and admission evidence; the source-planting batteries run with --mutation-batteries; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:acceptance-authority-and-leases).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-authority-and-leases.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-authority-and-leases\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:acceptance-authority-and-leases plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "clause 10 byte-derived lease_request_facets rendering (M03.9; the alpha journey's approval-card evidence is cited, never counted)",
+    "clause 14 and N6 (M03.16, check:provider-connection-lifecycle)",
+    "the connected-access cockpit (M08.16, check:connected-access-cockpit)"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}

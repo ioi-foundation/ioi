@@ -1,0 +1,46 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-20-governed-machine-product-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-20"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-20 journey (one governed machine, integrated and standalone) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:governed-machine-product runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, M09.11's machine-lifecycle backend conformance (eleven contracts, sixteen verbs, ref-and-hash capability binding, stale-head / replayed-key / drifted-declaration / ambiguous-completion refusals, the non-simulated executor fence); --soak is the scheduled crash/restart matrix and refuses typed until fresh hosted and attached backend evidence exists; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:governed-machine-product).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-governed-machine-product.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:governed-machine-product\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:governed-machine-product plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "clause 2's client half, clauses 5, 6, 8, 9 and N2 (M08.15, check:machine-product-composition)",
+    "clause 10 and N1 (M12.15, check:machine-product-profile-qualification)",
+    "the crash/restart/recovery matrix on fresh subjects is scheduled (the --soak lane) and does not hold the merge-lane gate"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}

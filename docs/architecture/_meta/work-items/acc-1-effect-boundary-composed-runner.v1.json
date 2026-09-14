@@ -1,0 +1,46 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-1-effect-boundary-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-1"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-1 journey (the effect boundary holds) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-effect-boundary runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, M01.1 command-execution guardrails, M01.2 enforcement coverage, M01.3 runtime tool contracts, M01.4 MCP transport normalization, M01.5 the launch chain, M01.6 the governed-effect floor, M01.8 proposal provenance, M03.4 the admission census and its drill, admission evidence, both mutation-coverage gates behind an exact R-18 fence, and the daemon suite; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:acceptance-effect-boundary).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-effect-boundary.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-effect-boundary\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:acceptance-effect-boundary plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "clause 4's non-tool primitives and N5 (M01.10, check:mcp-non-tool-normalization)",
+    "clause 8 and N6 (M01.11, check:hypervisor-mcp-gateway-profile)",
+    "R-18's handle_cloud_job_execute is fenced (decentralized-cloud's) and printed on every run; it does not hold the MVP gate by R-136, and any second handler or source file un-fences the check"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}

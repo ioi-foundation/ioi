@@ -1,0 +1,47 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-10-operator-workday-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-10"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-10 journey (one operator workday across the estate) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-operator-workday runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, M08.8's product-surface compiler and landing designations, named-gap truth, M08.10's packages journey, the four product gates and the fourteen surface journeys how-to-check §4 lists each against its own daemon, seed provenance with a fixtures-off structural assertion, the standing consumer loop, then the verifier-family floor last; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:acceptance-operator-workday).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-operator-workday.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-operator-workday\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:acceptance-operator-workday plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "clause 4 (M08.9, check:systems-work-projections)",
+    "clause 5's remainder (M08.10, check:packages-product-lifecycle)",
+    "clause 7 — no accessibility gate exists under any name (M08.8 remainder, R-138)",
+    "clause 9 and N4 (M08.17, check:collective-artifact-ecology-surface)"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}

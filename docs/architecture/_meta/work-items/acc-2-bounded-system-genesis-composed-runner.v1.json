@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-2-bounded-system-genesis-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-2"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-2 journey (a bounded system is constituted and governed) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-bounded-system-genesis runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, the genesis compiler suite, the sequence-zero materialization lane (M02.1; the M1.5c amendment and M1.5d continuity assertions), M02.2's constitutional/oracle population and drill, M02.5's network-enrollment continuity plane and drill, M02.3's membership plane and drill, work items, the agentgres suite and the daemon suite; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:acceptance-bounded-system-genesis).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-bounded-system-genesis.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-bounded-system-genesis\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:acceptance-bounded-system-genesis plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "clause 7's projection-cannot-mutate half (M08.9, check:systems-work-projections)",
+    "N2 — no named test proves a run-scoped policy cannot widen an admitted system revision (M02.2 remainder, R-138)"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}

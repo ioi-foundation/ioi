@@ -1,0 +1,49 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "acc-14-conformance-ladder-composed-runner",
+  "stage_id": "ACC",
+  "required_work": [
+    "ACC-14"
+  ],
+  "status": "evidence_ready",
+  "objective": "Compose the ACC-14 journey (the conformance ladder) over the existing done-bars of the planes it crosses, on one basis with fixtures disabled, and say out loud — as typed absences naming their owner — which clauses have no executable proof.",
+  "falsifiable_claim": "npm run check:acceptance-conformance-ladder runs, sequentially in one process over scripts/lib/acceptance-journey.mjs, the alpha journey in deployment + package + no-checkout mode with --with-alpha-journey (otherwise cited and recorded as a typed absence), M12.4's outcome-room system spine on the wallet fixture, architecture contracts, work items and M01.7's applicability gate, with a structural assertion that no clause is satisfied by a CI run; --live is the scheduled paid-stranger lane and refuses typed until M12.7's evidence is present; it clears the shared-daemon/replay/fixture redirection for every child, re-reads the git basis after every clause, and reports PARTIAL (exit 2) — never PASS — while any clause is a typed absence, a battery is not executed on the claimed basis, or a fenced finding holds the gate; a planted red clause fails the journey (mutate:acceptance-conformance-ladder).",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "literal": "TYPED ABSENCE",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/acceptance-journey.mjs",
+      "literal": "SCHEDULED-OUTSTANDING",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:acceptance-conformance-ladder\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:acceptance-conformance-ladder plants a red clause and requires the composed verdict to fail (13/13 runners drilled 2026-09-14); the harness refuses a provenBy that names a clause with no executed check, a scheduled leg without a ruling and a prerequisite, and a duplicate clause id; a basis that moves mid-run is red.",
+  "remaining_nonclaims": [
+    "PARTIAL is not a pass: the runner exits 2 while any typed absence, unexecuted battery or gate-holding fence remains.",
+    "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
+    "clause 1 and N2 (M12.1, check:standalone-conformance)",
+    "clause 2's remainder (M12.2: pre-install preview, dedicated CLI client, declared Agentgres posture, uninstall-without-wipe)",
+    "clause 3 (M12.3, check:undeniable-product-proof)",
+    "clause 5 (M12.5; its two cited verifiers are not isolated, R-137)",
+    "clause 6 (M12.6, check:horizon-2-distributed-work)",
+    "clause 7's deterministic half and N1 (M12.7 product_track, M06.11 check:public-verifier-conformance, M09.10 check:multi-substrate-portability)"
+  ],
+  "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
+  "last_status_transaction": "2026-09-14"
+}
