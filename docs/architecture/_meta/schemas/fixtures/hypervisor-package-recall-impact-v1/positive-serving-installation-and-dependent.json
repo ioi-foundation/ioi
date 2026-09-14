@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.hypervisor.package_recall_impact.v1",
+  "recall_impact_ref": "package-recall-impact://local-telesupport/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "release_ref": "package://local-telesupport/release/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "recall_reason": "conformance defect: the packaged surface misreports its capability depth",
+  "affected_installations": [
+    {
+      "installation_ref": "install://local-telesupport/primary",
+      "org_ref": "org://local",
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "registration_state": "admitted",
+      "serving_binding_ref": "surface-serving://extensions/local-telesupport/primary",
+      "runtime_ref": "domain-app-runtime://dartm_0123456789abcdef",
+      "surface_operational_state": "serving"
+    }
+  ],
+  "affected_system_refs": [],
+  "dependent_release_refs": [
+    "package://local-telesupport/release/sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  ],
+  "remediation_handoffs": [
+    {
+      "kind": "stop_serving",
+      "owner": "domain_apps",
+      "route": "/v1/hypervisor/domain-apps/dapp-test/stop-serving",
+      "subject_ref": "domain-app-runtime://dartm_0123456789abcdef"
+    }
+  ],
+  "does_not_assert": [
+    "runtime_stopped",
+    "system_mutated",
+    "binding_mutated",
+    "dependent_release_recalled",
+    "reach_beyond_recaller_tenants"
+  ],
+  "affected_system_binding_refs": []
+}

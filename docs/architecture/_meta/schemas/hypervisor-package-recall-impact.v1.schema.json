@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+  "title": "HypervisorPackageRecallImpact",
+  "x-ioi-schema-version": "ioi.hypervisor.package_recall_impact.v1",
+  "description": "What one release recall reaches, DERIVED at the recall admission from admitted truth and frozen on the recall successor: the installations over the release with their registration and serving state, the Systems bound to the DomainApps whose runtimes serve them, the releases that depend on it, and the remediation handoffs to the owners that may stop or roll back — because Packages itself stops, mutates and terminates nothing (core-clients-surfaces.md § Hypervisor Packages).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "recall_impact_ref",
+    "release_ref",
+    "recall_reason",
+    "affected_installations",
+    "affected_system_refs",
+    "affected_system_binding_refs",
+    "dependent_release_refs",
+    "remediation_handoffs",
+    "does_not_assert"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.package_recall_impact.v1"
+    },
+    "recall_impact_ref": {
+      "type": "string",
+      "pattern": "^package-recall-impact://\\S+/sha256:[0-9a-f]{64}$"
+    },
+    "release_ref": {
+      "type": "string",
+      "pattern": "^package://\\S+/release/\\S+$"
+    },
+    "recall_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "affected_installations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "installation_ref",
+          "org_ref",
+          "surface_installation_state",
+          "surface_enablement_state",
+          "registration_state",
+          "serving_binding_ref",
+          "runtime_ref",
+          "surface_operational_state"
+        ],
+        "properties": {
+          "installation_ref": {
+            "type": "string",
+            "pattern": "^install://\\S*$"
+          },
+          "org_ref": {
+            "type": "string",
+            "pattern": "^(?:org|project)://\\S*$"
+          },
+          "surface_installation_state": {
+            "enum": [
+              "not_installed",
+              "installing",
+              "installed",
+              "uninstalled",
+              "failed"
+            ]
+          },
+          "surface_enablement_state": {
+            "enum": [
+              "not_applicable",
+              "enabled",
+              "disabled"
+            ]
+          },
+          "registration_state": {
+            "enum": [
+              "admitted",
+              "absent"
+            ]
+          },
+          "serving_binding_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^surface-serving://\\S*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runtime_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:runtime://\\S*|domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "surface_operational_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "inactive",
+                  "starting",
+                  "ready",
+                  "serving",
+                  "degraded",
+                  "blocked",
+                  "stopped",
+                  "unavailable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "affected_system_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^system://\\S*$"
+      }
+    },
+    "dependent_release_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^package://\\S+/release/\\S+$"
+      }
+    },
+    "remediation_handoffs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "owner",
+          "route",
+          "subject_ref"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "stop_serving",
+              "unmount",
+              "rollback",
+              "migrate"
+            ]
+          },
+          "owner": {
+            "enum": [
+              "domain_apps",
+              "governance"
+            ]
+          },
+          "route": {
+            "type": "string",
+            "pattern": "^/v1/hypervisor/\\S*$"
+          },
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^(?:domain-app|domain-app-runtime|release-control)://\\S*$"
+          }
+        }
+      }
+    },
+    "does_not_assert": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 4,
+      "items": {
+        "enum": [
+          "runtime_stopped",
+          "system_mutated",
+          "binding_mutated",
+          "dependent_release_recalled",
+          "external_ingress_withdrawn",
+          "reach_beyond_recaller_tenants"
+        ]
+      }
+    },
+    "affected_system_binding_refs": {
+      "description": "System binding refs the affected DomainApps carry under a scheme other than system:// (the DomainApp plane authors system_binding_refs free-form); listed so no bound System is dropped for having the wrong prefix.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*://\\S*$"
+      }
+    }
+  }
+}

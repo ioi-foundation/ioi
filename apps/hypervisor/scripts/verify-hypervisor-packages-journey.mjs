@@ -737,6 +737,26 @@ async function run() {
     reserved.status === 201 && !!feedEntry && feedEntry.launchable === true && feedEntry.resolved_launch_route === runtimeRoute,
     JSON.stringify(feedEntry?.disabled_reason_codes ?? reserved.body).slice(0, 160));
 
+  // -- a SECOND release that DEPENDS on the first (slice A's field), so the recall below has a
+  // dependent to name in its impact record (slice D) --
+  const dependentCut = await act(`/${PKG}/cut-release`, {
+    idempotency_key: "packages-journey-release-2",
+    expected_package_head: candidateHead,
+    surface_distribution: "private_registry",
+    surface_capability_depth: "propose",
+    object_contract_refs: "object-model://packages-journey",
+    action_contract_refs: "action://packages-journey/propose",
+    dependency_release_refs: `package://${PKG}/release/${releaseDigest}`,
+    evidence_refs: "artifact://packages-journey/conformance",
+    return: `${LANE}?pkg=${PKG}`,
+  });
+  const dependentDigest = dependentCut.q.get("record") || "";
+  const DEPENDENT_REF = `package://${PKG}/release/${dependentDigest}`;
+  ok("a second release depending on the first is admitted (its dependency resolved at admission against the active release) under a distinct content-addressed digest",
+    dependentCut.status === 303 && dependentCut.q.get("acted") === "cut-release" && /^sha256:[0-9a-f]{64}$/u.test(dependentDigest) && dependentDigest !== releaseDigest
+      && JSON.stringify((await relGet(dependentDigest)).release?.record?.dependency_release_refs) === JSON.stringify([`package://${PKG}/release/${releaseDigest}`]),
+    dependentCut.location.slice(0, 140));
+
   // -- RECALL: identity-first, successor revision, receipts, replay, CAS ------
   const anonRecall = await act(`/${PKG}/recall`, {
     idempotency_key: "packages-journey-recall-anon",
@@ -771,6 +791,30 @@ async function run() {
       && release.release?.record?.release_ref === `package://${PKG}/release/${releaseDigest}`
       && !!recallHead && recallHead !== releaseHead,
     `head ${String(recallHead).slice(0, 14)}…`);
+  // -- RECALL IMPACT (M08.10 slice D): what the recall reached, derived at admission and frozen --
+  const impact = release.release?.recall_impact || null;
+  const affected = (impact?.affected_installations || []).find((row) => row.installation_ref === `install://${PKG}/${INST}`) || null;
+  ok("the recall successor carries the IMPACT it reached, derived at admission: the registered, SERVING installation with its serving binding and runtime ref, the dependent release by ref, no bound System (the journey's DomainApp binds none), and the stop-serving/unmount handoffs to the DomainApp plane",
+    !!impact && impact.schema_version === "ioi.hypervisor.package_recall_impact.v1"
+      && impact.recall_impact_ref === `package-recall-impact://${PKG}/${releaseDigest}`
+      && impact.recall_reason === RECALL_REASON
+      && (impact.affected_installations || []).length === 1 && !!affected
+      && affected.registration_state === "admitted" && affected.serving_binding_ref === SERVING_REF
+      && affected.runtime_ref === runtimeRef && affected.surface_operational_state === "serving"
+      && JSON.stringify(impact.dependent_release_refs) === JSON.stringify([DEPENDENT_REF])
+      && JSON.stringify(impact.affected_system_refs) === "[]"
+      && (impact.remediation_handoffs || []).some((h) => h.kind === "stop_serving" && h.owner === "domain_apps" && h.route === `/v1/hypervisor/domain-apps/${dappId}/stop-serving` && h.subject_ref === runtimeRef)
+      && (impact.remediation_handoffs || []).some((h) => h.kind === "unmount" && h.subject_ref === dappRef)
+      && (impact.does_not_assert || []).includes("runtime_stopped") && (impact.does_not_assert || []).includes("reach_beyond_recaller_tenants"),
+    JSON.stringify(impact ?? release.release ?? {}).slice(0, 300));
+  const runtimeAfterRecall = await jd(`/v1/hypervisor/domain-app-runtimes/${encodeURIComponent(runtimeRef.replace(/^domain-app-runtime:\/\//u, ""))}`);
+  ok("RECALL TERMINATES NOTHING: the DomainApp runtime still reads serving after the recall — stopping it is the DomainApp plane's verb, named in the impact's handoffs, never Packages' side effect",
+    runtimeAfterRecall.status === 200 && runtimeAfterRecall.body?.runtime?.serving === true && runtimeAfterRecall.body?.runtime?.state === "serving",
+    `status ${runtimeAfterRecall.status} serving ${runtimeAfterRecall.body?.runtime?.serving}`);
+  const dependentAfterRecall = await relGet(dependentDigest);
+  ok("the dependent release is NAMED, not recalled: it still reads active (a recall never cascades to a dependent's disposition; it exposes the dependency)",
+    dependentAfterRecall.release?.record?.surface_package_disposition === "active",
+    dependentAfterRecall.release?.record?.surface_package_disposition || "");
   const recallReplay = await act(`/${PKG}/recall`, {
     idempotency_key: "packages-journey-recall-1",
     release_digest: releaseDigest,
@@ -842,6 +886,12 @@ async function run() {
       && relPageRecalled.text.includes("Already recalled")
       && relPageRecalled.text.includes("package_release_not_installable"),
     "");
+  ok("the release page renders the recall IMPACT verbatim: the affected installation, its serving runtime, the dependent release, the DomainApp plane's stop-serving handoff, and the statement that Packages stopped nothing",
+    relPageRecalled.status === 200 && relPageRecalled.text.includes('data-testid="rel-recall-impact"')
+      && relPageRecalled.text.includes(`install://${PKG}/${INST}`) && relPageRecalled.text.includes(runtimeRef)
+      && relPageRecalled.text.includes(DEPENDENT_REF) && relPageRecalled.text.includes(`/v1/hypervisor/domain-apps/${dappId}/stop-serving`)
+      && relPageRecalled.text.includes("Packages stopped nothing"),
+    "");
   const instPageRecalled = await pageText(`/packages?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`);
   ok("the binding page renders the derived cascade verbatim: surface_release_recalled among the reasons, the recall reason text, launch_eligible false",
     instPageRecalled.status === 200 && instPageRecalled.text.includes("surface_release_recalled")
@@ -862,9 +912,11 @@ async function run() {
       && binding.installation?.agentgres?.head === enabledHead,
     "");
   feed = await launcherFeed();
-  ok("the recalled disposition, the derived binding cascade, the admitted registration and the launcher-feed absence all SURVIVE restart (derived from admitted truth, not process state)",
+  ok("the recalled disposition, the derived binding cascade, the admitted registration, the frozen recall impact and the launcher-feed absence all SURVIVE restart (derived from admitted truth, not process state)",
     release.release?.record?.surface_package_disposition === "recalled"
       && release.release?.recall_reason === RECALL_REASON
+      && release.release?.recall_impact?.recall_impact_ref === `package-recall-impact://${PKG}/${releaseDigest}`
+      && JSON.stringify(release.release?.recall_impact?.dependent_release_refs) === JSON.stringify([DEPENDENT_REF])
       && binding.installation?.release_disposition === "recalled"
       && binding.installation?.registration_state === "admitted"
       && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled"])

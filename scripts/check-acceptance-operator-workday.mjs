@@ -4,8 +4,9 @@
 // A clause table over scripts/lib/acceptance-journey.mjs. This is the coverage gate over the
 // surfaces no other journey reaches, so clause 6 composes the product gates and the surface
 // journeys how-to-check.md §4 lists (each boots its own daemon; this runner is long by nature).
-// Clauses 4, 5, 7 and 9 name the units that still owe them as TYPED ABSENCES; clause 7 has no gate
-// under any name and is recorded as M08.8's remainder (register R-138).
+// Clauses 4, 7 and 9 name the units that still owe them as TYPED ABSENCES; clause 7 has no gate
+// under any name and is recorded as M08.8's remainder (register R-138). Clause 5 executes M08.10's
+// composed done-bar, check:packages-product-lifecycle (slices A–D landed 2026-09-14).
 //
 //   node scripts/check-acceptance-operator-workday.mjs [--mutation-batteries] [--mutation] [--evidence <out.json>]
 
@@ -35,7 +36,9 @@ const CLAUSES = [
   { id: "2", clause: "Every surface is compiled, not hard-coded: shell, catalog, command palette, contextual and API projections come from one registration over the independent axes", unit: "M08.8", provenBy: "1" },
   { id: "3", clause: "Every lane is live or a typed absence: a named gap carries the disabled attribute, a human title, a machine reason and a citation to the adjudication", unit: "M08 · G-8", checks: [app("check:named-gap-truth")] },
   { id: "4", clause: "Systems and Work render truth they do not own: Work applies policy before search, counts, caching and recents and exposes typed subject refs", unit: "M08.9", absences: [absent("M08.9", "check:systems-work-projections", "the Systems projection's nonmutation and the typed Work subject contract")] },
-  { id: "5", clause: "The package lifecycle is complete in both directions: intake, release, admission, install, registration, routing, then uninstall, recall, revocation and affected-System impact", unit: "M08.10", checks: [bounded(app("check:packages-journey"), 30)], absences: [absent("M08.10", "check:packages-product-lifecycle", "candidate/intake, dependency refs on the release, the extension_application registration the route's own nonclaim names, compiler/serving integration and affected-System impact on recall")] },
+  // M08.10's composed done-bar (slices A–D landed 2026-09-14): it runs the packages journey, the
+  // registry smoke, the compiler, the route tests and the contract bar on ONE basis.
+  { id: "5", clause: "The package lifecycle is complete in both directions: intake, release, admission, install, registration, routing, then uninstall, recall, revocation and affected-System impact", unit: "M08.10", checks: [bounded(rootScript("check:packages-product-lifecycle"), 120)] },
   { id: "6", clause: "Deep links and navigation converge, or carry a typed documented difference; every status is asserted at HTTP and body level (the product gates and the surface journeys, each end to end against its own daemon)", unit: "M08 · how-to-check §4", checks: [...PRODUCT_GATES, ...SURFACE_JOURNEYS] },
   { id: "7", clause: "Every primary journey is accessible: keyboard, focus, screen reader, contrast, both themes, reduced motion, 390-pixel viewport, embed and back-stack", unit: "M08.8 (remainder)", absences: [{ what: "no accessibility gate exists under any name (measured 2026-09-14: no check:* script asserts keyboard/focus/screen-reader/contrast/theme/reduced-motion/390px/embed/back-stack over the compiled catalog)", owner: "M08.8 remainder (register R-138)" }] },
   { id: "8", clause: "Zero fixture fallback, proven negatively against a real daemon", unit: "M08 · seed provenance", checks: [app("check:seed-provenance")], structural: () => ({ ok: process.env.IOI_ACCEPTANCE_FIXTURES !== "enabled", detail: "the harness clears IOI_HYPERVISOR_DAEMON_URL / IOI_PRODUCT_UI_REPLAY and sets IOI_ACCEPTANCE_FIXTURES=disabled for every child above" }) },

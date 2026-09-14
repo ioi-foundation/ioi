@@ -2197,6 +2197,7 @@ per-release, per-installation, per-System, or per-runtime cardinality:
 | `HypervisorSurfaceInstallationBinding` | one organization/project installation of one release; installation, deployment enablement, audience, allowed objects/actions, and authority preview |
 | `HypervisorSystemInterfaceBinding` | one installation bound to one admitted System; System-specific enablement and narrower audience, allowed objects/actions, and authority preview |
 | `HypervisorSurfaceServingBinding` | one serving route/runtime for an installation or System binding; operational health only. The runtime is named by its own canonical ref (`runtime://...` for a first-party application runtime, `domain-app-runtime://...` for a mounted DomainApp runtime) and the operational state is that runtime owner's admitted state, read live at projection — never declared by the caller that binds it |
+| `HypervisorPackageRecallImpact` | what one release recall reaches, derived at the recall admission and frozen on the recall successor: the affected installation bindings with their registration and serving state, the Systems bound to the DomainApps whose runtimes serve them, the releases that depend on the recalled release, and the remediation handoffs to the owners that may stop, unmount or roll back — Packages itself stops, mutates and terminates nothing |
 | `HypervisorProductSurfaceProjection` | one request-scoped policy-filtered join; selected and eligible binding refs, groups, launchability, disabled reasons, and typed launch target |
 
 The normalized family collectively declares:
@@ -4067,6 +4068,33 @@ HypervisorSurfaceServingBinding:
   health_observation_refs: [observation://...]
   agentgres_projection_ref: agentgres://projection/... | null
   receipt_refs: [receipt://...]
+
+HypervisorPackageRecallImpact:
+  recall_impact_ref: package-recall-impact://.../sha256:...
+  release_ref: package://.../release/...
+  recall_reason: string
+  affected_installations:
+    - installation_ref: install://...
+      org_ref: org://... | project://...
+      surface_installation_state: not_installed | installing | installed | uninstalled | failed
+      surface_enablement_state: not_applicable | enabled | disabled
+      registration_state: admitted | absent
+      serving_binding_ref: surface-serving://... | null
+      runtime_ref: runtime://... | domain-app-runtime://... | null
+      surface_operational_state: (the serving binding's live state) | null
+  affected_system_refs: [system://...]
+  affected_system_binding_refs: [<scheme>://... — bound-System refs the DomainApp carries under
+    another scheme; never dropped for their prefix]
+  dependent_release_refs: [package://.../release/...]
+  remediation_handoffs:
+    - kind: stop_serving | unmount | rollback | migrate
+      owner: domain_apps | governance
+      route: /v1/hypervisor/...
+      subject_ref: domain-app://... | domain-app-runtime://... | release-control://...
+  does_not_assert:
+    [runtime_stopped | system_mutated | binding_mutated |
+     dependent_release_recalled | external_ingress_withdrawn |
+     reach_beyond_recaller_tenants]
 
 HypervisorProductSurfaceProjection:
   projection_id: projection://hypervisor/product-surface/...

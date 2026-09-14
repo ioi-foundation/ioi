@@ -335,6 +335,32 @@ function bindingTruth(entry) {
     ${recalled && entry.release_recall_reason ? `<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">recall reason: ${esc(String(entry.release_recall_reason))}</div>` : ""}`;
 }
 
+// The recall's REACH, rendered verbatim from the record the daemon derived at the recall admission
+// (M08.10 slice D). Nothing here is computed by the surface: which installs, which runtimes keep
+// serving, which Systems, which dependents and whose verbs remediate are all the daemon's derivation.
+function recallImpact(impact) {
+  const installs = Array.isArray(impact.affected_installations) ? impact.affected_installations : [];
+  const systems = Array.isArray(impact.affected_system_refs) ? impact.affected_system_refs : [];
+  const systemBindings = Array.isArray(impact.affected_system_binding_refs) ? impact.affected_system_binding_refs : [];
+  const dependents = Array.isArray(impact.dependent_release_refs) ? impact.dependent_release_refs : [];
+  const handoffs = Array.isArray(impact.remediation_handoffs) ? impact.remediation_handoffs : [];
+  const installRows = installs.length
+    ? `<table><thead><tr><th>Affected installation</th><th>Registration</th><th>Serving at recall</th></tr></thead><tbody>${installs.map((row) => `<tr>
+        <td><code>${esc(row.installation_ref || "")}</code><div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">${esc(row.org_ref || "")} · ${esc(row.surface_installation_state || "—")} · ${esc(row.surface_enablement_state || "—")}</div></td>
+        <td>${pill(row.registration_state === "admitted" ? "ok" : "warn", `registration ${row.registration_state || "absent"}`)}</td>
+        <td>${row.serving_binding_ref ? `${pill(row.surface_operational_state === "serving" ? "ok" : "warn", `operational ${row.surface_operational_state || "—"}`)} ${code(row.runtime_ref)}` : pill("muted", "no serving binding")}</td>
+      </tr>`).join("")}</tbody></table>`
+    : `<div class="empty">No installation binding over this release was reachable by the recalling caller.</div>`;
+  return `<div data-testid="rel-recall-impact-body">
+    <div class="sub" style="margin:0 0 4px;text-transform:none;letter-spacing:0">Affected installations (derived at the recall admission, frozen on the successor)</div>
+    ${installRows}
+    <div class="sub" style="margin:8px 0 0;text-transform:none;letter-spacing:0">Affected Systems: ${systems.length ? systems.map((v) => code(v)).join(" ") : "none bound"}${systemBindings.length ? ` · other System binding refs: ${systemBindings.map((v) => code(v)).join(" ")}` : ""}</div>
+    <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Dependent releases: ${dependents.length ? dependents.map((v) => code(v)).join(" ") : "none"}</div>
+    <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Remediation is the owners': ${handoffs.length ? handoffs.map((h) => `${esc(h.kind)} → <code>${esc(h.route)}</code> (${esc(h.owner)}, ${code(h.subject_ref)})`).join(" · ") : "nothing is serving, nothing to hand off"}</div>
+    <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Packages stopped nothing: runtimes listed above keep serving until their owner stops them (does_not_assert: ${esc((impact.does_not_assert || []).join(", "))}).</div>
+  </div>`;
+}
+
 // ---- Registry landing ---------------------------------------------------------------------------
 function catalogView(model, base) {
   const rows = rowsOf(model.results.packages, "packages");
@@ -481,6 +507,7 @@ function releaseView(model, base, pkg, rel) {
       <dt>Distribution · depth</dt><dd>${pill("muted", rr.surface_distribution || "—")} ${pill("muted", rr.surface_capability_depth || "—")}</dd>
       <dt>Admission</dt><dd>${pill(rr.surface_admission_state === "admitted" ? "ok" : "muted", rr.surface_admission_state || "—")} ${pill(rr.surface_package_disposition === "active" ? "ok" : "warn", rr.surface_package_disposition || "—")} <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">recall (below) is the one disposition successor the daemon owns — an immutable revision on this stream, never an edit</span></dd>
       ${recalled ? `<dt>Recall reason</dt><dd data-testid="rel-recall-reason">${esc(String(envelope.recall_reason ?? "—"))}</dd>` : ""}
+      ${recalled && envelope.recall_impact ? `<dt>Recall impact</dt><dd data-testid="rel-recall-impact">${recallImpact(envelope.recall_impact)}</dd>` : ""}
       <dt>Object contracts</dt><dd>${(rr.object_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Dependencies</dt><dd data-testid="rel-dependencies">${Array.isArray(rr.dependency_release_refs) ? (rr.dependency_release_refs.map((v) => code(v)).join("<br>") || "none declared") : "not carried (v1 release)"}</dd>
       <dt>Action contracts</dt><dd>${(rr.action_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>

@@ -3388,6 +3388,33 @@ export type HypervisorSurfaceServingBindingV2 = {
   health_observation_refs: Array<string>;
 };
 
+export type HypervisorPackageRecallImpactV1 = {
+  schema_version: "ioi.hypervisor.package_recall_impact.v1";
+  recall_impact_ref: string;
+  release_ref: string;
+  recall_reason: string;
+  affected_installations: Array<{
+        installation_ref: string;
+        org_ref: string;
+        surface_installation_state: "not_installed" | "installing" | "installed" | "uninstalled" | "failed";
+        surface_enablement_state: "not_applicable" | "enabled" | "disabled";
+        registration_state: "admitted" | "absent";
+        serving_binding_ref: string | null;
+        runtime_ref: string | null;
+        surface_operational_state: "inactive" | "starting" | "ready" | "serving" | "degraded" | "blocked" | "stopped" | "unavailable" | null;
+      }>;
+  affected_system_refs: Array<string>;
+  dependent_release_refs: Array<string>;
+  remediation_handoffs: Array<{
+        kind: "stop_serving" | "unmount" | "rollback" | "migrate";
+        owner: "domain_apps" | "governance";
+        route: string;
+        subject_ref: string;
+      }>;
+  does_not_assert: Array<"runtime_stopped" | "system_mutated" | "binding_mutated" | "dependent_release_recalled" | "external_ingress_withdrawn" | "reach_beyond_recaller_tenants">;
+  affected_system_binding_refs: Array<string>;
+};
+
 export type HypervisorSystemInterfaceBindingV1 = {
   schema_version: "ioi.hypervisor.system_interface_binding.v1";
   system_binding_ref: string;
@@ -15682,6 +15709,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/positive-serving-installation-and-dependent.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/positive-empty-reach.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-nonclaims.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/system-interface-binding/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
     "expected": "accept",
@@ -26768,6 +26851,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v2/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v2/negative-runtime-ref-foreign-scheme.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v2/negative-runtime-ref-foreign-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v2/negative-operational-state-outside-enum.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v2/negative-operational-state-outside-enum.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/positive-serving-installation-and-dependent.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/positive-serving-installation-and-dependent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/positive-empty-reach.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/positive-empty-reach.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-nonclaims.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-nonclaims.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","contract_id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","mutation_id":null,"value_json":null}),
@@ -28008,6 +28098,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:decision|dispute)://[^\\s]{1,500}$",
   "^(?:decision|receipt)://[^\\s]{1,500}$",
   "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$",
+  "^(?:domain-app|domain-app-runtime|release-control)://\\S*$",
   "^(?:domain|org|project|service|system)://[^\\s]{1,240}$",
   "^(?:domain|system|agentgres)://[^\\s]{1,500}$",
   "^(?:event|receipt)://[^\\s]{1,248}$",
@@ -28072,6 +28163,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
+  "^(?:org|project)://\\S*$",
   "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
   "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
@@ -28221,6 +28313,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^/[^\\s]{0,200}$",
   "^/\\S*$",
   "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^/v1/hypervisor/\\S*$",
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
@@ -28263,6 +28356,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
   "^[a-z][a-z0-9-]*://[^\\s]{1,240}$",
+  "^[a-z][a-z0-9-]*://\\S*$",
   "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$",
   "^[a-z][a-z0-9._-]*$",
@@ -28611,6 +28705,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^outcome-room://[^\\s]{1,500}$",
   "^pacc_[0-9a-f]{16}$",
   "^package-binding://\\S*$",
+  "^package-recall-impact://\\S+/sha256:[0-9a-f]{64}$",
   "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^package://[^\\s?#\\\\]{1,160}/release/[^\\s?#\\\\]{1,160}$",
   "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$",
@@ -28957,6 +29052,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/surface-release-record/v2": "sha256:9cb6ac13b7697bdef088e5557dd331eb30c0a5edef9cbee829f663d3a5491b88",
   "schema://ioi/components/hypervisor/surface-serving-binding/v1": "sha256:0f35243f2882deccf09df33fe031c0212008153875cbf7a31ed4227c3550d49e",
   "schema://ioi/components/hypervisor/surface-serving-binding/v2": "sha256:4416d3af1ad98cdad4ef05817b04f7ef4800d15e7aaff9f54f8d49dbc558a0c8",
+  "schema://ioi/components/hypervisor/package-recall-impact/v1": "sha256:16deca21a3172950be55512246fbb4cd0d49fd742b8829123c807769701daabc",
   "schema://ioi/components/hypervisor/system-interface-binding/v1": "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd",
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8",
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b",
@@ -55505,6 +55601,214 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "pattern": "^observation://\\S*$"
         },
         "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/package-recall-impact/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/package-recall-impact/v1",
+    "title": "HypervisorPackageRecallImpact",
+    "x-ioi-schema-version": "ioi.hypervisor.package_recall_impact.v1",
+    "description": "What one release recall reaches, DERIVED at the recall admission from admitted truth and frozen on the recall successor: the installations over the release with their registration and serving state, the Systems bound to the DomainApps whose runtimes serve them, the releases that depend on it, and the remediation handoffs to the owners that may stop or roll back — because Packages itself stops, mutates and terminates nothing (core-clients-surfaces.md § Hypervisor Packages).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "recall_impact_ref",
+      "release_ref",
+      "recall_reason",
+      "affected_installations",
+      "affected_system_refs",
+      "affected_system_binding_refs",
+      "dependent_release_refs",
+      "remediation_handoffs",
+      "does_not_assert"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.package_recall_impact.v1"
+      },
+      "recall_impact_ref": {
+        "type": "string",
+        "pattern": "^package-recall-impact://\\S+/sha256:[0-9a-f]{64}$"
+      },
+      "release_ref": {
+        "type": "string",
+        "pattern": "^package://\\S+/release/\\S+$"
+      },
+      "recall_reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "affected_installations": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "installation_ref",
+            "org_ref",
+            "surface_installation_state",
+            "surface_enablement_state",
+            "registration_state",
+            "serving_binding_ref",
+            "runtime_ref",
+            "surface_operational_state"
+          ],
+          "properties": {
+            "installation_ref": {
+              "type": "string",
+              "pattern": "^install://\\S*$"
+            },
+            "org_ref": {
+              "type": "string",
+              "pattern": "^(?:org|project)://\\S*$"
+            },
+            "surface_installation_state": {
+              "enum": [
+                "not_installed",
+                "installing",
+                "installed",
+                "uninstalled",
+                "failed"
+              ]
+            },
+            "surface_enablement_state": {
+              "enum": [
+                "not_applicable",
+                "enabled",
+                "disabled"
+              ]
+            },
+            "registration_state": {
+              "enum": [
+                "admitted",
+                "absent"
+              ]
+            },
+            "serving_binding_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^surface-serving://\\S*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "runtime_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:runtime://\\S*|domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127})$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "surface_operational_state": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "inactive",
+                    "starting",
+                    "ready",
+                    "serving",
+                    "degraded",
+                    "blocked",
+                    "stopped",
+                    "unavailable"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "affected_system_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^system://\\S*$"
+        }
+      },
+      "dependent_release_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^package://\\S+/release/\\S+$"
+        }
+      },
+      "remediation_handoffs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "owner",
+            "route",
+            "subject_ref"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "stop_serving",
+                "unmount",
+                "rollback",
+                "migrate"
+              ]
+            },
+            "owner": {
+              "enum": [
+                "domain_apps",
+                "governance"
+              ]
+            },
+            "route": {
+              "type": "string",
+              "pattern": "^/v1/hypervisor/\\S*$"
+            },
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^(?:domain-app|domain-app-runtime|release-control)://\\S*$"
+            }
+          }
+        }
+      },
+      "does_not_assert": {
+        "type": "array",
+        "uniqueItems": true,
+        "minItems": 4,
+        "items": {
+          "enum": [
+            "runtime_stopped",
+            "system_mutated",
+            "binding_mutated",
+            "dependent_release_recalled",
+            "external_ingress_withdrawn",
+            "reach_beyond_recaller_tenants"
+          ]
+        }
+      },
+      "affected_system_binding_refs": {
+        "description": "System binding refs the affected DomainApps carry under a scheme other than system:// (the DomainApp plane authors system_binding_refs free-form); listed so no bound System is dropped for having the wrong prefix.",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*://\\S*$"
+        }
       }
     }
   },
@@ -128444,6 +128748,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/surface-release-record/v2": [],
   "schema://ioi/components/hypervisor/surface-serving-binding/v1": [],
   "schema://ioi/components/hypervisor/surface-serving-binding/v2": [],
+  "schema://ioi/components/hypervisor/package-recall-impact/v1": [],
   "schema://ioi/components/hypervisor/system-interface-binding/v1": [],
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": [],
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": [],
@@ -143286,6 +143591,12 @@ export function validateHypervisorSurfaceServingBindingV2(
   value: unknown,
 ): value is HypervisorSurfaceServingBindingV2 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/surface-serving-binding/v2", value).ok;
+}
+
+export function validateHypervisorPackageRecallImpactV1(
+  value: unknown,
+): value is HypervisorPackageRecallImpactV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/package-recall-impact/v1", value).ok;
 }
 
 export function validateHypervisorSystemInterfaceBindingV1(

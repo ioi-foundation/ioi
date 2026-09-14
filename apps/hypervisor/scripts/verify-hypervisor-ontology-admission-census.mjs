@@ -633,6 +633,18 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M08.10 slice D — the recall impact record derived at the recall
+  // admission). Tokens 151560 -> 151710 (+150), ALL of it package_registry_routes.rs (1755 -> 1905
+  // measured with the extractor on the HEAD and working copies: the three impact constants,
+  // `derive_recall_impact` with its handoff and nonclaim literals, the recall payload's new field
+  // and nonclaim text, and one test). Foreign-qualified 4688 -> 4689: one
+  // `StatusCode::SERVICE_UNAVAILABLE` (5 -> 6 in that file, measured by member) for the impact
+  // reader's substrate refusal; no other qualified name moved. Opaque-initialiser 2824 -> 2826: the
+  // two mentions of `RECALL_IMPACT_NONCLAIMS` (definition + use), a `&[&str]` slice constant rather
+  // than a string literal, so the census counts it as an initialiser it cannot read — correct, and
+  // it names no record family. No route, no handler, no writer: EVERY WRITER BUCKET HELD (family 57,
+  // non-ODK literal 254, runtime 311), production filesystem calls 242, judged positions 281,
+  // family mentions 285, bare-undeclared 541.
   // Re-pinned 2026-09-14 (M08.10 slice C — the serving binding derived from the DomainApp runtime
   // ladder, and the compiled join's serving stage over it). Tokens 151237 -> 151560 (+323),
   // attributed per file with the extractor on the HEAD and working copies:
@@ -828,7 +840,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 151560,
+  tokenMentions: 151710,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -849,8 +861,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4688,
-    "opaque-initialiser": 2824,
+    "foreign-qualified": 4689,
+    "opaque-initialiser": 2826,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

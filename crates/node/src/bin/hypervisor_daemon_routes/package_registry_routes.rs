@@ -79,6 +79,23 @@ const SERVING_SCHEMA: &str = "ioi.hypervisor.surface_serving_binding.v2";
 const SERVING_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/surface-serving-binding/v2";
 const DOMAIN_APP_RUNTIME_REF_PREFIX: &str = "domain-app-runtime://";
 const SERVING_STATE_SOURCE: &str = "domain_app_runtime_ladder";
+// M08.10 slice D — what a recall REACHES, derived from admitted truth at the recall admission and
+// frozen on the recall successor. Canon (core-clients-surfaces.md § Hypervisor Packages): the
+// compiler removes ineligible launches, Packages exposes affected installs and Systems and hands
+// stop / rollback / remediation to their canonical owners, and never silently mutates or
+// terminates a live System because one release changed state. The record's own nonclaims say
+// exactly that nothing here was stopped, mutated or terminated.
+const RECALL_IMPACT_SCHEMA: &str = "ioi.hypervisor.package_recall_impact.v1";
+const RECALL_IMPACT_CONTRACT_ID: &str =
+    "schema://ioi/components/hypervisor/package-recall-impact/v1";
+const RECALL_IMPACT_NONCLAIMS: &[&str] = &[
+    "runtime_stopped",
+    "system_mutated",
+    "binding_mutated",
+    "dependent_release_recalled",
+    "external_ingress_withdrawn",
+    "reach_beyond_recaller_tenants",
+];
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -891,6 +908,9 @@ fn render_release(exact: &ExactProjection, replayed: Option<bool>) -> Value {
         "admission_decision_ref": exact.operation.payload["admission_decision_ref"],
         // Null on the genesis admission; the recall successor's bounded reason verbatim.
         "recall_reason": exact.operation.payload["recall_reason"],
+        // Null on the genesis admission; on the recall successor, what the recall REACHED as
+        // derived at admission — installs, Systems, dependents, and the handoffs (slice D).
+        "recall_impact": exact.operation.payload["recall_impact"],
         "registration_state": "absent",
         "agentgres": agentgres_metadata(exact, replayed),
     })
@@ -1070,6 +1090,175 @@ fn render_serving_binding(live: &LiveServing, replayed: Option<bool>) -> Value {
         "nonclaim": payload["nonclaim"],
         "agentgres": agentgres_metadata(&live.exact, replayed),
     })
+}
+
+/// What this recall reaches, DERIVED from admitted truth at the moment of the recall admission and
+/// frozen on the recall successor (M08.10 slice D). The installation bindings over the release,
+/// each with its registration state and the LIVE state of its serving binding; the Systems bound
+/// to the DomainApps whose runtimes serve those bindings (read through the DomainApp plane's own
+/// resolver, under the recaller's identity); the releases whose `dependency_release_refs` name the
+/// recalled release; and the remediation handoffs to the owners that may stop, unmount or roll
+/// back. The record asserts by its own nonclaims that none of that was DONE here — a recall flips
+/// one disposition and the runtime keeps serving until its owner stops it. The reach is what the
+/// recalling caller may read: an installation under a tenant the caller does not hold is not
+/// enumerated, and `reach_beyond_recaller_tenants` says so rather than leaving a silent gap.
+fn derive_recall_impact(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    package_id: &str,
+    release_digest: &str,
+    reason: &str,
+) -> Result<Value, Reply> {
+    let resource_ref = release_ref(package_id, release_digest);
+    let unavailable = |error: String| {
+        bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "package_recall_impact_unavailable",
+            format!("the recall's reach could not be derived from the registry: {error}"),
+        )
+    };
+    let tails = super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE)
+        .map_err(|error| unavailable(error.to_string()))?;
+    let mut affected_installations = Vec::new();
+    let mut affected_system_refs: BTreeSet<String> = BTreeSet::new();
+    let mut affected_system_binding_refs: BTreeSet<String> = BTreeSet::new();
+    let mut dependent_release_refs: BTreeSet<String> = BTreeSet::new();
+    let mut remediation_handoffs: Vec<Value> = Vec::new();
+    let mut push_handoff = |handoff: Value| {
+        if !remediation_handoffs.contains(&handoff) {
+            remediation_handoffs.push(handoff);
+        }
+    };
+    for tail in &tails {
+        if tail.starts_with("installation.") {
+            let Some(exact) =
+                super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, tail)
+                    .map_err(|error| unavailable(error.to_string()))?
+            else {
+                continue;
+            };
+            if exact.operation.payload["schema_version"] != INSTALLATION_ADMISSION_SCHEMA {
+                continue;
+            }
+            let binding = &exact.operation.payload["installation"];
+            if binding["release_ref"].as_str() != Some(resource_ref.as_str()) {
+                continue;
+            }
+            let (Some(org_ref), Some(installation_ref)) = (
+                binding["org_ref"].as_str(),
+                binding["installation_ref"].as_str(),
+            ) else {
+                continue;
+            };
+            if !identity.authorizes_tenant(org_ref) {
+                continue;
+            }
+            let registration = read_registration(data_dir, installation_ref);
+            let serving = live_serving_by_ref(data_dir, installation_ref);
+            if let Some(live) = &serving {
+                let payload = &live.exact.operation.payload;
+                if let (Some(domain_app_ref), Some(runtime_ref)) = (
+                    payload["domain_app_ref"].as_str(),
+                    payload["serving_binding"]["runtime_ref"].as_str(),
+                ) {
+                    if let Some(id) = domain_app_ref.strip_prefix("domain-app://") {
+                        push_handoff(json!({
+                            "kind": "stop_serving",
+                            "owner": "domain_apps",
+                            "route": format!("/v1/hypervisor/domain-apps/{id}/stop-serving"),
+                            "subject_ref": runtime_ref,
+                        }));
+                        push_handoff(json!({
+                            "kind": "unmount",
+                            "owner": "domain_apps",
+                            "route": format!("/v1/hypervisor/domain-apps/{id}/unmount"),
+                            "subject_ref": domain_app_ref,
+                        }));
+                    }
+                    // The Systems this recall reaches are the ones the DomainApp plane says its
+                    // app is bound to — read through that plane's resolver, never inferred here.
+                    // An app the caller cannot resolve contributes no System, and the
+                    // reach nonclaim covers it.
+                    if let Ok(app) = super::domain_apps_routes::resolve_admitted_domain_app(
+                        data_dir,
+                        identity,
+                        domain_app_ref,
+                    ) {
+                        for reference in app.record["system_binding_refs"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .filter_map(Value::as_str)
+                        {
+                            if reference.starts_with("system://") {
+                                affected_system_refs.insert(reference.to_owned());
+                            } else if reference.contains("://") {
+                                affected_system_binding_refs.insert(reference.to_owned());
+                            }
+                        }
+                    }
+                }
+            }
+            affected_installations.push(json!({
+                "installation_ref": installation_ref,
+                "org_ref": org_ref,
+                "surface_installation_state": binding["surface_installation_state"],
+                "surface_enablement_state": binding["surface_enablement_state"],
+                "registration_state": if registration.is_some() { "admitted" } else { "absent" },
+                "serving_binding_ref": serving.as_ref().map(|live| live.exact.operation.payload["serving_binding"]["serving_binding_ref"].clone()).unwrap_or(Value::Null),
+                "runtime_ref": serving.as_ref().map(|live| live.exact.operation.payload["serving_binding"]["runtime_ref"].clone()).unwrap_or(Value::Null),
+                "surface_operational_state": serving.as_ref().map(|live| json!(live.operational_state)).unwrap_or(Value::Null),
+            }));
+        } else if tail.starts_with("release.") {
+            let Some(exact) =
+                super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, tail)
+                    .map_err(|error| unavailable(error.to_string()))?
+            else {
+                continue;
+            };
+            if exact.operation.payload["schema_version"] != RELEASE_ADMISSION_SCHEMA {
+                continue;
+            }
+            let record = &exact.operation.payload["release"];
+            let depends = record["dependency_release_refs"]
+                .as_array()
+                .map(|refs| {
+                    refs.iter()
+                        .any(|item| item.as_str() == Some(resource_ref.as_str()))
+                })
+                .unwrap_or(false);
+            if depends {
+                if let Some(dependent) = record["release_ref"].as_str() {
+                    if dependent != resource_ref {
+                        dependent_release_refs.insert(dependent.to_owned());
+                    }
+                }
+            }
+        }
+    }
+    affected_installations.sort_by(|left, right| {
+        left["installation_ref"]
+            .as_str()
+            .cmp(&right["installation_ref"].as_str())
+    });
+    let impact = json!({
+        "schema_version": RECALL_IMPACT_SCHEMA,
+        "recall_impact_ref": format!("package-recall-impact://{package_id}/{release_digest}"),
+        "release_ref": resource_ref,
+        "recall_reason": reason.trim(),
+        "affected_installations": affected_installations,
+        "affected_system_refs": affected_system_refs.into_iter().collect::<Vec<_>>(),
+        "affected_system_binding_refs": affected_system_binding_refs.into_iter().collect::<Vec<_>>(),
+        "dependent_release_refs": dependent_release_refs.into_iter().collect::<Vec<_>>(),
+        "remediation_handoffs": remediation_handoffs,
+        "does_not_assert": RECALL_IMPACT_NONCLAIMS,
+    });
+    validate_canonical_contract(
+        RECALL_IMPACT_CONTRACT_ID,
+        &impact,
+        "package_recall_impact_contract_failed",
+    )?;
+    Ok(impact)
 }
 
 fn render_installation(
@@ -3226,6 +3415,20 @@ pub(crate) async fn handle_release_recall(
     ) {
         return reply;
     }
+    // THE REACH IS DERIVED BEFORE THE FLIP AND FROZEN WITH IT. What this recall touches —
+    // installs, their serving runtimes, bound Systems, dependent releases — is read from admitted
+    // truth now, validated against the registered impact contract, and carried on the recall
+    // successor, so the record of what a recall reached is as immutable as the recall itself.
+    let recall_impact = match derive_recall_impact(
+        &st.data_dir,
+        &identity,
+        &package_id,
+        &release_digest,
+        &request.reason,
+    ) {
+        Ok(impact) => impact,
+        Err(reply) => return reply,
+    };
     let payload = json!({
         "schema_version": RELEASE_ADMISSION_SCHEMA,
         "release": release_value,
@@ -3235,9 +3438,10 @@ pub(crate) async fn handle_release_recall(
         "package_candidate_content_hash": current.operation.payload["package_candidate_content_hash"],
         "admission_decision_ref": current.operation.payload["admission_decision_ref"],
         "recall_reason": request.reason.trim(),
+        "recall_impact": recall_impact,
         "registration_state": "absent",
         "transition": "recalled",
-        "nonclaim": "Recall flips only the admitted release disposition; it mutates no installation binding, registration, route, or process — binding eligibility and the launcher feed derive the loss on their next read."
+        "nonclaim": "Recall flips only the admitted release disposition; it mutates no installation binding, registration, route, runtime or System — binding eligibility and the launcher feed derive the loss on their next read, and recall_impact names what the recall reached and whose stop/unmount/rollback verbs remediate it."
     });
     let scope = match authorize_scope(
         &st.data_dir,
@@ -4494,6 +4698,156 @@ mod tests {
             .unwrap_err()
         )
         .contains("serving_binding_runtime_route_absent"));
+    }
+
+    #[test]
+    fn a_recall_records_what_it_reached_and_stops_nothing() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "operator",
+            ["org://local".to_string()],
+        );
+        // Release 1, then release 2 depending on it, then one installation over release 1.
+        let (release_resource, release, _scope, _tail, _payload) =
+            admit_release_for_test(data_dir, &identity, vec![]);
+        let candidate = admit_candidate_for_test(data_dir, &identity);
+        let dependent_request = ReleaseRequest {
+            expected_package_head: candidate.projection.head.clone(),
+            surface_distribution: "private_registry".into(),
+            surface_capability_depth: "propose".into(),
+            object_contract_refs: vec!["object-model://telesupport".into()],
+            action_contract_refs: vec!["action://telesupport/reply".into()],
+            dependency_release_refs: vec![release_resource.clone()],
+            evidence_refs: vec![],
+            idempotency_key: "release-create-2".into(),
+            recorded_at_ms: Some(5),
+        };
+        let (dependent_resource, dependent_payload) =
+            build_release_admission(&candidate.projection, &dependent_request).unwrap();
+        assert_ne!(dependent_resource, release_resource);
+        let dependent_scope = bind_scope(
+            data_dir,
+            &identity,
+            RELEASE_SCOPE_KIND,
+            &dependent_resource,
+            "org://local",
+            &dependent_request.idempotency_key,
+        )
+        .unwrap();
+        admit(
+            data_dir,
+            true,
+            &identity,
+            &dependent_scope,
+            RELEASE_SCOPE_KIND,
+            &dependent_resource,
+            &hash_tail("release", &dependent_resource),
+            "event_stream.hypervisor_package_release_admitted",
+            None,
+            &dependent_payload,
+            5,
+            &dependent_request.idempotency_key,
+        )
+        .unwrap();
+        let install_request = InstallationRequest {
+            installation_id: "primary".into(),
+            expected_release_head: release.projection.head.clone(),
+            project_ref: None,
+            visibility: "organization".into(),
+            allowed_object_contract_refs: vec!["object-model://telesupport".into()],
+            allowed_action_refs: vec![],
+            idempotency_key: "install-create-1".into(),
+            recorded_at_ms: Some(6),
+        };
+        let (installation_resource, install_payload) = build_installation_admission(
+            "local-telesupport",
+            &release.projection,
+            &install_request,
+        )
+        .unwrap();
+        let install_scope = bind_scope(
+            data_dir,
+            &identity,
+            INSTALLATION_SCOPE_KIND,
+            &installation_resource,
+            "org://local",
+            &install_request.idempotency_key,
+        )
+        .unwrap();
+        admit(
+            data_dir,
+            true,
+            &identity,
+            &install_scope,
+            INSTALLATION_SCOPE_KIND,
+            &installation_resource,
+            &hash_tail("installation", &installation_resource),
+            "event_stream.hypervisor_surface_installation_admitted",
+            None,
+            &install_payload,
+            6,
+            &install_request.idempotency_key,
+        )
+        .unwrap();
+
+        let digest = release_resource.rsplit('/').next().unwrap().to_owned();
+        let impact = derive_recall_impact(
+            data_dir,
+            &identity,
+            "local-telesupport",
+            &digest,
+            "  conformance defect  ",
+        )
+        .unwrap();
+        // The reach: the one installation (unregistered, unserved — typed, not omitted), the
+        // dependent release by ref, no System (none bound), no handoff (nothing serves), and the
+        // nonclaims that say the recall stopped nothing and reads only the caller's tenants.
+        assert_eq!(impact["schema_version"], RECALL_IMPACT_SCHEMA);
+        assert_eq!(
+            impact["recall_impact_ref"],
+            format!("package-recall-impact://local-telesupport/{digest}")
+        );
+        assert_eq!(impact["release_ref"], release_resource);
+        assert_eq!(impact["recall_reason"], "conformance defect");
+        let affected = impact["affected_installations"].as_array().unwrap();
+        assert_eq!(affected.len(), 1);
+        assert_eq!(affected[0]["installation_ref"], installation_resource);
+        assert_eq!(affected[0]["org_ref"], "org://local");
+        assert_eq!(affected[0]["registration_state"], "absent");
+        assert_eq!(affected[0]["serving_binding_ref"], Value::Null);
+        assert_eq!(affected[0]["runtime_ref"], Value::Null);
+        assert_eq!(affected[0]["surface_operational_state"], Value::Null);
+        assert_eq!(
+            impact["dependent_release_refs"],
+            json!([dependent_resource])
+        );
+        assert_eq!(impact["affected_system_refs"], json!([]));
+        assert_eq!(impact["remediation_handoffs"], json!([]));
+        assert!(impact["does_not_assert"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("runtime_stopped")));
+        assert!(impact["does_not_assert"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("reach_beyond_recaller_tenants")));
+
+        // A caller holding another tenant sees NO installation — the reach is bounded by what
+        // the recaller may read, and the nonclaim above is what says so.
+        let other = super::super::substrate_store::request_identity_for_test(
+            "outsider",
+            ["org://other".to_string()],
+        );
+        let bounded =
+            derive_recall_impact(data_dir, &other, "local-telesupport", &digest, "x").unwrap();
+        assert_eq!(bounded["affected_installations"], json!([]));
+        assert_eq!(
+            bounded["dependent_release_refs"],
+            json!([dependent_resource])
+        );
+        super::super::substrate_store::reset_handle_for_test();
     }
 
     fn registration_request_clone(base: &RegistrationRequest) -> RegistrationRequest {
