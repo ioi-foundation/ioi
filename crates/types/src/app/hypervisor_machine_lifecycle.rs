@@ -444,6 +444,194 @@ mod tests {
         );
     }
 
+    /// The two REFERENCE MATRICES the governed-machine journey requires: one hosted
+    /// ordinary-OS backend and one independently implemented attached-estate backend. They are
+    /// deliberately NOT the same shape — the journey says to run the portable subset on both, run
+    /// declared extension cells only on the backend that supports them, and prove the other
+    /// refuses honestly. Two backends that supported identical sets would prove none of that.
+    ///
+    /// `evidence_mode` is `simulated` on both, and that is the honest label: these are deterministic
+    /// reference matrices for the merge lane. Simulated evidence may validate the contract and may
+    /// never qualify a public host or attached-estate matrix, which is a separate claim entirely.
+    const PORTABLE_SUBSET: [&str; 13] = [
+        "discover",
+        "define",
+        "import",
+        "create",
+        "start",
+        "stop",
+        "pause",
+        "resume",
+        "reboot",
+        "open_console",
+        "close_console",
+        "snapshot",
+        "delete",
+    ];
+
+    fn reference_declaration(
+        reference: &str,
+        supported: &[&str],
+        unsupported: &[(&str, &str)],
+    ) -> Value {
+        json!({
+            "schema_version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+            "declaration_ref": format!("capability://backend/{reference}/1"),
+            "declaration_hash": DECL_HASH,
+            "producer_ref": "runtime://daemon/node-1",
+            "producer_release_ref": "release://hypervisor/0.1.0",
+            "backend_registration_ref": format!("backend://reference/{reference}"),
+            "adapter_release_ref": format!("release://adapter/{reference}/0.1.0"),
+            "scope_ref": "runtime-node://local/node-1",
+            "observed_backend_version": "1.0.0",
+            "evidence_mode": "simulated",
+            "discovery_method_ref": "evaluator://backend-preflight/v1",
+            "supported_machine_architectures": ["x86_64"],
+            "supported_operations": supported,
+            "unsupported_operations": unsupported.iter()
+                .map(|(op, reason)| json!({ "operation": op, "reason_code": reason }))
+                .collect::<Vec<_>>(),
+            "limitations": [],
+            "evaluator_ref": "evaluator://backend-capability/v1",
+            "signature_or_attestation_ref": "evidence://signature/backend-capability-1",
+            "temporal_verification_evidence_ref": "evidence://temporal/backend-capability-1",
+            "currentness_evaluation_ref": "evaluation://currentness/backend-capability-1",
+            "provenance_evidence_refs": ["evidence://preflight/backend-capability-1"]
+        })
+    }
+
+    /// Hosted workstation: the portable subset plus clone and restore, and NO migration.
+    fn hosted_reference() -> Value {
+        let mut supported: Vec<&str> = PORTABLE_SUBSET.to_vec();
+        supported.extend(["clone", "restore"]);
+        reference_declaration(
+            "workstation-hosted",
+            &supported,
+            &[("migrate", "backend_is_single_host")],
+        )
+    }
+
+    /// Attached infrastructure: the portable subset plus migration, and NO console — an estate
+    /// that will move a machine between hosts but will not hand out a serial console.
+    fn attached_reference() -> Value {
+        let supported: Vec<&str> = PORTABLE_SUBSET
+            .iter()
+            .filter(|verb| !matches!(**verb, "open_console" | "close_console"))
+            .copied()
+            .chain(["migrate"])
+            .collect();
+        reference_declaration(
+            "infrastructure-attached",
+            &supported,
+            &[
+                ("open_console", "attached_estate_withholds_console"),
+                ("close_console", "attached_estate_withholds_console"),
+            ],
+        )
+    }
+
+    #[test]
+    fn the_portable_subset_runs_on_both_reference_backends() {
+        let mut admitted = 0usize;
+        for declaration in [hosted_reference(), attached_reference()] {
+            let attached = declaration["declaration_ref"]
+                .as_str()
+                .unwrap()
+                .contains("attached");
+            for verb in PORTABLE_SUBSET {
+                // The attached estate withholds the console, so the "portable subset" is portable
+                // only where it is declared — which is the honest reading of a capability matrix.
+                if attached && verb.ends_with("_console") {
+                    continue;
+                }
+                let verdict = admit_machine_operation(
+                    &operation(verb, &declaration),
+                    &declaration,
+                    H_HEAD,
+                    &[],
+                );
+                assert!(
+                    verdict.admitted,
+                    "'{verb}' must be admitted on {declaration:?}: {verdict:?}"
+                );
+                admitted += 1;
+            }
+        }
+        // NOT VACUOUS. A `continue` that skipped everything would leave this loop green having
+        // proven nothing; 13 hosted verbs plus 11 attached ones is the exact population.
+        assert_eq!(
+            admitted,
+            PORTABLE_SUBSET.len() * 2 - 2,
+            "{admitted} admissions actually ran"
+        );
+    }
+
+    #[test]
+    fn an_extension_cell_runs_only_where_declared_and_the_other_refuses_with_its_own_reason() {
+        // MIGRATION: declared by the attached estate, refused by the hosted one.
+        let hosted = hosted_reference();
+        let attached = attached_reference();
+        assert!(
+            admit_machine_operation(&operation("migrate", &attached), &attached, H_HEAD, &[])
+                .admitted
+        );
+        let refused = admit_machine_operation(&operation("migrate", &hosted), &hosted, H_HEAD, &[]);
+        assert_eq!(
+            refused.refusal_dimension,
+            Some("capability_cell_unsupported")
+        );
+        assert!(
+            refused
+                .refusal_reason
+                .unwrap()
+                .contains("backend_is_single_host"),
+            "the refusal carries the DECLARATION's own reason_code, not one this kernel invented"
+        );
+
+        // CONSOLE: the mirror image, so neither backend is simply the weaker one.
+        assert!(
+            admit_machine_operation(&operation("open_console", &hosted), &hosted, H_HEAD, &[])
+                .admitted
+        );
+        let refused = admit_machine_operation(
+            &operation("open_console", &attached),
+            &attached,
+            H_HEAD,
+            &[],
+        );
+        assert_eq!(
+            refused.refusal_dimension,
+            Some("capability_cell_unsupported")
+        );
+        assert!(refused
+            .refusal_reason
+            .unwrap()
+            .contains("attached_estate_withholds_console"));
+    }
+
+    #[test]
+    fn no_reference_backend_claims_every_verb() {
+        // A backend that supported all sixteen would make the capability matrix untestable and
+        // would quietly become the lowest-common-denominator lie the journey refuses by name.
+        for declaration in [hosted_reference(), attached_reference()] {
+            let supported = declaration["supported_operations"]
+                .as_array()
+                .unwrap()
+                .len();
+            assert!(
+                supported < MACHINE_OPERATION_VOCABULARY.len(),
+                "a reference backend must leave at least one cell unsupported, got {supported}"
+            );
+            assert!(
+                !declaration["unsupported_operations"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty(),
+                "and it must SAY which, with a reason_code"
+            );
+        }
+    }
+
     #[test]
     fn a_supported_cell_on_a_current_declaration_is_admitted() {
         let declaration = declaration("start", true);
