@@ -40,7 +40,8 @@
     "clause 3's second half — the lifecycle executing the admitted plan (M09.2 remainder, R-138)",
     "clause 9's substrate metering (M07.5, check:substrate-metering-contract)",
     "N3 (M09.7, check:custody-proven-private-routes)",
-    "live spend closure is SCHEDULED-OUTSTANDING by R-139 (M09.6) and does not hold the gate"
+    "live spend closure is SCHEDULED-OUTSTANDING by R-139 (M09.6) and does not hold the gate",
+    "verify-hypervisor-provider-spend-reconciliation.mjs (M07.3's first command) targets the shared daemon at 127.0.0.1:8765 and is not composed; the isolated readback gate check:provider-spend-reconciliation is (R-143)."
   ],
   "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
   "last_status_transaction": "2026-09-14"
