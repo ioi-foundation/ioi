@@ -47,6 +47,11 @@
       "path": "scripts/test-populations/substrate-metering-contract.v1.json",
       "literal": "usage_chain_metering",
       "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_transport.rs",
+      "literal": "economics_join_pending",
+      "present_when": "merged"
     }
   ],
   "evidence_refs": [
@@ -60,8 +65,9 @@
     "Supplier reconciliation is M07.3's: supplier_reconciliation_state stays estimated until a statement binds, and the bundle's assurance_status remains internal_event_log.",
     "The substrate meters, attests, authorizes, records or settles; it defines and sells no product value — no price, plan or product rule is minted here.",
     "check:substrate-metering-contract is a root population gate and is not CI-bound as a step of its own; its children are (the daemon tests in Build and Test, check:architecture-contracts, and M07.1's gate).",
-    "A same-key retry of a usage append is the substrate's replay; the test asserts only that it never doubles the chain and is never read as already metered, because the record's occurred_at_ms is the admission instant."
+    "A same-key retry of a usage append is the substrate's replay; the test asserts only that it never doubles the chain and is never read as already metered, because the record's occurred_at_ms is the admission instant.",
+    "The unit's population gate does not drive the transport: between this unit's landing (c89159437) and the same-day fix (ledger LXXXIV) every transport-originated charge refused economics_receipt_unresolved because the transport wrote its projection AFTER the join the derivation reads through; the fence that caught it is the CI-bound check:model-router-decisions, and the transport now writes the projection (with a truthful economics_join_pending marker) before the join. A transport-driven case in this unit's own population remains owed."
   ],
-  "source_provenance": "Authored and gated on the main tree 2026-09-14 (ledger LXXXII, ruling R-148). MVP finish-line program, leg 3.",
+  "source_provenance": "Authored and gated on the main tree 2026-09-14 (ledger LXXXII, ruling R-148). MVP finish-line program, leg 3. Regression fixed 2026-09-14 (ledger LXXXIV): projection-before-join order in provider_transport.rs.",
   "last_status_transaction": "2026-09-14"
 }

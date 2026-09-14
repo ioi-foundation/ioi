@@ -633,6 +633,18 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (the M07.5 regression fix, ledger LXXXIV): tokens 152770 -> 152781
+  // (+11, all provider_transport.rs 638 -> 649, measured with the extractor on the HEAD and working
+  // copies: the `economics_join_pending` marker the transport now writes on the invocation
+  // projection BEFORE the economics join — joined/reason_code/gap/message — and the second
+  // persistence refusal's code and message, with the two projection writes folded into one
+  // `persist_record` call site). Foreign-qualified 4707 -> 4708: one more
+  // `StatusCode::INTERNAL_SERVER_ERROR` (3 -> 4 in that file) for that refusal. Opaque-initialiser
+  // 2843 held; EVERY WRITER BUCKET HELD — the projection is written twice through ONE
+  // `persist_record` call site (a closure invoked before and after the join; a second literal call
+  // site had moved the non-ODK literal bucket 254 -> 255 on the first cut and was collapsed rather
+  // than re-pinned), and the fix is ORDER: the ledger reads the admitted invocation through this
+  // plane's reader, so the projection must exist before the charge derives its dimensions from it.
   // Modules 120 -> 121 (2026-09-14, M08.9): ONE MODULE JOINED the reachable graph —
   // work_projection_routes.rs, the policy-filtered Work read model over the published readers of
   // the families Hypervisor core owns. It writes NO record family and opens NO plane's records (its
@@ -897,7 +909,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 152770,
+  tokenMentions: 152781,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -918,7 +930,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4707,
+    "foreign-qualified": 4708,
     "opaque-initialiser": 2843,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

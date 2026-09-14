@@ -2200,16 +2200,44 @@ pub(crate) async fn handle_model_route_invoke(
         Err(response) => return response,
     };
 
-    // (7) the economics join — after admission, so the charge can cite a receipt that EXISTS.
+    // (7) the economics join — after admission AND after this plane's projection exists, so the
+    // charge can cite a receipt that exists in BOTH places the ledger looks.
     //
     // It lands on the projection beside `admitted_head` and `recorded_at`, the other two facts that
     // are only knowable after admission. The admitted payload stays the pre-join transport
     // observation and is not rewritten; the usage append is durably evented by the economics
     // stream, which is its own owner. One fact, one owner: `evidence.evidence_gaps` names what the
     // TRANSPORT could not observe, and `economics` names whether the charge landed.
+    //
+    // ORDER, SECOND LESSON. The ledger derives a charge's metering dimensions by reading the
+    // admitted invocation through this plane's own reader (M07.5, `admitted_invocation`), and that
+    // reader reads THIS projection. Between M07.5's landing and this fix the join ran before the
+    // projection was written, so every transport charge refused `economics_receipt_unresolved` and
+    // landed as a typed gap — CI's `check:model-router-decisions` read "row undefined vs 9410" on
+    // the durable ledger. So the projection is written first with a truthful `economics_join_pending`
+    // marker (a crash between the two writes leaves a record that SAYS the join had not run, never a
+    // silent absence), the join runs, and the outcome replaces the marker in the same request.
     let mut record = admitted.clone();
     record["admitted_head"] = json!(commit.projection.head);
     record["recorded_at"] = json!(super::iso_now());
+    // ONE write site for this plane's projection, invoked twice: the writer census counts call
+    // sites per family, and this is one projection written before and after the join, not two
+    // writers.
+    let persist_projection =
+        |record: &Value| persist_record(&st.data_dir, KIND_INVOCATION, &invocation_id, record);
+    record["economics"] = json!({
+        "joined": false,
+        "reason_code": "economics_join_pending",
+        "gap": "economics.usage_record",
+        "message": "the projection is written before the economics join so the ledger can read the admitted invocation; the join's outcome replaces this marker in the same request",
+    });
+    if persist_projection(&record).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "model_invocation_persistence_failed",
+            "the invocation is admitted but its projection could not be written; replay to reconcile",
+        );
+    }
     record["economics"] = join_economics(
         &st.data_dir,
         &caller,
@@ -2218,11 +2246,11 @@ pub(crate) async fn handle_model_route_invoke(
         &invocation_ref,
         outcome_state,
     );
-    if persist_record(&st.data_dir, KIND_INVOCATION, &invocation_id, &record).is_err() {
+    if persist_projection(&record).is_err() {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "model_invocation_persistence_failed",
-            "the invocation is admitted but its projection could not be written; replay to reconcile",
+            "the invocation is admitted and its charge joined, but the projection could not be rewritten with the join's outcome; replay to reconcile",
         );
     }
 
