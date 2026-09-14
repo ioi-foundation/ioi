@@ -14219,6 +14219,75 @@ async function handleEstateRequest(req, res, body) {
         }
       }
     }
+    // ---- Work projection (M08.9) — the policy-filtered Work read model rendered AT the canonical
+    // /work* routes through the route table's rewrite lanes. Nothing here is computed: rows,
+    // counts, recents, typed absences and the migration map are the daemon's answer, rendered
+    // verbatim; a daemon refusal renders as the typed refusal under the same heading.
+    if (pathname.startsWith("/__ioi/work-projection/") && req.method === "GET") {
+      const view = decodeURIComponent(pathname.slice("/__ioi/work-projection/".length).split("/")[0] || "active");
+      const headingFor = { active: "Work", sessions: "Work / Sessions", queues: "Work / Queues", reviews: "Work / Reviews", incidents: "Work / Incidents", history: "Work / History" };
+      const heading = headingFor[view] || "Work";
+      // The v2 dispatch's `requestUrl` is block-scoped elsewhere; parse this request's own URL.
+      const projectionUrl = new URL(req.url || "/", "http://x");
+      const q = projectionUrl.searchParams.get("q") || "";
+      const params = new URLSearchParams({ view });
+      if (q) params.set("q", q);
+      const answer = await daemonFetch(`/v1/hypervisor/work-projection?${params.toString()}`).then(async (x) => ({ status: x.status, body: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+      const H = { ...HTMLH, "X-IOI-Surface-Route": pathname, "X-IOI-Surface-Owner": "core workspace" };
+      const nav = Object.entries(headingFor).map(([v, label]) => `<a class="pill ${v === view ? "ok" : "muted"}" href="/work${v === "active" ? "" : `/${v}`}">${CX_ESC(label.replace("Work / ", ""))}${answer.body?.counts && Number.isInteger(answer.body.counts[v]) ? ` · ${answer.body.counts[v]}` : ""}</a>`).join(" ");
+      if (answer.status !== 200 || answer.body?.ok !== true) {
+        res.writeHead(200, H);
+        res.end(automationsShell(heading, `<div class="brand">IOI Hypervisor · Work</div><h1>${CX_ESC(heading)}</h1><div class="chips">${nav}</div><div class="empty">The Work projection did not answer: <code>${CX_ESC(answer.body?.error?.code || answer.body?.code || `http_${answer.status}`)}</code> — ${CX_ESC(answer.body?.error?.message || answer.body?.message || "the daemon refused or is unreachable")}. Nothing is rendered in its place.</div>`));
+        return;
+      }
+      const b = answer.body;
+      const rows = Array.isArray(b.rows) ? b.rows : [];
+      const facets = Array.isArray(b.facets) ? b.facets : [];
+      const table = rows.length
+        ? `<table><thead><tr><th>Subject</th><th>Kind</th><th>Activity</th><th>Mode</th><th>Facets</th></tr></thead><tbody>${rows.map((r) => `<tr data-ioi-work-row="${CX_ESC(r.subject_ref)}"><td><a href="${CX_ESC(r.canonical_detail_route)}"><code>${CX_ESC(r.subject_ref)}</code></a>${r.project_ref ? `<div class="sub" style="margin:2px 0 0">${CX_ESC(r.project_ref)}</div>` : ""}</td><td>${CX_ESC(r.subject_kind)}</td><td><span class="pill ${r.display_facets?.activity === "active" ? "ok" : "muted"}">${CX_ESC(r.display_facets?.activity || "—")}</span></td><td>${CX_ESC(r.display_facets?.execution_mode || "—")}</td><td>${(r.review_facet_projection_refs || []).length} review · ${(r.incident_facet_projection_refs || []).length} incident</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">No ${CX_ESC(view)} work is visible to this principal — an empty typed projection, not a missing one.</div>`;
+      const facetList = facets.length
+        ? `<h2>${CX_ESC(view === "incidents" ? "Incident facets" : "Review facets")}</h2>${facets.map((f) => `<div class="card"><div class="main"><div class="name">${CX_ESC(f.facet_type)} <span class="pill muted">${CX_ESC(f.facet_kind)}</span></div><div class="meta"><code>${CX_ESC(f.facet_ref)}</code> → <a href="${CX_ESC(f.canonical_detail_route)}">${CX_ESC(f.subject_ref)}</a> · owner <code>${CX_ESC(f.owner_ref)}</code></div></div></div>`).join("")}`
+        : (view === "reviews" || view === "incidents" ? `<div class="empty">No ${CX_ESC(view)} facets point at visible work.</div>` : "");
+      const absences = (b.families?.not_projected || []).map((f) => `<li><code>${CX_ESC(f.subject_kind)}</code> — ${CX_ESC(f.reason)}</li>`).join("");
+      const recents = (b.recents || []).map((r) => `<li><a href="${CX_ESC(r.canonical_detail_route)}"><code>${CX_ESC(r.subject_ref)}</code></a> <span class="sub" style="margin:0">${CX_ESC(r.subject_kind)} · ${CX_ESC(r.updated_at || "")}</span></li>`).join("");
+      res.writeHead(200, H);
+      res.end(automationsShell(heading, `<div class="brand">IOI Hypervisor · Work · policy-filtered read model</div><h1>${CX_ESC(heading)}</h1>
+        <p class="sub">${CX_ESC(b.nonclaim || "")}</p>
+        <div class="chips">${nav}</div>
+        <form method="get" class="row"><input name="q" value="${CX_ESC(q)}" placeholder="search visible work (policy is applied first; counts do not move)" style="flex:1;min-width:240px;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#111319;color:#e6e7ea"><button class="act ghost" type="submit">Search</button></form>
+        ${table}
+        ${facetList}
+        <h2>Recent</h2>${recents ? `<ul>${recents}</ul>` : `<div class="empty">nothing recent</div>`}
+        <h2>Not projected (typed absences)</h2><ul>${absences}</ul><p class="sub">Incident facets: ${CX_ESC(b.families?.incident_facets?.state || "—")} — ${CX_ESC(b.families?.incident_facets?.reason || "")}</p>
+        <h2>Policy · migration · rebuild</h2>
+        <p class="sub">Policy applied before: ${CX_ESC((b.policy?.applied_before || []).join(", "))}. Readers: ${(b.policy?.readers || []).map((r) => `<code>${CX_ESC(r.reader)}</code>`).join(", ")}.</p>
+        <p class="sub">Migration: ${(b.migration?.from || []).map((x) => CX_ESC(x)).join("; ")} → ${CX_ESC(b.migration?.to || "")}. ${CX_ESC(b.migration?.rule || "")}</p>
+        <p class="sub">${CX_ESC(b.rebuild || "")}</p>`));
+      return;
+    }
+    // ---- Systems projection (M08.9) — canon's HypervisorSystemsProjection rows, rendered AT the
+    // canonical /systems route through the rewrite lane. Honest when empty; never a fabricated
+    // System row; every row is one the daemon validated against the registered contract.
+    if (pathname === "/__ioi/systems-projection" && req.method === "GET") {
+      const answer = await daemonFetch("/v1/hypervisor/autonomous-systems/projection?view=compact").then(async (x) => ({ status: x.status, body: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+      const H = { ...HTMLH, "X-IOI-Surface-Route": pathname, "X-IOI-Surface-Owner": "core workspace" };
+      const b = answer.body || {};
+      const systems = Array.isArray(b.systems) ? b.systems : [];
+      const body = answer.status !== 200
+        ? `<div class="empty">The Systems projection did not answer: <code>${CX_ESC(b.error?.code || b.code || `http_${answer.status}`)}</code> — ${CX_ESC(b.error?.message || b.message || "the daemon refused or is unreachable")}.</div>`
+        : (systems.length
+          ? systems.map((s) => `<div class="card" data-ioi-system="${CX_ESC(s.system_id)}"><div class="main"><div class="name"><code>${CX_ESC(s.system_id)}</code> <span class="pill ok">${CX_ESC(s.status)}</span> <span class="pill muted">seq ${CX_ESC(String(s.latest_sequence))}</span></div><div class="meta">package ${CX_ESC(s.package_id)} · constitution ${CX_ESC(s.constitution_ref || "none")} · desired topology <b>${CX_ESC(s.topology?.desired?.state)}</b>${s.topology?.desired?.reason ? ` (${CX_ESC(s.topology.desired.reason)})` : ""} · observed <b>${CX_ESC(s.topology?.observed?.state)}</b>${s.topology?.observed?.reason ? ` (${CX_ESC(s.topology.observed.reason)})` : ""}</div><div class="meta">${(s.modes || []).map((m) => `<a href="${CX_ESC(m.route)}">${CX_ESC(m.mode)}</a>`).join(" · ")}</div><div class="meta">policy: ${CX_ESC(s.policy_basis?.filter || "")}</div></div></div>`).join("")
+          : `<div class="empty">No admitted System is visible to this principal (<code>${CX_ESC(b.state || "honest_empty")}</code>). Systems are minted only by governed genesis; nothing is fabricated here.</div>`);
+      res.writeHead(200, H);
+      res.end(automationsShell("Systems", `<div class="brand">IOI Hypervisor · Systems · policy-filtered read model</div><h1>Systems</h1>
+        <p class="sub">One row per admitted System, rebuilt on every read from the verified genesis admission and the live chain; membership and writer planes composed in as typed presence or absence; the seven modes as routes. Row contract <code>${CX_ESC(b.row_contract_id || "schema://ioi/components/hypervisor/systems-projection/v1")}</code>.</p>
+        ${body}
+        <h2>Policy · nonclaims</h2>
+        <p class="sub">principal ${CX_ESC(b.policy?.principal_ref || "—")} · admitted ${CX_ESC(String(b.policy?.admitted_rows ?? "—"))} of ${CX_ESC(String(b.policy?.inventory_rows ?? "—"))} inventory rows · ${CX_ESC(Object.entries(b.nonclaims || {}).map(([k, v]) => `${k}: ${v}`).join(", "))}</p>
+        <h2>Other Systems lanes</h2><p class="sub"><a href="/__ioi/systems/packages">Packages — Autonomous System lifecycle</a> · <a href="/__ioi/systems">Systems genesis readout</a></p>`));
+      return;
+    }
     // ---- Extension applications (M08.10 slice C) — the canonical route of a registered
     // extension_application. The route NAMES the surface; the launch target is whatever the
     // compiled product-surface join resolved from the serving binding, so this handler follows the

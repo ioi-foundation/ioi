@@ -4,7 +4,7 @@
 // A clause table over scripts/lib/acceptance-journey.mjs. This is the coverage gate over the
 // surfaces no other journey reaches, so clause 6 composes the product gates and the surface
 // journeys how-to-check.md §4 lists (each boots its own daemon; this runner is long by nature).
-// Clauses 4, 7 and 9 name the units that still owe them as TYPED ABSENCES; clause 7 has no gate
+// Clauses 7 and 9 name the units that still owe them as TYPED ABSENCES; clause 7 has no gate
 // under any name and is recorded as M08.8's remainder (register R-138). Clause 5 executes M08.10's
 // composed done-bar, check:packages-product-lifecycle (slices A–D landed 2026-09-14).
 //
@@ -35,7 +35,8 @@ const CLAUSES = [
   { id: "1", clause: "One surface per click target: every launcher tile, canonical route, owner landing and certified deep route resolves to exactly one designated surface", unit: "M08.8", checks: [bounded(rootScript("check:product-surface-compiler"), 40), node("apps/hypervisor/scripts/check-landing-designations.mjs", ["--exit-gate"])] },
   { id: "2", clause: "Every surface is compiled, not hard-coded: shell, catalog, command palette, contextual and API projections come from one registration over the independent axes", unit: "M08.8", provenBy: "1" },
   { id: "3", clause: "Every lane is live or a typed absence: a named gap carries the disabled attribute, a human title, a machine reason and a citation to the adjudication", unit: "M08 · G-8", checks: [app("check:named-gap-truth")] },
-  { id: "4", clause: "Systems and Work render truth they do not own: Work applies policy before search, counts, caching and recents and exposes typed subject refs", unit: "M08.9", absences: [absent("M08.9", "check:systems-work-projections", "the Systems projection's nonmutation and the typed Work subject contract")] },
+  // M08.9 landed 2026-09-14: canon's HypervisorSystemsProjection and HypervisorWorkSubjectProjection are registered and served, policy before search/counts/recents, owners never mutated, rebuild by re-derivation (check:systems-work-projections, floor-pinned).
+  { id: "4", clause: "Systems and Work render truth they do not own: Work applies policy before search, counts, caching and recents and exposes typed subject refs", unit: "M08.9", checks: [bounded(app("check:systems-work-projections"), 20)] },
   // M08.10's composed done-bar (slices A–D landed 2026-09-14): it runs the packages journey, the
   // registry smoke, the compiler, the route tests and the contract bar on ONE basis.
   { id: "5", clause: "The package lifecycle is complete in both directions: intake, release, admission, install, registration, routing, then uninstall, recall, revocation and affected-System impact", unit: "M08.10", checks: [bounded(rootScript("check:packages-product-lifecycle"), 120)] },

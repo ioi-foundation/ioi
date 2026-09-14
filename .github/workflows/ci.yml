@@ -1190,6 +1190,15 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:packages-journey --workspace=@ioi/hypervisor-app
 
+      # M08.9 — the Systems and Work read models: typed rows through the owners' published
+      # readers, policy before search/counts/recents, nonmutation, rebuild, and the canonical
+      # /work* and /systems routes rendered from them. Floor-pinned like every sibling here.
+      - name: Verify against an isolated live daemon — systems-work-projections
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:systems-work-projections --workspace=@ioi/hypervisor-app
+
       - name: Verify against an isolated live daemon — automations-journey
         if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
         env:

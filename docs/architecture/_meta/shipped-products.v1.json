@@ -121,11 +121,15 @@
           "/studio",
           "/systems",
           "/work",
+          "/work/history",
+          "/work/incidents",
           "/work/new-session",
+          "/work/queues",
+          "/work/reviews",
           "/work/sessions"
         ],
-        "expected_count": 65,
-        "sha256": "7b737248188a2695dd32c2f0278500d6e16180522c3a1aacc17bada7a0d8561b",
+        "expected_count": 69,
+        "sha256": "767489ba4d44bd772ed98b936bcb81fddb7b357eeb2645eab5b76a41b1a5c4a5",
         "browser_verification_id": "served-surface-smoke",
         "derivation": "Union, deduplicated and sorted, of `/`, every non-`reserved` row of apps/hypervisor/scripts/v2-route-shell.mjs V2_ROUTE_TABLE, and every `route` plus `canonical_route` of apps/hypervisor/scripts/surface-registry.mjs SURFACES. Agreement with that live derivation is asserted EXACTLY (not as a subset) by scripts/smoke-product-surfaces.mjs assertManifestRoutes, run in CI as `npm run smoke:product-surfaces`; validate-shipped-products.mjs checks only this record's internal shape (sorted, unique, counted, digested) and must not be read as the agreement gate.",
         "superseded_note": "2026-08-20 — E7-1 cockpit retirement (apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement) removed the eight legacy daemon-projection cockpit rows and their /__ioi/* lanes (/__ioi/applications-launcher, /__ioi/automations-cockpit, /__ioi/home-cockpit, /__ioi/operations-cockpit, /__ioi/systems-workspace, /__ioi/work-cockpit, /__ioi/work-new-session, /__ioi/work-sessions); this inventory is re-derived from the post-E7-1 35-row registry (55 routes -> 65, the eight retired lanes out and eighteen registry mounts landed since the prior pass in)."

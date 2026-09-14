@@ -78,6 +78,7 @@
     "check:session-authority": "node scripts/verify-hypervisor-session-authority.mjs",
     "check:session-authority-profile": "node scripts/verify-hypervisor-session-authority-profile.mjs",
     "check:standing-consumer-loop": "node scripts/verify-hypervisor-standing-consumer-loop.mjs",
+    "check:systems-work-projections": "node scripts/verify-hypervisor-systems-work-projections.mjs",
     "check:exact-effect-review": "node scripts/verify-hypervisor-exact-effect-review.mjs",
     "mutate:exact-effect-review": "node scripts/verify-hypervisor-exact-effect-review.mjs --self-drill",
     "check:flagship-developer-journey": "node scripts/verify-hypervisor-flagship-developer-journey.mjs",
