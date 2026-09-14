@@ -2549,6 +2549,13 @@ async fn async_main() -> anyhow::Result<()> {
             get(package_registry_routes::handle_installation_registration_get)
                 .post(package_registry_routes::handle_installation_registration_create),
         )
+        // M08.10 slice C — the serving binding that earns `launchable: true`, derived from the
+        // DomainApp runtime the package's surface is served through (the runtime must be serving).
+        .route(
+            "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/serving-binding",
+            get(package_registry_routes::handle_installation_serving_binding_get)
+                .post(package_registry_routes::handle_installation_serving_binding_create),
+        )
         // Compatibility list aliases for the previously-404 top-level paths (GET only). No
         // /domain-apps alias — it stays 404 until it has a real plane. Blueprints now have one:
         // canonical at /v1/hypervisor/studio/blueprints (studio_routes, OQ-11); no top-level alias.

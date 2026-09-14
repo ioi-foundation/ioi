@@ -633,6 +633,23 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M08.10 slice C — the serving binding derived from the DomainApp runtime
+  // ladder, and the compiled join's serving stage over it). Tokens 151237 -> 151560 (+323),
+  // attributed per file with the extractor on the HEAD and working copies:
+  // package_registry_routes.rs 1446 -> 1755 (+309: six serving constants, the request struct,
+  // `build_serving_binding`, the live-state reader and its canon-enum mapping, the two handlers,
+  // the join's fourth vector, and one test), domain_apps_routes.rs 1771 -> 1784 (+13: the two
+  // published runtime readers — the doc comments and the owner-filter literal), lifecycle_routes.rs
+  // 14163 -> 14163 (the splice gained a binding, not a literal), and hypervisor-daemon.rs +1 by
+  // subtraction (the one new route path literal). Foreign-qualified 4671 -> 4688 (+17):
+  // `StatusCode::` occurrences 115 -> 132 in package_registry_routes.rs, all of them in the two
+  // serving handlers and `build_serving_binding` (CONFLICT ×10, BAD_REQUEST ×3, OK ×2, CREATED,
+  // NOT_FOUND — measured by member on the HEAD and working copies; the new test asserts refusal
+  // codes by text and adds none); no other qualified name moved in any of the four files. EVERY WRITER
+  // BUCKET HELD (family 57, non-ODK literal 254, runtime 311), production filesystem calls 242,
+  // judged positions 281, family mentions 285: the serving binding admits through the same
+  // owner-scoped `admit` path on the same namespace, and the runtime is read through the DomainApp
+  // plane's own published fold rather than a new reader of its stream.
   // Re-pinned 2026-09-14 (M08.10 slice B — the extension registration route and the compiled
   // join's second registration source). Tokens 150908 -> 151237 (+329), attributed per file with
   // the extractor on the HEAD and working copies: package_registry_routes.rs 1123 -> 1446 (+323:
@@ -811,7 +828,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 151237,
+  tokenMentions: 151560,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -832,7 +849,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4671,
+    "foreign-qualified": 4688,
     "opaque-initialiser": 2824,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

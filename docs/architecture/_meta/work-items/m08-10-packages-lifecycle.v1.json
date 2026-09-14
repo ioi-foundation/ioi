@@ -7,7 +7,7 @@
   ],
   "status": "evidence_ready",
   "objective": "Complete the Packages owner surface over its partial backend in both directions: an immutable release that carries its dependencies, the extension_application registration the plane refused by name, compiler/serving integration, and affected-System impact on recall — with recall landing with the registry.",
-  "falsifiable_claim": "Slice A: POST /v1/hypervisor/packages/:id/releases admits a v2 HypervisorSurfaceReleaseRecord whose dependency_release_refs resolve at admission (unknown, foreign-owner and recalled refs refuse by name) and are bound into the release digest. Slice B: POST .../installations/:installation_id/registration admits exactly one v2 HypervisorApplicationSurfaceRegistration per installed binding on an active release, derived from admitted truth (class extension_application, route /__ioi/extensions/{package_id}, origin organization, effect boundary from the release's depth, contracts = the binding's allowed subsets), appends the binding's enabled successor revision under the caller's exact head, and the compiled product-surface join reads registered extensions as a second registration source so their typed reason is exactly no_serving_binding. npm run check:packages-journey --workspace=@ioi/hypervisor-app drives all of it against an isolated daemon and serve lane.",
+  "falsifiable_claim": "Slice A: POST /v1/hypervisor/packages/:id/releases admits a v2 HypervisorSurfaceReleaseRecord whose dependency_release_refs resolve at admission (unknown, foreign-owner and recalled refs refuse by name) and are bound into the release digest. Slice B: POST .../installations/:installation_id/registration admits exactly one v2 HypervisorApplicationSurfaceRegistration per installed binding on an active release, derived from admitted truth (class extension_application, route /__ioi/extensions/{package_id}, origin organization, effect boundary from the release's depth, contracts = the binding's allowed subsets), appends the binding's enabled successor revision under the caller's exact head, and the compiled product-surface join reads registered extensions as a second registration source so their typed reason is exactly no_serving_binding. npm run check:packages-journey --workspace=@ioi/hypervisor-app drives all of it against an isolated daemon and serve lane. Slice C: POST .../installations/:installation_id/serving-binding admits exactly one v2 HypervisorSurfaceServingBinding per registered, enabled binding, DERIVED from the package's own DomainApp runtime — which must be mounted and serving through the DomainApp plane's governed ladder (a merely mounted runtime, another DomainApp's runtime, and a second binding refuse by name) — copying that runtime's internal route; the compiled join reads registered extensions' serving bindings with the operational state re-read from the runtime ladder on every projection, so launchable:true with resolved_launch_route = the runtime's route appears on the next read after serve and stop-serving withdraws it on the next read with no registry mutation; /__ioi/extensions/<key> follows the join's answer (302 to the resolved route) or names the join's typed reasons (409).",
   "canon_owners": [
     "docs/architecture/components/hypervisor/core-clients-surfaces.md"
   ],
@@ -36,18 +36,44 @@
       "path": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
       "literal": "register-extension",
       "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/package_registry_routes.rs",
+      "literal": "fn handle_installation_serving_binding_create",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
+      "literal": "fn admitted_runtime_for_org",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-surface-serving-binding.v2.schema.json",
+      "literal": "domain-app-runtime://",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
+      "literal": "bind-serving",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "literal": "/__ioi/extensions/",
+      "present_when": "merged"
     }
   ],
   "evidence_refs": [
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
   "pr": null,
-  "adversarial_or_fault_proof": "package_registry_routes::tests 10/10: the release digest binds dependency refs and a v1-shaped record fails the v2 contract; unknown, foreign-owner and recalled dependencies refuse; the registration is derived (namespace and vocabulary refusals are the caller's, 400/403, never a daemon 500) and feeds the compiled join for its organization only. The packages journey (61/61) plants an anonymous registration, a second registration under a fresh key, a widened placement, and an exact retry, and re-pins the recall cascade and uninstall on the enablement head. The golden fixture bar was proven to evaluate the new v2 negatives by making one valid and watching check:architecture-contracts go red.",
+  "adversarial_or_fault_proof": "package_registry_routes::tests 10/10: the release digest binds dependency refs and a v1-shaped record fails the v2 contract; unknown, foreign-owner and recalled dependencies refuse; the registration is derived (namespace and vocabulary refusals are the caller's, 400/403, never a daemon 500) and feeds the compiled join for its organization only. The packages journey (61/61) plants an anonymous registration, a second registration under a fresh key, a widened placement, and an exact retry, and re-pins the recall cascade and uninstall on the enablement head. The golden fixture bar was proven to evaluate the new v2 negatives by making one valid and watching check:architecture-contracts go red. Slice C: package_registry_routes::tests 11/11 — canon's operational enum is a function of the runtime ladder (serving; degraded when the ladder says serving without a route; stopped; ready; inactive; blocked; unavailable for a runtime this projection cannot read), the reason codes name the stages that failed and an empty answer is eligibility, the derived record satisfies the v2 contract, and a non-serving or route-less runtime is refused by name. The packages journey (78/78, first run) binds before serve (refused), anonymously (refused), to another runtime (refused), then binds, replays, refuses a second binding, follows resolved_launch_route to the served view and the canonical route's 302, stops serving and reads launchability withdrawn in the binding, the installation, the join and the canonical route (409), serves again and reads it restored, then re-pins the recall cascade, restart and uninstall with the admitted serving binding present. The golden fixture bar was proven to evaluate the new v2 negatives by making one valid and watching check:architecture-contracts go red.",
   "remaining_nonclaims": [
-    "Slice C (a serving binding over the DomainApp serve runtime) is unbuilt: every extension stays launchable:false with no_serving_binding as its typed reason.",
-    "Slice D (affected-System impact recorded on recall, and check:packages-product-lifecycle) is unbuilt: M08.10's manifest check stays To be authored and the release-readiness blocker count does not move on slices A and B.",
-    "Registration enables the organization's installation binding; it starts no process, serves no route, binds no System and grants no authority."
+    "No health observation plane exists in this estate: health_observation_refs is empty on every serving binding, and the operational state is the DomainApp runtime's admitted ladder state (surface_operational_state_source: domain_app_runtime_ladder), not a liveness probe of the served bytes.",
+    "The DomainApp inventory-status projection still carries surface_registration_ref and package_release_ref as nulls; they are that plane's owner-authored fields and the package plane does not write them.",
+    "Slice D (affected-System impact recorded on recall, and check:packages-product-lifecycle) is unbuilt: M08.10's manifest check stays To be authored and the release-readiness blocker count does not move on slices A, B and C.",
+    "Registration enables the organization's installation binding and the serving binding names the runtime that serves it; the registry starts no process, serves no bytes of its own, binds no System and grants no authority."
   ],
-  "source_provenance": "Slice A 0062ddd6b (2026-09-14, ledger LXXVII); slice B authored in a worktree while the ACC-13 composed run held the main tree and landed the same day (ledger LXXVIII). MVP finish-line program, leg 3 (R-142).",
+  "source_provenance": "Slice A 0062ddd6b (2026-09-14, ledger LXXVII); slice B authored in a worktree while the ACC-13 composed run held the main tree and landed the same day (ledger LXXVIII). MVP finish-line program, leg 3 (R-142). Slice C authored and gated on the main tree 2026-09-14 (ledger LXXIX).",
   "last_status_transaction": "2026-09-14"
 }

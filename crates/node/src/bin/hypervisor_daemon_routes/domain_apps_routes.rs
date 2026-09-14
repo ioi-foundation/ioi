@@ -2155,6 +2155,49 @@ fn resolve_admitted_runtime(
     Ok(fold_ladder(&history))
 }
 
+/// THE RUNTIME PLANE'S PUBLISHED READER FOR OTHER PLANES (M08.10 slice C). The package registry's
+/// serving binding is earned from a DomainApp runtime that is actually serving, and it learns that
+/// HERE — through this module's own owner-scoped history and its own fold — rather than by reading
+/// the runtime stream itself, which would be a second interpretation of this family's truth. The
+/// caller's identity gates the read exactly as it gates the runtime GET route.
+pub(crate) fn admitted_runtime_for_caller(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    domain_app_ref: &str,
+) -> Result<Option<Value>, (StatusCode, Json<Value>)> {
+    resolve_admitted_runtime(data_dir, identity, domain_app_ref).map(|(runtime, _)| runtime)
+}
+
+/// The same fold for an ORGANIZATION-scoped projection with no request identity in hand (the
+/// compiled product-surface join reads its sources by owner, the way it reads the package registry).
+/// The answer is the runtime only when its admitted `owner_ref` is the organization asked about;
+/// another organization's runtime is `None`, not a leak. Every read is the whole admitted history
+/// through the one fold, so the state is the chain's, never a cached process fact.
+pub(crate) fn admitted_runtime_for_org(
+    data_dir: &str,
+    org_ref: &str,
+    domain_app_ref: &str,
+) -> Result<Option<Value>, String> {
+    let history = super::substrate_store::read_event_stream_history(
+        data_dir,
+        DAPP_NAMESPACE,
+        &super::mutation_event_foundation::stream_tail(KIND_DAPP, domain_app_ref),
+    )
+    .map_err(|error| error.to_string())?;
+    let entries: Vec<AdmittedLadderEntry> = history
+        .into_iter()
+        .map(|exact| AdmittedLadderEntry {
+            recorded_at_ms: exact.operation.recorded_at_ms,
+            head: exact.head.clone(),
+            idem_key: exact.operation.idem_key.clone(),
+            op_kind: exact.operation.op_kind.clone(),
+            payload: exact.operation.payload,
+        })
+        .collect();
+    let (runtime, _) = fold_ladder(&entries);
+    Ok(runtime.filter(|record| record.get("owner_ref").and_then(Value::as_str) == Some(org_ref)))
+}
+
 /// The runtime id one mount mints, derived rather than clocked.
 fn runtime_id_for(caller: &WriteCaller) -> String {
     replay_stable_id("dartm", &caller.owner_ref, &caller.idempotency_key)

@@ -2196,7 +2196,7 @@ per-release, per-installation, per-System, or per-runtime cardinality:
 | `HypervisorSurfaceReleaseRecord` | one immutable package release for that surface; distribution, admission, package disposition, capability depth, versioned descriptor, exact executable contracts, and dependency release refs (content-addressed refs to the admitted releases it requires, resolved at admission and frozen by the release digest) |
 | `HypervisorSurfaceInstallationBinding` | one organization/project installation of one release; installation, deployment enablement, audience, allowed objects/actions, and authority preview |
 | `HypervisorSystemInterfaceBinding` | one installation bound to one admitted System; System-specific enablement and narrower audience, allowed objects/actions, and authority preview |
-| `HypervisorSurfaceServingBinding` | one serving route/runtime for an installation or System binding; operational health only |
+| `HypervisorSurfaceServingBinding` | one serving route/runtime for an installation or System binding; operational health only. The runtime is named by its own canonical ref (`runtime://...` for a first-party application runtime, `domain-app-runtime://...` for a mounted DomainApp runtime) and the operational state is that runtime owner's admitted state, read live at projection — never declared by the caller that binds it |
 | `HypervisorProductSurfaceProjection` | one request-scoped policy-filtered join; selected and eligible binding refs, groups, launchability, disabled reasons, and typed launch target |
 
 The normalized family collectively declares:
@@ -4060,7 +4060,7 @@ HypervisorSurfaceServingBinding:
   installation_ref: install://...
   system_binding_ref: package-binding://... | null
   resolved_route: string
-  runtime_ref: runtime://... | null
+  runtime_ref: runtime://... | domain-app-runtime://... | null
   surface_operational_state:
     inactive | starting | ready | serving | degraded | blocked | stopped |
     unavailable

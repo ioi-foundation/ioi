@@ -6603,25 +6603,32 @@ pub(crate) async fn handle_product_surface_projection(
         .as_array()
         .cloned()
         .unwrap_or_default();
-    let serving_bindings = surface_records["serving_bindings"]
+    let mut serving_bindings = surface_records["serving_bindings"]
         .as_array()
         .cloned()
         .unwrap_or_default();
-    // M08.10 slice B — THE SECOND REGISTRATION SOURCE. Extension registrations Applications has
-    // admitted over installed bindings on active releases join the compiled-in registrations and
-    // run through the SAME three stages below with their own release record and installation
-    // binding; nothing about an extension is special-cased in the join, which is the point of
-    // registering it under the same contract. Registry unreadability is a typed refusal, never a
-    // thinner catalog.
+    // M08.10 slices B and C — THE SECOND REGISTRATION SOURCE. Extension registrations Applications
+    // has admitted over installed bindings on active releases join the compiled-in registrations
+    // and run through the SAME three stages below with their own release record, installation
+    // binding and (slice C) serving binding, whose operational state the registry reads live from
+    // the DomainApp runtime it names; nothing about an extension is special-cased in the join,
+    // which is the point of registering it under the same contract. Registry unreadability is a
+    // typed refusal, never a thinner catalog.
     let mut registration_rows = surface_records["registrations"]
         .as_array()
         .cloned()
         .unwrap_or_default();
     match super::package_registry_routes::registered_extension_surfaces(&st.data_dir, &org_ref) {
-        Ok((extension_registrations, extension_releases, extension_installations)) => {
+        Ok((
+            extension_registrations,
+            extension_releases,
+            extension_installations,
+            extension_serving_bindings,
+        )) => {
             registration_rows.extend(extension_registrations);
             releases.extend(extension_releases);
             installations.extend(extension_installations);
+            serving_bindings.extend(extension_serving_bindings);
         }
         Err(detail) => {
             return (

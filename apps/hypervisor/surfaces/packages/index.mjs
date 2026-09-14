@@ -54,9 +54,13 @@
 //     data-ioi-disabled-reason, never wired to an invented path.
 //   - serving: installs are born disabled; REGISTRATION (M08.10 slice B) is the verb that
 //     admits the extension into the compiled projection and appends the enabled successor on the
-//     binding, and the daemon's own disabled_reason_codes then name exactly what is still missing
-//     (surface_serving_binding_absent — slice C), rendered verbatim. There is no standalone enable
-//     verb by design. A launcher-feed entry is INVENTORY presence, never launchability.
+//     binding; the SERVING BINDING (M08.10 slice C) then binds the registered binding to the
+//     package's own DomainApp runtime, which must already be SERVING through the DomainApp plane's
+//     governed ladder — route, runtime ref and operational state are derived by the daemon from
+//     that runtime, never declared here, and the daemon's own disabled_reason_codes name exactly
+//     what is still missing (surface_serving_binding_absent / _not_serving), rendered verbatim.
+//     There is no standalone enable verb by design. A launcher-feed entry is INVENTORY presence;
+//     launchability is the compiled join's derivation over release, installation and serving.
 import { escHtml, GRE1_LIGHT, GRE1_LIGHT_FONT_FACES } from "../kit.mjs";
 
 const esc = escHtml;
@@ -83,6 +87,9 @@ const INSTALLATION_SCHEMA = "ioi.hypervisor.surface_installation_binding.v1";
 // M08.10 slice B: the extension registration Applications admits over an installed binding is the
 // SAME v2 registration contract the first-party surfaces satisfy.
 const REGISTRATION_SCHEMA = "ioi.hypervisor.application_surface_registration.v2";
+// M08.10 slice C — the serving binding's registered contract (v2 lets runtime_ref name a
+// domain-app-runtime:// by its own canonical ref). The declared receipt for the bind action.
+const SERVING_SCHEMA = "ioi.hypervisor.surface_serving_binding.v2";
 const PACKAGES_PLANE = "/v1/hypervisor/packages";
 
 const DISPOSITION_GAP_REASON = "no daemon verb exists — recall is the family's one disposition successor (active → recalled); the registered enum also names 'deprecated' and 'superseded' but no route can set them, so these controls stay disabled instead of pretending";
@@ -151,6 +158,7 @@ export const actions = [
   { id: "install-release", method: "POST", route: "/:id/install", fields: ["idempotency_key", "release_digest", "expected_release_head", "installation_id", "project_ref", "visibility", "allowed_object_contract_refs", "allowed_action_refs"], fieldMax: 4096, context: ["id"], authority: INST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "uninstall", method: "POST", route: "/:id/uninstall", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head"], context: ["id"], authority: UNINST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "register-extension", method: "POST", route: "/:id/register", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head", "display_name", "supported_placements", "launch_modes", "supported_context_kinds"], fieldMax: 2048, context: ["id"], authority: { plane: "hypervisor.packages", operation: "POST .../installations/:installation_id/registration (expected_installation_head CAS, once per binding; enablement follows as a successor revision)" }, receipt: REGISTRATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "bind-serving", method: "POST", route: "/:id/bind-serving", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head", "domain_app_runtime_ref"], context: ["id"], authority: { plane: "hypervisor.packages", operation: "POST .../installations/:installation_id/serving-binding (expected_installation_head CAS, once per binding; the named DomainApp runtime must already be serving)" }, receipt: SERVING_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
 ];
 
 // The authored ref-list fields arrive as one text blob; the daemon wants exact JSON arrays.
@@ -211,6 +219,13 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     body.launch_modes = refList(fields.launch_modes);
     body.supported_context_kinds = refList(fields.supported_context_kinds);
     redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(fields.release_digest || "")}&inst=${enc(fields.installation_id || "")}`;
+  } else if (action.id === "bind-serving") {
+    // The operator names the runtime and the head they acted on; whether that runtime is the
+    // package's own and whether it is serving are the daemon's judgments, refused by name.
+    path = `${PACKAGES_PLANE}/${enc(id)}/releases/${enc(fields.release_digest || "")}/installations/${enc(fields.installation_id || "")}/serving-binding`;
+    body.expected_installation_head = fields.expected_installation_head;
+    body.domain_app_runtime_ref = fields.domain_app_runtime_ref;
+    redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}&rel=${enc(fields.release_digest || "")}&inst=${enc(fields.installation_id || "")}`;
   } else {
     return { kind: "failure", http: 500, code: "action_unknown", message: `undeclared action '${action.id}'` };
   }
@@ -239,7 +254,9 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
   // presentation on the installation page, never the admission evidence.
   const envelope = action.id === "register-extension"
     ? (payload.registration || null)
-    : (payload.package || payload.release || payload.installation || null);
+    : action.id === "bind-serving"
+      ? (payload.serving_binding || null)
+      : (payload.package || payload.release || payload.installation || null);
   const record = envelope?.record || null;
   const receiptRef = typeof envelope?.agentgres?.receipt_ref === "string" ? envelope.agentgres.receipt_ref : "";
   if (!record || record.schema_version !== action.receipt || !receiptRef.startsWith("receipt://")) {
@@ -264,6 +281,10 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
   } else if (action.id === "register-extension") {
     created = record.surface_ref || "";
     status = replayed ? "replayed" : "registered";
+  } else if (action.id === "bind-serving") {
+    created = record.serving_binding_ref || "";
+    // The LIVE state the daemon read off the runtime's ladder, not the frozen admitted byte.
+    status = replayed ? "replayed" : (envelope.surface_operational_state || "serving");
   } else {
     created = fields.installation_id || String(record.installation_ref || "").split("/").at(-1) || "";
     status = replayed ? "replayed" : (record.surface_installation_state || "");
@@ -521,6 +542,9 @@ function installationView(model, base, pkg, rel, inst) {
       <dt>Registration</dt><dd data-testid="inst-registration">${entry.registration_state === "admitted"
         ? `${pill("ok", "registration admitted")} ${code(entry.registration?.canonical_route)} ${pill("muted", entry.registration?.surface_class || "extension_application")} ${pill("muted", `availability ${entry.registration?.surface_availability || "—"}`)} ${pill("muted", `effect ${entry.registration?.effect_boundary || "—"}`)}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">placements: ${esc((entry.registration?.supported_placements || []).join(", ") || "—")} · launch modes: ${esc((entry.registration?.launch_modes || []).join(", ") || "—")} · contexts: ${esc((entry.registration?.supported_context_kinds || []).join(", ") || "none")}</div>`
         : pill("warn", `registration ${entry.registration_state || "absent"}`)}</dd>
+      <dt>Serving binding</dt><dd data-testid="inst-serving">${entry.serving_binding_state === "admitted"
+        ? `${pill(entry.surface_operational_state === "serving" ? "ok" : "warn", "serving binding admitted")} ${pill(entry.surface_operational_state === "serving" ? "ok" : "warn", `operational ${entry.surface_operational_state || "—"}`)} ${code(entry.serving_binding?.runtime_ref)} ${code(entry.serving_binding?.resolved_route)}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">operational state is read from the DomainApp runtime's admitted ladder on every read (health observations: ${esc(String((entry.serving_binding?.health_observation_refs || []).length))} — none claimed)</div>`
+        : pill("warn", "serving binding absent")}</dd>
       <dt>Visibility · revision</dt><dd>${pill("muted", ir.visibility || "—")} · rev ${esc(String(ir.revision ?? "—"))}</dd>
       <dt>Allowed objects</dt><dd>${(ir.allowed_object_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Allowed actions</dt><dd>${(ir.allowed_action_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
@@ -534,7 +558,7 @@ function installationView(model, base, pkg, rel, inst) {
     </div>
     <h3 style="margin:16px 0 6px;font-size:13px">Register as an extension application</h3>
     ${entry.registration_state === "admitted"
-      ? `<div class="empty">Registered — the surface is in the compiled product-surface projection under its declared placements and launch modes (with <code>no_serving_binding</code> as its typed reason until a serving binding exists); re-submitting the original registration replays it and a second registration refuses.</div>`
+      ? `<div class="empty">Registered — the surface is in the compiled product-surface projection under its declared placements and launch modes (with <code>no_serving_binding</code> as its typed reason until the serving binding below exists and its runtime is serving); re-submitting the original registration replays it and a second registration refuses.</div>`
       : `<form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/register">
       <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
       <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?pkg=${enc(pkg)}&rel=${enc(rel)}&inst=${enc(inst)}`)}">
@@ -546,6 +570,20 @@ function installationView(model, base, pkg, rel, inst) {
       <label class="fl">Launch modes (direct open_application command_palette contextual api)<textarea name="launch_modes" rows="1" placeholder="direct open_application"${dis}></textarea></label>
       <label class="fl">Supported context kinds (organization project system goal_run outcome_room automation_run session work_queue work_item work_run — may be empty)<textarea name="supported_context_kinds" rows="1" placeholder="project"${dis}></textarea></label>
       <button class="act" type="submit"${dis}>Register extension application</button> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">surface class, route, contracts, origin and effect boundary are derived by the daemon from the admitted release and binding — only the display name and the membership lists are yours to declare</span>
+    </form>`}
+    <h3 style="margin:16px 0 6px;font-size:13px">Bind the serving runtime</h3>
+    ${entry.serving_binding_state === "admitted"
+      ? `<div class="empty">Serving binding admitted over <code>${esc(entry.serving_binding?.runtime_ref || "")}</code> — launchability is derived from that runtime's ladder on every read (stop-serving withdraws it, serving again restores it); re-submitting the original binding replays it and a second binding refuses.</div>`
+      : entry.registration_state !== "admitted"
+        ? `<div class="empty">Register the extension first — a serving binding is admitted only over a registered, enabled binding.</div>`
+        : `<form class="aform" method="post" action="${LEGACY_ROUTE}/${enc(pkg)}/bind-serving">
+      <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
+      <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?pkg=${enc(pkg)}&rel=${enc(rel)}&inst=${enc(inst)}`)}">
+      <input type="hidden" name="release_digest" value="${esc(rel)}">
+      <input type="hidden" name="installation_id" value="${esc(inst)}">
+      ${head ? `<input type="hidden" name="expected_installation_head" value="${esc(head)}">` : ""}
+      <label class="fl">DomainApp runtime ref (the package's own DomainApp, mounted and SERVING through the DomainApp plane's governed ladder)<input name="domain_app_runtime_ref" maxlength="160" placeholder="domain-app-runtime://dartm_…"${dis}></label>
+      <button class="act" type="submit"${dis}>Bind serving runtime</button> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">route, runtime ref and operational state are derived by the daemon from the runtime's admitted ladder — a runtime that is not serving, or is not this package's DomainApp's, refuses by name</span> ${casNote}
     </form>`}
     <h3 style="margin:16px 0 6px;font-size:13px">Uninstall</h3>
     ${uninstalled ? `<div class="empty">Already uninstalled (revision ${esc(String(ir.revision ?? ""))}) — the transition is immutable history; re-submitting the original uninstall replays it.</div>` : ""}

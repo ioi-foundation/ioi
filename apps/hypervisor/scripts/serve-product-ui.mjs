@@ -14219,6 +14219,31 @@ async function handleEstateRequest(req, res, body) {
         }
       }
     }
+    // ---- Extension applications (M08.10 slice C) — the canonical route of a registered
+    // extension_application. The route NAMES the surface; the launch target is whatever the
+    // compiled product-surface join resolved from the serving binding, so this handler follows the
+    // join's answer and composes nothing of its own: launchable → 302 to resolved_launch_route;
+    // registered but not launchable → 409 naming the join's typed stage reasons; unknown → 404.
+    if (pathname.startsWith("/__ioi/extensions/") && req.method === "GET") {
+      const key = decodeURIComponent(pathname.slice("/__ioi/extensions/".length).split("/")[0]);
+      const surfaceRef = `surface://extensions/${key}`;
+      const projection = await daemonFetch("/v1/hypervisor/product-surface-projections", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ allowed_surface_refs: [surfaceRef] }) }).then((x) => x.json()).catch(() => ({}));
+      const entry = (projection.application_entries || []).find((e) => e.identity_ref === surfaceRef) || null;
+      const ownership = { ...HTMLH, "X-IOI-Surface-Route": pathname, "X-IOI-Surface-Owner": "Applications · extension_application" };
+      if (!entry) {
+        res.writeHead(404, ownership);
+        res.end(automationsShell("Extension application", `<div class="empty">No registered extension application answers <code>${CX_ESC(surfaceRef)}</code> for this organization${projection.ok === false ? ` — <code>${CX_ESC(projection.code || "projection_unavailable")}</code>` : ""}.</div><p><a href="/__ioi/packages/registry">← Packages</a></p>`));
+        return;
+      }
+      if (entry.launchable === true && typeof entry.resolved_launch_route === "string" && entry.resolved_launch_route.startsWith("/") && !entry.resolved_launch_route.startsWith("//")) {
+        res.writeHead(302, { ...ownership, Location: entry.resolved_launch_route });
+        return res.end();
+      }
+      const codes = Array.isArray(entry.disabled_reason_codes) ? entry.disabled_reason_codes.map(String) : [];
+      res.writeHead(409, ownership);
+      res.end(automationsShell(entry.display_name || "Extension application", `<h1>${CX_ESC(entry.display_name || key)}</h1><div class="empty" data-ioi-disabled-reason="${CX_ESC(codes.join(" ") || "not_launchable")}">Registered, not launchable: ${codes.map((c) => `<code>${CX_ESC(c)}</code>`).join(" ") || "<code>not_launchable</code>"}. The compiled product-surface join resolved no serving stage for this surface; this route composes no launch target of its own.</div><p><a href="/__ioi/packages/registry?pkg=${encodeURIComponent(key)}">← Package</a></p>`));
+      return;
+    }
     // ---- Domain-App runtime — the internal, descriptor-driven, read-only served app view.
     if (pathname.startsWith("/__ioi/domain-app-runtime/") && req.method === "GET") {
       const rid = decodeURIComponent(pathname.slice("/__ioi/domain-app-runtime/".length).split("/")[0]);

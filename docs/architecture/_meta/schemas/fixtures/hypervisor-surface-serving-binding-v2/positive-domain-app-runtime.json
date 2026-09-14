@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.hypervisor.surface_serving_binding.v2",
+  "serving_binding_ref": "surface-serving://extensions/local-telesupport/default",
+  "surface_ref": "surface://extensions/local-telesupport",
+  "release_ref": "package://local-telesupport/release/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "installation_ref": "install://local-telesupport/default",
+  "system_binding_ref": null,
+  "resolved_route": "/__ioi/domain-app-runtime/dartm_0123456789abcdef",
+  "runtime_ref": "domain-app-runtime://dartm_0123456789abcdef",
+  "surface_operational_state": "serving",
+  "health_observation_refs": []
+}

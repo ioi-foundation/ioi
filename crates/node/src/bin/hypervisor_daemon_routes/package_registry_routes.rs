@@ -66,6 +66,19 @@ const REGISTRATION_CONTRACT_ID: &str =
 const EXTENSION_SURFACE_PREFIX: &str = "surface://extensions/";
 const EXTENSION_ROUTE_PREFIX: &str = "/__ioi/extensions/";
 const EXTENSION_OWNER_DOC_REF: &str = "doc://architecture/hypervisor/packages";
+// M08.10 slice C — the serving binding that EARNS `launchable: true`. Applications admits exactly
+// one v2 `HypervisorSurfaceServingBinding` per registered, enabled binding, and it is derived from
+// the DomainApp runtime the package froze at candidate admission: the runtime must be mounted and
+// SERVING through the DomainApp plane's own governed ladder, the resolved route is that runtime's
+// internal route, and the operational state is read from the runtime's admitted ladder state on
+// every projection — never declared by the caller, never cached. v2 is the successor that lets
+// `runtime_ref` name a `domain-app-runtime://` by its own canonical ref.
+const SERVING_SCOPE_KIND: &str = "hypervisor-surface-serving-binding";
+const SERVING_ADMISSION_SCHEMA: &str = "ioi.hypervisor.package_serving_binding_admission.v1";
+const SERVING_SCHEMA: &str = "ioi.hypervisor.surface_serving_binding.v2";
+const SERVING_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/surface-serving-binding/v2";
+const DOMAIN_APP_RUNTIME_REF_PREFIX: &str = "domain-app-runtime://";
+const SERVING_STATE_SOURCE: &str = "domain_app_runtime_ladder";
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -154,6 +167,18 @@ struct RegistrationRequest {
     supported_placements: Vec<String>,
     launch_modes: Vec<String>,
     supported_context_kinds: Vec<String>,
+    idempotency_key: String,
+    recorded_at_ms: Option<u64>,
+}
+
+/// The serving-binding request names the runtime and nothing about its state: which DomainApp
+/// runtime the operator means (the daemon checks it is the package's own DomainApp and that it is
+/// serving), the binding head the operator acted on, and the caller's key.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ServingBindingRequest {
+    expected_installation_head: String,
+    domain_app_runtime_ref: String,
     idempotency_key: String,
     recorded_at_ms: Option<u64>,
 }
@@ -888,12 +913,14 @@ fn release_recall_facts(release: &ExactProjection) -> (String, Value) {
 
 /// Why this binding cannot launch, derived at read time from admitted truth:
 /// its own terminal state, the current release disposition, whether Applications
-/// has admitted the extension registration, and the serving binding this packet
-/// still never claims (slice C).
+/// has admitted the extension registration, and the serving binding's LIVE
+/// operational state (`None` when no serving binding has been admitted). An
+/// empty answer is what launch eligibility means; nothing here is asserted.
 fn derived_disabled_reason_codes(
     installation_state: &str,
     release_disposition: &str,
     registered: bool,
+    serving_state: Option<&str>,
 ) -> Vec<&'static str> {
     let mut codes = Vec::new();
     if installation_state == "uninstalled" {
@@ -905,7 +932,11 @@ fn derived_disabled_reason_codes(
     if !registered {
         codes.push("extension_application_registration_absent");
     }
-    codes.push("surface_serving_binding_absent");
+    match serving_state {
+        None => codes.push("surface_serving_binding_absent"),
+        Some("serving") => {}
+        Some(_) => codes.push("surface_serving_binding_not_serving"),
+    }
     codes
 }
 
@@ -925,27 +956,155 @@ fn read_registration(data_dir: &str, installation_ref: &str) -> Option<ExactProj
         .filter(|exact| exact.operation.payload["schema_version"] == REGISTRATION_ADMISSION_SCHEMA)
 }
 
+/// The admitted serving binding over one installation binding (its stream is keyed by the
+/// binding's own ref, like the registration's), read together with the operational state of the
+/// DomainApp runtime it names — LIVE, through the runtime plane's published fold. The admitted
+/// record froze `serving` because admission refuses anything else; what the binding is NOW is the
+/// runtime's business, and this is the one place the package plane learns it.
+struct LiveServing {
+    exact: ExactProjection,
+    operational_state: &'static str,
+    runtime_state: Value,
+    runtime_revision: Value,
+}
+
+fn read_serving_binding(data_dir: &str, installation_ref: &str) -> Option<ExactProjection> {
+    let tail = hash_tail("serving-binding", installation_ref);
+    super::substrate_store::read_event_stream_operation(data_dir, NAMESPACE, &tail)
+        .ok()
+        .flatten()
+        .filter(|exact| exact.operation.payload["schema_version"] == SERVING_ADMISSION_SCHEMA)
+}
+
+/// Canon's operational enum, derived from the DomainApp runtime's admitted ladder state. `None`
+/// (no runtime readable for the organization, or a runtime other than the one the binding names)
+/// is `unavailable` — the enum has a member for exactly this, so an unreadable runtime is typed,
+/// not read as serving and not read as absent. A ladder that says serving while holding no route
+/// is a contradiction and reads `degraded`, never launchable.
+fn operational_state_of_runtime(runtime: Option<&Value>) -> &'static str {
+    let Some(runtime) = runtime else {
+        return "unavailable";
+    };
+    match runtime["state"].as_str() {
+        Some("serving")
+            if runtime["serving"].as_bool() == Some(true)
+                && runtime["internal_route_ref"].is_string() =>
+        {
+            "serving"
+        }
+        Some("serving") => "degraded",
+        Some("mounted") if runtime["serve_stopped_at"].is_string() => "stopped",
+        Some("mounted") => "ready",
+        Some("unmounted") => "inactive",
+        Some("killed") => "blocked",
+        _ => "unavailable",
+    }
+}
+
+/// The runtime the binding names, as the organization's admitted truth reads it right now: the
+/// runtime plane's fold for this org and DomainApp, kept only when it IS the runtime the binding
+/// was admitted over (a re-mount mints a new runtime id; the old binding then reads unavailable
+/// rather than silently re-pointing). A substrate error is `Err` so the compiled join can refuse
+/// typed instead of projecting a thinner catalog.
+fn runtime_named_by(data_dir: &str, serving: &ExactProjection) -> Result<Option<Value>, String> {
+    let payload = &serving.operation.payload;
+    let (Some(owner_ref), Some(domain_app_ref)) = (
+        payload["owner_ref"].as_str(),
+        payload["domain_app_ref"].as_str(),
+    ) else {
+        return Ok(None);
+    };
+    Ok(
+        super::domain_apps_routes::admitted_runtime_for_org(data_dir, owner_ref, domain_app_ref)?
+            .filter(|runtime| {
+                runtime["domain_app_runtime_id"] == payload["serving_binding"]["runtime_ref"]
+            }),
+    )
+}
+
+fn live_serving_by_ref(data_dir: &str, installation_ref: &str) -> Option<LiveServing> {
+    let exact = read_serving_binding(data_dir, installation_ref)?;
+    // A substrate read error at RENDER time reads as `unavailable` — the typed member for a
+    // runtime this projection could not read — never as serving. The join propagates it instead.
+    let runtime = runtime_named_by(data_dir, &exact).ok().flatten();
+    Some(LiveServing {
+        operational_state: operational_state_of_runtime(runtime.as_ref()),
+        runtime_state: runtime
+            .as_ref()
+            .map(|record| record["state"].clone())
+            .unwrap_or(Value::Null),
+        runtime_revision: runtime
+            .as_ref()
+            .map(|record| record["revision"].clone())
+            .unwrap_or(Value::Null),
+        exact,
+    })
+}
+
+fn live_serving_for(data_dir: &str, installation: &ExactProjection) -> Option<LiveServing> {
+    let installation_ref =
+        installation.operation.payload["installation"]["installation_ref"].as_str()?;
+    live_serving_by_ref(data_dir, installation_ref)
+}
+
+fn render_serving_binding(live: &LiveServing, replayed: Option<bool>) -> Value {
+    let payload = &live.exact.operation.payload;
+    let serving = live.operational_state == "serving";
+    json!({
+        "record": payload["serving_binding"],
+        "installation_ref": payload["installation_ref"],
+        "installation_head": payload["installation_head"],
+        "release_ref": payload["release_ref"],
+        "release_head": payload["release_head"],
+        "registration_head": payload["registration_head"],
+        "domain_app_ref": payload["domain_app_ref"],
+        "serving_binding_state": "admitted",
+        // LIVE, not the admitted byte: the record says what was true at admission (serving, or it
+        // would not exist); these three say what the runtime's chain says now.
+        "surface_operational_state": live.operational_state,
+        "surface_operational_state_source": SERVING_STATE_SOURCE,
+        "domain_app_runtime_state": live.runtime_state,
+        "domain_app_runtime_revision": live.runtime_revision,
+        "launch_eligible": serving,
+        "disabled_reason_codes": if serving { json!([]) } else { json!(["surface_serving_binding_not_serving"]) },
+        "nonclaim": payload["nonclaim"],
+        "agentgres": agentgres_metadata(&live.exact, replayed),
+    })
+}
+
 fn render_installation(
     exact: &ExactProjection,
     replayed: Option<bool>,
     release: &ExactProjection,
     registration: Option<&ExactProjection>,
+    serving: Option<&LiveServing>,
 ) -> Value {
     let (release_disposition, recall_reason) = release_recall_facts(release);
     let installation_state = exact.operation.payload["installation"]["surface_installation_state"]
         .as_str()
         .unwrap_or_default()
         .to_owned();
+    let codes = derived_disabled_reason_codes(
+        &installation_state,
+        &release_disposition,
+        registration.is_some(),
+        serving.map(|live| live.operational_state),
+    );
     json!({
         "record": exact.operation.payload["installation"],
         "release_head": exact.operation.payload["release_head"],
         "registration_state": if registration.is_some() { "admitted" } else { "absent" },
         "registration": registration.map(|reg| reg.operation.payload["registration"].clone()).unwrap_or(Value::Null),
         "registration_head": registration.map(|reg| json!(reg.head)).unwrap_or(Value::Null),
-        "launch_eligible": false,
+        "serving_binding_state": if serving.is_some() { "admitted" } else { "absent" },
+        "serving_binding": serving.map(|live| live.exact.operation.payload["serving_binding"].clone()).unwrap_or(Value::Null),
+        "surface_operational_state": serving.map(|live| json!(live.operational_state)).unwrap_or(Value::Null),
+        // DERIVED, and true only when every stage reads clean: installed, active release,
+        // registered, and a serving binding whose runtime is serving right now.
+        "launch_eligible": codes.is_empty(),
         "release_disposition": release_disposition,
         "release_recall_reason": recall_reason,
-        "disabled_reason_codes": derived_disabled_reason_codes(&installation_state, &release_disposition, registration.is_some()),
+        "disabled_reason_codes": codes,
         "agentgres": agentgres_metadata(exact, replayed),
     })
 }
@@ -1841,7 +2000,7 @@ pub(crate) async fn handle_installation_create(
             StatusCode::CREATED,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, registration_for(&st.data_dir, &commit.projection).as_ref())
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, registration_for(&st.data_dir, &commit.projection).as_ref(), live_serving_for(&st.data_dir, &commit.projection).as_ref())
             })),
         ),
         Err(reply) => reply,
@@ -1894,11 +2053,13 @@ pub(crate) async fn handle_installation_list(
             && allowed.contains(resource_ref)
         {
             let registration = registration_for(&st.data_dir, &exact);
+            let serving = live_serving_for(&st.data_dir, &exact);
             installations.push(render_installation(
                 &exact,
                 None,
                 &release,
                 registration.as_ref(),
+                serving.as_ref(),
             ));
         }
     }
@@ -1942,7 +2103,7 @@ pub(crate) async fn handle_installation_get(
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&exact, None, &release, registration_for(&st.data_dir, &exact).as_ref())
+                "installation": render_installation(&exact, None, &release, registration_for(&st.data_dir, &exact).as_ref(), live_serving_for(&st.data_dir, &exact).as_ref())
             })),
         ),
         Err(reply) => reply,
@@ -2083,7 +2244,16 @@ fn build_registration(
     Ok(registration)
 }
 
-fn render_registration(exact: &ExactProjection, replayed: Option<bool>) -> Value {
+fn render_registration(
+    exact: &ExactProjection,
+    replayed: Option<bool>,
+    serving: Option<&LiveServing>,
+) -> Value {
+    // The admitted registration payload froze `serving_binding_state: absent` because that was
+    // true at admission; the serving binding is a later admission on its own stream, so the state
+    // and the eligibility it gates are read live here rather than off the frozen byte.
+    let serving_state = serving.map(|live| live.operational_state);
+    let codes = derived_disabled_reason_codes("installed", "active", true, serving_state);
     json!({
         "record": exact.operation.payload["registration"],
         "installation_ref": exact.operation.payload["installation_ref"],
@@ -2091,9 +2261,10 @@ fn render_registration(exact: &ExactProjection, replayed: Option<bool>) -> Value
         "release_ref": exact.operation.payload["release_ref"],
         "release_head": exact.operation.payload["release_head"],
         "registration_state": "admitted",
-        "serving_binding_state": exact.operation.payload["serving_binding_state"],
-        "launch_eligible": false,
-        "disabled_reason_codes": exact.operation.payload["disabled_reason_codes"],
+        "serving_binding_state": if serving.is_some() { "admitted" } else { "absent" },
+        "surface_operational_state": serving_state.map(|state| json!(state)).unwrap_or(Value::Null),
+        "launch_eligible": codes.is_empty(),
+        "disabled_reason_codes": codes,
         "nonclaim": exact.operation.payload["nonclaim"],
         "agentgres": agentgres_metadata(exact, replayed),
     })
@@ -2128,7 +2299,9 @@ pub(crate) async fn handle_installation_registration_get(
     match registration_for(&st.data_dir, &installation) {
         Some(exact) => (
             StatusCode::OK,
-            Json(json!({ "ok": true, "registration": render_registration(&exact, None) })),
+            Json(
+                json!({ "ok": true, "registration": render_registration(&exact, None, live_serving_for(&st.data_dir, &installation).as_ref()) }),
+            ),
         ),
         None => (
             StatusCode::NOT_FOUND,
@@ -2217,12 +2390,13 @@ pub(crate) async fn handle_installation_registration_create(
                 &release_digest,
                 &installation_id,
             );
+            let serving = live_serving_by_ref(&st.data_dir, &installation_ref);
             return (
                 StatusCode::OK,
                 Json(json!({
                     "ok": true,
-                    "registration": render_registration(&existing, Some(true)),
-                    "installation": current.ok().map(|exact| render_installation(&exact, Some(true), &release, Some(&existing))).unwrap_or(Value::Null)
+                    "registration": render_registration(&existing, Some(true), serving.as_ref()),
+                    "installation": current.ok().map(|exact| render_installation(&exact, Some(true), &release, Some(&existing), serving.as_ref())).unwrap_or(Value::Null)
                 })),
             );
         }
@@ -2339,30 +2513,357 @@ pub(crate) async fn handle_installation_registration_create(
             StatusCode::CREATED,
             Json(json!({
                 "ok": true,
-                "registration": render_registration(&registration_commit.projection, Some(registration_commit.replayed)),
-                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, Some(&registration_commit.projection))
+                // Just registered: no serving binding can exist yet (it requires the
+                // registration), so `None` is exact rather than a read skipped.
+                "registration": render_registration(&registration_commit.projection, Some(registration_commit.replayed), None),
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, Some(&registration_commit.projection), None)
             })),
         ),
         Err(reply) => reply,
     }
 }
 
-/// The registry-backed half of the product-surface join (M08.10 slice B): every admitted
+/// The serving binding record, DERIVED from the runtime the package's DomainApp is actually
+/// serving through. The caller named a runtime; everything the record says about it — the route,
+/// the runtime ref, the operational state — is read from that runtime's admitted ladder. A runtime
+/// that is not serving is refused by name here; there is no way to admit a binding whose state is
+/// anything but `serving`, which is why the frozen record can carry it at all.
+fn build_serving_binding(
+    package_id: &str,
+    installation_id: &str,
+    binding: &Value,
+    runtime: &Value,
+) -> Result<Value, Reply> {
+    if runtime["mounted"].as_bool() != Some(true) || runtime["serving"].as_bool() != Some(true) {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "serving_binding_runtime_not_serving",
+            format!(
+                "the DomainApp runtime is not serving (ladder state {}); serve it through POST /v1/hypervisor/domain-apps/:id/serve first — a serving binding is derived from a serving runtime, never declared",
+                runtime["state"].as_str().unwrap_or("unknown")
+            ),
+        ));
+    }
+    let Some(resolved_route) = runtime["internal_route_ref"].as_str() else {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "serving_binding_runtime_route_absent",
+            "the DomainApp runtime reads as serving but holds no internal route; refusing to bind a route that does not exist",
+        ));
+    };
+    let record = json!({
+        "schema_version": SERVING_SCHEMA,
+        "serving_binding_ref": format!("surface-serving://extensions/{package_id}/{installation_id}"),
+        "surface_ref": binding["surface_ref"],
+        "release_ref": binding["release_ref"],
+        "installation_ref": binding["installation_ref"],
+        "system_binding_ref": Value::Null,
+        // THE ROUTE IS THE RUNTIME'S. The registration's canonical route names the surface; the
+        // route the shell follows to launch it is the one the runtime plane admitted when it
+        // began serving, and this record copies it rather than composing one of its own.
+        "resolved_route": resolved_route,
+        "runtime_ref": runtime["domain_app_runtime_id"],
+        "surface_operational_state": "serving",
+        // No health observation plane exists in this estate yet; an empty list is the honest
+        // value, and the projection says where the operational state comes from instead.
+        "health_observation_refs": [],
+    });
+    validate_canonical_contract(
+        SERVING_CONTRACT_ID,
+        &record,
+        "serving_binding_contract_failed",
+    )?;
+    Ok(record)
+}
+
+/// GET .../installations/:installation_id/serving-binding — the admitted serving binding with its
+/// LIVE operational state, or a typed absence.
+pub(crate) async fn handle_installation_serving_binding_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath((package_id, release_digest, installation_id)): AxumPath<(String, String, String)>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    if let Err(reply) =
+        read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest)
+    {
+        return reply;
+    }
+    let installation = match read_installation_authorized(
+        &st.data_dir,
+        &identity,
+        &package_id,
+        &release_digest,
+        &installation_id,
+    ) {
+        Ok(exact) => exact,
+        Err(reply) => return reply,
+    };
+    match live_serving_for(&st.data_dir, &installation) {
+        Some(live) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "serving_binding": render_serving_binding(&live, None) })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "serving_binding_absent",
+                    "message": "no serving binding has been admitted over this installation binding"
+                }
+            })),
+        ),
+    }
+}
+
+/// POST .../installations/:installation_id/serving-binding — Applications binds one registered,
+/// enabled installation to the DomainApp runtime that is serving it, exactly once, under exact-head
+/// CAS on the binding. The binding's own head does not move (nothing about the installation
+/// changes); what changes is that the compiled join now finds a serving stage and `launchable`
+/// becomes true — by derivation, on every read, for as long as the runtime keeps serving.
+pub(crate) async fn handle_installation_serving_binding_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath((package_id, release_digest, installation_id)): AxumPath<(String, String, String)>,
+    Json(body): Json<Value>,
+) -> Reply {
+    let identity = match request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(reply) => return reply,
+    };
+    let request: ServingBindingRequest = match parse(body, "serving_binding_request_invalid") {
+        Ok(request) => request,
+        Err(reply) => return reply,
+    };
+    if !valid_hash(&request.expected_installation_head) {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "package_expected_head_invalid",
+            "expected_installation_head must be one canonical sha256 head",
+        );
+    }
+    if !valid_idempotency_key(&request.idempotency_key) {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "package_idempotency_key_invalid",
+            "idempotency_key is required, bounded, and contains no control characters",
+        );
+    }
+    if !valid_ref(
+        &request.domain_app_runtime_ref,
+        DOMAIN_APP_RUNTIME_REF_PREFIX,
+    ) {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "serving_binding_runtime_ref_invalid",
+            "domain_app_runtime_ref must be one canonical domain-app-runtime:// reference",
+        );
+    }
+    let release =
+        match read_release_authorized(&st.data_dir, &identity, &package_id, &release_digest) {
+            Ok(release) => release,
+            Err(reply) => return reply,
+        };
+    let installation = match read_installation_authorized(
+        &st.data_dir,
+        &identity,
+        &package_id,
+        &release_digest,
+        &installation_id,
+    ) {
+        Ok(exact) => exact,
+        Err(reply) => return reply,
+    };
+    let (release_disposition, _) = release_recall_facts(&release);
+    if release_disposition != "active" {
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_release_not_active",
+            format!("the release carries disposition {release_disposition}; only an active release may be served"),
+        );
+    }
+    let binding = installation.operation.payload["installation"].clone();
+    if binding["surface_installation_state"].as_str() != Some("installed") {
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_installation_not_installed",
+            "only an installed binding may carry a serving binding",
+        );
+    }
+    let installation_ref = binding["installation_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let owner_ref = installation.operation.payload["owner_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let Some(registration) = read_registration(&st.data_dir, &installation_ref) else {
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_registration_absent",
+            "the extension registration must be admitted before a serving binding: the compiled join has no surface to serve until Applications has registered it",
+        );
+    };
+    if binding["surface_enablement_state"].as_str() != Some("enabled") {
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_installation_not_enabled",
+            "the installation binding is not enabled; a serving binding is admitted only over an enabled binding",
+        );
+    }
+    // Exactly one serving binding per installation binding: an exact retry replays the original
+    // admission; a second binding under a fresh key refuses by name. Replay before CAS, as on the
+    // registration, so a retry that quotes the head it quoted the first time is harmless.
+    if let Some(existing) = read_serving_binding(&st.data_dir, &installation_ref) {
+        if existing.operation.idem_key == request.idempotency_key {
+            let live = live_serving_by_ref(&st.data_dir, &installation_ref);
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "serving_binding": live.as_ref().map(|live| render_serving_binding(live, Some(true))).unwrap_or(Value::Null),
+                    "installation": render_installation(&installation, Some(true), &release, Some(&registration), live.as_ref())
+                })),
+            );
+        }
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_already_admitted",
+            "this installation binding already carries an admitted serving binding; bindings are not re-issued",
+        );
+    }
+    if request.expected_installation_head != installation.head {
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_expected_head_conflict",
+            "expected_installation_head is not the current admitted installation head",
+        );
+    }
+    // The runtime is the package's OWN DomainApp's, read through the runtime plane's published
+    // reader under this caller's identity — the same gate as the runtime GET route.
+    let candidate = match read_candidate_authorized(&st.data_dir, &identity, &package_id) {
+        Ok(exact) => exact,
+        Err(reply) => return reply,
+    };
+    let domain_app_ref = candidate.operation.payload["domain_app_ref"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let runtime = match super::domain_apps_routes::admitted_runtime_for_caller(
+        &st.data_dir,
+        &identity,
+        &domain_app_ref,
+    ) {
+        Ok(Some(runtime)) => runtime,
+        Ok(None) => {
+            return bad(
+                StatusCode::CONFLICT,
+                "serving_binding_runtime_not_found",
+                format!("{domain_app_ref} has no admitted runtime; mount and serve it through the DomainApp plane first"),
+            )
+        }
+        Err(reply) => return reply,
+    };
+    if runtime["domain_app_runtime_id"].as_str() != Some(request.domain_app_runtime_ref.as_str()) {
+        return bad(
+            StatusCode::CONFLICT,
+            "serving_binding_runtime_mismatch",
+            format!(
+                "{} is not the admitted runtime of {domain_app_ref} (which is {}); a package binds only its own DomainApp's runtime",
+                request.domain_app_runtime_ref,
+                runtime["domain_app_runtime_id"].as_str().unwrap_or("none")
+            ),
+        );
+    }
+    let serving_binding =
+        match build_serving_binding(&package_id, &installation_id, &binding, &runtime) {
+            Ok(record) => record,
+            Err(reply) => return reply,
+        };
+    let admission = json!({
+        "schema_version": SERVING_ADMISSION_SCHEMA,
+        "serving_binding": serving_binding,
+        "owner_ref": owner_ref,
+        "installation_ref": installation_ref,
+        "installation_head": installation.head,
+        "release_ref": binding["release_ref"],
+        "release_head": release.head,
+        "registration_head": registration.head,
+        "domain_app_ref": domain_app_ref,
+        "domain_app_runtime_revision": runtime["revision"],
+        "domain_app_runtime_content_hash": runtime["content_hash"],
+        "surface_operational_state_source": SERVING_STATE_SOURCE,
+        "nonclaim": "The serving binding names the DomainApp runtime the package's surface is served through and copies that runtime's admitted route; its operational state is read from the runtime's ladder on every projection and this record asserts nothing about the served application's behaviour, health probes, external ingress or authority."
+    });
+    let scope = match bind_scope(
+        &st.data_dir,
+        &identity,
+        SERVING_SCOPE_KIND,
+        &installation_ref,
+        &owner_ref,
+        &request.idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(reply) => return reply,
+    };
+    match admit(
+        &st.data_dir,
+        true,
+        &identity,
+        &scope,
+        SERVING_SCOPE_KIND,
+        &installation_ref,
+        &hash_tail("serving-binding", &installation_ref),
+        "event_stream.hypervisor_surface_serving_binding_admitted",
+        None,
+        &admission,
+        request.recorded_at_ms.unwrap_or_default(),
+        &request.idempotency_key,
+    ) {
+        Ok(commit) => {
+            let replayed = commit.replayed;
+            let live = LiveServing {
+                exact: commit.projection,
+                operational_state: "serving",
+                runtime_state: runtime["state"].clone(),
+                runtime_revision: runtime["revision"].clone(),
+            };
+            (
+                StatusCode::CREATED,
+                Json(json!({
+                    "ok": true,
+                    "serving_binding": render_serving_binding(&live, Some(replayed)),
+                    "installation": render_installation(&installation, Some(replayed), &release, Some(&registration), Some(&live))
+                })),
+            )
+        }
+        Err(reply) => reply,
+    }
+}
+
+/// The registry-backed half of the product-surface join (M08.10 slices B and C): every admitted
 /// extension registration for this organization whose binding is still installed and whose
-/// release is still active, together with the release record and installation binding the
-/// compiled join needs to run its three stages over it. The serving stage is left to the static
-/// serving bindings (none exist for extensions until slice C), so the join's typed reason for an
-/// extension today is exactly `no_serving_binding` — and it reaches that reason through the SAME
-/// code every first-party surface does.
+/// release is still active, together with the release record, the installation binding and —
+/// when Applications has admitted one — the serving binding the compiled join needs to run its
+/// three stages over it. The serving binding is projected with its operational state read LIVE
+/// from the DomainApp runtime it names, so a runtime that stopped serving reads `stopped` here
+/// and the join withholds launchability by derivation, through the SAME code every first-party
+/// surface runs. A runtime the substrate cannot read is an error the join refuses typed on.
 pub(crate) fn registered_extension_surfaces(
     data_dir: &str,
     org_ref: &str,
-) -> Result<(Vec<Value>, Vec<Value>, Vec<Value>), String> {
+) -> Result<(Vec<Value>, Vec<Value>, Vec<Value>, Vec<Value>), String> {
     let tails = super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE)
         .map_err(|error| error.to_string())?;
     let mut registrations = Vec::new();
     let mut releases = Vec::new();
     let mut installations = Vec::new();
+    let mut serving_bindings = Vec::new();
     for tail in tails
         .into_iter()
         .filter(|tail| tail.starts_with("registration."))
@@ -2415,11 +2916,18 @@ pub(crate) fn registered_extension_surfaces(
         {
             continue;
         }
+        if let Some(serving) = read_serving_binding(data_dir, installation_ref) {
+            let runtime = runtime_named_by(data_dir, &serving)?;
+            let mut projected = serving.operation.payload["serving_binding"].clone();
+            projected["surface_operational_state"] =
+                json!(operational_state_of_runtime(runtime.as_ref()));
+            serving_bindings.push(projected);
+        }
         registrations.push(registration.operation.payload["registration"].clone());
         releases.push(release_record);
         installations.push(binding);
     }
-    Ok((registrations, releases, installations))
+    Ok((registrations, releases, installations, serving_bindings))
 }
 
 fn prior_idempotent_projection(
@@ -2491,7 +2999,7 @@ pub(crate) async fn handle_installation_uninstall(
                 StatusCode::OK,
                 Json(json!({
                     "ok": true,
-                    "installation": render_installation(&prior, Some(true), &release, registration_for(&st.data_dir, &prior).as_ref())
+                    "installation": render_installation(&prior, Some(true), &release, registration_for(&st.data_dir, &prior).as_ref(), live_serving_for(&st.data_dir, &prior).as_ref())
                 })),
             )
         }
@@ -2593,7 +3101,7 @@ pub(crate) async fn handle_installation_uninstall(
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, registration_for(&st.data_dir, &commit.projection).as_ref())
+                "installation": render_installation(&commit.projection, Some(commit.replayed), &release, registration_for(&st.data_dir, &commit.projection).as_ref(), live_serving_for(&st.data_dir, &commit.projection).as_ref())
             })),
         ),
         Err(reply) => reply,
@@ -2842,7 +3350,7 @@ pub(crate) fn launcher_registry_application_entries(
             "canonical_route": Value::Null,
             "resolved_launch_route": Value::Null,
             "launchable": false,
-            "disabled_reason_codes": derived_disabled_reason_codes("installed", "active", false),
+            "disabled_reason_codes": derived_disabled_reason_codes("installed", "active", false, None),
             "surface_capability_depth": release_record["surface_capability_depth"],
             "surface_operational_state": Value::Null,
             "installation_ref": installation_ref,
@@ -3267,8 +3775,13 @@ mod tests {
 
         // Before recall: the binding derives the structural pair only, and the
         // launcher feed carries exactly one honest ineligible entry.
-        let rendered =
-            render_installation(&installation.projection, None, &release.projection, None);
+        let rendered = render_installation(
+            &installation.projection,
+            None,
+            &release.projection,
+            None,
+            None,
+        );
         assert_eq!(rendered["release_disposition"], "active");
         assert_eq!(
             rendered["disabled_reason_codes"],
@@ -3335,8 +3848,13 @@ mod tests {
         // After recall: the binding read derives the recall reason code without
         // any binding mutation, new installs refuse typed, and the launcher
         // feed loses the surface entirely.
-        let rendered =
-            render_installation(&installation.projection, None, &recall.projection, None);
+        let rendered = render_installation(
+            &installation.projection,
+            None,
+            &recall.projection,
+            None,
+            None,
+        );
         assert_eq!(rendered["launch_eligible"], false);
         assert_eq!(rendered["release_disposition"], "recalled");
         assert_eq!(
@@ -3677,7 +4195,13 @@ mod tests {
 
         // Before registration: absent, typed, and the launcher lane carries the ineligible entry.
         assert!(registration_for(data_dir, &installation.projection).is_none());
-        let before = render_installation(&installation.projection, None, &release.projection, None);
+        let before = render_installation(
+            &installation.projection,
+            None,
+            &release.projection,
+            None,
+            None,
+        );
         assert_eq!(before["registration_state"], "absent");
         assert!(before["disabled_reason_codes"]
             .as_array()
@@ -3689,7 +4213,8 @@ mod tests {
                 .len(),
             1
         );
-        let (registrations, _, _) = registered_extension_surfaces(data_dir, "org://local").unwrap();
+        let (registrations, _, _, _) =
+            registered_extension_surfaces(data_dir, "org://local").unwrap();
         assert!(registrations.is_empty());
 
         // The record is DERIVED: class, route, key, origin, method, effect boundary and the
@@ -3808,6 +4333,7 @@ mod tests {
             None,
             &release.projection,
             Some(&registered),
+            None,
         );
         assert_eq!(after["registration_state"], "admitted");
         assert_eq!(
@@ -3819,19 +4345,155 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-        let (registrations, releases, installations) =
+        let (registrations, releases, installations, serving_bindings) =
             registered_extension_surfaces(data_dir, "org://local").unwrap();
         assert_eq!(registrations.len(), 1);
         assert_eq!(releases.len(), 1);
         assert_eq!(installations.len(), 1);
+        // No serving binding has been admitted, so the join's serving stage has nothing to find
+        // and its typed reason for this extension is exactly `no_serving_binding`.
+        assert!(serving_bindings.is_empty());
         assert_eq!(
             registrations[0]["surface_ref"],
             surface_ref(&request.package_id)
         );
         assert_eq!(installations[0]["installation_ref"], installation_resource);
-        let (foreign, _, _) = registered_extension_surfaces(data_dir, "org://other").unwrap();
+        let (foreign, _, _, _) = registered_extension_surfaces(data_dir, "org://other").unwrap();
         assert!(foreign.is_empty());
         super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_serving_binding_is_derived_from_the_runtime_ladder_and_never_declared() {
+        // The operational enum is a function of the runtime's admitted ladder state, with the
+        // typed members for the two honest failures: no readable runtime, and a ladder that says
+        // serving while holding no route.
+        let runtime = |state: &str, serving: bool, route: Value, stopped: Value| {
+            json!({
+                "domain_app_runtime_id": "domain-app-runtime://dartm_0123456789abcdef",
+                "state": state,
+                "mounted": state != "unmounted" && state != "killed",
+                "serving": serving,
+                "internal_route_ref": route,
+                "serve_stopped_at": stopped,
+                "revision": 2,
+                "content_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            })
+        };
+        let route = json!("/__ioi/domain-app-runtime/dartm_0123456789abcdef");
+        let stamp = json!("2026-09-14T00:00:00.000Z");
+        assert_eq!(operational_state_of_runtime(None), "unavailable");
+        assert_eq!(
+            operational_state_of_runtime(Some(&runtime(
+                "serving",
+                true,
+                route.clone(),
+                Value::Null
+            ))),
+            "serving"
+        );
+        assert_eq!(
+            operational_state_of_runtime(Some(&runtime("serving", true, Value::Null, Value::Null))),
+            "degraded"
+        );
+        assert_eq!(
+            operational_state_of_runtime(Some(&runtime("mounted", false, Value::Null, stamp))),
+            "stopped"
+        );
+        assert_eq!(
+            operational_state_of_runtime(Some(&runtime(
+                "mounted",
+                false,
+                Value::Null,
+                Value::Null
+            ))),
+            "ready"
+        );
+        assert_eq!(
+            operational_state_of_runtime(Some(&runtime(
+                "unmounted",
+                false,
+                Value::Null,
+                Value::Null
+            ))),
+            "inactive"
+        );
+        assert_eq!(
+            operational_state_of_runtime(Some(&runtime("killed", false, Value::Null, Value::Null))),
+            "blocked"
+        );
+        assert_eq!(
+            operational_state_of_runtime(Some(&json!({"state": "something-new"}))),
+            "unavailable"
+        );
+
+        // The reason codes are the stages that failed, and an empty answer is eligibility.
+        assert_eq!(
+            derived_disabled_reason_codes("installed", "active", true, None),
+            vec!["surface_serving_binding_absent"]
+        );
+        assert_eq!(
+            derived_disabled_reason_codes("installed", "active", true, Some("stopped")),
+            vec!["surface_serving_binding_not_serving"]
+        );
+        assert!(
+            derived_disabled_reason_codes("installed", "active", true, Some("serving")).is_empty()
+        );
+        assert_eq!(
+            derived_disabled_reason_codes("uninstalled", "recalled", true, Some("serving")),
+            vec![
+                "surface_installation_uninstalled",
+                "surface_release_recalled"
+            ]
+        );
+
+        // The record copies the runtime's route and ref and satisfies the v2 contract; a runtime
+        // that is not serving, or serving without a route, is refused by name — there is no
+        // request field that could declare `serving`.
+        let binding = json!({
+            "surface_ref": surface_ref("local-telesupport"),
+            "release_ref": "package://local-telesupport/release/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "installation_ref": "install://local-telesupport/primary"
+        });
+        let record = build_serving_binding(
+            "local-telesupport",
+            "primary",
+            &binding,
+            &runtime("serving", true, route.clone(), Value::Null),
+        )
+        .unwrap();
+        assert_eq!(record["schema_version"], SERVING_SCHEMA);
+        assert_eq!(
+            record["serving_binding_ref"],
+            "surface-serving://extensions/local-telesupport/primary"
+        );
+        assert_eq!(record["resolved_route"], route);
+        assert_eq!(
+            record["runtime_ref"],
+            "domain-app-runtime://dartm_0123456789abcdef"
+        );
+        assert_eq!(record["surface_operational_state"], "serving");
+        assert_eq!(record["health_observation_refs"], json!([]));
+        assert!(refusal_code(
+            &build_serving_binding(
+                "local-telesupport",
+                "primary",
+                &binding,
+                &runtime("mounted", false, Value::Null, Value::Null)
+            )
+            .unwrap_err()
+        )
+        .contains("serving_binding_runtime_not_serving"));
+        assert!(refusal_code(
+            &build_serving_binding(
+                "local-telesupport",
+                "primary",
+                &binding,
+                &runtime("serving", true, Value::Null, Value::Null)
+            )
+            .unwrap_err()
+        )
+        .contains("serving_binding_runtime_route_absent"));
     }
 
     fn registration_request_clone(base: &RegistrationRequest) -> RegistrationRequest {

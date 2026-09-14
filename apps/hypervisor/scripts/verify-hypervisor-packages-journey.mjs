@@ -23,7 +23,17 @@
 //     the installed binding's surface://extensions/… ref appears in application_entries as an
 //     honest INELIGIBLE entry (launchable:false, exact derived reasons); after recall (and
 //     after uninstall) the surface is GONE from the feed, and stays gone across restart.
-//   - The route inventory is EXACTLY the eight-route family (the seven W2.3 routes + recall).
+//   - SERVING BINDING (M08.10 slice C): launchability is EARNED. The package's own DomainApp is
+//     mounted and served through the DomainApp plane's governed ladder (approved ApprovalRequest +
+//     open ReleaseControl); POST .../installations/:id/serving-binding then binds the registered,
+//     enabled binding to THAT runtime — refusing by name while the runtime is merely mounted, or
+//     when another runtime is named — and copies the runtime's internal route. The compiled join
+//     reads launchable:true with resolved_launch_route = the runtime's route; stop-serving
+//     withdraws it on the next read with no registry mutation; serving again restores it; the
+//     canonical /__ioi/extensions/<key> route follows the join's answer (302) or names its
+//     typed reasons (409).
+//   - The route inventory is EXACTLY the ten-path family (the seven W2.3 routes + recall +
+//     the M08.10 registration and serving-binding paths).
 //
 // The owner scope is the daemon's own whoami answer, never a verifier constant.
 //
@@ -205,8 +215,10 @@ async function run() {
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/uninstall", methods: ["POST"] },
     // M08.10 slice B: Applications' extension registration over one installed binding (GET + POST).
     { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/registration", methods: ["GET", "POST"] },
+    // M08.10 slice C: the serving binding over one registered binding (GET + POST).
+    { path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/serving-binding", methods: ["GET", "POST"] },
   ].sort((left, right) => left.path.localeCompare(right.path));
-  ok("the package family route inventory is exactly the nine-route slice — the seven W2.3 routes, POST .../recall, and the M08.10 registration path (GET+POST) — and still no deprecate/revoke/enable route",
+  ok("the package family route inventory is exactly the ten-path slice — the seven W2.3 routes, POST .../recall, and the M08.10 registration and serving-binding paths (GET+POST) — and still no deprecate/revoke/enable route",
     JSON.stringify(familyRoutes) === JSON.stringify(expectedRoutes),
     JSON.stringify(familyRoutes.map((r) => r.path)));
 
@@ -612,6 +624,119 @@ async function run() {
       && !regPage.text.includes("extension_application_registration_absent"),
     "");
 
+  // -- SERVING BINDING (M08.10 slice C): launchability is EARNED from a serving DomainApp runtime --
+  // The package's own DomainApp is mounted and served through the DomainApp plane's governed ladder
+  // (approved ApprovalRequest + open ReleaseControl, exactly as check:governed-lifecycle drives it);
+  // the serving binding then copies THAT runtime's route and reads its state live on every read.
+  // Nothing here declares `serving`: binding before serve refuses by name, naming another runtime
+  // refuses by name, and stop-serving withdraws launchability on the next read with no registry
+  // mutation at all.
+  const dappId = dappRef.replace(/^domain-app:\/\//u, "");
+  const approval = await jd("/v1/hypervisor/governance/approval-requests", { method: "POST", body: JSON.stringify({ subject_ref: dappRef, request_kind: "mount" }) });
+  const approvalRef = approval.body?.approval_request?.ref || "";
+  const approved = await jd(`/v1/hypervisor/governance/approval-requests/${encodeURIComponent(approvalRef.replace(/^approval-request:\/\//u, ""))}`, { method: "PATCH", body: JSON.stringify({ transition: "approve" }) });
+  const control = await jd("/v1/hypervisor/governance/release-controls", { method: "POST", body: JSON.stringify({ release_target_ref: dappRef }) });
+  const controlRef = control.body?.release_control?.ref || "";
+  const opened = await jd(`/v1/hypervisor/governance/release-controls/${encodeURIComponent(controlRef.replace(/^release-control:\/\//u, ""))}`, { method: "PATCH", body: JSON.stringify({ transition: "open" }) });
+  ok("governance for the DomainApp mount is admitted through the governance plane (approved ApprovalRequest + open ReleaseControl over the package's own DomainApp)",
+    approved.body?.approval_request?.status === "approved" && opened.body?.release_control?.state === "open",
+    `approval ${approved.body?.approval_request?.status ?? `${approval.status}/${approved.status}`} · release ${opened.body?.release_control?.state ?? `${control.status}/${opened.status}`}`);
+  const mounted = await jd(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}/mount`, { method: "POST", body: JSON.stringify({ approval_request_ref: approvalRef, release_control_ref: controlRef, owner_ref: OWNER, idempotency_key: "packages-journey-mount-1" }) });
+  const runtimeRef = mounted.body?.runtime?.domain_app_runtime_id || "";
+  ok("the DomainApp mounts (mounted, not serving) and mints its runtime ref",
+    mounted.status === 201 && mounted.body?.runtime?.mounted === true && mounted.body?.runtime?.serving === false && runtimeRef.startsWith("domain-app-runtime://"),
+    runtimeRef || `status ${mounted.status} ${JSON.stringify(mounted.body).slice(0, 160)}`);
+  const servingFields = { release_digest: releaseDigest, installation_id: INST, expected_installation_head: enabledHead, domain_app_runtime_ref: runtimeRef, return: `${LANE}?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}` };
+  const bindBeforeServe = await act(`/${PKG}/bind-serving`, { idempotency_key: "packages-journey-serving-early", ...servingFields });
+  ok("binding a MOUNTED-BUT-NOT-SERVING runtime refuses TYPED (serving_binding_runtime_not_serving) — the state is the runtime's, never the request's",
+    bindBeforeServe.status === 303 && bindBeforeServe.q.get("refused") === "serving_binding_runtime_not_serving",
+    bindBeforeServe.q.get("refused") || "");
+  const served = await jd(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}/serve`, { method: "POST", body: JSON.stringify({ owner_ref: OWNER, idempotency_key: "packages-journey-serve-1" }) });
+  const runtimeRoute = served.body?.runtime?.internal_route_ref || "";
+  ok("the DomainApp serves through its internal route",
+    served.status === 201 && served.body?.runtime?.serving === true && runtimeRoute.startsWith("/__ioi/domain-app-runtime/"),
+    runtimeRoute || `status ${served.status} ${JSON.stringify(served.body).slice(0, 160)}`);
+  const anonBind = await act(`/${PKG}/bind-serving`, { idempotency_key: "packages-journey-serving-anon", ...servingFields }, { authenticated: false });
+  ok("an ANONYMOUS serving binding refuses TYPED (request_principal_required)",
+    anonBind.status === 303 && anonBind.q.get("refused") === "request_principal_required",
+    anonBind.q.get("refused") || "");
+  const wrongRuntime = await act(`/${PKG}/bind-serving`, { idempotency_key: "packages-journey-serving-wrong", ...servingFields, domain_app_runtime_ref: "domain-app-runtime://dartm_0000000000000000" });
+  ok("a runtime that is not the package's own DomainApp's refuses TYPED (serving_binding_runtime_mismatch)",
+    wrongRuntime.status === 303 && wrongRuntime.q.get("refused") === "serving_binding_runtime_mismatch",
+    wrongRuntime.q.get("refused") || "");
+  const bound = await act(`/${PKG}/bind-serving`, { idempotency_key: "packages-journey-serving-1", ...servingFields });
+  const SERVING_REF = `surface-serving://extensions/${PKG}/${INST}`;
+  ok("the serving binding crosses with admission evidence (303 acted + receipt + the serving binding ref, result serving)",
+    bound.status === 303 && bound.q.get("acted") === "bind-serving" && (bound.q.get("receipt") || "").startsWith("receipt://")
+      && bound.q.get("record") === SERVING_REF && bound.q.get("result") === "serving",
+    bound.location.slice(0, 160));
+  const servingRead = await jd(`/v1/hypervisor/packages/${PKG}/releases/${encodeURIComponent(releaseDigest)}/installations/${INST}/serving-binding`);
+  ok("the serving binding is DERIVED from the runtime: v2 contract, the runtime's own ref and internal route, state serving read live from the ladder, no health observation claimed, launch_eligible true",
+    servingRead.status === 200 && servingRead.body?.serving_binding?.record?.schema_version === "ioi.hypervisor.surface_serving_binding.v2"
+      && servingRead.body.serving_binding.record.runtime_ref === runtimeRef
+      && servingRead.body.serving_binding.record.resolved_route === runtimeRoute
+      && servingRead.body.serving_binding.surface_operational_state === "serving"
+      && servingRead.body.serving_binding.surface_operational_state_source === "domain_app_runtime_ladder"
+      && JSON.stringify(servingRead.body.serving_binding.record.health_observation_refs) === "[]"
+      && servingRead.body.serving_binding.launch_eligible === true,
+    JSON.stringify(servingRead.body?.serving_binding ?? servingRead.body).slice(0, 200));
+  binding = await instGet(releaseDigest);
+  ok("the installation binding now reads launch_eligible TRUE with NO disabled reasons and its head UNCHANGED (the serving binding is its own admission; the binding's bytes did not move)",
+    binding.installation?.launch_eligible === true && JSON.stringify(binding.installation?.disabled_reason_codes) === "[]"
+      && binding.installation?.serving_binding_state === "admitted" && binding.installation?.surface_operational_state === "serving"
+      && binding.installation?.agentgres?.head === enabledHead && binding.installation?.record?.revision === 2,
+    JSON.stringify(binding.installation?.disabled_reason_codes));
+  feed = await launcherFeed();
+  feedEntry = (feed.application_entries || []).find((e) => e.identity_ref === SURFACE_REF);
+  ok("the compiled join now finds the serving stage: launchable TRUE, resolved_launch_route = the runtime's internal route, no disabled reasons, operational state serving; the palette entry is launchable too",
+    !!feedEntry && feedEntry.launchable === true && feedEntry.resolved_launch_route === runtimeRoute
+      && JSON.stringify(feedEntry.disabled_reason_codes) === "[]" && feedEntry.surface_operational_state === "serving"
+      && (feed.command_palette_entries || []).some((e) => e.identity_ref === SURFACE_REF && e.launchable === true),
+    JSON.stringify(feedEntry ?? {}).slice(0, 220));
+  const launched = await pageText(runtimeRoute);
+  ok("following resolved_launch_route serves the DomainApp runtime view (200, serving, the app's own name)",
+    launched.status === 200 && /serving/u.test(launched.text) && launched.text.includes("Packages journey app"),
+    `status ${launched.status}`);
+  const canonicalHop = await fetch(`${SERVE}${REG_ROUTE}`, { redirect: "manual", headers: { cookie: `ioi_session=${SESSION}` } }).catch(() => null);
+  ok("the registration's canonical route resolves to the launch: /__ioi/extensions/<key> answers 302 to the runtime's route with ownership headers (never a locally composed target)",
+    canonicalHop?.status === 302 && canonicalHop.headers.get("location") === runtimeRoute
+      && canonicalHop.headers.get("x-ioi-surface-route") === REG_ROUTE,
+    `${canonicalHop?.status ?? 0} → ${canonicalHop?.headers?.get("location") ?? "—"}`);
+  const bindReplay = await act(`/${PKG}/bind-serving`, { idempotency_key: "packages-journey-serving-1", ...servingFields });
+  ok("an exact serving-binding retry REPLAYS (result replayed, same ref)",
+    bindReplay.status === 303 && bindReplay.q.get("result") === "replayed" && bindReplay.q.get("record") === SERVING_REF,
+    bindReplay.location.slice(0, 160));
+  const bindAgain = await act(`/${PKG}/bind-serving`, { idempotency_key: "packages-journey-serving-2", ...servingFields });
+  ok("a SECOND serving binding under a fresh key refuses TYPED (serving_binding_already_admitted)",
+    bindAgain.status === 303 && bindAgain.q.get("refused") === "serving_binding_already_admitted",
+    bindAgain.q.get("refused") || "");
+  const servingPage = await pageText(`/packages?pkg=${PKG}&rel=${encodeURIComponent(releaseDigest)}&inst=${INST}`);
+  ok("the installation page renders the serving binding VERBATIM: serving binding admitted, the runtime ref and route, launch_eligible true",
+    servingPage.status === 200 && servingPage.text.includes("serving binding admitted") && servingPage.text.includes(runtimeRef)
+      && servingPage.text.includes(runtimeRoute) && servingPage.text.includes("launch_eligible: true"),
+    "");
+  const stopped = await jd(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}/stop-serving`, { method: "POST", body: JSON.stringify({ owner_ref: OWNER, idempotency_key: "packages-journey-stop-1" }) });
+  feed = await launcherFeed();
+  feedEntry = (feed.application_entries || []).find((e) => e.identity_ref === SURFACE_REF);
+  binding = await instGet(releaseDigest);
+  const stoppedRead = await jd(`/v1/hypervisor/packages/${PKG}/releases/${encodeURIComponent(releaseDigest)}/installations/${INST}/serving-binding`);
+  const stoppedHop = await fetch(`${SERVE}${REG_ROUTE}`, { redirect: "manual", headers: { cookie: `ioi_session=${SESSION}` } }).catch(() => null);
+  const stoppedHopText = stoppedHop ? await stoppedHop.text() : "";
+  ok("STOP-SERVING withdraws launchability BY DERIVATION with no registry mutation: the binding reads stopped, the join says no_serving_binding, the installation names surface_serving_binding_not_serving, the canonical route answers 409 naming the reason, and the binding's head is still unchanged",
+    stopped.status === 201 && stopped.body?.runtime?.serving === false
+      && stoppedRead.body?.serving_binding?.surface_operational_state === "stopped" && stoppedRead.body?.serving_binding?.launch_eligible === false
+      && !!feedEntry && feedEntry.launchable === false && JSON.stringify(feedEntry.disabled_reason_codes) === JSON.stringify(["no_serving_binding"]) && feedEntry.resolved_launch_route === null
+      && binding.installation?.launch_eligible === false && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_serving_binding_not_serving"])
+      && binding.installation?.agentgres?.head === enabledHead
+      && stoppedHop?.status === 409 && stoppedHopText.includes("no_serving_binding"),
+    `stop ${stopped.status} · binding ${stoppedRead.body?.serving_binding?.surface_operational_state} · feed ${JSON.stringify(feedEntry?.disabled_reason_codes)} · installation ${JSON.stringify(binding.installation?.disabled_reason_codes)} · route ${stoppedHop?.status}`);
+  const reserved = await jd(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}/serve`, { method: "POST", body: JSON.stringify({ owner_ref: OWNER, idempotency_key: "packages-journey-serve-2" }) });
+  feed = await launcherFeed();
+  feedEntry = (feed.application_entries || []).find((e) => e.identity_ref === SURFACE_REF);
+  ok("serving AGAIN restores launchability on the next read with no new binding (the binding is to the runtime, not to one serve)",
+    reserved.status === 201 && !!feedEntry && feedEntry.launchable === true && feedEntry.resolved_launch_route === runtimeRoute,
+    JSON.stringify(feedEntry?.disabled_reason_codes ?? reserved.body).slice(0, 160));
+
   // -- RECALL: identity-first, successor revision, receipts, replay, CAS ------
   const anonRecall = await act(`/${PKG}/recall`, {
     idempotency_key: "packages-journey-recall-anon",
@@ -688,7 +813,7 @@ async function run() {
       && binding.installation?.release_disposition === "recalled"
       && binding.installation?.release_recall_reason === RECALL_REASON
       && binding.installation?.registration_state === "admitted"
-      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "surface_serving_binding_absent"]),
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled"]),
     JSON.stringify(binding.installation?.disabled_reason_codes));
   const installOnRecalled = await act(`/${PKG}/install`, {
     idempotency_key: "packages-journey-install-after-recall",
@@ -742,7 +867,7 @@ async function run() {
       && release.release?.recall_reason === RECALL_REASON
       && binding.installation?.release_disposition === "recalled"
       && binding.installation?.registration_state === "admitted"
-      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled", "surface_serving_binding_absent"])
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_release_recalled"])
       && Array.isArray(feed.application_entries) && feed.application_entries.length > 0
       && !JSON.stringify(feed).includes(SURFACE_REF),
     "");
@@ -776,7 +901,7 @@ async function run() {
       && binding.installation?.record?.revision === 3
       && binding.installation?.record?.surface_enablement_state === "disabled"
       && binding.installation?.launch_eligible === false
-      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_installation_uninstalled", "surface_release_recalled", "surface_serving_binding_absent"])
+      && JSON.stringify(binding.installation?.disabled_reason_codes) === JSON.stringify(["surface_installation_uninstalled", "surface_release_recalled"])
       && !!uninstalledHead && uninstalledHead !== enabledHead,
     `state ${binding.installation?.record?.surface_installation_state} rev ${binding.installation?.record?.revision}`);
   const uninstallReplay = await act(`/${PKG}/uninstall`, {

@@ -147,6 +147,13 @@ check("R1_DERIVED_CLOSED_WORLD",
   // The machine plane is daemon-owned end to end: a workspace handler for it would be exactly the
   // client-side authority ACC-20 clause 5 refuses by name, and the candidate population is about
   // owner-resolvable environment surfaces, which this plane does not add to.
+  // Re-pinned 2026-09-14 (M08.10 slice C) from 1134/40/47, +2 to the REGISTERED bucket only:
+  // `handle_installation_serving_binding_get` and `handle_installation_serving_binding_create`,
+  // the two handlers on the one new serving-binding path (so `check:named-gap-truth` moves by one
+  // while this census moves by two, both in the SAME commit as the route). Workspace 40 and
+  // candidates 47 HELD: the serving binding reads the DomainApp runtime through that plane's own
+  // published fold and touches no environment surface, so it is neither a workspace handler nor
+  // an owner-resolvable environment candidate.
   // Re-pinned 2026-09-13 (M13.10) from 1130/39/46: registered handlers HELD at 1130 while workspace
   // 39 -> 40 and candidates 46 -> 47. No route was added. `handle_session_execute` now reads the
   // environment record to resolve the execution venue for its receipt (ADR 0053 § 2), which makes
@@ -210,7 +217,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
-  census.registered_route_handlers === 1134 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1136 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

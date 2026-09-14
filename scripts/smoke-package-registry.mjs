@@ -321,6 +321,18 @@ async function run() {
         path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/recall",
         methods: ["POST"],
       },
+      // M08.10 slice B: Applications' extension registration over one installed binding.
+      {
+        path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/registration",
+        methods: ["GET", "POST"],
+      },
+      // M08.10 slice C: the serving binding over one registered binding, derived from the
+      // DomainApp runtime that serves it. This smoke exercises neither verb (it proves the
+      // registry's admission discipline with no DomainApp mounted); the packages journey does.
+      {
+        path: "/v1/hypervisor/packages/:package_id/releases/:release_digest/installations/:installation_id/serving-binding",
+        methods: ["GET", "POST"],
+      },
     ].sort((left, right) => left.path.localeCompare(right.path));
     assertThat(
       JSON.stringify(routes) === JSON.stringify(expectedRoutes),

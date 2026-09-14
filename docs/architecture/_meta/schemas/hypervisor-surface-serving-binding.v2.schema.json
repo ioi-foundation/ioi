@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/surface-serving-binding/v2",
+  "title": "HypervisorSurfaceServingBinding",
+  "x-ioi-schema-version": "ioi.hypervisor.surface_serving_binding.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "serving_binding_ref",
+    "surface_ref",
+    "release_ref",
+    "installation_ref",
+    "resolved_route",
+    "surface_operational_state",
+    "health_observation_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.surface_serving_binding.v2"
+    },
+    "serving_binding_ref": {
+      "type": "string",
+      "pattern": "^surface-serving://\\S*$"
+    },
+    "surface_ref": {
+      "type": "string",
+      "pattern": "^surface://\\S*$"
+    },
+    "release_ref": {
+      "type": "string",
+      "pattern": "^package://\\S+/release/\\S+$"
+    },
+    "installation_ref": {
+      "type": "string",
+      "pattern": "^install://\\S*$"
+    },
+    "system_binding_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^package-binding://\\S*$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resolved_route": {
+      "type": "string",
+      "pattern": "^/\\S*$"
+    },
+    "runtime_ref": {
+      "description": "The runtime this binding serves through, named by that runtime's OWN canonical ref: runtime:// for a first-party application runtime, domain-app-runtime:// for a mounted DomainApp runtime (M08.10 slice C). The operational state is that runtime owner's admitted state, never declared by the caller.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:runtime://\\S*|domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127})$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "surface_operational_state": {
+      "enum": [
+        "inactive",
+        "starting",
+        "ready",
+        "serving",
+        "degraded",
+        "blocked",
+        "stopped",
+        "unavailable"
+      ]
+    },
+    "health_observation_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^observation://\\S*$"
+      },
+      "uniqueItems": true
+    }
+  }
+}
