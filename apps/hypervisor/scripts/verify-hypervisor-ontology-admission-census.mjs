@@ -633,6 +633,20 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-13 (M13.10 slice C, the guest harness lane and its quarantine round-trip).
+  // Tokens 150389 -> 150474, opaque initialisers 2823 -> 2824, production filesystem calls
+  // 239 -> 242. Modules 119 and every writer bucket held again — family 57, non-ODK literal 252,
+  // runtime-parameter 311, family mentions 285 — for the THIRD consecutive cut on this unit.
+  // THE FILESYSTEM DELTA IS ATTRIBUTED EXACTLY, and the arithmetic is worth writing down because
+  // it nearly went in as a guess: the new code adds FOUR `std::fs::` call sites and the bucket
+  // moved by THREE. The extractor's own `fs_calls` vocabulary is write-side —
+  // write/create/create_new/create_dir_all/remove_file/remove_dir_all/copy/rename/hard_link — so
+  // `create_dir_all`, `copy` and `remove_dir_all` count while `read_dir`, which walks the
+  // quarantine directory, does not. I read that list out of the extractor rather than inferring it
+  // from the difference, which is the only way round that does not fit any number to any story.
+  // All three are on the quarantine hop: guest output is validated into a quarantine directory and
+  // copied into the workspace from there, and the directory is removed afterwards. None names an
+  // ontology family, so the rule a rung below still passes at 242.
   // Re-pinned 2026-09-13 (M13.10, the LIVE guest probe and the loopback fix it found). Tokens
   // 150336 -> 150389 and opaque initialisers 2822 -> 2823. NOTHING ELSE MOVED: modules 119,
   // production filesystem calls 239, and all three writer buckets. That the filesystem count held
@@ -720,10 +734,10 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150389,
+  tokenMentions: 150474,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
-  productionFsCalls: 239,
+  productionFsCalls: 242,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -742,7 +756,7 @@ const PINNED = {
    */
   unadjudicable: {
     "foreign-qualified": 4638,
-    "opaque-initialiser": 2823,
+    "opaque-initialiser": 2824,
     "bare-undeclared": 539,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

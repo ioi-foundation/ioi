@@ -212,7 +212,33 @@ ok("staging PROVES the workspace is clean afterwards, rather than assuming the m
 ok("the detached proxy's streams are closed, or the guest agent's exec would never see EOF",
   />\/dev\/null 2>&1 &/.test(stageFn));
 
-// ---- 10. drive the Rust suite that proves the behaviour ------------------------------------------
+// ---- 10. the harness runs IN the guest, and its work returns through quarantine ----------------
+const LIFECYCLE = "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs";
+const lifecycle = read(LIFECYCLE);
+ok("there is a GUEST lane, distinct from the host-spawn lane",
+  /pub\(crate\) fn run_guest_harness_lane/.test(lifecycle));
+ok("the lane follows the VENUE the environment reported, not the request",
+  /if execution_venue == "microvm"/.test(lifecycle));
+// THE IMPORTANT ONE. A microvm venue that quietly ran on the host would make the receipt's venue
+// field a lie in the only direction that matters — claiming isolation that did not happen.
+ok("a microvm venue with NO live VM fails rather than silently running on the host",
+  lifecycle.includes("guest_lane_no_live_microvm")
+  && !/execution_venue == "microvm"[\s\S]{0,900}unwrap_or_else\(\|\| run_host_spawn_lane/.test(lifecycle));
+ok("the guest harness is handed the in-guest proxy's loopback endpoint, so no harness code learns it is in a VM",
+  /IOI_HYPERVISOR_MODEL_UPSTREAM='http:\/\/127\.0\.0\.1:\{port\}'/.test(lifecycle)
+  && /port = super::microvm_model_broker::GUEST_LISTEN_PORT/.test(lifecycle));
+ok("the merged guest stream is labelled `combined`, not `stdout` — the wire never made that distinction",
+  /\("combined"\.to_string\(\), line\.to_string\(\)\)/.test(lifecycle)
+  && !/\("stdout"\.to_string\(\), line\.to_string\(\)\)/.test(lifecycle));
+ok("guest output returns through QUARANTINE, validated before anything lands",
+  /pub\(crate\) fn import_guest_workspace/.test(lifecycle)
+  && /untar_into\(&quarantine, &exported\)/.test(lifecycle));
+ok("the quarantine walk does not follow symlinks — untar_into refuses them and this must not undo that",
+  /if kind\.is_symlink\(\) \{\s*continue;/.test(lifecycle));
+ok("the workspace is imported ONLY after a successful run, never over a half-finished tree",
+  /if lane_outcome\.ok \{[\s\S]{0,200}import_guest_workspace/.test(lifecycle));
+
+// ---- 11. drive the Rust suite that proves the behaviour ------------------------------------------
 let rust = { pass: false, detail: "" };
 try {
   const out = execFileSync(
@@ -231,7 +257,7 @@ try {
 ok("the host end's behaviour is proven by its Rust suite (bytes verbatim, silence on failure, refusals)",
   rust.pass, rust.detail);
 
-// ---- 11. THE LIVE GUEST-INITIATED DIRECTION — run it where it can run, name it where it cannot --
+// ---- 12. THE LIVE GUEST-INITIATED DIRECTION — run it where it can run, name it where it cannot --
 const liveCapable = fs.existsSync("/dev/kvm")
   && fs.existsSync(path.join(process.env.IOI_VM_TOOLCHAIN_DIR
     || path.join(process.env.HOME || "", ".ioi/vm-toolchain"), "supply-manifest.json"));
@@ -245,14 +271,15 @@ if (!liveCapable) {
     const out = execFileSync(
       "cargo",
       ["test", "-p", "ioi-node", "--bin", "hypervisor-daemon",
-        "the_brokered_channel_carries_guest_bytes", "--", "--ignored"],
+        "--", "--ignored", "the_brokered_channel_carries_guest_bytes",
+        "guest_workspace_returns_through_quarantine"],
       { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 900_000 });
     const line = out.split("\n").filter((l) => l.startsWith("test result:")).pop() ?? "";
-    live = { pass: /1 passed; 0 failed/.test(line), detail: line.trim() };
+    live = { pass: /2 passed; 0 failed/.test(line), detail: line.trim() };
   } catch (error) {
     live = { pass: false, detail: String(error?.stdout ?? error?.message ?? error).split("\n").slice(-6).join(" ") };
   }
-  ok("LIVE: a real KVM guest dials out and its bytes reach the host VERBATIM, with zero network devices",
+  ok("LIVE: a real KVM guest dials out with bytes VERBATIM and zero network devices, and its workspace returns through quarantine",
     live.pass, live.detail);
 }
 
@@ -260,9 +287,10 @@ const failed = RESULTS.filter((r) => !r.pass);
 console.log(`\n${failed.length === 0 ? "PASS" : "FAIL"} check:microvm-model-broker — ${RESULTS.length - failed.length}/${RESULTS.length} assertion(s)`
   + (failed.length ? ` · failing: ${failed.map((r) => r.label).join(" | ")}` : ""));
 console.log(liveCapable
-  ? "The guest-initiated direction was PROVEN on a live boot in this run, not deferred. What remains "
-    + "scheduled-outstanding for M13.10 is the alpha journey under IOI_ALPHA_EXECUTION_VENUE=microvm, "
-    + "which needs a model endpoint and a wallet fixture, and the harness-in-guest lane it runs on."
+  ? "The guest-initiated direction and the quarantine round-trip were both PROVEN on live boots "
+    + "in this run, not deferred. What remains scheduled-outstanding for M13.10 is the single live "
+    + "alpha journey under IOI_ALPHA_EXECUTION_VENUE=microvm, which needs a model endpoint and a "
+    + "wallet fixture — a missing credential blocks that RUN, not this unit."
   : "The guest-initiated direction was NOT exercised on this host (no /dev/kvm or no provisioned "
     + "toolchain). This run claims the host half only.");
 process.exit(failed.length === 0 ? 0 : 1);

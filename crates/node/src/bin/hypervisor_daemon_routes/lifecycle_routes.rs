@@ -10039,6 +10039,190 @@ pub(crate) struct HostLaneOutcome {
     pub(crate) env_keys: Vec<String>,
 }
 
+/// M13.10 — THE GUEST HARNESS LANE. The same session execution, run INSIDE the microVM instead of
+/// as a host child.
+///
+/// WHY THIS IS A LANE AND NOT A FLAG ON THE HOST ONE. `run_host_spawn_lane` is INTERACTIVE: it
+/// pipes stdin and feeds the harness one task per line while streaming stdout back. The guest
+/// agent's `E` verb is one command in, one result out — `u32 cmd_len, cmd bytes` →
+/// `i32 exit_code, u32 out_len, out bytes` — with no streaming direction and no second write, and
+/// that agent is pinned and hash-verified. Pretending the interactive lane can be pointed at a VM
+/// would mean either extending a pinned protocol or quietly dropping the streaming half; this runs
+/// the harness ONE-SHOT and says so.
+///
+/// THE MODEL ENDPOINT IS THE GUEST'S OWN LOOPBACK. The harness is handed
+/// `http://127.0.0.1:<GUEST_LISTEN_PORT>`, which is the staged proxy — so no harness code learns it
+/// is in a VM, and nothing in the guest names the real destination. The host end resolved that.
+///
+/// WHAT THE GUEST CANNOT DO HERE. It receives no credential of any kind: the environment given to
+/// the command is exactly the names returned in `env_keys`, and a provider key is not among them on
+/// any path (M13.9 keeps the remote lane behind the daemon).
+pub(crate) fn run_guest_harness_lane(
+    st: &DaemonState,
+    environment_id: &str,
+    argv: &[String],
+    intent: &str,
+) -> HostLaneOutcome {
+    let fail = |error: String| HostLaneOutcome {
+        ok: false,
+        exit_code: None,
+        timed_out: false,
+        spawn_error: Some(error.clone()),
+        error: Some(error.clone()),
+        summary: error,
+        files_written: Vec::new(),
+        transcript: Vec::new(),
+        adapter_events: Vec::new(),
+        implementation_result: None,
+        env_keys: Vec::new(),
+    };
+
+    let vms = match st.live_vms.lock() {
+        Ok(vms) => vms,
+        Err(_) => return fail("guest_lane_vm_registry_poisoned".to_string()),
+    };
+    let Some(vm) = vms.get(environment_id) else {
+        // A venue that resolved to `microvm` with no live VM is a real inconsistency, not a reason
+        // to quietly fall back to the host: falling back would run the workload somewhere other
+        // than where the receipt is about to say it ran.
+        return fail(format!(
+            "guest_lane_no_live_microvm for environment {environment_id}"
+        ));
+    };
+    let monitor_kind = match super::microvm::MonitorKind::parse(vm.monitor) {
+        Ok(kind) => kind,
+        Err(error) => return fail(format!("guest_lane_monitor_unknown: {error}")),
+    };
+    let monitor = super::microvm::make_monitor(monitor_kind);
+
+    // The intent is caller text going into a guest shell. The guest is the untrusted side of this
+    // boundary and running commands there is what a harness does, so this is a CORRECTNESS quote
+    // rather than a containment one: an apostrophe in an intent must not truncate the command.
+    let quoted_intent = format!("'{}'", intent.replace('\'', "'\\''"));
+    let quoted_argv = argv
+        .iter()
+        .map(|part| format!("'{}'", part.replace('\'', "'\\''")))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let env_keys = vec![
+        "IOI_HYPERVISOR_MODEL_UPSTREAM".to_string(),
+        "IOI_HYPERVISOR_SESSION_INTENT".to_string(),
+    ];
+    let command = format!(
+        "cd /workspace && IOI_HYPERVISOR_MODEL_UPSTREAM='http://127.0.0.1:{port}' \
+         IOI_HYPERVISOR_SESSION_INTENT={quoted_intent} {quoted_argv} {quoted_intent} 2>&1",
+        port = super::microvm_model_broker::GUEST_LISTEN_PORT,
+    );
+
+    match monitor.exec(vm, &command) {
+        Ok(out) => {
+            let transcript = out
+                .output
+                .lines()
+                // "combined" and not "stdout": the guest agent returns ONE merged stream, and
+                // labelling half of it stdout would be inventing a distinction the wire never made.
+                .map(|line| ("combined".to_string(), line.to_string()))
+                .collect::<Vec<_>>();
+            HostLaneOutcome {
+                ok: out.exit_code == 0,
+                exit_code: Some(out.exit_code),
+                timed_out: false,
+                spawn_error: None,
+                error: (out.exit_code != 0)
+                    .then(|| format!("guest harness exited {}", out.exit_code)),
+                summary: format!(
+                    "harness ran in-guest (one-shot) and exited {}",
+                    out.exit_code
+                ),
+                files_written: Vec::new(),
+                transcript,
+                adapter_events: Vec::new(),
+                implementation_result: None,
+                env_keys,
+            }
+        }
+        Err(error) => fail(format!("guest_lane_exec_failed: {error}")),
+    }
+}
+
+/// M13.10 — bring the guest's workspace back to the host THROUGH QUARANTINE.
+///
+/// Guest output may not be written into the session workspace directly. Canon's output policy for
+/// this profile is `bounded_regular_file_archive_quarantine`: the archive is validated for path,
+/// type, member count and total size BEFORE anything lands, which is what `untar_into` does, and it
+/// lands in a quarantine directory first. Only then is it copied into the workspace.
+///
+/// Without this the venue would look like it worked and report nothing: the session's diff reads
+/// the HOST workspace, which a guest run never touches, so a green run would truthfully report zero
+/// changed files — a partial reading as a pass in the most literal way available.
+pub(crate) fn import_guest_workspace(
+    st: &DaemonState,
+    environment_id: &str,
+    workspace_root: &str,
+) -> Result<usize, String> {
+    let vms = st
+        .live_vms
+        .lock()
+        .map_err(|_| "guest_import_vm_registry_poisoned".to_string())?;
+    let vm = vms
+        .get(environment_id)
+        .ok_or_else(|| format!("guest_import_no_live_microvm for environment {environment_id}"))?;
+    let monitor_kind = super::microvm::MonitorKind::parse(vm.monitor)?;
+    let monitor = super::microvm::make_monitor(monitor_kind);
+    let exported = monitor.export_workspace(vm)?;
+
+    let quarantine = std::path::Path::new(workspace_root)
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("/tmp"))
+        .join(format!(
+            ".ioi-guest-quarantine-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+    let outcome = (|| -> Result<usize, String> {
+        // VALIDATES BEFORE IT WRITES — the whole point of the quarantine hop.
+        super::microvm::untar_into(&quarantine, &exported)?;
+        let mut count = 0usize;
+        for entry in walk_regular_files(&quarantine)? {
+            let relative = entry
+                .strip_prefix(&quarantine)
+                .map_err(|e| format!("quarantine relative path: {e}"))?;
+            let destination = std::path::Path::new(workspace_root).join(relative);
+            if let Some(parent) = destination.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("workspace parent: {e}"))?;
+            }
+            std::fs::copy(&entry, &destination).map_err(|e| format!("workspace write: {e}"))?;
+            count += 1;
+        }
+        Ok(count)
+    })();
+    let _ = std::fs::remove_dir_all(&quarantine);
+    outcome
+}
+
+/// Every regular file under `root`, depth-first. Symlinks are NOT followed — `untar_into` already
+/// refuses them in the archive, and following one here would undo that refusal one step later.
+fn walk_regular_files(root: &std::path::Path) -> Result<Vec<std::path::PathBuf>, String> {
+    let mut found = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(&dir).map_err(|e| format!("read quarantine: {e}"))? {
+            let entry = entry.map_err(|e| format!("quarantine entry: {e}"))?;
+            let kind = entry
+                .file_type()
+                .map_err(|e| format!("quarantine file type: {e}"))?;
+            if kind.is_symlink() {
+                continue;
+            }
+            if kind.is_dir() {
+                pending.push(entry.path());
+            } else if kind.is_file() {
+                found.push(entry.path());
+            }
+        }
+    }
+    Ok(found)
+}
+
 /// Resolve the wired execution driver for the session's ADMITTED harness binding.
 /// `Ok(None)` = no binding (or the native worker) — the legacy generic Lane A path applies,
 /// byte-identical. `Ok(Some((harness, argv)))` = a real adapter driver, bwrap-CONFINED: the
@@ -24916,6 +25100,10 @@ pub(crate) async fn handle_session_execute(
     // Absent environment or absent substrate yields `local_host`, which is what an unrecorded
     // substrate has always meant on this plane; it is never left null, because a receipt with no
     // venue is indistinguishable from one whose venue nobody looked up.
+    let session_environment_id = record
+        .get("environment_id")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
     let execution_venue = record
         .get("environment_id")
         .and_then(Value::as_str)
@@ -25175,14 +25363,38 @@ pub(crate) async fn handle_session_execute(
     } else {
         None
     };
-    let outcome = run_host_spawn_lane(
-        &argv,
-        &workspace_root,
-        &intent,
-        model_endpoint.as_deref(),
-        run_model_token.as_ref().map(|(token, _)| token.as_str()),
-    )
-    .await;
+    // M13.10 — THE LANE FOLLOWS THE VENUE, and the venue came from the environment's own substrate
+    // rather than from the request. A `microvm` venue that ran on the host would make the receipt's
+    // venue field a lie in the one direction that matters: claiming isolation that did not happen.
+    // So there is no fallback here — a microvm venue with no live VM FAILS, it does not degrade.
+    let outcome = if execution_venue == "microvm" {
+        let environment_id = session_environment_id.clone().unwrap_or_default();
+        let lane_outcome = run_guest_harness_lane(&st, &environment_id, &argv, &intent);
+        // The guest's workspace comes back through quarantine, and only if the run itself worked:
+        // importing after a failed harness would write a half-finished tree over the operator's.
+        if lane_outcome.ok {
+            match import_guest_workspace(&st, &environment_id, &workspace_root) {
+                Ok(_) => lane_outcome,
+                Err(error) => HostLaneOutcome {
+                    ok: false,
+                    error: Some(format!("guest workspace import refused: {error}")),
+                    summary: format!("guest workspace import refused: {error}"),
+                    ..lane_outcome
+                },
+            }
+        } else {
+            lane_outcome
+        }
+    } else {
+        run_host_spawn_lane(
+            &argv,
+            &workspace_root,
+            &intent,
+            model_endpoint.as_deref(),
+            run_model_token.as_ref().map(|(token, _)| token.as_str()),
+        )
+        .await
+    };
     if let Some((_, token_id)) = run_model_token.as_ref() {
         // Best effort: the token also carries its own expiry, so a failed revoke narrows nothing
         // permanently; the revoke is recorded by the kernel when it lands.

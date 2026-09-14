@@ -1971,6 +1971,57 @@ mod tests {
         );
     }
 
+    /// M13.10 — the guest's work comes back THROUGH QUARANTINE, and the archive is validated before
+    /// anything lands. Run live, because the thing being tested is a real guest producing a real
+    /// archive: a synthetic tar would be testing my idea of what the guest writes.
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn guest_workspace_returns_through_quarantine_rather_than_around_it() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let run = tempfile::tempdir().expect("probe run dir");
+        let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.path().join("vm-ws"), 1, 384)
+            .expect("verified VM spec");
+        spec.sock_path = short_sock_path(&format!("m1310ws-{}", std::process::id())).unwrap();
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+
+        let outcome = (|| -> Result<PathBuf, String> {
+            let staged = run.path().join("ws");
+            std::fs::create_dir_all(&staged).map_err(|e| e.to_string())?;
+            std::fs::write(staged.join("seed.txt"), b"from-the-host\n")
+                .map_err(|e| e.to_string())?;
+            monitor.import_workspace(&vm, &tar_dir(&staged)?)?;
+
+            // The guest does work: one file it wrote itself, and one it changed.
+            let wrote = monitor.exec(
+                &vm,
+                "printf 'written-in-the-guest\\n' > result.txt; printf 'edited\\n' > seed.txt; echo done",
+            )?;
+            if wrote.exit_code != 0 {
+                return Err(format!("guest write failed: {}", wrote.output));
+            }
+
+            let exported = monitor.export_workspace(&vm)?;
+            let quarantine = run.path().join("quarantine");
+            // VALIDATES BEFORE IT WRITES. A guest archive never lands in a workspace directly.
+            untar_into(&quarantine, &exported)?;
+            Ok(quarantine)
+        })();
+        let _ = monitor.stop(&mut vm);
+
+        let quarantine = outcome.expect("the guest workspace round-trip ran");
+        assert_eq!(
+            std::fs::read_to_string(quarantine.join("result.txt")).unwrap_or_default(),
+            "written-in-the-guest\n",
+            "a file the guest created must arrive in quarantine intact"
+        );
+        assert_eq!(
+            std::fs::read_to_string(quarantine.join("seed.txt")).unwrap_or_default(),
+            "edited\n",
+            "a file the guest edited must arrive with the guest's bytes, not the host's"
+        );
+    }
+
     #[test]
     #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
     fn killed_guest_monitor_reaches_terminal_cleanup() {

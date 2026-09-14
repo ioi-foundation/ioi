@@ -1544,6 +1544,24 @@ host-initiated, length-bounded one, and the broker sits beside it rather than
 replacing it. The workload-bound profile refuses the binding altogether, so the
 two profiles are told apart by reading one field of one record.
 
+A session whose environment reports the `microvm` substrate runs its harness
+INSIDE the guest, one-shot. That is a distinct lane rather than a parameter on
+the host one: the host lane is interactive, feeding the harness one task per
+stdin line and streaming output back, while the guest agent's exec verb is one
+command in and one result out, and that agent is pinned. The harness receives the
+in-guest proxy's own loopback endpoint, so nothing in it learns it is in a VM,
+and it receives no credential on any path. A venue that resolved to `microvm`
+with no live guest FAILS rather than falling back to the host, because a receipt
+naming a venue the run did not use would claim isolation that did not happen.
+
+The guest's work returns through quarantine and never straight into the session
+workspace: the exported archive is validated for path, type, member count and
+total size before anything lands, it lands in a quarantine directory, and only
+then is it copied in — and only after a run that succeeded, so a failed harness
+never writes a half-finished tree over the operator's. Without that round-trip
+the venue would report zero changed files on a green run, since the session's
+diff reads the host workspace that a guest run never touches.
+
 The brokered channel's own check is `check:microvm-model-broker`, which proves
 the host half offline and runs a live cloud-hypervisor/KVM guest where the host
 can host one: the guest dials out with no network device and its bytes arrive on
