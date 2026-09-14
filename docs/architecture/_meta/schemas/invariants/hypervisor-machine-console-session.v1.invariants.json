@@ -1,0 +1,21 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-machine-console-session/typed-reason/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_machine_console_session.outcome_is_typed",
+      "description": "A console session that is not open MUST say why it ended. Closed, expired and revoked are three different facts about who ended it and whether it can come back.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.close_reason",
+        "when_path": "$.session_state",
+        "values": [
+          "closed",
+          "expired",
+          "revoked"
+        ]
+      }
+    }
+  ]
+}

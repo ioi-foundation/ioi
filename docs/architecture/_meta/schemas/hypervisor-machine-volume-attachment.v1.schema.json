@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+  "title": "HypervisorMachineVolumeAttachment",
+  "description": "A VOLUME ATTACHMENT, BOUND TO FIVE AXES. Machine, principal, environment, scope and epoch, because an attachment that outlives any one of them becomes ambient access to the next machine.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-volume-attachment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attachment_ref",
+    "workload_ref",
+    "principal_ref",
+    "environment_ref",
+    "scope_ref",
+    "boot_epoch",
+    "volume_ref",
+    "volume_content_hash",
+    "access_mode",
+    "persistence",
+    "attachment_state",
+    "attachment_reason",
+    "cleanup_obligation_ref",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-volume-attachment.v1"
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Machine-bound."
+    },
+    "principal_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Principal-bound."
+    },
+    "environment_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Environment-bound."
+    },
+    "scope_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Scope-bound."
+    },
+    "boot_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+    },
+    "attachment_ref": {
+      "type": "string",
+      "pattern": "^machine-volume-attachment://\\S+$"
+    },
+    "volume_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "volume_content_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "access_mode": {
+      "enum": [
+        "read_only",
+        "read_write"
+      ]
+    },
+    "persistence": {
+      "enum": [
+        "persistent",
+        "ephemeral"
+      ]
+    },
+    "attachment_state": {
+      "enum": [
+        "requested",
+        "attached",
+        "detaching",
+        "detached",
+        "refused"
+      ]
+    },
+    "attachment_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/typedReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed, and REQUIRED whenever refused."
+    },
+    "cleanup_obligation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

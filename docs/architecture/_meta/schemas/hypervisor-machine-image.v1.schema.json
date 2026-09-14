@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+  "title": "HypervisorMachineImage",
+  "description": "AN IMAGE IS ITS DIGEST, AND A TAG IS NOT IDENTITY. A machine started from a moving tag cannot be reconstructed, and reconstruction after restart is what the governed-machine journey requires rather than a nicety.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-image.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "image_ref",
+    "content_digest",
+    "machine_architecture",
+    "image_format",
+    "size_bytes",
+    "provenance_refs",
+    "admission_state",
+    "admission_reason",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-image.v1"
+    },
+    "image_ref": {
+      "type": "string",
+      "pattern": "^machine-image://\\S+$"
+    },
+    "content_digest": {
+      "$ref": "#/$defs/hash"
+    },
+    "machine_architecture": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "image_format": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "provenance_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "admission_state": {
+      "enum": [
+        "admitted",
+        "refused",
+        "withdrawn"
+      ]
+    },
+    "admission_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/typedReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed, and REQUIRED whenever the image is not admitted — a refusal with no reason is the untyped failure this estate refuses."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

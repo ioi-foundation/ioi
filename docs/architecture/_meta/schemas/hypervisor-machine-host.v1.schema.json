@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+  "title": "HypervisorMachineHost",
+  "description": "A HOST, WHICH IS WHAT A DEVICE BELONGS TO BEFORE A MACHINE DOES. Declared capacity and observed capacity are separate members because canon's rule that desired and observed never collapse applies to a host exactly as it does to a machine: a host whose observed capacity trails its declared capacity is oversubscribed or degraded, and one number cannot say that.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-host.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "host_ref",
+    "backend_registration_ref",
+    "backend_native_host_id",
+    "machine_architecture",
+    "capability_declaration_ref",
+    "capability_declaration_hash",
+    "capacity",
+    "observed_capacity",
+    "maintenance_state",
+    "maintenance_plan_ref",
+    "evidence_refs",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-host.v1"
+    },
+    "host_ref": {
+      "type": "string",
+      "pattern": "^machine-host://\\S+$",
+      "description": "Canonical identity, daemon-minted."
+    },
+    "backend_registration_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "backend_native_host_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "EVIDENCE, never identity. Null when the backend exposes none."
+    },
+    "machine_architecture": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "capability_declaration_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "capability_declaration_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vcpus",
+        "memory_mib",
+        "storage_gib"
+      ],
+      "properties": {
+        "vcpus": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "memory_mib": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "storage_gib": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "description": "DECLARED, not inferred from observation."
+    },
+    "observed_capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vcpus",
+        "memory_mib",
+        "storage_gib"
+      ],
+      "properties": {
+        "vcpus": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "memory_mib": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "storage_gib": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "description": "What the host reports. May trail `capacity`; saying so is the point."
+    },
+    "maintenance_state": {
+      "enum": [
+        "available",
+        "draining",
+        "maintenance",
+        "unreachable"
+      ]
+    },
+    "maintenance_plan_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present while a plan governs this host; null is a claim that none does."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

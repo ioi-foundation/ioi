@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+  "title": "HypervisorMachineConsoleSession",
+  "description": "A CONSOLE THAT EXPIRES, BECAUSE ONE THAT DOES NOT IS AMBIENT ACCESS WITH A POLITE NAME. Bound to machine, principal, environment, scope and epoch, and held as a capability lease rather than granted as a mode.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-console-session.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_ref",
+    "workload_ref",
+    "principal_ref",
+    "environment_ref",
+    "scope_ref",
+    "boot_epoch",
+    "capability_lease_ref",
+    "opened_at_ms",
+    "expires_at_ms",
+    "session_state",
+    "close_reason",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-console-session.v1"
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Machine-bound."
+    },
+    "principal_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Principal-bound."
+    },
+    "environment_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Environment-bound."
+    },
+    "scope_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Scope-bound."
+    },
+    "boot_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+    },
+    "session_ref": {
+      "type": "string",
+      "pattern": "^machine-console-session://\\S+$"
+    },
+    "capability_lease_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The console IS a lease, not a mode."
+    },
+    "opened_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "expires_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "A console session ALWAYS expires. One that ends only when someone closes it is ambient access with a polite name."
+    },
+    "session_state": {
+      "enum": [
+        "open",
+        "closed",
+        "expired",
+        "revoked"
+      ],
+      "description": "`revoked` and `closed` are distinct for the same reason they are on a port: closed can be reopened by whoever could open it, and revoked cannot."
+    },
+    "close_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/typedReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed, and REQUIRED whenever the session is not open."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

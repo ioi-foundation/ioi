@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+  "title": "HypervisorMachineDeviceAssignment",
+  "description": "A DEVICE ASSIGNMENT, WHICH NAMES ITS HOST. Passthrough supply is finite and physical, so the host is part of the answer to whether a second machine may have the same device.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-device-assignment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "assignment_ref",
+    "workload_ref",
+    "principal_ref",
+    "environment_ref",
+    "scope_ref",
+    "boot_epoch",
+    "host_ref",
+    "device_ref",
+    "device_class",
+    "exclusive",
+    "capability_declaration_ref",
+    "capability_declaration_hash",
+    "assignment_state",
+    "assignment_reason",
+    "cleanup_obligation_ref",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-device-assignment.v1"
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Machine-bound."
+    },
+    "principal_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Principal-bound."
+    },
+    "environment_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Environment-bound."
+    },
+    "scope_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Scope-bound."
+    },
+    "boot_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+    },
+    "assignment_ref": {
+      "type": "string",
+      "pattern": "^machine-device-assignment://\\S+$"
+    },
+    "host_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "A device belongs to a HOST before it belongs to a machine. An assignment that knew only its machine could not answer whether a sibling machine may hold the same device — which is exactly the sibling-machine access the journey refuses."
+    },
+    "device_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "device_class": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "exclusive": {
+      "type": "boolean",
+      "description": "True when no sibling machine may hold it. Passthrough is the one attachment whose supply is finite and physical."
+    },
+    "capability_declaration_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "capability_declaration_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "assignment_state": {
+      "enum": [
+        "requested",
+        "assigned",
+        "releasing",
+        "released",
+        "refused"
+      ]
+    },
+    "assignment_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/typedReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed, and REQUIRED whenever refused."
+    },
+    "cleanup_obligation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

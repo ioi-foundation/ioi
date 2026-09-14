@@ -1,0 +1,19 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-machine-network-attachment/typed-reason/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_machine_network_attachment.outcome_is_typed",
+      "description": "A refused attachment MUST name its reason.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attachment_reason",
+        "when_path": "$.attachment_state",
+        "values": [
+          "refused"
+        ]
+      }
+    }
+  ]
+}

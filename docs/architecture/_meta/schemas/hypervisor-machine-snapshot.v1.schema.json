@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+  "title": "HypervisorMachineSnapshot",
+  "description": "RESTORE MATERIAL, AND NEVER RESTORE VALIDITY. Canon separates the two deliberately: snapshot bytes may live on local disk, object storage, CAS or provider storage, and none of that makes a restore valid — validity stays operation-backed. Both generations are recorded because a snapshot taken mid-transition is honest only if it says so.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_ref",
+    "workload_ref",
+    "taken_at_desired_generation",
+    "taken_at_observed_generation",
+    "boot_epoch",
+    "content_digest",
+    "storage_ref",
+    "parent_snapshot_ref",
+    "restore_material_only",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-snapshot.v1"
+    },
+    "snapshot_ref": {
+      "type": "string",
+      "pattern": "^machine-snapshot://\\S+$"
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "taken_at_desired_generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "taken_at_observed_generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Recorded beside the desired generation. A gap means the snapshot was taken while the machine was still converging, and a reader must be able to see that."
+    },
+    "boot_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+    },
+    "content_digest": {
+      "$ref": "#/$defs/hash"
+    },
+    "storage_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "parent_snapshot_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present-and-null for a root snapshot."
+    },
+    "restore_material_only": {
+      "const": true,
+      "description": "A const rather than a boolean, because there is no admitted record where this is false. Snapshot bytes are never restore validity."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

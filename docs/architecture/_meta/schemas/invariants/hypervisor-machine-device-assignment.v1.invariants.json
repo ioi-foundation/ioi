@@ -1,0 +1,19 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-machine-device-assignment/typed-reason/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_machine_device_assignment.outcome_is_typed",
+      "description": "A refused assignment MUST name its reason. Device supply is finite, so 'refused' without a reason cannot be told from 'none left'.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.assignment_reason",
+        "when_path": "$.assignment_state",
+        "values": [
+          "refused"
+        ]
+      }
+    }
+  ]
+}

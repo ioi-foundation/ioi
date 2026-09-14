@@ -321,6 +321,15 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", "sha256:7789c4fbdba7e8ea8df3f22aa61b35864edf9355c344c6cd267ae82631626826"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", "sha256:56f09db7ef83f8f3554e48e0f0d6ac17fdd932807fab9a8b270a831b45048b9e"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", "sha256:a4f5c99faf68b002952a450f193b30a24b751c5b460002d56750d9cc61d696df"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", "sha256:79174ae478411620a2c6c40da4dfeec9ee13c6b5f740c8888231ecd5b572b8ed"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1", "sha256:9ee8e6a2a20c234029615ed2d0f7a98d2407f021b2f444080873ab5f6bbd9256"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1", "sha256:a5bb48b546f03b691a674f81043c42f2b080eb2947a3d052f5a71f392356ec12"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1", "sha256:07abd258377f800381c7c6ec3ff089b18fcbde43a8ba77aab17af022805b2edd"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", "sha256:18a988066a820224a25f662ce0922845bcb88e116233dd03d7e651cf228e871b"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", "sha256:70d9cd9e9c62679f2b4d6d019585316fa86c8a1c225da5dfb076e90579df5881"),
+    ("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", "sha256:4146f6f5f1cf11f275a2eada7cbc8285c1cbc1bc4d96a928178ffb7981656c5a"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -138887,6 +138896,1384 @@ pub enum HypervisorMachineOperationReceiptV1Result {
     Ambiguous,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineHostV1 {
+    pub schema_version: HypervisorMachineHostV1SchemaVersion,
+    pub host_ref: String,
+    pub backend_registration_ref: String,
+    pub backend_native_host_id: Option<String>,
+    pub machine_architecture: String,
+    pub capability_declaration_ref: String,
+    pub capability_declaration_hash: String,
+    pub capacity: HypervisorMachineHostV1Capacity,
+    pub observed_capacity: HypervisorMachineHostV1ObservedCapacity,
+    pub maintenance_state: HypervisorMachineHostV1MaintenanceState,
+    pub maintenance_plan_ref: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineHostV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-host/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","title":"HypervisorMachineHost","description":"A HOST, WHICH IS WHAT A DEVICE BELONGS TO BEFORE A MACHINE DOES. Declared capacity and observed capacity are separate members because canon's rule that desired and observed never collapse applies to a host exactly as it does to a machine: a host whose observed capacity trails its declared capacity is oversubscribed or degraded, and one number cannot say that.","x-ioi-schema-version":"ioi.hypervisor.machine-host.v1","type":"object","additionalProperties":false,"required":["schema_version","host_ref","backend_registration_ref","backend_native_host_id","machine_architecture","capability_declaration_ref","capability_declaration_hash","capacity","observed_capacity","maintenance_state","maintenance_plan_ref","evidence_refs","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-host.v1"},"host_ref":{"type":"string","pattern":"^machine-host://\\S+$","description":"Canonical identity, daemon-minted."},"backend_registration_ref":{"$ref":"#/$defs/ref"},"backend_native_host_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the backend exposes none."},"machine_architecture":{"type":"string","minLength":1,"maxLength":64},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"capacity":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"DECLARED, not inferred from observation."},"observed_capacity":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"What the host reports. May trail `capacity`; saying so is the point."},"maintenance_state":{"enum":["available","draining","maintenance","unreachable"]},"maintenance_plan_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present while a plan governs this host; null is a claim that none does."},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMachineHostV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"host_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_registration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backend_registration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backend_registration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_native_host_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"backend_native_host_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backend_native_host_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            machine_architecture: serde_json::from_value::<String>(
+                object
+                    .remove(r#"machine_architecture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"machine_architecture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capacity: serde_json::from_value::<HypervisorMachineHostV1Capacity>(
+                object
+                    .remove(r#"capacity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capacity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_capacity: serde_json::from_value::<HypervisorMachineHostV1ObservedCapacity>(
+                object
+                    .remove(r#"observed_capacity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_capacity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maintenance_state: serde_json::from_value::<HypervisorMachineHostV1MaintenanceState>(
+                object
+                    .remove(r#"maintenance_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"maintenance_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maintenance_plan_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"maintenance_plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"maintenance_plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineHostV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-host.v1"#)]
+    IoiHypervisorMachineHostV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineHostV1Capacity {
+    pub vcpus: ArchitectureContractInteger,
+    pub memory_mib: ArchitectureContractInteger,
+    pub storage_gib: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineHostV1Capacity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-host/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"DECLARED, not inferred from observation."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            vcpus: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"vcpus"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"vcpus"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            memory_mib: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"memory_mib"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_mib"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            storage_gib: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"storage_gib"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"storage_gib"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineHostV1ObservedCapacity {
+    pub vcpus: ArchitectureContractInteger,
+    pub memory_mib: ArchitectureContractInteger,
+    pub storage_gib: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineHostV1ObservedCapacity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-host/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"What the host reports. May trail `capacity`; saying so is the point."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            vcpus: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"vcpus"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"vcpus"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            memory_mib: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"memory_mib"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_mib"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            storage_gib: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"storage_gib"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"storage_gib"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineHostV1MaintenanceState {
+    #[serde(rename = r#"available"#)]
+    Available,
+    #[serde(rename = r#"draining"#)]
+    Draining,
+    #[serde(rename = r#"maintenance"#)]
+    Maintenance,
+    #[serde(rename = r#"unreachable"#)]
+    Unreachable,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineImageV1 {
+    pub schema_version: HypervisorMachineImageV1SchemaVersion,
+    pub image_ref: String,
+    pub content_digest: String,
+    pub machine_architecture: String,
+    pub image_format: String,
+    pub size_bytes: ArchitectureContractInteger,
+    pub provenance_refs: Vec<String>,
+    pub admission_state: HypervisorMachineImageV1AdmissionState,
+    pub admission_reason: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineImageV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-image/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","title":"HypervisorMachineImage","description":"AN IMAGE IS ITS DIGEST, AND A TAG IS NOT IDENTITY. A machine started from a moving tag cannot be reconstructed, and reconstruction after restart is what the governed-machine journey requires rather than a nicety.","x-ioi-schema-version":"ioi.hypervisor.machine-image.v1","type":"object","additionalProperties":false,"required":["schema_version","image_ref","content_digest","machine_architecture","image_format","size_bytes","provenance_refs","admission_state","admission_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-image.v1"},"image_ref":{"type":"string","pattern":"^machine-image://\\S+$"},"content_digest":{"$ref":"#/$defs/hash"},"machine_architecture":{"type":"string","minLength":1,"maxLength":64},"image_format":{"type":"string","minLength":1,"maxLength":64},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"admission_state":{"enum":["admitted","refused","withdrawn"]},"admission_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the image is not admitted — a refusal with no reason is the untyped failure this estate refuses."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMachineImageV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            image_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"image_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"image_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_digest: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_digest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_digest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            machine_architecture: serde_json::from_value::<String>(
+                object
+                    .remove(r#"machine_architecture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"machine_architecture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            image_format: serde_json::from_value::<String>(
+                object
+                    .remove(r#"image_format"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"image_format"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            size_bytes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"size_bytes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"size_bytes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provenance_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"provenance_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provenance_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_state: serde_json::from_value::<HypervisorMachineImageV1AdmissionState>(
+                object
+                    .remove(r#"admission_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admission_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineImageV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-image.v1"#)]
+    IoiHypervisorMachineImageV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineImageV1AdmissionState {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineVolumeAttachmentV1 {
+    pub schema_version: HypervisorMachineVolumeAttachmentV1SchemaVersion,
+    pub workload_ref: String,
+    pub principal_ref: String,
+    pub environment_ref: String,
+    pub scope_ref: String,
+    pub boot_epoch: ArchitectureContractInteger,
+    pub attachment_ref: String,
+    pub volume_ref: String,
+    pub volume_content_hash: String,
+    pub access_mode: HypervisorMachineVolumeAttachmentV1AccessMode,
+    pub persistence: HypervisorMachineVolumeAttachmentV1Persistence,
+    pub attachment_state: HypervisorMachineVolumeAttachmentV1AttachmentState,
+    pub attachment_reason: Option<String>,
+    pub cleanup_obligation_ref: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineVolumeAttachmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","title":"HypervisorMachineVolumeAttachment","description":"A VOLUME ATTACHMENT, BOUND TO FIVE AXES. Machine, principal, environment, scope and epoch, because an attachment that outlives any one of them becomes ambient access to the next machine.","x-ioi-schema-version":"ioi.hypervisor.machine-volume-attachment.v1","type":"object","additionalProperties":false,"required":["schema_version","attachment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","volume_ref","volume_content_hash","access_mode","persistence","attachment_state","attachment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-volume-attachment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"attachment_ref":{"type":"string","pattern":"^machine-volume-attachment://\\S+$"},"volume_ref":{"$ref":"#/$defs/ref"},"volume_content_hash":{"$ref":"#/$defs/hash"},"access_mode":{"enum":["read_only","read_write"]},"persistence":{"enum":["persistent","ephemeral"]},"attachment_state":{"enum":["requested","attached","detaching","detached","refused"]},"attachment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorMachineVolumeAttachmentV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"boot_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attachment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            volume_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"volume_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"volume_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            volume_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"volume_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"volume_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            access_mode: serde_json::from_value::<HypervisorMachineVolumeAttachmentV1AccessMode>(
+                object
+                    .remove(r#"access_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"access_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            persistence: serde_json::from_value::<HypervisorMachineVolumeAttachmentV1Persistence>(
+                object
+                    .remove(r#"persistence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"persistence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_state: serde_json::from_value::<
+                HypervisorMachineVolumeAttachmentV1AttachmentState,
+            >(
+                object
+                    .remove(r#"attachment_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"attachment_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_obligation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cleanup_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineVolumeAttachmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-volume-attachment.v1"#)]
+    IoiHypervisorMachineVolumeAttachmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineVolumeAttachmentV1AccessMode {
+    #[serde(rename = r#"read_only"#)]
+    ReadOnly,
+    #[serde(rename = r#"read_write"#)]
+    ReadWrite,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineVolumeAttachmentV1Persistence {
+    #[serde(rename = r#"persistent"#)]
+    Persistent,
+    #[serde(rename = r#"ephemeral"#)]
+    Ephemeral,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineVolumeAttachmentV1AttachmentState {
+    #[serde(rename = r#"requested"#)]
+    Requested,
+    #[serde(rename = r#"attached"#)]
+    Attached,
+    #[serde(rename = r#"detaching"#)]
+    Detaching,
+    #[serde(rename = r#"detached"#)]
+    Detached,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineNetworkAttachmentV1 {
+    pub schema_version: HypervisorMachineNetworkAttachmentV1SchemaVersion,
+    pub workload_ref: String,
+    pub principal_ref: String,
+    pub environment_ref: String,
+    pub scope_ref: String,
+    pub boot_epoch: ArchitectureContractInteger,
+    pub attachment_ref: String,
+    pub network_ref: String,
+    pub connectivity_profile_ref: String,
+    pub backend_native_address: Option<String>,
+    pub attachment_state: HypervisorMachineNetworkAttachmentV1AttachmentState,
+    pub attachment_reason: Option<String>,
+    pub cleanup_obligation_ref: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineNetworkAttachmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1","title":"HypervisorMachineNetworkAttachment","description":"A NETWORK ATTACHMENT, WHOSE REACHABILITY IS SOMEONE ELSE'S FIELD. It carries the connectivity profile by reference instead of restating scope and egress, so there is one place where connectivity is decided.","x-ioi-schema-version":"ioi.hypervisor.machine-network-attachment.v1","type":"object","additionalProperties":false,"required":["schema_version","attachment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","network_ref","connectivity_profile_ref","backend_native_address","attachment_state","attachment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-network-attachment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"attachment_ref":{"type":"string","pattern":"^machine-network-attachment://\\S+$"},"network_ref":{"$ref":"#/$defs/ref"},"connectivity_profile_ref":{"$ref":"#/$defs/ref","description":"Reuses the estate's existing typed egress posture rather than restating reachability here. Two places deciding connectivity is the defect this estate names as a second spine."},"backend_native_address":{"anyOf":[{"type":"string","minLength":1,"maxLength":256},{"type":"null"}],"description":"EVIDENCE, never identity and never authorization. An address is not a permission."},"attachment_state":{"enum":["requested","attached","detaching","detached","refused"]},"attachment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorMachineNetworkAttachmentV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"boot_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attachment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"network_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connectivity_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connectivity_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connectivity_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_native_address: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"backend_native_address"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backend_native_address"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_state: serde_json::from_value::<
+                HypervisorMachineNetworkAttachmentV1AttachmentState,
+            >(
+                object
+                    .remove(r#"attachment_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"attachment_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_obligation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cleanup_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineNetworkAttachmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-network-attachment.v1"#)]
+    IoiHypervisorMachineNetworkAttachmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineNetworkAttachmentV1AttachmentState {
+    #[serde(rename = r#"requested"#)]
+    Requested,
+    #[serde(rename = r#"attached"#)]
+    Attached,
+    #[serde(rename = r#"detaching"#)]
+    Detaching,
+    #[serde(rename = r#"detached"#)]
+    Detached,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineDeviceAssignmentV1 {
+    pub schema_version: HypervisorMachineDeviceAssignmentV1SchemaVersion,
+    pub workload_ref: String,
+    pub principal_ref: String,
+    pub environment_ref: String,
+    pub scope_ref: String,
+    pub boot_epoch: ArchitectureContractInteger,
+    pub assignment_ref: String,
+    pub host_ref: String,
+    pub device_ref: String,
+    pub device_class: String,
+    pub exclusive: bool,
+    pub capability_declaration_ref: String,
+    pub capability_declaration_hash: String,
+    pub assignment_state: HypervisorMachineDeviceAssignmentV1AssignmentState,
+    pub assignment_reason: Option<String>,
+    pub cleanup_obligation_ref: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineDeviceAssignmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1","title":"HypervisorMachineDeviceAssignment","description":"A DEVICE ASSIGNMENT, WHICH NAMES ITS HOST. Passthrough supply is finite and physical, so the host is part of the answer to whether a second machine may have the same device.","x-ioi-schema-version":"ioi.hypervisor.machine-device-assignment.v1","type":"object","additionalProperties":false,"required":["schema_version","assignment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","host_ref","device_ref","device_class","exclusive","capability_declaration_ref","capability_declaration_hash","assignment_state","assignment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-device-assignment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"assignment_ref":{"type":"string","pattern":"^machine-device-assignment://\\S+$"},"host_ref":{"$ref":"#/$defs/ref","description":"A device belongs to a HOST before it belongs to a machine. An assignment that knew only its machine could not answer whether a sibling machine may hold the same device — which is exactly the sibling-machine access the journey refuses."},"device_ref":{"$ref":"#/$defs/ref"},"device_class":{"type":"string","minLength":1,"maxLength":64},"exclusive":{"type":"boolean","description":"True when no sibling machine may hold it. Passthrough is the one attachment whose supply is finite and physical."},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"assignment_state":{"enum":["requested","assigned","releasing","released","refused"]},"assignment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorMachineDeviceAssignmentV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"boot_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assignment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"assignment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assignment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"host_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            device_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"device_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"device_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            device_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"device_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"device_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exclusive: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"exclusive"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exclusive"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assignment_state: serde_json::from_value::<
+                HypervisorMachineDeviceAssignmentV1AssignmentState,
+            >(
+                object
+                    .remove(r#"assignment_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assignment_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assignment_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"assignment_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assignment_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_obligation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cleanup_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineDeviceAssignmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-device-assignment.v1"#)]
+    IoiHypervisorMachineDeviceAssignmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineDeviceAssignmentV1AssignmentState {
+    #[serde(rename = r#"requested"#)]
+    Requested,
+    #[serde(rename = r#"assigned"#)]
+    Assigned,
+    #[serde(rename = r#"releasing"#)]
+    Releasing,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineConsoleSessionV1 {
+    pub schema_version: HypervisorMachineConsoleSessionV1SchemaVersion,
+    pub workload_ref: String,
+    pub principal_ref: String,
+    pub environment_ref: String,
+    pub scope_ref: String,
+    pub boot_epoch: ArchitectureContractInteger,
+    pub session_ref: String,
+    pub capability_lease_ref: String,
+    pub opened_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
+    pub session_state: HypervisorMachineConsoleSessionV1SessionState,
+    pub close_reason: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineConsoleSessionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1","title":"HypervisorMachineConsoleSession","description":"A CONSOLE THAT EXPIRES, BECAUSE ONE THAT DOES NOT IS AMBIENT ACCESS WITH A POLITE NAME. Bound to machine, principal, environment, scope and epoch, and held as a capability lease rather than granted as a mode.","x-ioi-schema-version":"ioi.hypervisor.machine-console-session.v1","type":"object","additionalProperties":false,"required":["schema_version","session_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","capability_lease_ref","opened_at_ms","expires_at_ms","session_state","close_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-console-session.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"session_ref":{"type":"string","pattern":"^machine-console-session://\\S+$"},"capability_lease_ref":{"$ref":"#/$defs/ref","description":"The console IS a lease, not a mode."},"opened_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"A console session ALWAYS expires. One that ends only when someone closes it is ambient access with a polite name."},"session_state":{"enum":["open","closed","expired","revoked"],"description":"`revoked` and `closed` are distinct for the same reason they are on a port: closed can be reopened by whoever could open it, and revoked cannot."},"close_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the session is not open."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<HypervisorMachineConsoleSessionV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"boot_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            opened_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"opened_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"opened_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_state: serde_json::from_value::<HypervisorMachineConsoleSessionV1SessionState>(
+                object
+                    .remove(r#"session_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            close_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"close_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"close_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineConsoleSessionV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-console-session.v1"#)]
+    IoiHypervisorMachineConsoleSessionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineConsoleSessionV1SessionState {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineSnapshotV1 {
+    pub schema_version: HypervisorMachineSnapshotV1SchemaVersion,
+    pub snapshot_ref: String,
+    pub workload_ref: String,
+    pub taken_at_desired_generation: ArchitectureContractInteger,
+    pub taken_at_observed_generation: ArchitectureContractInteger,
+    pub boot_epoch: ArchitectureContractInteger,
+    pub content_digest: String,
+    pub storage_ref: String,
+    pub parent_snapshot_ref: Option<String>,
+    pub restore_material_only: HypervisorMachineSnapshotV1RestoreMaterialOnly,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineSnapshotV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1","title":"HypervisorMachineSnapshot","description":"RESTORE MATERIAL, AND NEVER RESTORE VALIDITY. Canon separates the two deliberately: snapshot bytes may live on local disk, object storage, CAS or provider storage, and none of that makes a restore valid — validity stays operation-backed. Both generations are recorded because a snapshot taken mid-transition is honest only if it says so.","x-ioi-schema-version":"ioi.hypervisor.machine-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_ref","workload_ref","taken_at_desired_generation","taken_at_observed_generation","boot_epoch","content_digest","storage_ref","parent_snapshot_ref","restore_material_only","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-snapshot.v1"},"snapshot_ref":{"type":"string","pattern":"^machine-snapshot://\\S+$"},"workload_ref":{"$ref":"#/$defs/ref"},"taken_at_desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"taken_at_observed_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Recorded beside the desired generation. A gap means the snapshot was taken while the machine was still converging, and a reader must be able to see that."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"content_digest":{"$ref":"#/$defs/hash"},"storage_ref":{"$ref":"#/$defs/ref"},"parent_snapshot_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null for a root snapshot."},"restore_material_only":{"const":true,"description":"A const rather than a boolean, because there is no admitted record where this is false. Snapshot bytes are never restore validity."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMachineSnapshotV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            taken_at_desired_generation: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"taken_at_desired_generation"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"taken_at_desired_generation"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            taken_at_observed_generation: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"taken_at_observed_generation"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"taken_at_observed_generation"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"boot_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_digest: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_digest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_digest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            storage_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"storage_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"storage_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_snapshot_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"parent_snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore_material_only: serde_json::from_value::<
+                HypervisorMachineSnapshotV1RestoreMaterialOnly,
+            >(
+                object
+                    .remove(r#"restore_material_only"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore_material_only"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineSnapshotV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-snapshot.v1"#)]
+    IoiHypervisorMachineSnapshotV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorMachineSnapshotV1RestoreMaterialOnly {
+    True,
+}
+
+impl serde::Serialize for HypervisorMachineSnapshotV1RestoreMaterialOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineSnapshotV1RestoreMaterialOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineMigrationPlanV1 {
+    pub schema_version: HypervisorMachineMigrationPlanV1SchemaVersion,
+    pub plan_ref: String,
+    pub workload_ref: String,
+    pub source_host_ref: String,
+    pub target_host_ref: String,
+    pub migration_kind: String,
+    pub capability_declaration_ref: String,
+    pub capability_declaration_hash: String,
+    pub expected_head: String,
+    pub cleanup_obligation_ref: Option<String>,
+    pub plan_state: HypervisorMachineMigrationPlanV1PlanState,
+    pub plan_reason: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineMigrationPlanV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","title":"HypervisorMachineMigrationPlan","description":"A MIGRATION PLAN FOR THE SUPPORTED SUBSET ONLY. An unsupported kind is refused, never simulated — the portable subset does not turn an unsupported operation into simulated success.","x-ioi-schema-version":"ioi.hypervisor.machine-migration-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","workload_ref","source_host_ref","target_host_ref","migration_kind","capability_declaration_ref","capability_declaration_hash","expected_head","cleanup_obligation_ref","plan_state","plan_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-migration-plan.v1"},"plan_ref":{"type":"string","pattern":"^machine-migration-plan://\\S+$"},"workload_ref":{"$ref":"#/$defs/ref"},"source_host_ref":{"$ref":"#/$defs/ref"},"target_host_ref":{"$ref":"#/$defs/ref"},"migration_kind":{"type":"string","minLength":1,"maxLength":64},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"expected_head":{"$ref":"#/$defs/hash","description":"A plan is written against a known state, or it is a wish."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed."},"plan_state":{"enum":["planned","admitted","executing","completed","refused","ambiguous"],"description":"`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."},"plan_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the plan is refused or ambiguous."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<HypervisorMachineMigrationPlanV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_host_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_host_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_host_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_host_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_host_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_host_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_kind: serde_json::from_value::<String>(
+                object
+                    .remove(r#"migration_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expected_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expected_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_obligation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cleanup_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_state: serde_json::from_value::<HypervisorMachineMigrationPlanV1PlanState>(
+                object
+                    .remove(r#"plan_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"plan_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineMigrationPlanV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-migration-plan.v1"#)]
+    IoiHypervisorMachineMigrationPlanV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineMigrationPlanV1PlanState {
+    #[serde(rename = r#"planned"#)]
+    Planned,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"executing"#)]
+    Executing,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"ambiguous"#)]
+    Ambiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorHostMaintenancePlanV1 {
+    pub schema_version: HypervisorHostMaintenancePlanV1SchemaVersion,
+    pub plan_ref: String,
+    pub host_ref: String,
+    pub maintenance_kind: String,
+    pub affected_workload_refs: Vec<String>,
+    pub drain_policy: String,
+    pub window_start_ms: ArchitectureContractInteger,
+    pub window_end_ms: ArchitectureContractInteger,
+    pub plan_state: HypervisorHostMaintenancePlanV1PlanState,
+    pub plan_reason: Option<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorHostMaintenancePlanV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","title":"HypervisorHostMaintenancePlan","description":"A MAINTENANCE PLAN THAT NAMES ITS AFFECTED MACHINES RATHER THAN DERIVING THEM. The set that would be derived when work begins is not the set the operator approved.","x-ioi-schema-version":"ioi.hypervisor.host-maintenance-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","host_ref","maintenance_kind","affected_workload_refs","drain_policy","window_start_ms","window_end_ms","plan_state","plan_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.host-maintenance-plan.v1"},"plan_ref":{"type":"string","pattern":"^host-maintenance-plan://\\S+$"},"host_ref":{"$ref":"#/$defs/ref"},"maintenance_kind":{"type":"string","minLength":1,"maxLength":64},"affected_workload_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"NAMED, not derived at execution time."},"drain_policy":{"type":"string","minLength":1,"maxLength":64,"description":"How running machines leave before work starts."},"window_start_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"window_end_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"plan_state":{"enum":["planned","admitted","executing","completed","refused","ambiguous"],"description":"`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."},"plan_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the plan is refused or ambiguous."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorHostMaintenancePlanV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"plan_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"host_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maintenance_kind: serde_json::from_value::<String>(
+                object
+                    .remove(r#"maintenance_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"maintenance_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_workload_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"affected_workload_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected_workload_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            drain_policy: serde_json::from_value::<String>(
+                object
+                    .remove(r#"drain_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"drain_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window_start_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"window_start_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window_start_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window_end_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"window_end_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window_end_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_state: serde_json::from_value::<HypervisorHostMaintenancePlanV1PlanState>(
+                object
+                    .remove(r#"plan_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"plan_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorHostMaintenancePlanV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.host-maintenance-plan.v1"#)]
+    IoiHypervisorHostMaintenancePlanV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorHostMaintenancePlanV1PlanState {
+    #[serde(rename = r#"planned"#)]
+    Planned,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"executing"#)]
+    Executing,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"ambiguous"#)]
+    Ambiguous,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -149808,6 +151195,262 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
         expected_rule_id: None,
     },
 ];
@@ -166436,6 +168079,358 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-host/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-host/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-image/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-image/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-image/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-image/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -168126,6 +170121,15 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","title":"FoundryQualifiedMeasurement","description":"A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.","x-ioi-schema-version":"ioi.foundry-qualified-measurement.v2","type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"type":"string","const":"ioi.foundry-qualified-measurement.v2"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","cost_basis_ref","failure_schedule_ref","model_fingerprint","recipe_fingerprint","software_fingerprint","hardware_fingerprint","topology_fingerprint","time_to_quality"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"enum":["daemon_cpu_process","distributed"]},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"},"model_fingerprint":{"$ref":"#/$defs/modelFingerprint"},"recipe_fingerprint":{"$ref":"#/$defs/recipeFingerprint"},"software_fingerprint":{"$ref":"#/$defs/softwareFingerprint"},"hardware_fingerprint":{"$ref":"#/$defs/hardwareFingerprint"},"topology_fingerprint":{"$ref":"#/$defs/topologyFingerprint"},"time_to_quality":{"$ref":"#/$defs/timeToQuality"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"contentHash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"modelFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.","required":["model_ref","weights_digest","parameter_count"],"properties":{"model_ref":{"$ref":"#/$defs/ref"},"weights_digest":{"$ref":"#/$defs/contentHash"},"parameter_count":{"$ref":"#/$defs/positiveInteger"}}},"recipeFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.","required":["recipe_ref","recipe_body_hash"],"properties":{"recipe_ref":{"$ref":"#/$defs/ref"},"recipe_body_hash":{"$ref":"#/$defs/contentHash"}}},"softwareFingerprint":{"type":"object","additionalProperties":false,"description":"The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.","required":["operating_system","daemon_release_ref","trainer_backend_profile_ref"],"properties":{"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"$ref":"#/$defs/ref"}}},"hardwareFingerprint":{"type":"object","additionalProperties":false,"description":"The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.","required":["hardware_architecture","logical_cpu_count","memory_bytes","accelerator"],"properties":{"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"accelerator":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}},"topologyFingerprint":{"type":"object","additionalProperties":false,"description":"The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.","required":["runtime_node_ref","environment_ref","process_count","node_count","parallelism"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"process_count":{"$ref":"#/$defs/positiveInteger"},"node_count":{"$ref":"#/$defs/positiveInteger"},"parallelism":{"enum":["single_process","multi_process","multi_node"]}}},"timeToQuality":{"type":"object","additionalProperties":false,"description":"How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.","required":["quality_metric","target_value","reached","elapsed_nanoseconds"],"properties":{"quality_metric":{"type":"string","minLength":1},"target_value":{"type":"number"},"reached":{"type":"boolean"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"}}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","title":"HypervisorMachineOperation","description":"THE VERSIONED MACHINE OPERATION, WHICH IS WHY THE VERB CANNOT BE A BACKEND STRING. Canon's machine-control family names eleven contracts and specifies the fields of exactly two; this is one of them, authored from canon's own binding list rather than from a shape invented here. Its purpose is ACC-20 clause 3: discover/define/import/create, start/stop/pause/resume/reboot, console open/close, snapshot/clone/restore, supported migration and delete resolve to the SAME versioned daemon operations, and backend aliases never become canonical verbs. A backend that calls reboot `restart` does not get to widen the vocabulary by saying so, which is the entire reason `operation` is a closed enum and not a string. WHY THE CAPABILITY DECLARATION IS BOUND BY REF AND HASH TOGETHER. Canon: backend support is a capability matrix, not a lowest-common-denominator lie, and an unsupported operation fails BEFORE effect with the exact typed reason from the CURRENT capability declaration. A ref alone would let the declaration drift under the operation between admission and effect, which is the drifted cell ACC-20 clause 4 requires to refuse; the hash is what makes 'current' checkable rather than assumed. WHAT IS DELIBERATELY A REF AND NOT AN ENUM. Canon says an operation binds its 'declared durability and observation boundary' but nowhere states a vocabulary for either, and neither term appears anywhere else in this estate's canon or code. Minting one here would make this schema the specification for a thing canon has not decided, which inverts the ordering this estate works by, so both are carried as refs to a declaration that owns its own vocabulary.","x-ioi-schema-version":"ioi.hypervisor.machine-operation.v1","type":"object","additionalProperties":false,"required":["schema_version","operation_ref","operation","workload_ref","desired_generation","expected_head","owner_ref","environment_ref","backend_registration_ref","capability_declaration_ref","capability_declaration_hash","affected_image_bindings","affected_volume_bindings","affected_network_bindings","affected_device_bindings","authority_refs","policy_refs","idempotency_key_hash","cleanup_obligation_ref","durability_boundary_ref","observation_boundary_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation.v1"},"operation_ref":{"type":"string","pattern":"^machine-operation://\\S+$","description":"The operation's OWN canonical identity, minted by the daemon. Canon is explicit that backend-native ids never become canonical identity; they arrive on the receipt as evidence instead."},"operation":{"enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"],"description":"Canon's minimum lifecycle vocabulary, exactly and in its order. Closed on purpose: 'an exact versioned operation member rather than a backend-authored string'. A backend extension is expressed by the capability matrix declaring the cell supported, never by adding a verb here."},"workload_ref":{"$ref":"#/$defs/ref","description":"The target VirtualMachineWorkload."},"desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The target generation this operation acts on. Bound with `expected_head` because a generation alone says WHEN the caller looked and not WHAT it saw."},"expected_head":{"$ref":"#/$defs/hash","description":"The canonical head the caller expects. A stale generation is one of the cases ACC-20 clause 7 requires to converge without double effect, and that is only decidable if the request carries what it believed."},"owner_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"backend_registration_ref":{"$ref":"#/$defs/ref","description":"The registered backend this operation is bound to. Provider ids stay evidence; the registration is the admitted thing."},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash","description":"The EXACT declaration consulted, not merely which one. Unsupported, stale, unknown and drifted cells must refuse before effect (ACC-20 clause 4), and a drifted cell is undetectable from a ref."},"affected_image_bindings":{"$ref":"#/$defs/boundRefs","description":"Every image the operation affects, each bound by ref AND hash as canon requires. An empty array is a claim — this operation affects no image — and is why the field is required rather than optional."},"affected_volume_bindings":{"$ref":"#/$defs/boundRefs"},"affected_network_bindings":{"$ref":"#/$defs/boundRefs"},"affected_device_bindings":{"$ref":"#/$defs/boundRefs"},"authority_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The authority under which this crosses. ACC-20 clause 5: authority and effects do not move into clients — a client submits a proposal and the daemon plus the wallet-owned authority path admit it."},"policy_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"idempotency_key_hash":{"$ref":"#/$defs/hash","description":"The HASH of the caller's idempotency key, matching the estate's existing convention on `connector-mapping.v2` rather than minting a second one. Duplicate and replayed requests must converge without double effect (ACC-20 clause 7), and the durable record needs to recognise a repeat without retaining the key itself."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The cleanup/compensation obligation this operation owes if it fails or becomes ambiguous. Present-and-null rather than absent: an operation that owes nothing has SAID so, and an absent field would be indistinguishable from one nobody computed."},"durability_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared durability boundary — what is guaranteed to survive a crash at this point. A ref, not an enum, because canon names the binding and not its vocabulary (see the title description)."},"observation_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared observation boundary — what the daemon can honestly claim to have observed rather than inferred. Canon requires uncertain external completion to reconcile honestly instead of being assumed complete, which needs the boundary stated in the request rather than reconstructed afterwards."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"boundRef":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"boundRefs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/boundRef"}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","title":"HypervisorMachineOperationReceipt","description":"WHAT ACTUALLY HAPPENED TO A MACHINE, INCLUDING WHEN THAT IS NOT KNOWN. Canon's binding list for this receipt is exact: the admitted request, backend-native operation identity AS EVIDENCE, pre and post desired AND observed generations, result or typed ambiguity/refusal, consequence receipts, and the exact verifier profile. THE RESULT VOCABULARY HAS THREE MEMBERS AND NOT TWO, WHICH IS THE POINT. `ambiguous` is a first-class outcome beside `succeeded` and `refused` because ACC-20 clause 7 requires uncertain external completion to reconcile honestly rather than be recorded as either — a backend that timed out after the effect may have started may have done the work, and a receipt forced to choose would be inventing one of the two answers. The estate's existing reconciler doctrine says the same thing from the other side: restart from an ambiguous claim becomes `reconciliation_required` rather than a second invocation. FOUR GENERATIONS, NOT TWO, BECAUSE DESIRED AND OBSERVED NEVER COLLAPSE. Canon states that desired and observed state never collapse into one mutable status field; a receipt that recorded a single before and after would re-collapse them at the moment of recording. The gap between `observed_generation_after` and `desired_generation_after` is exactly how a caller learns that an operation was admitted and has not yet landed. THE BACKEND'S OWN ID IS EVIDENCE AND NEVER IDENTITY. It is carried so an operator can correlate with the backend's console, and it is nullable because a refusal before effect has no backend operation to name — but canonical identity is always the daemon's `operation_ref`.","x-ioi-schema-version":"ioi.hypervisor.machine-operation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","operation_ref","admitted_request_hash","backend_native_operation_id","desired_generation_before","desired_generation_after","observed_generation_before","observed_generation_after","result","result_reason","consequence_receipt_refs","verifier_profile_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation-receipt.v1"},"receipt_ref":{"type":"string","pattern":"^machine-operation-receipt://\\S+$"},"operation_ref":{"$ref":"#/$defs/ref","description":"The canonical operation this answers."},"admitted_request_hash":{"$ref":"#/$defs/hash","description":"The hash of the request AS ADMITTED, which is not necessarily the request as submitted. Binding the admitted form is what makes a receipt evidence about the operation the daemon actually ran rather than about what a client said it wanted."},"backend_native_operation_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the operation refused before reaching the backend, which is a claim rather than an omission — a refusal that named a backend operation would be describing an effect it prevented."},"desired_generation_before":{"$ref":"#/$defs/generation"},"desired_generation_after":{"$ref":"#/$defs/generation"},"observed_generation_before":{"$ref":"#/$defs/generation"},"observed_generation_after":{"$ref":"#/$defs/generation","description":"Observed, not desired. When this trails `desired_generation_after` the operation is admitted and not yet landed, and saying so is the difference between a runtime that reports state and one that reports intentions."},"result":{"enum":["succeeded","refused","ambiguous"],"description":"Three members. `ambiguous` is not a failure mode of the vocabulary, it is a fact the vocabulary must be able to state: an external completion the daemon could not confirm is neither a success nor a refusal, and forcing it into either would be inventing the answer."},"result_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"},{"type":"null"}],"description":"The TYPED reason, snake_case so it is a member of a vocabulary rather than a sentence. Required-and-nullable: null is admitted only alongside `succeeded`, and a refusal or ambiguity without a reason is exactly the untyped failure canon refuses — see the portable invariant."},"consequence_receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Receipts for what this operation caused downstream. An empty array is a claim that it caused nothing further."},"verifier_profile_ref":{"$ref":"#/$defs/ref","description":"The EXACT verifier profile under which this receipt's claims were checked. ACC-20 clause 10 keeps the hosted and attached matrices separate; evidence from one cannot promote the other, and a receipt that did not name its profile could be read as either."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"generation":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","title":"HypervisorMachineHost","description":"A HOST, WHICH IS WHAT A DEVICE BELONGS TO BEFORE A MACHINE DOES. Declared capacity and observed capacity are separate members because canon's rule that desired and observed never collapse applies to a host exactly as it does to a machine: a host whose observed capacity trails its declared capacity is oversubscribed or degraded, and one number cannot say that.","x-ioi-schema-version":"ioi.hypervisor.machine-host.v1","type":"object","additionalProperties":false,"required":["schema_version","host_ref","backend_registration_ref","backend_native_host_id","machine_architecture","capability_declaration_ref","capability_declaration_hash","capacity","observed_capacity","maintenance_state","maintenance_plan_ref","evidence_refs","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-host.v1"},"host_ref":{"type":"string","pattern":"^machine-host://\\S+$","description":"Canonical identity, daemon-minted."},"backend_registration_ref":{"$ref":"#/$defs/ref"},"backend_native_host_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the backend exposes none."},"machine_architecture":{"type":"string","minLength":1,"maxLength":64},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"capacity":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"DECLARED, not inferred from observation."},"observed_capacity":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"What the host reports. May trail `capacity`; saying so is the point."},"maintenance_state":{"enum":["available","draining","maintenance","unreachable"]},"maintenance_plan_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present while a plan governs this host; null is a claim that none does."},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","title":"HypervisorMachineImage","description":"AN IMAGE IS ITS DIGEST, AND A TAG IS NOT IDENTITY. A machine started from a moving tag cannot be reconstructed, and reconstruction after restart is what the governed-machine journey requires rather than a nicety.","x-ioi-schema-version":"ioi.hypervisor.machine-image.v1","type":"object","additionalProperties":false,"required":["schema_version","image_ref","content_digest","machine_architecture","image_format","size_bytes","provenance_refs","admission_state","admission_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-image.v1"},"image_ref":{"type":"string","pattern":"^machine-image://\\S+$"},"content_digest":{"$ref":"#/$defs/hash"},"machine_architecture":{"type":"string","minLength":1,"maxLength":64},"image_format":{"type":"string","minLength":1,"maxLength":64},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"admission_state":{"enum":["admitted","refused","withdrawn"]},"admission_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the image is not admitted — a refusal with no reason is the untyped failure this estate refuses."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","title":"HypervisorMachineVolumeAttachment","description":"A VOLUME ATTACHMENT, BOUND TO FIVE AXES. Machine, principal, environment, scope and epoch, because an attachment that outlives any one of them becomes ambient access to the next machine.","x-ioi-schema-version":"ioi.hypervisor.machine-volume-attachment.v1","type":"object","additionalProperties":false,"required":["schema_version","attachment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","volume_ref","volume_content_hash","access_mode","persistence","attachment_state","attachment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-volume-attachment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"attachment_ref":{"type":"string","pattern":"^machine-volume-attachment://\\S+$"},"volume_ref":{"$ref":"#/$defs/ref"},"volume_content_hash":{"$ref":"#/$defs/hash"},"access_mode":{"enum":["read_only","read_write"]},"persistence":{"enum":["persistent","ephemeral"]},"attachment_state":{"enum":["requested","attached","detaching","detached","refused"]},"attachment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1","title":"HypervisorMachineNetworkAttachment","description":"A NETWORK ATTACHMENT, WHOSE REACHABILITY IS SOMEONE ELSE'S FIELD. It carries the connectivity profile by reference instead of restating scope and egress, so there is one place where connectivity is decided.","x-ioi-schema-version":"ioi.hypervisor.machine-network-attachment.v1","type":"object","additionalProperties":false,"required":["schema_version","attachment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","network_ref","connectivity_profile_ref","backend_native_address","attachment_state","attachment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-network-attachment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"attachment_ref":{"type":"string","pattern":"^machine-network-attachment://\\S+$"},"network_ref":{"$ref":"#/$defs/ref"},"connectivity_profile_ref":{"$ref":"#/$defs/ref","description":"Reuses the estate's existing typed egress posture rather than restating reachability here. Two places deciding connectivity is the defect this estate names as a second spine."},"backend_native_address":{"anyOf":[{"type":"string","minLength":1,"maxLength":256},{"type":"null"}],"description":"EVIDENCE, never identity and never authorization. An address is not a permission."},"attachment_state":{"enum":["requested","attached","detaching","detached","refused"]},"attachment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1","title":"HypervisorMachineDeviceAssignment","description":"A DEVICE ASSIGNMENT, WHICH NAMES ITS HOST. Passthrough supply is finite and physical, so the host is part of the answer to whether a second machine may have the same device.","x-ioi-schema-version":"ioi.hypervisor.machine-device-assignment.v1","type":"object","additionalProperties":false,"required":["schema_version","assignment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","host_ref","device_ref","device_class","exclusive","capability_declaration_ref","capability_declaration_hash","assignment_state","assignment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-device-assignment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"assignment_ref":{"type":"string","pattern":"^machine-device-assignment://\\S+$"},"host_ref":{"$ref":"#/$defs/ref","description":"A device belongs to a HOST before it belongs to a machine. An assignment that knew only its machine could not answer whether a sibling machine may hold the same device — which is exactly the sibling-machine access the journey refuses."},"device_ref":{"$ref":"#/$defs/ref"},"device_class":{"type":"string","minLength":1,"maxLength":64},"exclusive":{"type":"boolean","description":"True when no sibling machine may hold it. Passthrough is the one attachment whose supply is finite and physical."},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"assignment_state":{"enum":["requested","assigned","releasing","released","refused"]},"assignment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1","title":"HypervisorMachineConsoleSession","description":"A CONSOLE THAT EXPIRES, BECAUSE ONE THAT DOES NOT IS AMBIENT ACCESS WITH A POLITE NAME. Bound to machine, principal, environment, scope and epoch, and held as a capability lease rather than granted as a mode.","x-ioi-schema-version":"ioi.hypervisor.machine-console-session.v1","type":"object","additionalProperties":false,"required":["schema_version","session_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","capability_lease_ref","opened_at_ms","expires_at_ms","session_state","close_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-console-session.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"session_ref":{"type":"string","pattern":"^machine-console-session://\\S+$"},"capability_lease_ref":{"$ref":"#/$defs/ref","description":"The console IS a lease, not a mode."},"opened_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"A console session ALWAYS expires. One that ends only when someone closes it is ambient access with a polite name."},"session_state":{"enum":["open","closed","expired","revoked"],"description":"`revoked` and `closed` are distinct for the same reason they are on a port: closed can be reopened by whoever could open it, and revoked cannot."},"close_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the session is not open."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1","title":"HypervisorMachineSnapshot","description":"RESTORE MATERIAL, AND NEVER RESTORE VALIDITY. Canon separates the two deliberately: snapshot bytes may live on local disk, object storage, CAS or provider storage, and none of that makes a restore valid — validity stays operation-backed. Both generations are recorded because a snapshot taken mid-transition is honest only if it says so.","x-ioi-schema-version":"ioi.hypervisor.machine-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_ref","workload_ref","taken_at_desired_generation","taken_at_observed_generation","boot_epoch","content_digest","storage_ref","parent_snapshot_ref","restore_material_only","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-snapshot.v1"},"snapshot_ref":{"type":"string","pattern":"^machine-snapshot://\\S+$"},"workload_ref":{"$ref":"#/$defs/ref"},"taken_at_desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"taken_at_observed_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Recorded beside the desired generation. A gap means the snapshot was taken while the machine was still converging, and a reader must be able to see that."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"content_digest":{"$ref":"#/$defs/hash"},"storage_ref":{"$ref":"#/$defs/ref"},"parent_snapshot_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null for a root snapshot."},"restore_material_only":{"const":true,"description":"A const rather than a boolean, because there is no admitted record where this is false. Snapshot bytes are never restore validity."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","title":"HypervisorMachineMigrationPlan","description":"A MIGRATION PLAN FOR THE SUPPORTED SUBSET ONLY. An unsupported kind is refused, never simulated — the portable subset does not turn an unsupported operation into simulated success.","x-ioi-schema-version":"ioi.hypervisor.machine-migration-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","workload_ref","source_host_ref","target_host_ref","migration_kind","capability_declaration_ref","capability_declaration_hash","expected_head","cleanup_obligation_ref","plan_state","plan_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-migration-plan.v1"},"plan_ref":{"type":"string","pattern":"^machine-migration-plan://\\S+$"},"workload_ref":{"$ref":"#/$defs/ref"},"source_host_ref":{"$ref":"#/$defs/ref"},"target_host_ref":{"$ref":"#/$defs/ref"},"migration_kind":{"type":"string","minLength":1,"maxLength":64},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"expected_head":{"$ref":"#/$defs/hash","description":"A plan is written against a known state, or it is a wish."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed."},"plan_state":{"enum":["planned","admitted","executing","completed","refused","ambiguous"],"description":"`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."},"plan_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the plan is refused or ambiguous."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","title":"HypervisorHostMaintenancePlan","description":"A MAINTENANCE PLAN THAT NAMES ITS AFFECTED MACHINES RATHER THAN DERIVING THEM. The set that would be derived when work begins is not the set the operator approved.","x-ioi-schema-version":"ioi.hypervisor.host-maintenance-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","host_ref","maintenance_kind","affected_workload_refs","drain_policy","window_start_ms","window_end_ms","plan_state","plan_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.host-maintenance-plan.v1"},"plan_ref":{"type":"string","pattern":"^host-maintenance-plan://\\S+$"},"host_ref":{"$ref":"#/$defs/ref"},"maintenance_kind":{"type":"string","minLength":1,"maxLength":64},"affected_workload_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"NAMED, not derived at execution time."},"drain_policy":{"type":"string","minLength":1,"maxLength":64,"description":"How running machines leave before work starts."},"window_start_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"window_end_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"plan_state":{"enum":["planned","admitted","executing","completed","refused","ambiguous"],"description":"`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."},"plan_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the plan is refused or ambiguous."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -168407,6 +170411,15 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", r#"[{"rule_id":"hypervisor_machine_operation_receipt.failure_and_ambiguity_are_typed","description":"A refusal or an ambiguity MUST name its reason. This is the one rule that keeps the three-member result vocabulary honest: `ambiguous` exists so that an unconfirmable external completion can be stated rather than guessed, and without this rule it degrades into a way to record 'something happened' with no obligation to say what — which is worse than the two-member vocabulary it replaced, because it looks like more information while carrying less.","expression":{"operator":"non_empty_when_in","path":"$.result_reason","when_path":"$.result","values":["refused","ambiguous"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", r#"[{"rule_id":"hypervisor_machine_image.outcome_is_typed","description":"An image that is not admitted MUST say why. `withdrawn` is included beside `refused`: a withdrawal with no reason is indistinguishable from an image nobody looked at.","expression":{"operator":"non_empty_when_in","path":"$.admission_reason","when_path":"$.admission_state","values":["refused","withdrawn"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", r#"[{"rule_id":"hypervisor_machine_volume_attachment.outcome_is_typed","description":"A refused attachment MUST name its reason — the journey requires unsupported and drifted cells to refuse before effect WITH the exact typed reason, and an untyped refusal cannot be told from a failure.","expression":{"operator":"non_empty_when_in","path":"$.attachment_reason","when_path":"$.attachment_state","values":["refused"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1", r#"[{"rule_id":"hypervisor_machine_network_attachment.outcome_is_typed","description":"A refused attachment MUST name its reason.","expression":{"operator":"non_empty_when_in","path":"$.attachment_reason","when_path":"$.attachment_state","values":["refused"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1", r#"[{"rule_id":"hypervisor_machine_device_assignment.outcome_is_typed","description":"A refused assignment MUST name its reason. Device supply is finite, so 'refused' without a reason cannot be told from 'none left'.","expression":{"operator":"non_empty_when_in","path":"$.assignment_reason","when_path":"$.assignment_state","values":["refused"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1", r#"[{"rule_id":"hypervisor_machine_console_session.outcome_is_typed","description":"A console session that is not open MUST say why it ended. Closed, expired and revoked are three different facts about who ended it and whether it can come back.","expression":{"operator":"non_empty_when_in","path":"$.close_reason","when_path":"$.session_state","values":["closed","expired","revoked"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", r#"[{"rule_id":"hypervisor_machine_migration_plan.outcome_is_typed","description":"A refused or ambiguous plan MUST name its reason. Ambiguity without a reason is the failure mode that makes a three-member vocabulary worse than a two-member one.","expression":{"operator":"non_empty_when_in","path":"$.plan_reason","when_path":"$.plan_state","values":["refused","ambiguous"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", r#"[{"rule_id":"hypervisor_host_maintenance_plan.outcome_is_typed","description":"A refused or ambiguous plan MUST name its reason.","expression":{"operator":"non_empty_when_in","path":"$.plan_reason","when_path":"$.plan_state","values":["refused","ambiguous"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -170550,6 +172563,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^harness-terminal-transcript:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,300}$"#,
     ),
     (
+        r#"^host-maintenance-plan://\S+$"#,
+        r#"^host-maintenance-plan://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^hypervisoros-node://[^\s]{1,248}$"#,
         r#"^hypervisoros-node://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -170702,12 +172719,44 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^lost-suffix://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^machine-console-session://\S+$"#,
+        r#"^machine-console-session://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-device-assignment://\S+$"#,
+        r#"^machine-device-assignment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-host://\S+$"#,
+        r#"^machine-host://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-image://\S+$"#,
+        r#"^machine-image://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-migration-plan://\S+$"#,
+        r#"^machine-migration-plan://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-network-attachment://\S+$"#,
+        r#"^machine-network-attachment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^machine-operation-receipt://\S+$"#,
         r#"^machine-operation-receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^machine-operation://\S+$"#,
         r#"^machine-operation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-snapshot://\S+$"#,
+        r#"^machine-snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-volume-attachment://\S+$"#,
+        r#"^machine-volume-attachment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^mapping://[^\s]{1,240}$"#,
@@ -174395,6 +176444,38 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -175788,6 +177869,51 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1" => {
             serde_json::from_value::<HypervisorMachineOperationReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-host/v1" => {
+            serde_json::from_value::<HypervisorMachineHostV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-image/v1" => {
+            serde_json::from_value::<HypervisorMachineImageV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1" => {
+            serde_json::from_value::<HypervisorMachineVolumeAttachmentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1" => {
+            serde_json::from_value::<HypervisorMachineNetworkAttachmentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1" => {
+            serde_json::from_value::<HypervisorMachineDeviceAssignmentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1" => {
+            serde_json::from_value::<HypervisorMachineConsoleSessionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1" => {
+            serde_json::from_value::<HypervisorMachineSnapshotV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1" => {
+            serde_json::from_value::<HypervisorMachineMigrationPlanV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1" => {
+            serde_json::from_value::<HypervisorHostMaintenancePlanV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -177187,6 +179313,51 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-machine-host/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineHostV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-image/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineImageV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineVolumeAttachmentV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineNetworkAttachmentV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineDeviceAssignmentV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineConsoleSessionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineSnapshotV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineMigrationPlanV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1" => {
+            let projection = serde_json::from_value::<HypervisorHostMaintenancePlanV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -177323,8 +179494,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1364,
-            "the registered golden corpus must remain the explicit 1364-fixture bar",
+            1396,
+            "the registered golden corpus must remain the explicit 1396-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -177566,7 +179737,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 910,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 919,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

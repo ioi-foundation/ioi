@@ -1,0 +1,20 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-machine-migration-plan/typed-reason/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_machine_migration_plan.outcome_is_typed",
+      "description": "A refused or ambiguous plan MUST name its reason. Ambiguity without a reason is the failure mode that makes a three-member vocabulary worse than a two-member one.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.plan_reason",
+        "when_path": "$.plan_state",
+        "values": [
+          "refused",
+          "ambiguous"
+        ]
+      }
+    }
+  ]
+}

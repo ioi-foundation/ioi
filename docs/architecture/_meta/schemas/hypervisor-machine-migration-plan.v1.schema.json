@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+  "title": "HypervisorMachineMigrationPlan",
+  "description": "A MIGRATION PLAN FOR THE SUPPORTED SUBSET ONLY. An unsupported kind is refused, never simulated — the portable subset does not turn an unsupported operation into simulated success.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-migration-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_ref",
+    "workload_ref",
+    "source_host_ref",
+    "target_host_ref",
+    "migration_kind",
+    "capability_declaration_ref",
+    "capability_declaration_hash",
+    "expected_head",
+    "cleanup_obligation_ref",
+    "plan_state",
+    "plan_reason",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-migration-plan.v1"
+    },
+    "plan_ref": {
+      "type": "string",
+      "pattern": "^machine-migration-plan://\\S+$"
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "source_host_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "target_host_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "migration_kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "capability_declaration_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "capability_declaration_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "expected_head": {
+      "$ref": "#/$defs/hash",
+      "description": "A plan is written against a known state, or it is a wish."
+    },
+    "cleanup_obligation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present-and-null when nothing is owed."
+    },
+    "plan_state": {
+      "enum": [
+        "planned",
+        "admitted",
+        "executing",
+        "completed",
+        "refused",
+        "ambiguous"
+      ],
+      "description": "`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."
+    },
+    "plan_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/typedReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed, and REQUIRED whenever the plan is refused or ambiguous."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

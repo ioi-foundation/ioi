@@ -15950,6 +15950,463 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+      "canonical_name": "HypervisorMachineHost",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-host.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-host.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineHostV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineHostV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-host-v1/positive-nominal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+      "canonical_name": "HypervisorMachineImage",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-image.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-image.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-image/typed-reason/v1",
+          "path": "invariants/hypervisor-machine-image.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineImageV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineImageV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-image-v1/positive-nominal.json",
+        "fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+      "canonical_name": "HypervisorMachineVolumeAttachment",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-volume-attachment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-volume-attachment.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-volume-attachment/typed-reason/v1",
+          "path": "invariants/hypervisor-machine-volume-attachment.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineVolumeAttachmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineVolumeAttachmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json",
+        "fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+      "canonical_name": "HypervisorMachineNetworkAttachment",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-network-attachment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-network-attachment.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-network-attachment/typed-reason/v1",
+          "path": "invariants/hypervisor-machine-network-attachment.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineNetworkAttachmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineNetworkAttachmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json",
+        "fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+      "canonical_name": "HypervisorMachineDeviceAssignment",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-device-assignment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-device-assignment.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-device-assignment/typed-reason/v1",
+          "path": "invariants/hypervisor-machine-device-assignment.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineDeviceAssignmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineDeviceAssignmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json",
+        "fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+      "canonical_name": "HypervisorMachineConsoleSession",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-console-session.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-console-session.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-console-session/typed-reason/v1",
+          "path": "invariants/hypervisor-machine-console-session.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineConsoleSessionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineConsoleSessionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-console-session-v1/positive-nominal.json",
+        "fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+      "canonical_name": "HypervisorMachineSnapshot",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-snapshot.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-snapshot.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineSnapshotV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineSnapshotV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+      "canonical_name": "HypervisorMachineMigrationPlan",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.machine-migration-plan.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-migration-plan.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-migration-plan/typed-reason/v1",
+          "path": "invariants/hypervisor-machine-migration-plan.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineMigrationPlanV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineMigrationPlanV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json",
+        "fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+      "canonical_name": "HypervisorHostMaintenancePlan",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",
+      "schema_version": "ioi.hypervisor.host-maintenance-plan.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-host-maintenance-plan.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-host-maintenance-plan/typed-reason/v1",
+          "path": "invariants/hypervisor-host-maintenance-plan.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorHostMaintenancePlanV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorHostMaintenancePlanV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json",
+        "fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json",
+          "expected_failure": "invariant"
+        }
+      ]
     }
   ]
 }

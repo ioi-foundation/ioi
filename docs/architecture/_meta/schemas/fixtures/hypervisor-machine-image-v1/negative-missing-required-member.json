@@ -1,0 +1,1 @@
+{"schema_version":"ioi.hypervisor.machine-image.v1","content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","machine_architecture":"x86_64","image_format":"qcow2","size_bytes":1073741824,"provenance_refs":["evidence://img/provenance/01"],"admission_state":"admitted","admission_reason":null,"receipt_refs":[]}

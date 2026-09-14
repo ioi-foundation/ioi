@@ -1703,15 +1703,185 @@ restart reconstruction, effect reconciliation where external, and cleanup. A
 console session grants no ambient authority to mutate another machine or to
 bypass brokered credential and device policy.
 
-This family is **target canon and is not yet registered or implemented as one
-complete production path**. Two of the eleven are registered: `HypervisorMachineOperation`
-and `HypervisorMachineOperationReceipt`, which are the two this section already
-specifies to the field. The remaining nine are NAMED here and specified nowhere,
-so each needs its fields decided in canon before it is registered — a schema
-whose fields exist in no canon would make the registry the specification, which
-is the wrong way round. Registering two of eleven qualifies nothing on its own:
-the family is a family, and ACC-20 clause 1 asks for contracts before surfaces,
-not for some of them. The current VM state payload and backend capability
+#### The nine remaining machine-control members, specified
+
+Each member below is specified here so it can be registered. Nothing in this
+subsection is a free choice: every field answers a clause of the governed-machine
+journey, and where a clause does not reach, the field is not invented. Four
+obligations recur, and they recur because the journey states them once and means
+them everywhere.
+
+**Desired and observed never collapse**, so anything that can be asked for and
+then observed carries both, and an attachment carries the boot epoch it was made
+under. **Capability truth is current and explicit**, so wherever a backend
+decides whether something is possible, the exact capability declaration is bound
+by ref *and* hash — a ref alone cannot detect the drifted cell that must refuse
+before effect. **Bounded things are bound to five axes** — machine, principal,
+environment, scope and epoch — because a console session or attachment that
+outlives any one of them becomes ambient access to the next machine. And
+**backend-native identifiers are evidence**, never identity; canonical identity
+is always the daemon's.
+
+```text
+HypervisorMachineHost
+  host_ref                          canonical identity, daemon-minted
+  backend_registration_ref
+  backend_native_host_id            evidence, never identity
+  machine_architecture
+  capability_declaration_ref
+  capability_declaration_hash
+  capacity                          declared, not inferred from observation:
+                                    { vcpus, memory_mib, storage_gib }
+  observed_capacity                 what the host reports, same members; may
+                                    trail capacity, and saying so is the point
+  maintenance_state                 available | draining | maintenance | unreachable
+  maintenance_plan_ref?             present while a plan governs this host
+  evidence_refs
+  receipt_refs
+
+HypervisorMachineImage
+  image_ref
+  content_digest                    the image IS its digest; a tag is not identity
+  machine_architecture
+  image_format
+  size_bytes
+  provenance_refs                   where it came from, as evidence
+  admission_state                   admitted | refused | withdrawn
+  admission_reason                  typed, required whenever not admitted
+  receipt_refs
+```
+
+An image is named by its digest because a machine started from a moving tag
+cannot be reconstructed, and reconstruction after restart is the journey's
+requirement rather than a nicety.
+
+```text
+HypervisorMachineVolumeAttachment
+  attachment_ref
+  workload_ref                      machine-bound
+  principal_ref                     principal-bound
+  environment_ref                   environment-bound
+  scope_ref                         scope-bound
+  boot_epoch                        epoch-bound; an attachment does not survive a
+                                    new epoch merely because the machine persists
+  volume_ref
+  volume_content_hash
+  access_mode                       read_only | read_write
+  persistence                       persistent | ephemeral
+  attachment_state                  requested | attached | detaching | detached | refused
+  attachment_reason                 typed, required whenever refused
+  cleanup_obligation_ref            present-and-null when nothing is owed
+  receipt_refs
+
+HypervisorMachineNetworkAttachment
+  attachment_ref
+  workload_ref / principal_ref / environment_ref / scope_ref / boot_epoch
+  network_ref
+  connectivity_profile_ref          reuses the existing typed egress posture
+                                    rather than restating reachability here
+  backend_native_address            evidence, never identity or authorization
+  attachment_state / attachment_reason
+  cleanup_obligation_ref
+  receipt_refs
+
+HypervisorMachineDeviceAssignment
+  assignment_ref
+  workload_ref / principal_ref / environment_ref / scope_ref / boot_epoch
+  host_ref                          a device belongs to a host before a machine
+  device_ref
+  device_class
+  exclusive                         true when no sibling machine may hold it
+  capability_declaration_ref + capability_declaration_hash
+  assignment_state / assignment_reason
+  cleanup_obligation_ref
+  receipt_refs
+```
+
+A device assignment names its host because passthrough is the one attachment
+whose supply is finite and physical: an assignment that knew only its machine
+could not answer whether a second machine may have the same device, which is the
+sibling-machine access clause 6 refuses.
+
+```text
+HypervisorMachineConsoleSession
+  session_ref
+  workload_ref / principal_ref / environment_ref / scope_ref / boot_epoch
+  capability_lease_ref              the console is a lease, not a mode
+  opened_at_ms
+  expires_at_ms                     a console session always expires
+  session_state                     open | closed | expired | revoked
+  close_reason                      typed, required whenever not open
+  receipt_refs
+```
+
+A console is a capability lease and carries an expiry because a session that
+ends only when someone closes it is ambient access with a polite name. Revoked
+and closed are distinct for the reason they are distinct on a port: closed can be
+reopened by whoever could open it, and revoked cannot.
+
+```text
+HypervisorMachineSnapshot
+  snapshot_ref
+  workload_ref
+  taken_at_desired_generation
+  taken_at_observed_generation      both, because a snapshot taken mid-transition
+                                    is honest only if it says so
+  boot_epoch
+  content_digest
+  storage_ref                       local disk, object storage, CAS or provider
+  parent_snapshot_ref               present-and-null for a root snapshot
+  restore_material_only             const true — snapshot bytes are never
+                                    restore VALIDITY, which stays operation-backed
+  receipt_refs
+
+HypervisorMachineMigrationPlan
+  plan_ref
+  workload_ref
+  source_host_ref
+  target_host_ref
+  migration_kind                    the supported subset only; an unsupported
+                                    kind is refused, never simulated
+  capability_declaration_ref + capability_declaration_hash
+  expected_head                     the plan is written against a known state
+  plan_state                        planned | admitted | executing | completed |
+                                    refused | ambiguous
+  plan_reason                       typed, required whenever refused or ambiguous
+  cleanup_obligation_ref
+  receipt_refs
+
+HypervisorHostMaintenancePlan
+  plan_ref
+  host_ref
+  maintenance_kind
+  affected_workload_refs            named, not derived at execution time
+  drain_policy                      how running machines leave before work starts
+  window_start_ms / window_end_ms
+  plan_state                        planned | admitted | executing | completed |
+                                    refused | ambiguous
+  plan_reason                       typed, required whenever refused or ambiguous
+  receipt_refs
+```
+
+A migration plan and a maintenance plan both carry `ambiguous` in their state
+vocabulary for the same reason the operation receipt does: an external step whose
+completion the daemon could not confirm is neither done nor undone, and a
+vocabulary that cannot say so forces an invented answer. A maintenance plan names
+its affected machines rather than deriving them when work begins, because the set
+that would be derived at execution time is not the set the operator approved.
+
+All eleven members are now SPECIFIED above and REGISTERED, with generated Rust
+and TypeScript projections agreeing with the schemas. The nine were named here
+and specified nowhere until this pass; each needed its fields decided in canon
+before registration, because a schema whose fields exist in no canon makes the
+registry the specification rather than a projection of it.
+
+Registration is not implementation and neither is qualification. This family
+remains **target canon with no complete production path behind it**: nothing
+serves these contracts yet, no backend declares against them, and the current VM
+state payload and backend capability declaration stay prerequisites rather than
+evidence of Workstation, Infrastructure or HypervisorOS lifecycle conformance.
+What registration buys is the thing the journey asks for first — contracts before
+surfaces — and what it does not buy is any claim over the surfaces. The current VM state payload and backend capability
 declaration are prerequisites, not evidence of Workstation, Infrastructure, or
 HypervisorOS lifecycle conformance. Contract registration and generated
 projection agreement precede any product claim over the family.

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+  "title": "HypervisorMachineNetworkAttachment",
+  "description": "A NETWORK ATTACHMENT, WHOSE REACHABILITY IS SOMEONE ELSE'S FIELD. It carries the connectivity profile by reference instead of restating scope and egress, so there is one place where connectivity is decided.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-network-attachment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attachment_ref",
+    "workload_ref",
+    "principal_ref",
+    "environment_ref",
+    "scope_ref",
+    "boot_epoch",
+    "network_ref",
+    "connectivity_profile_ref",
+    "backend_native_address",
+    "attachment_state",
+    "attachment_reason",
+    "cleanup_obligation_ref",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-network-attachment.v1"
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Machine-bound."
+    },
+    "principal_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Principal-bound."
+    },
+    "environment_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Environment-bound."
+    },
+    "scope_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Scope-bound."
+    },
+    "boot_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+    },
+    "attachment_ref": {
+      "type": "string",
+      "pattern": "^machine-network-attachment://\\S+$"
+    },
+    "network_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "connectivity_profile_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "Reuses the estate's existing typed egress posture rather than restating reachability here. Two places deciding connectivity is the defect this estate names as a second spine."
+    },
+    "backend_native_address": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "EVIDENCE, never identity and never authorization. An address is not a permission."
+    },
+    "attachment_state": {
+      "enum": [
+        "requested",
+        "attached",
+        "detaching",
+        "detached",
+        "refused"
+      ]
+    },
+    "attachment_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/typedReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed, and REQUIRED whenever refused."
+    },
+    "cleanup_obligation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "typedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

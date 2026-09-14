@@ -12267,6 +12267,158 @@ export type HypervisorMachineOperationReceiptV1 = {
   verifier_profile_ref: string;
 };
 
+export type HypervisorMachineHostV1 = {
+  schema_version: "ioi.hypervisor.machine-host.v1";
+  host_ref: string;
+  backend_registration_ref: string;
+  backend_native_host_id: string | null;
+  machine_architecture: string;
+  capability_declaration_ref: string;
+  capability_declaration_hash: string;
+  capacity: {
+      vcpus: number;
+      memory_mib: number;
+      storage_gib: number;
+    };
+  observed_capacity: {
+      vcpus: number;
+      memory_mib: number;
+      storage_gib: number;
+    };
+  maintenance_state: "available" | "draining" | "maintenance" | "unreachable";
+  maintenance_plan_ref: string | null;
+  evidence_refs: Array<string>;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineImageV1 = {
+  schema_version: "ioi.hypervisor.machine-image.v1";
+  image_ref: string;
+  content_digest: string;
+  machine_architecture: string;
+  image_format: string;
+  size_bytes: number;
+  provenance_refs: Array<string>;
+  admission_state: "admitted" | "refused" | "withdrawn";
+  admission_reason: string | null;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineVolumeAttachmentV1 = {
+  schema_version: "ioi.hypervisor.machine-volume-attachment.v1";
+  workload_ref: string;
+  principal_ref: string;
+  environment_ref: string;
+  scope_ref: string;
+  boot_epoch: number;
+  attachment_ref: string;
+  volume_ref: string;
+  volume_content_hash: string;
+  access_mode: "read_only" | "read_write";
+  persistence: "persistent" | "ephemeral";
+  attachment_state: "requested" | "attached" | "detaching" | "detached" | "refused";
+  attachment_reason: string | null;
+  cleanup_obligation_ref: string | null;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineNetworkAttachmentV1 = {
+  schema_version: "ioi.hypervisor.machine-network-attachment.v1";
+  workload_ref: string;
+  principal_ref: string;
+  environment_ref: string;
+  scope_ref: string;
+  boot_epoch: number;
+  attachment_ref: string;
+  network_ref: string;
+  connectivity_profile_ref: string;
+  backend_native_address: string | null;
+  attachment_state: "requested" | "attached" | "detaching" | "detached" | "refused";
+  attachment_reason: string | null;
+  cleanup_obligation_ref: string | null;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineDeviceAssignmentV1 = {
+  schema_version: "ioi.hypervisor.machine-device-assignment.v1";
+  workload_ref: string;
+  principal_ref: string;
+  environment_ref: string;
+  scope_ref: string;
+  boot_epoch: number;
+  assignment_ref: string;
+  host_ref: string;
+  device_ref: string;
+  device_class: string;
+  exclusive: boolean;
+  capability_declaration_ref: string;
+  capability_declaration_hash: string;
+  assignment_state: "requested" | "assigned" | "releasing" | "released" | "refused";
+  assignment_reason: string | null;
+  cleanup_obligation_ref: string | null;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineConsoleSessionV1 = {
+  schema_version: "ioi.hypervisor.machine-console-session.v1";
+  workload_ref: string;
+  principal_ref: string;
+  environment_ref: string;
+  scope_ref: string;
+  boot_epoch: number;
+  session_ref: string;
+  capability_lease_ref: string;
+  opened_at_ms: number;
+  expires_at_ms: number;
+  session_state: "open" | "closed" | "expired" | "revoked";
+  close_reason: string | null;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineSnapshotV1 = {
+  schema_version: "ioi.hypervisor.machine-snapshot.v1";
+  snapshot_ref: string;
+  workload_ref: string;
+  taken_at_desired_generation: number;
+  taken_at_observed_generation: number;
+  boot_epoch: number;
+  content_digest: string;
+  storage_ref: string;
+  parent_snapshot_ref: string | null;
+  restore_material_only: true;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorMachineMigrationPlanV1 = {
+  schema_version: "ioi.hypervisor.machine-migration-plan.v1";
+  plan_ref: string;
+  workload_ref: string;
+  source_host_ref: string;
+  target_host_ref: string;
+  migration_kind: string;
+  capability_declaration_ref: string;
+  capability_declaration_hash: string;
+  expected_head: string;
+  cleanup_obligation_ref: string | null;
+  plan_state: "planned" | "admitted" | "executing" | "completed" | "refused" | "ambiguous";
+  plan_reason: string | null;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorHostMaintenancePlanV1 = {
+  schema_version: "ioi.hypervisor.host-maintenance-plan.v1";
+  plan_ref: string;
+  host_ref: string;
+  maintenance_kind: string;
+  affected_workload_refs: Array<string>;
+  drain_policy: string;
+  window_start_ms: number;
+  window_end_ms: number;
+  plan_state: "planned" | "admitted" | "executing" | "completed" | "refused" | "ambiguous";
+  plan_reason: string | null;
+  receipt_refs: Array<string>;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -23188,6 +23340,262 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -27205,6 +27613,38 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-volume-attachment-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-network-attachment-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-device-assignment-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-console-session-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-snapshot-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-migration-plan-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27927,6 +28367,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^harness-session-binding:[^\\s]{1,400}$",
   "^harness-session-terminal-attach:[^\\s]{1,300}$",
   "^harness-terminal-transcript:[^\\s]{1,300}$",
+  "^host-maintenance-plan://\\S+$",
   "^hypervisoros-node://[^\\s]{1,248}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^ifc-label://[^\\s]+$",
@@ -27965,8 +28406,16 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^local-agent-pairing://[^\\s]{1,500}$",
   "^location://[^\\s]{1,248}$",
   "^lost-suffix://[^\\s]{1,248}$",
+  "^machine-console-session://\\S+$",
+  "^machine-device-assignment://\\S+$",
+  "^machine-host://\\S+$",
+  "^machine-image://\\S+$",
+  "^machine-migration-plan://\\S+$",
+  "^machine-network-attachment://\\S+$",
   "^machine-operation-receipt://\\S+$",
   "^machine-operation://\\S+$",
+  "^machine-snapshot://\\S+$",
+  "^machine-volume-attachment://\\S+$",
   "^mapping://[^\\s]{1,240}$",
   "^mapping://[a-z0-9][a-z0-9._-]{0,127}$",
   "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
@@ -28559,7 +29008,16 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7",
   "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a",
   "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1": "sha256:7789c4fbdba7e8ea8df3f22aa61b35864edf9355c344c6cd267ae82631626826",
-  "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1": "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a"
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1": "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a",
+  "schema://ioi/components/hypervisor/hypervisor-machine-host/v1": "sha256:56f09db7ef83f8f3554e48e0f0d6ac17fdd932807fab9a8b270a831b45048b9e",
+  "schema://ioi/components/hypervisor/hypervisor-machine-image/v1": "sha256:a4f5c99faf68b002952a450f193b30a24b751c5b460002d56750d9cc61d696df",
+  "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1": "sha256:79174ae478411620a2c6c40da4dfeec9ee13c6b5f740c8888231ecd5b572b8ed",
+  "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1": "sha256:9ee8e6a2a20c234029615ed2d0f7a98d2407f021b2f444080873ab5f6bbd9256",
+  "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1": "sha256:a5bb48b546f03b691a674f81043c42f2b080eb2947a3d052f5a71f392356ec12",
+  "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1": "sha256:07abd258377f800381c7c6ec3ff089b18fcbde43a8ba77aab17af022805b2edd",
+  "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1": "sha256:18a988066a820224a25f662ce0922845bcb88e116233dd03d7e651cf228e871b",
+  "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1": "sha256:70d9cd9e9c62679f2b4d6d019585316fa86c8a1c225da5dfb076e90579df5881",
+  "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1": "sha256:4146f6f5f1cf11f275a2eada7cbc8285c1cbc1bc4d96a928178ffb7981656c5a"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -123370,6 +123828,1098 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "maximum": 9007199254740991
       }
     }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-host/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
+    "title": "HypervisorMachineHost",
+    "description": "A HOST, WHICH IS WHAT A DEVICE BELONGS TO BEFORE A MACHINE DOES. Declared capacity and observed capacity are separate members because canon's rule that desired and observed never collapse applies to a host exactly as it does to a machine: a host whose observed capacity trails its declared capacity is oversubscribed or degraded, and one number cannot say that.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-host.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "host_ref",
+      "backend_registration_ref",
+      "backend_native_host_id",
+      "machine_architecture",
+      "capability_declaration_ref",
+      "capability_declaration_hash",
+      "capacity",
+      "observed_capacity",
+      "maintenance_state",
+      "maintenance_plan_ref",
+      "evidence_refs",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-host.v1"
+      },
+      "host_ref": {
+        "type": "string",
+        "pattern": "^machine-host://\\S+$",
+        "description": "Canonical identity, daemon-minted."
+      },
+      "backend_registration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "backend_native_host_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "EVIDENCE, never identity. Null when the backend exposes none."
+      },
+      "machine_architecture": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "capability_declaration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "capability_declaration_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "capacity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vcpus",
+          "memory_mib",
+          "storage_gib"
+        ],
+        "properties": {
+          "vcpus": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "memory_mib": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "storage_gib": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "description": "DECLARED, not inferred from observation."
+      },
+      "observed_capacity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vcpus",
+          "memory_mib",
+          "storage_gib"
+        ],
+        "properties": {
+          "vcpus": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "memory_mib": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "storage_gib": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "description": "What the host reports. May trail `capacity`; saying so is the point."
+      },
+      "maintenance_state": {
+        "enum": [
+          "available",
+          "draining",
+          "maintenance",
+          "unreachable"
+        ]
+      },
+      "maintenance_plan_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present while a plan governs this host; null is a claim that none does."
+      },
+      "evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-image/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-image/v1",
+    "title": "HypervisorMachineImage",
+    "description": "AN IMAGE IS ITS DIGEST, AND A TAG IS NOT IDENTITY. A machine started from a moving tag cannot be reconstructed, and reconstruction after restart is what the governed-machine journey requires rather than a nicety.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-image.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "image_ref",
+      "content_digest",
+      "machine_architecture",
+      "image_format",
+      "size_bytes",
+      "provenance_refs",
+      "admission_state",
+      "admission_reason",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-image.v1"
+      },
+      "image_ref": {
+        "type": "string",
+        "pattern": "^machine-image://\\S+$"
+      },
+      "content_digest": {
+        "$ref": "#/$defs/hash"
+      },
+      "machine_architecture": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "image_format": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "size_bytes": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "provenance_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "admission_state": {
+        "enum": [
+          "admitted",
+          "refused",
+          "withdrawn"
+        ]
+      },
+      "admission_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever the image is not admitted — a refusal with no reason is the untyped failure this estate refuses."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1",
+    "title": "HypervisorMachineVolumeAttachment",
+    "description": "A VOLUME ATTACHMENT, BOUND TO FIVE AXES. Machine, principal, environment, scope and epoch, because an attachment that outlives any one of them becomes ambient access to the next machine.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-volume-attachment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attachment_ref",
+      "workload_ref",
+      "principal_ref",
+      "environment_ref",
+      "scope_ref",
+      "boot_epoch",
+      "volume_ref",
+      "volume_content_hash",
+      "access_mode",
+      "persistence",
+      "attachment_state",
+      "attachment_reason",
+      "cleanup_obligation_ref",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-volume-attachment.v1"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Machine-bound."
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Principal-bound."
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Environment-bound."
+      },
+      "scope_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Scope-bound."
+      },
+      "boot_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+      },
+      "attachment_ref": {
+        "type": "string",
+        "pattern": "^machine-volume-attachment://\\S+$"
+      },
+      "volume_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "volume_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "access_mode": {
+        "enum": [
+          "read_only",
+          "read_write"
+        ]
+      },
+      "persistence": {
+        "enum": [
+          "persistent",
+          "ephemeral"
+        ]
+      },
+      "attachment_state": {
+        "enum": [
+          "requested",
+          "attached",
+          "detaching",
+          "detached",
+          "refused"
+        ]
+      },
+      "attachment_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever refused."
+      },
+      "cleanup_obligation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1",
+    "title": "HypervisorMachineNetworkAttachment",
+    "description": "A NETWORK ATTACHMENT, WHOSE REACHABILITY IS SOMEONE ELSE'S FIELD. It carries the connectivity profile by reference instead of restating scope and egress, so there is one place where connectivity is decided.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-network-attachment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attachment_ref",
+      "workload_ref",
+      "principal_ref",
+      "environment_ref",
+      "scope_ref",
+      "boot_epoch",
+      "network_ref",
+      "connectivity_profile_ref",
+      "backend_native_address",
+      "attachment_state",
+      "attachment_reason",
+      "cleanup_obligation_ref",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-network-attachment.v1"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Machine-bound."
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Principal-bound."
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Environment-bound."
+      },
+      "scope_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Scope-bound."
+      },
+      "boot_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+      },
+      "attachment_ref": {
+        "type": "string",
+        "pattern": "^machine-network-attachment://\\S+$"
+      },
+      "network_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "connectivity_profile_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Reuses the estate's existing typed egress posture rather than restating reachability here. Two places deciding connectivity is the defect this estate names as a second spine."
+      },
+      "backend_native_address": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "EVIDENCE, never identity and never authorization. An address is not a permission."
+      },
+      "attachment_state": {
+        "enum": [
+          "requested",
+          "attached",
+          "detaching",
+          "detached",
+          "refused"
+        ]
+      },
+      "attachment_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever refused."
+      },
+      "cleanup_obligation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1",
+    "title": "HypervisorMachineDeviceAssignment",
+    "description": "A DEVICE ASSIGNMENT, WHICH NAMES ITS HOST. Passthrough supply is finite and physical, so the host is part of the answer to whether a second machine may have the same device.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-device-assignment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "assignment_ref",
+      "workload_ref",
+      "principal_ref",
+      "environment_ref",
+      "scope_ref",
+      "boot_epoch",
+      "host_ref",
+      "device_ref",
+      "device_class",
+      "exclusive",
+      "capability_declaration_ref",
+      "capability_declaration_hash",
+      "assignment_state",
+      "assignment_reason",
+      "cleanup_obligation_ref",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-device-assignment.v1"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Machine-bound."
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Principal-bound."
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Environment-bound."
+      },
+      "scope_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Scope-bound."
+      },
+      "boot_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+      },
+      "assignment_ref": {
+        "type": "string",
+        "pattern": "^machine-device-assignment://\\S+$"
+      },
+      "host_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "A device belongs to a HOST before it belongs to a machine. An assignment that knew only its machine could not answer whether a sibling machine may hold the same device — which is exactly the sibling-machine access the journey refuses."
+      },
+      "device_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "device_class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "exclusive": {
+        "type": "boolean",
+        "description": "True when no sibling machine may hold it. Passthrough is the one attachment whose supply is finite and physical."
+      },
+      "capability_declaration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "capability_declaration_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "assignment_state": {
+        "enum": [
+          "requested",
+          "assigned",
+          "releasing",
+          "released",
+          "refused"
+        ]
+      },
+      "assignment_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever refused."
+      },
+      "cleanup_obligation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1",
+    "title": "HypervisorMachineConsoleSession",
+    "description": "A CONSOLE THAT EXPIRES, BECAUSE ONE THAT DOES NOT IS AMBIENT ACCESS WITH A POLITE NAME. Bound to machine, principal, environment, scope and epoch, and held as a capability lease rather than granted as a mode.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-console-session.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "session_ref",
+      "workload_ref",
+      "principal_ref",
+      "environment_ref",
+      "scope_ref",
+      "boot_epoch",
+      "capability_lease_ref",
+      "opened_at_ms",
+      "expires_at_ms",
+      "session_state",
+      "close_reason",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-console-session.v1"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Machine-bound."
+      },
+      "principal_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Principal-bound."
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Environment-bound."
+      },
+      "scope_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "Scope-bound."
+      },
+      "boot_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+      },
+      "session_ref": {
+        "type": "string",
+        "pattern": "^machine-console-session://\\S+$"
+      },
+      "capability_lease_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The console IS a lease, not a mode."
+      },
+      "opened_at_ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "expires_at_ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "A console session ALWAYS expires. One that ends only when someone closes it is ambient access with a polite name."
+      },
+      "session_state": {
+        "enum": [
+          "open",
+          "closed",
+          "expired",
+          "revoked"
+        ],
+        "description": "`revoked` and `closed` are distinct for the same reason they are on a port: closed can be reopened by whoever could open it, and revoked cannot."
+      },
+      "close_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever the session is not open."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1",
+    "title": "HypervisorMachineSnapshot",
+    "description": "RESTORE MATERIAL, AND NEVER RESTORE VALIDITY. Canon separates the two deliberately: snapshot bytes may live on local disk, object storage, CAS or provider storage, and none of that makes a restore valid — validity stays operation-backed. Both generations are recorded because a snapshot taken mid-transition is honest only if it says so.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-snapshot.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "snapshot_ref",
+      "workload_ref",
+      "taken_at_desired_generation",
+      "taken_at_observed_generation",
+      "boot_epoch",
+      "content_digest",
+      "storage_ref",
+      "parent_snapshot_ref",
+      "restore_material_only",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-snapshot.v1"
+      },
+      "snapshot_ref": {
+        "type": "string",
+        "pattern": "^machine-snapshot://\\S+$"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "taken_at_desired_generation": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "taken_at_observed_generation": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "Recorded beside the desired generation. A gap means the snapshot was taken while the machine was still converging, and a reader must be able to see that."
+      },
+      "boot_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."
+      },
+      "content_digest": {
+        "$ref": "#/$defs/hash"
+      },
+      "storage_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "parent_snapshot_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present-and-null for a root snapshot."
+      },
+      "restore_material_only": {
+        "const": true,
+        "description": "A const rather than a boolean, because there is no admitted record where this is false. Snapshot bytes are never restore validity."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1",
+    "title": "HypervisorMachineMigrationPlan",
+    "description": "A MIGRATION PLAN FOR THE SUPPORTED SUBSET ONLY. An unsupported kind is refused, never simulated — the portable subset does not turn an unsupported operation into simulated success.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-migration-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "plan_ref",
+      "workload_ref",
+      "source_host_ref",
+      "target_host_ref",
+      "migration_kind",
+      "capability_declaration_ref",
+      "capability_declaration_hash",
+      "expected_head",
+      "cleanup_obligation_ref",
+      "plan_state",
+      "plan_reason",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-migration-plan.v1"
+      },
+      "plan_ref": {
+        "type": "string",
+        "pattern": "^machine-migration-plan://\\S+$"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "source_host_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "target_host_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "migration_kind": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "capability_declaration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "capability_declaration_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "expected_head": {
+        "$ref": "#/$defs/hash",
+        "description": "A plan is written against a known state, or it is a wish."
+      },
+      "cleanup_obligation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present-and-null when nothing is owed."
+      },
+      "plan_state": {
+        "enum": [
+          "planned",
+          "admitted",
+          "executing",
+          "completed",
+          "refused",
+          "ambiguous"
+        ],
+        "description": "`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."
+      },
+      "plan_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever the plan is refused or ambiguous."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1",
+    "title": "HypervisorHostMaintenancePlan",
+    "description": "A MAINTENANCE PLAN THAT NAMES ITS AFFECTED MACHINES RATHER THAN DERIVING THEM. The set that would be derived when work begins is not the set the operator approved.",
+    "x-ioi-schema-version": "ioi.hypervisor.host-maintenance-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "plan_ref",
+      "host_ref",
+      "maintenance_kind",
+      "affected_workload_refs",
+      "drain_policy",
+      "window_start_ms",
+      "window_end_ms",
+      "plan_state",
+      "plan_reason",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.host-maintenance-plan.v1"
+      },
+      "plan_ref": {
+        "type": "string",
+        "pattern": "^host-maintenance-plan://\\S+$"
+      },
+      "host_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "maintenance_kind": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "affected_workload_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "NAMED, not derived at execution time."
+      },
+      "drain_policy": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "How running machines leave before work starts."
+      },
+      "window_start_ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "window_end_ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "plan_state": {
+        "enum": [
+          "planned",
+          "admitted",
+          "executing",
+          "completed",
+          "refused",
+          "ambiguous"
+        ],
+        "description": "`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."
+      },
+      "plan_reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/typedReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Typed, and REQUIRED whenever the plan is refused or ambiguous."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "typedReason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -139846,6 +141396,111 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-host/v1": [],
+  "schema://ioi/components/hypervisor/hypervisor-machine-image/v1": [
+    {
+      "rule_id": "hypervisor_machine_image.outcome_is_typed",
+      "description": "An image that is not admitted MUST say why. `withdrawn` is included beside `refused`: a withdrawal with no reason is indistinguishable from an image nobody looked at.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.admission_reason",
+        "when_path": "$.admission_state",
+        "values": [
+          "refused",
+          "withdrawn"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1": [
+    {
+      "rule_id": "hypervisor_machine_volume_attachment.outcome_is_typed",
+      "description": "A refused attachment MUST name its reason — the journey requires unsupported and drifted cells to refuse before effect WITH the exact typed reason, and an untyped refusal cannot be told from a failure.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attachment_reason",
+        "when_path": "$.attachment_state",
+        "values": [
+          "refused"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1": [
+    {
+      "rule_id": "hypervisor_machine_network_attachment.outcome_is_typed",
+      "description": "A refused attachment MUST name its reason.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attachment_reason",
+        "when_path": "$.attachment_state",
+        "values": [
+          "refused"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1": [
+    {
+      "rule_id": "hypervisor_machine_device_assignment.outcome_is_typed",
+      "description": "A refused assignment MUST name its reason. Device supply is finite, so 'refused' without a reason cannot be told from 'none left'.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.assignment_reason",
+        "when_path": "$.assignment_state",
+        "values": [
+          "refused"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1": [
+    {
+      "rule_id": "hypervisor_machine_console_session.outcome_is_typed",
+      "description": "A console session that is not open MUST say why it ended. Closed, expired and revoked are three different facts about who ended it and whether it can come back.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.close_reason",
+        "when_path": "$.session_state",
+        "values": [
+          "closed",
+          "expired",
+          "revoked"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1": [],
+  "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1": [
+    {
+      "rule_id": "hypervisor_machine_migration_plan.outcome_is_typed",
+      "description": "A refused or ambiguous plan MUST name its reason. Ambiguity without a reason is the failure mode that makes a three-member vocabulary worse than a two-member one.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.plan_reason",
+        "when_path": "$.plan_state",
+        "values": [
+          "refused",
+          "ambiguous"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1": [
+    {
+      "rule_id": "hypervisor_host_maintenance_plan.outcome_is_typed",
+      "description": "A refused or ambiguous plan MUST name its reason.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.plan_reason",
+        "when_path": "$.plan_state",
+        "values": [
+          "refused",
+          "ambiguous"
+        ]
+      }
+    }
   ]
 };
 
@@ -142385,4 +144040,58 @@ export function validateHypervisorMachineOperationReceiptV1(
   value: unknown,
 ): value is HypervisorMachineOperationReceiptV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", value).ok;
+}
+
+export function validateHypervisorMachineHostV1(
+  value: unknown,
+): value is HypervisorMachineHostV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", value).ok;
+}
+
+export function validateHypervisorMachineImageV1(
+  value: unknown,
+): value is HypervisorMachineImageV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", value).ok;
+}
+
+export function validateHypervisorMachineVolumeAttachmentV1(
+  value: unknown,
+): value is HypervisorMachineVolumeAttachmentV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", value).ok;
+}
+
+export function validateHypervisorMachineNetworkAttachmentV1(
+  value: unknown,
+): value is HypervisorMachineNetworkAttachmentV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-network-attachment/v1", value).ok;
+}
+
+export function validateHypervisorMachineDeviceAssignmentV1(
+  value: unknown,
+): value is HypervisorMachineDeviceAssignmentV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-device-assignment/v1", value).ok;
+}
+
+export function validateHypervisorMachineConsoleSessionV1(
+  value: unknown,
+): value is HypervisorMachineConsoleSessionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1", value).ok;
+}
+
+export function validateHypervisorMachineSnapshotV1(
+  value: unknown,
+): value is HypervisorMachineSnapshotV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", value).ok;
+}
+
+export function validateHypervisorMachineMigrationPlanV1(
+  value: unknown,
+): value is HypervisorMachineMigrationPlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", value).ok;
+}
+
+export function validateHypervisorHostMaintenancePlanV1(
+  value: unknown,
+): value is HypervisorHostMaintenancePlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", value).ok;
 }
