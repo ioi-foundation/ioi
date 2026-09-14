@@ -93,6 +93,7 @@ const GATES = [
   ["environment route binding (M09.3)", "npm", ["run", "check:environment-route-binding", "--silent"], { slow: true }],
   ["resource cleanup obligation (M09.5)", "npm", ["run", "check:resource-cleanup-obligation", "--silent"], { slow: true }],
   ["microVM brokered model channel (M13.10)", "npm", ["run", "check:microvm-model-broker", "--silent"], { slow: true }],
+  ["machine lifecycle backend conformance (M09.11)", "npm", ["run", "check:machine-lifecycle-backend-conformance", "--silent"], { slow: true }],
   // ROUTE COUNTS — two gates, two populations. Both, always.
   [
     "route count A (distinct paths)",

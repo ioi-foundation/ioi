@@ -43,6 +43,7 @@
     "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --write",
     "check:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --check",
     "check:microvm-model-broker": "node scripts/check-microvm-model-broker.mjs",
+    "check:machine-lifecycle-backend-conformance": "node scripts/check-machine-lifecycle-backend-conformance.mjs",
     "test:architecture-contract-differential-scaling": "node --test scripts/lib/architecture-contract-differential-scaling.test.mjs",
     "check:mutation-foundation": "node scripts/audit-daemon-mutation-foundation.mjs --check",
     "check:mutation-handlers": "node scripts/audit-daemon-mutation-handlers.mjs --check",

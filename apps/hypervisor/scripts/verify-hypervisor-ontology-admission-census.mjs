@@ -633,6 +633,13 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M09.11, the fork-rule head and the conformance gate). Tokens
+  // 150721 -> 150758 and foreign-qualified 4641 -> 4642 (one more `StatusCode::` occurrence at the
+  // fork-refusal site). EVERY WRITER BUCKET HELD AGAIN, and the filesystem count too: the fork
+  // refusal writes through the same two `persist_record_durable` calls every other outcome uses.
+  // The change this repin accompanies is a CORRECTNESS fix rather than a new capability — the head
+  // was `.last()` over an unordered `read_record_dir` and is now the hash no successor cites — so a
+  // census that moved only tokens is the census agreeing that nothing structural changed.
   // Re-pinned 2026-09-14 (M09.11, the reference executor). Tokens 150670 -> 150721 and
   // foreign-qualified 4640 -> 4641 — the single new qualified name being
   // `StatusCode::INTERNAL_SERVER_ERROR` at the effect-receipt compile site, which is the same
@@ -763,7 +770,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150721,
+  tokenMentions: 150758,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -784,7 +791,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4641,
+    "foreign-qualified": 4642,
     "opaque-initialiser": 2824,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

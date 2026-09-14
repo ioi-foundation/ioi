@@ -26,7 +26,7 @@ use axum::Json;
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use ioi_types::app::hypervisor_machine_lifecycle::{
     admit_machine_operation, admitted_request_hash, compile_effect_receipt,
-    compile_refusal_receipt, execute_reference_operation, MachineVerdict,
+    compile_refusal_receipt, execute_reference_operation, refuse_forked_head, MachineVerdict,
     MACHINE_OPERATION_CONTRACT,
 };
 use serde_json::{json, Value};
@@ -98,19 +98,41 @@ fn receipt_ref_for(operation_ref: &str) -> String {
 pub(crate) const MACHINE_GENESIS_HEAD: &str =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
-fn observed_head_for(data_dir: &str, workload_ref: &str) -> String {
-    // PER WORKLOAD. A head derived from every workload's operations would move under machine A
-    // because machine B was started, and every caller of A would then be refused as stale for a
-    // reason that had nothing to do with A.
-    read_record_dir(data_dir, MACHINE_OPERATION_RECORDS)
+fn observed_head_for(data_dir: &str, workload_ref: &str) -> Result<String, String> {
+    // THE HEAD IS THE ONE NO SUCCESSOR CITES — the estate's own fork rule, the same one route
+    // bindings use. The first cut took `.last()` over `read_record_dir`, which iterates
+    // `std::fs::read_dir` with NO ORDERING: the head was whichever record the filesystem happened
+    // to hand back last, so it was non-deterministic and a caller could be refused as stale for
+    // having quoted the head it was just given. The conformance gate caught it on its first run.
+    let admitted: Vec<Value> = read_record_dir(data_dir, MACHINE_OPERATION_RECORDS)
         .into_iter()
         .filter(|record| {
             record["operation"]["workload_ref"].as_str() == Some(workload_ref)
                 && record["admission"]["admitted"].as_bool() == Some(true)
         })
-        .filter_map(|record| record["admitted_request_hash"].as_str().map(str::to_owned))
-        .last()
-        .unwrap_or_else(|| MACHINE_GENESIS_HEAD.to_owned())
+        .collect();
+    if admitted.is_empty() {
+        return Ok(MACHINE_GENESIS_HEAD.to_owned());
+    }
+    let cited: std::collections::HashSet<&str> = admitted
+        .iter()
+        .filter_map(|record| record["previous_head"].as_str())
+        .collect();
+    let heads: Vec<&str> = admitted
+        .iter()
+        .filter_map(|record| record["admitted_request_hash"].as_str())
+        .filter(|hash| !cited.contains(hash))
+        .collect();
+    match heads.as_slice() {
+        [single] => Ok((*single).to_owned()),
+        [] => {
+            Err("every admitted operation is cited as a predecessor — the chain has no head".into())
+        }
+        many => Err(format!(
+            "{} uncited heads for this workload — a fork, not a history",
+            many.len()
+        )),
+    }
 }
 
 /// The workload's generations as last OBSERVED, from its receipts. A workload with no succeeded
@@ -212,7 +234,13 @@ pub(crate) async fn handle_machine_operation_submit(
             DAEMON_VERIFIER_PROFILE,
         )
         .map_err(|error| AppError(axum::http::StatusCode::INTERNAL_SERVER_ERROR, error))?;
-        persist_operation(&st.data_dir, &operation, &verdict, Some(&receipt));
+        persist_operation(
+            &st.data_dir,
+            &operation,
+            &verdict,
+            Some(&receipt),
+            MACHINE_GENESIS_HEAD,
+        );
         return Ok(Json(json!({
             "ok": false,
             "operation_ref": operation_ref,
@@ -225,7 +253,38 @@ pub(crate) async fn handle_machine_operation_submit(
         .as_str()
         .unwrap_or_default()
         .to_owned();
-    let observed_head = observed_head_for(&st.data_dir, &workload_ref);
+    let observed_head = match observed_head_for(&st.data_dir, &workload_ref) {
+        Ok(head) => head,
+        Err(detail) => {
+            // A FORK IS NOT A STALE HEAD, and refusing it as one would hide it. Nothing is admitted
+            // while two histories are uncited: picking one would be choosing which is real.
+            let verdict = refuse_forked_head(detail);
+            let receipt_ref = receipt_ref_for(&operation_ref);
+            let receipt = compile_refusal_receipt(
+                &operation,
+                &receipt_ref,
+                &verdict,
+                0,
+                0,
+                DAEMON_VERIFIER_PROFILE,
+            )
+            .map_err(|error| AppError(axum::http::StatusCode::INTERNAL_SERVER_ERROR, error))?;
+            persist_operation(
+                &st.data_dir,
+                &operation,
+                &verdict,
+                Some(&receipt),
+                MACHINE_GENESIS_HEAD,
+            );
+            return Ok(Json(json!({
+                "ok": false,
+                "operation_ref": operation_ref,
+                "reason": verdict.refusal_dimension,
+                "detail": verdict.refusal_reason,
+                "receipt_ref": receipt_ref,
+            })));
+        }
+    };
     let applied = applied_idempotency_hashes(&st.data_dir, &workload_ref);
 
     let verdict = admit_machine_operation(&operation, &declaration, &observed_head, &applied);
@@ -240,7 +299,13 @@ pub(crate) async fn handle_machine_operation_submit(
             DAEMON_VERIFIER_PROFILE,
         )
         .map_err(|error| AppError(axum::http::StatusCode::INTERNAL_SERVER_ERROR, error))?;
-        persist_operation(&st.data_dir, &operation, &verdict, Some(&receipt));
+        persist_operation(
+            &st.data_dir,
+            &operation,
+            &verdict,
+            Some(&receipt),
+            &observed_head,
+        );
         return Ok(Json(json!({
             "ok": false,
             "operation_ref": operation_ref,
@@ -266,7 +331,13 @@ pub(crate) async fn handle_machine_operation_submit(
             )
             .map_err(|error| AppError(axum::http::StatusCode::INTERNAL_SERVER_ERROR, error))?;
             let result = receipt["result"].as_str().unwrap_or("succeeded").to_owned();
-            persist_operation(&st.data_dir, &operation, &verdict, Some(&receipt));
+            persist_operation(
+                &st.data_dir,
+                &operation,
+                &verdict,
+                Some(&receipt),
+                &observed_head,
+            );
             Ok(Json(json!({
                 "ok": true,
                 "operation_ref": operation_ref,
@@ -279,7 +350,7 @@ pub(crate) async fn handle_machine_operation_submit(
             // awaiting effect with NO receipt, because this daemon has nothing that can act on it
             // yet and a receipt naming a result would describe an effect nothing attempted. The
             // reference executor refusing here is the fence working, not a failure.
-            persist_operation(&st.data_dir, &operation, &verdict, None);
+            persist_operation(&st.data_dir, &operation, &verdict, None, &observed_head);
             Ok(Json(json!({
                 "ok": true,
                 "operation_ref": operation_ref,
@@ -296,6 +367,7 @@ fn persist_operation(
     operation: &Value,
     verdict: &MachineVerdict,
     receipt: Option<&Value>,
+    previous_head: &str,
 ) {
     let operation_ref = operation["operation_ref"].as_str().unwrap_or_default();
     let record = json!({
@@ -304,6 +376,9 @@ fn persist_operation(
         // Stored, not recomputed on read: the head this operation advances the workload to is the
         // SAME hash the receipt binds, from the same definition in the kernel.
         "admitted_request_hash": admitted_request_hash(operation).unwrap_or_default(),
+        // The predecessor this operation was admitted against. The head is the hash NO record cites
+        // here, which is deterministic without a clock, a counter or a sorted directory read.
+        "previous_head": previous_head,
         "admission": {
             "admitted": verdict.admitted,
             "refusal_dimension": verdict.refusal_dimension,
@@ -385,7 +460,7 @@ mod tests {
     fn a_workload_with_no_admitted_operation_has_the_genesis_head_not_an_absence() {
         let dir = temp_dir();
         assert_eq!(
-            observed_head_for(dir.to_str().unwrap(), "virtual-machine-workload://vm_a"),
+            observed_head_for(dir.to_str().unwrap(), "virtual-machine-workload://vm_a").unwrap(),
             MACHINE_GENESIS_HEAD,
             "a caller must still state a head; there is no 'no head yet' that admits anything"
         );
@@ -415,11 +490,11 @@ mod tests {
         );
 
         assert_eq!(
-            observed_head_for(d, "virtual-machine-workload://vm_a"),
+            observed_head_for(d, "virtual-machine-workload://vm_a").unwrap(),
             head_a
         );
         assert_eq!(
-            observed_head_for(d, "virtual-machine-workload://vm_b"),
+            observed_head_for(d, "virtual-machine-workload://vm_b").unwrap(),
             head_b
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -474,6 +549,40 @@ mod tests {
             resolve_capability_declaration(d, "capability://backend/absent/1").is_none(),
             "an unresolvable declaration is a refusal with a receipt, never a silent default"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_head_is_the_one_no_successor_cites_and_a_fork_refuses() {
+        // THE DEFECT THIS TEST EXISTS FOR. The first cut took `.last()` over `read_record_dir`,
+        // which iterates the directory with NO ORDERING — so the head was whichever record the
+        // filesystem happened to return last, and a caller could be refused as stale for quoting
+        // the head it had just been given. The conformance gate caught it on its first run.
+        let dir = temp_dir();
+        let d = dir.to_str().unwrap();
+        let workload = "virtual-machine-workload://vm_a";
+        let h1 = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+        let h2 = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+
+        let mut first = admitted_record(workload, h1, "k1");
+        first["previous_head"] = json!(MACHINE_GENESIS_HEAD);
+        write(&dir, MACHINE_OPERATION_RECORDS, "a1", &first);
+        let mut second = admitted_record(workload, h2, "k2");
+        second["operation_ref"] = json!("machine-operation://hypervisor/vm_a/start/k2");
+        second["previous_head"] = json!(h1);
+        write(&dir, MACHINE_OPERATION_RECORDS, "a2", &second);
+
+        // h1 IS cited by h2, so the head is h2 — whatever order the directory hands them back.
+        assert_eq!(observed_head_for(d, workload).unwrap(), h2);
+
+        // A FORK: a third admitted operation citing the same predecessor as h2.
+        let h3 = "sha256:3333333333333333333333333333333333333333333333333333333333333333";
+        let mut branch = admitted_record(workload, h3, "k3");
+        branch["operation_ref"] = json!("machine-operation://hypervisor/vm_a/start/k3");
+        branch["previous_head"] = json!(h1);
+        write(&dir, MACHINE_OPERATION_RECORDS, "a3", &branch);
+        let error = observed_head_for(d, workload).expect_err("two uncited heads is a fork");
+        assert!(error.contains("fork"), "{error}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

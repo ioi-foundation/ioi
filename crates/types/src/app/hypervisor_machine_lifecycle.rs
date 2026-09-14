@@ -61,7 +61,8 @@ pub const MACHINE_OPERATION_VOCABULARY: [&str; 16] = [
 ];
 
 /// Every named refusal dimension. A refusal that is not one of these is a bug, not a new reason.
-pub const MACHINE_REFUSAL_DIMENSIONS: [&str; 7] = [
+pub const MACHINE_REFUSAL_DIMENSIONS: [&str; 8] = [
+    "machine_head_forked",
     "operation_contract_invalid",
     "operation_not_in_vocabulary",
     "capability_declaration_not_resolved",
@@ -123,6 +124,16 @@ pub enum MachineEffectOutcome {
         /// The typed reason the outcome could not be confirmed. Reconciliation is owed against it.
         reason: String,
     },
+}
+
+/// Refuse an operation because the workload's head has FORKED — two admitted operations that no
+/// successor cites, which is a branch rather than a history.
+///
+/// This is the estate's own fork rule, the same one route bindings use: the head is the revision no
+/// successor cites, and two uncited revisions for one identity is a fork. A plane that picked one
+/// of them would be choosing which history is real.
+pub fn refuse_forked_head(detail: impl Into<String>) -> MachineVerdict {
+    MachineVerdict::refuse("machine_head_forked", detail)
 }
 
 /// Admit or refuse one operation against the capability declaration it names.
