@@ -1,0 +1,115 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-9-systems-work-projections",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.9"
+  ],
+  "status": "evidence_ready",
+  "objective": "Render Systems and Work as read models over truth they do not own: canon's HypervisorSystemsProjection (logical identity, constitution, lifecycle, desired-versus-observed topology, the seven contextual modes and the policy basis that admitted the row) and HypervisorWorkSubjectProjection / HypervisorWorkFacetProjection (typed subject rows with facets and deep links over the families Hypervisor core owns, replacing the compatibility projection's session and aggregate readouts; goal runs and rooms are contributed families under the Work subject registry, never enumerated by core), with policy applied BEFORE search, counts, caching and recents, the owners never mutated, migration stated and rebuild by re-derivation.",
+  "falsifiable_claim": "GET /v1/hypervisor/work-projection?view=active|sessions|queues|reviews|incidents|history[&q=] answers a policy-filtered Work projection whose rows are registered HypervisorWorkSubjectProjection records derived through the PUBLISHED owner readers of the two families core owns (sessions_for_request, automation_runs_for_request) and whose review facets are registered HypervisorWorkFacetProjection records pointing at governance approval requests (approval_requests_for_subjects); counts over the six views and the recents list are computed over the policy-filtered set before any search narrows rows; work_queue/work_item/work_run subjects and incident facets are typed absences naming their reason; goal_run and outcome_room are named on every answer as CONTRIBUTED families with the only two seams they may arrive through (a Session's typed subject attachment or a registered application-contributed view), and the daemon publishes no reader and mints no /work/goals or /work/rooms route for them; an unknown view, a non-canonical subject ref or a subject-kind disagreement refuses typed by name; a row that fails its contract fails the whole read closed. GET /v1/hypervisor/autonomous-systems/projection resolves the request identity BEFORE rows (a System is visible to its genesis proposer or to a caller holding its owner tenant), validates each row against the registered systems-projection v1 contract (topology desired/observed as typed presence-or-absence from the membership and writer planes' own builders, the seven modes as routes, policy_basis, read_model_only) and answers honest_empty otherwise. Nothing is cached or persisted: a daemon restart re-derives the same rows. The canonical routes /systems and /work, /work/sessions, /work/queues, /work/reviews, /work/incidents, /work/history render the projections through the route table's rewrite lanes under their own ownership headers. npm run check:systems-work-projections --workspace=@ioi/hypervisor-app proves all of it against an isolated daemon + serve lane (20 assertions, floor-pinned, CI-bound in the product_surfaces job).",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/README.md",
+    "docs/decisions/0022-goal-orchestration-application-layer-and-clean-slate.md",
+    "docs/architecture/foundations/term-boundaries.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_projection_routes.rs",
+      "literal": "pub(crate) async fn handle_work_projection",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_projection_routes.rs",
+      "literal": "FAMILIES_NOT_PROJECTED",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/work_projection_routes.rs",
+      "literal": "const CONTRIBUTED_FAMILIES",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_projection_routes.rs",
+      "literal": "fn row_visible_to",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_projection_routes.rs",
+      "literal": "SYSTEMS_PROJECTION_CONTRACT_ID",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "pub(crate) fn sessions_for_request",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/automation_contract_routes.rs",
+      "literal": "pub(crate) fn automation_runs_for_request",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+      "literal": "pub(crate) fn approval_requests_for_subjects",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-systems-projection.v1.schema.json",
+      "literal": "policy_basis",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-work-subject-projection.v1.schema.json",
+      "literal": "subject_ref",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-work-facet-projection.v1.schema.json",
+      "literal": "facet_kind",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-systems-work-projections.mjs",
+      "literal": "systems-work-projections",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/v2-route-shell.mjs",
+      "literal": "/__ioi/work-projection/queues",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "literal": "/__ioi/systems-projection",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "literal": "**Work subject registry**",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/decisions/0022-goal-orchestration-application-layer-and-clean-slate.md",
+      "literal": "RESOLVED 2026-09-14 (M08.9",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:systems-work-projections 20/20 on its third run (the first two were red on the gate's own construction — a block-scoped URL in the App handler that 500ed the /work lane, and a nonmutation window that captured the gate's own approval write — both recorded): the empty projection is typed; one admitted Session becomes exactly one registered row with the owner identity verbatim; counts and recents do not move under search; a governance approval becomes one review facet that points; three typed refusals by name; the owners' record directories are byte-identical across every read; an anonymous caller sees none of the principal's rows; the Systems projection answers under policy with honest_empty; a daemon restart changes nothing; four canonical routes render the projections. cargo test -p ioi-node --bin hypervisor-daemon work_projection 5/5 (subject-kind derivation, facet derivation, refusal codes, row validation, policy ordering, and the registry said on every answer: projected exactly session + automation_run, contributed exactly goal_run + outcome_room with their seams). ACC-10 clause 4 composes the gate and the runner's --mutation self-drill fails on a planted red clause. The generated fixture bar was proven to evaluate the three new contracts' negatives by making one valid and watching check:architecture-contracts go red.",
+  "remaining_nonclaims": [
+    "A Systems row is not exercised end to end by the gate: genesis needs the governed chain the system-genesis journeys drive; the gate proves policy-before-rows, the registered row contract and honest_empty on an empty inventory, and the row assembly is validated against the contract before it is served.",
+    "GoalRuns and OutcomeRooms are never enumerated by Hypervisor core Work (Work subject registry, 2026-09-14): they appear only as a Session's typed subject attachment or through the ioi.ai application's registered Goals/Rooms views, neither of which is exercised here; the compatibility /__ioi/missions room readout is the contribution seam's to replace and still serves.",
+    "work_queue, work_item and work_run subjects are typed absences: the work-lifecycle log (M04.6) publishes no owner enumeration; the families are named in the projection with that reason.",
+    "Incident facets are typed absences: no incident owner publishes a reader.",
+    "The Session plane's admitted identity is session:<id> where canon names session://…; the row carries the owner's identity verbatim and the registered contract accepts both until the Session plane converges (canon note recorded).",
+    "The landing designations for /work and /systems stay GRE pending the GRE-1 owner ruling; the routes render the projections today through rewrite lanes and the designation record is unchanged.",
+    "Caching: the projection caches nothing, so the policy-before-cache clause is met by absence rather than by a cache that applies policy; a later cache must apply policy before it fills."
+  ],
+  "source_provenance": "Authored and gated on the main tree 2026-09-14 (ledger LXXXIII, ruling R-149 and its same-day amendment: the Work subject registry). MVP finish-line program, leg 3.",
+  "last_status_transaction": "2026-09-14"
+}
