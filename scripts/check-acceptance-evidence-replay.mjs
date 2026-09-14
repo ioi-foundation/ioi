@@ -5,7 +5,7 @@
 // done-bar that proves it, executed sequentially on ONE basis. Clause 6 carries the journey
 // document's own 2026-09-13 disposition: the managed lane's bytes have an owner, but whether the
 // canonical retention plane REACHES them is unmeasured — recorded as a typed absence, not counted.
-// check:verifier-floors runs LAST because it reads the census the journey verifiers emit.
+// The verifier-family floor (check:verifier-floors) is deliberately NOT a clause here — see clause E.
 //
 //   node scripts/check-acceptance-evidence-replay.mjs [--mutation-batteries] [--mutation] [--evidence <out.json>]
 
@@ -21,7 +21,11 @@ const CLAUSES = [
   { id: "7", clause: "Provenance assertions are objects with source, evidence, uncertainty and contradiction handling, not a rendering of logs", unit: "M05.3", checks: [app("check:provenance-assertion-graph")], battery: { ...app("mutate:provenance-assertion-graph"), cost: "multi-hour" } },
   { id: "N1", negative: true, clause: "No gate is its own oracle: an expectation is a committed pin compared against a fresh computation (the census population is entailed from rustc's own dep-info, both directions)", unit: "M06.5", checks: [rootScript("check:admission-census-entailment")], battery: { ...rootScript("mutate:admission-census-entailment"), cost: "minutes" } },
   { id: "N2", negative: true, clause: "A coverage gap is a finding, never indistinguishable from safety (resolution over the census is total, failures counted by cause)", unit: "M06.5", provenBy: "N1" },
-  { id: "E", clause: "Journey evidence: admission evidence provenance, then the verifier-family census floor over the journey verifiers that just ran", unit: "M06", checks: [rootScript("check:admission-evidence"), app("check:verifier-floors")] },
+  // check:verifier-floors is NOT composed here (R-145): its world is closed over every CI-gated
+  // verifier, so a single journey's census directory reads as `census_missing` for the verifiers
+  // the journey did not run. The harness records this journey's censuses under
+  // .artifacts/verifier-census/journeys/acc-8 so ACC-R can check the floor over the union of runs.
+  { id: "E", clause: "Journey evidence: admission evidence provenance (the verifier-family floor is ACC-R's, over the union of the journeys' runs)", unit: "M06", checks: [rootScript("check:admission-evidence")] },
 ];
 
 await runJourney({

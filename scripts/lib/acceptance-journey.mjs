@@ -196,8 +196,18 @@ export async function runJourney({ gate, title, doc, clauses, argv = process.arg
     return { ok, fenced: false };
   }
 
+  // Every child verifier emits its runtime assertion census (lib/verifier-census.mjs) into a
+  // per-journey directory, so the verifier-family floor can later be checked by ACC-R over the
+  // UNION of the journeys' runs. The floor itself is not composed per journey: its world is
+  // closed over every CI-gated verifier, which no single journey runs (R-145).
+  if (!process.env.IOI_VERIFIER_CENSUS_DIR) {
+    const censusDir = path.join(ROOT, ".artifacts", "verifier-census", "journeys", gate.toLowerCase());
+    fs.mkdirSync(censusDir, { recursive: true });
+    process.env.IOI_VERIFIER_CENSUS_DIR = censusDir;
+  }
+
   const start = basis();
-  console.log(`# ${gate} composed journey · ${title} · basis ${start.head}${start.dirty ? " (dirty tree)" : ""} · batteries ${withBatteries ? "EXECUTED" : "not executed"}`);
+  console.log(`# ${gate} composed journey · ${title} · basis ${start.head}${start.dirty ? " (dirty tree)" : ""} · batteries ${withBatteries ? "EXECUTED" : "not executed"} · census ${process.env.IOI_VERIFIER_CENSUS_DIR}`);
   console.log(`# clause source: ${doc}`);
 
   if (selfDrill) {

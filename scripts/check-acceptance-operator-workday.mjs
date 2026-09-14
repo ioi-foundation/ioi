@@ -44,7 +44,10 @@ const CLAUSES = [
   { id: "N2", negative: true, clause: "No parity matrix, capture or pixel certificate registers a surface, assigns an owner or grants maturity", unit: "M08.8", provenBy: "1" },
   { id: "N3", negative: true, clause: "No surface is built ahead of the contract that pulls it (every named gap cites its adjudication)", unit: "M08 · G-8", provenBy: "3" },
   { id: "N4", negative: true, clause: "No chat, board or artifact-ecology projection becomes room, runtime, installation, authority, health or evaluation truth", unit: "M08.17", absences: [absent("M08.17", "check:collective-artifact-ecology-surface", "the projection-is-not-truth negatives")] },
-  { id: "E", clause: "Journey evidence: the act tool's interactive and headless draw-down over the daemon's lease projection, then the verifier-family floor over the surface journeys that just ran", unit: "M08.13 · M08.14", checks: [app("check:standing-consumer-loop"), app("check:verifier-floors")] },
+  // check:verifier-floors is NOT composed here (R-145): its world is closed over every CI-gated
+  // verifier and a single journey's census reads as `census_missing` for the rest; ACC-R checks the
+  // floor over the union of the journeys' census directories.
+  { id: "E", clause: "Journey evidence: the act tool's interactive and headless draw-down over the daemon's lease projection (the verifier-family floor is ACC-R's, over the union of the journeys' runs)", unit: "M08.13 · M08.14", checks: [app("check:standing-consumer-loop")] },
 ];
 
 await runJourney({
