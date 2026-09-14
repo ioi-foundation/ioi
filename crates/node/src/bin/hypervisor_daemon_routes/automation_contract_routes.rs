@@ -1293,6 +1293,20 @@ pub(crate) async fn admit_automation_run(
     )
 }
 
+/// THE AUTOMATION PLANE'S PUBLISHED READER FOR THE WORK PROJECTION (M08.9): the same identity
+/// resolution and the same ownership test the list route applies, BEFORE anything downstream
+/// counts or searches. Returns the admitted run records unshaped.
+pub(crate) fn automation_runs_for_request(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<Vec<Value>, Reply> {
+    let identity = identity_or_refusal(st, headers)?;
+    Ok(read_record_dir(&st.data_dir, RUN_DIR)
+        .into_iter()
+        .filter(|record| run_is_owned_by(record, &identity))
+        .collect())
+}
+
 pub(crate) async fn list_automation_runs(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,

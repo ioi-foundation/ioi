@@ -215,6 +215,45 @@ but the fixture source must be visible and must not be presented as admitted
 runtime truth.
 
 ```http
+GET /v1/hypervisor/work-projection?view={active|sessions|queues|reviews|incidents|history}[&q=…]
+```
+
+**Built 2026-09-14 (M08.9).** The policy-filtered Work read model canon names
+in `core-clients-surfaces.md` § *Hypervisor Work*. The daemon derives it on
+every read from the PUBLISHED owner readers of the families Hypervisor core owns
+— Sessions and AutomationRuns, each filtered by that owner's own policy for the
+request identity — and never opens another plane's records itself. Goal runs and
+rooms are contributed families (the Work subject registry in the same section):
+the envelope names them with the two seams they may arrive through, a Session's
+typed subject attachment or a registered application-contributed view, and the
+daemon publishes no reader and mints no route for them. Each row is a
+registered `ioi.hypervisor.work-subject-projection.v1` record
+(`schema://ioi/components/hypervisor/work-subject-projection/v1`) carrying the
+owner's identity verbatim, a typed `subject_ref`, the canonical deep link, the
+activity and execution facets derived from the owner's lifecycle state, and
+`read_model_only: true`; review facets are registered
+`ioi.hypervisor.work-facet-projection.v1` records that POINT at governance
+approval requests. Policy is applied before `q` narrows rows and before the
+per-view `counts` and `recents` are computed, so search never widens what a
+caller can see. `work_queue`, `work_item` and `work_run` subjects and incident
+facets are typed absences in the envelope (no owner publishes an enumeration
+yet), the migration off the Sessions root and the issue/blocker aggregates is
+stated in `migration` (the room graph under `/__ioi/missions` is the
+contribution seam's to replace, not core's to migrate), and nothing is cached or
+persisted: a restart re-derives the same rows. Refusals: `work_projection_view_unknown`,
+`work_projection_subject_ref_invalid`, `work_projection_subject_kind_ambiguous`,
+`work_projection_subject_kind_unknown`, and `work_projection_row_contract_invalid`
+(a row that fails its contract fails the whole read closed, naming the family).
+
+`GET /v1/hypervisor/autonomous-systems/projection?view=compact|advanced` (the
+Systems read model, § *Autonomous-System Control APIs* below) resolves the request
+identity BEFORE rows on the same date: a System is visible to its genesis
+proposer or to a caller holding its owner tenant, each compact row is canon's
+registered `ioi.hypervisor.systems-projection.v1` shape validated before it is
+served, and the envelope names the policy it applied and `honest_empty` when the
+caller's inventory is empty.
+
+```http
 GET /v1/hypervisor/session-operations
 ```
 

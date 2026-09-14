@@ -583,6 +583,25 @@ fn control_common(body: &Value) -> Value {
 }
 
 // ---- ApprovalRequest ---------------------------------------------------------------------------
+
+/// THE GOVERNANCE PLANE'S PUBLISHED READER FOR THE WORK PROJECTION (M08.9): the approval requests
+/// whose `subject_ref` is one of the given Work subjects, unshaped — the source a review FACET
+/// points at. The projection converts none of them into a universal Review object; it points.
+pub(crate) fn approval_requests_for_subjects(
+    data_dir: &str,
+    subject_refs: &[String],
+) -> Vec<Value> {
+    read_record_dir(data_dir, KIND_APPROVAL)
+        .into_iter()
+        .filter(|record| {
+            record
+                .get("subject_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|subject| subject_refs.iter().any(|candidate| candidate == subject))
+        })
+        .collect()
+}
+
 pub(crate) async fn handle_approval_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<HashMap<String, String>>,

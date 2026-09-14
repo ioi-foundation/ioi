@@ -262,6 +262,8 @@ mod wallet_network_capability_client;
 mod work_frontier_claim_routes;
 #[path = "hypervisor_daemon_routes/work_lifecycle_routes.rs"]
 mod work_lifecycle_routes;
+#[path = "hypervisor_daemon_routes/work_projection_routes.rs"]
+mod work_projection_routes;
 #[path = "hypervisor_daemon_routes/work_result_routes.rs"]
 mod work_result_routes;
 #[path = "hypervisor_daemon_routes/workload_effect_boundary.rs"]
@@ -2855,6 +2857,13 @@ async fn async_main() -> anyhow::Result<()> {
         // diagnostics and owner-scoped cancellation planning/compaction over the
         // accepted kernel. No generic append mutation is exposed on the wire;
         // append is an owner-internal Rust API for a later owner-route wave.
+        // M08.9 — the policy-filtered Work read model: typed rows derived from the work families'
+        // own owner readers, policy applied BEFORE search, counts and recents; never a canonical
+        // Work object and never a write.
+        .route(
+            "/v1/hypervisor/work-projection",
+            get(work_projection_routes::handle_work_projection),
+        )
         .route(
             "/v1/hypervisor/work-lifecycle/status",
             get(work_lifecycle_routes::handle_work_lifecycle_status),

@@ -25847,33 +25847,38 @@ pub(crate) async fn handle_session_ports_revoke(
 /// root), mark the session `torn_down` with its ports cleared, and emit a
 /// teardown receipt. 404 if the session is unknown.
 /// GET /v1/hypervisor/sessions — slim list projection of the persisted session records (newest
-/// first): refs, lifecycle, workspace, and the admitted harness binding when one was recorded.
-/// Read-only daemon truth for the Workbench sessions panel / session-details consumers.
-pub(crate) async fn handle_sessions_list(
-    State(st): State<Arc<DaemonState>>,
-    headers: HeaderMap,
-) -> (StatusCode, Json<Value>) {
-    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
-        Ok(owner) => owner,
-        Err(response) => return response,
-    };
-    if let Err(error) = recover_session_create_intents(&st) {
-        return session_create_commit_failure_response("session-create-recovery://pending", &error);
-    }
-    let records = match enumerate_hypervisor_sessions_strict(&st) {
-        Ok(records) => records,
-        Err(detail) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({"error":{
-                    "code":"session_registry_unavailable",
-                    "message":"The complete Session registry cannot be proven; no partial list is projected.",
-                    "detail":detail
-                }})),
-            )
-        }
-    };
-    let mut sessions: Vec<Value> = records
+/// THE SESSION PLANE'S PUBLISHED READER FOR THE WORK PROJECTION (M08.9). The same owner
+/// resolution and the same strict registry enumeration the list route uses, with the owner filter
+/// applied BEFORE anything is counted or searched, returning the admitted records unshaped. A
+/// consumer that read the sessions directory itself would be a second interpretation of this
+/// plane's truth; this is the one reader other planes compose.
+pub(crate) fn sessions_for_request(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<Vec<Value>, (StatusCode, Json<Value>)> {
+    Ok(sessions_admitted_for_owner(st, headers)?.1)
+}
+
+/// The ONE owner-scoped enumeration of the Session registry: the request's owner, the strict
+/// enumeration, and the owner filter (the legacy `user://local-operator` READ-lane default is the
+/// same one the canonical resolver documents above). Both the list route and the published reader
+/// compose this; neither carries its own copy of the filter.
+fn sessions_admitted_for_owner(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<(String, Vec<Value>), (StatusCode, Json<Value>)> {
+    let owner_ref = session_request_owner(&st.data_dir, headers)?;
+    let records = enumerate_hypervisor_sessions_strict(st).map_err(|detail| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "code":"session_registry_unavailable",
+                "message":"The complete Session registry cannot be proven; no partial list is projected.",
+                "detail":detail
+            }})),
+        )
+    })?;
+    let admitted = records
         .into_iter()
         .filter(|record| {
             record
@@ -25882,6 +25887,26 @@ pub(crate) async fn handle_sessions_list(
                 .unwrap_or("user://local-operator")
                 == owner_ref
         })
+        .collect();
+    Ok((owner_ref, admitted))
+}
+
+/// first): refs, lifecycle, workspace, and the admitted harness binding when one was recorded.
+/// Read-only daemon truth for the Workbench sessions panel / session-details consumers.
+pub(crate) async fn handle_sessions_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    // THE LIST ROUTE COMPOSES THE PLANE'S ONE OWNER-SCOPED ENUMERATION (M08.9): owner resolution,
+    // the strict registry enumeration and the owner filter live in `sessions_admitted_for_owner`,
+    // which the published `sessions_for_request` reader also composes; this handler only shapes
+    // what that enumeration admitted. One reader, one interpretation.
+    let (owner_ref, records) = match sessions_admitted_for_owner(&st, &headers) {
+        Ok(pair) => pair,
+        Err(reply) => return reply,
+    };
+    let mut sessions: Vec<Value> = records
+        .into_iter()
         .map(|r| {
             let hb = r.get("harness_binding").cloned().unwrap_or(Value::Null);
             let slim_hb = if hb.is_null() {

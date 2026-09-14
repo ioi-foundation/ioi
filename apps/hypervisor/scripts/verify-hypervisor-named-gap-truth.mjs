@@ -161,6 +161,12 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 878 -> 879 (2026-09-14, M08.9): the Work read model, `/v1/hypervisor/work-projection` (GET) —
+  // typed HypervisorWorkSubjectProjection rows derived through the work families' PUBLISHED owner
+  // readers with policy applied before search, counts and recents; the Systems projection route
+  // already existed and only gained identity-based policy, so it adds no path. One distinct path
+  // here, one handler in verify-hypervisor-environment-owner-source.mjs, both pins moved in the
+  // SAME commit as the route. 880 `.route(` occurrences, 880 with a path literal, 879 distinct paths.
   // 877 -> 878 (2026-09-14, M07.5): the usage aggregate,
   // `/v1/hypervisor/economics/usage/aggregate` (GET) — a read-derived projection over the caller's
   // admitted usage chains keyed by one registered metering dimension. One distinct path here, one
@@ -221,7 +227,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 878,
+  registeredRoutes: 879,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

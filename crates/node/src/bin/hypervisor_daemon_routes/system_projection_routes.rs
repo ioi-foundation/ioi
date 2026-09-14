@@ -17,11 +17,74 @@ use super::DaemonState;
 
 type VErr = (String, String);
 
+// M08.9 — the compact row is canon's `HypervisorSystemsProjection`, registered and validated
+// before it is served: the verified admission and live chain as before, the membership plane's
+// projection (desired topology) and the writer plane's projection (observed) composed in as
+// typed presence or typed absence, the seven contextual modes as routes, and the policy basis
+// that admitted the row for THIS caller. Nothing here is persisted and nothing grants authority.
+const SYSTEMS_PROJECTION_SCHEMA: &str = "ioi.hypervisor.systems-projection.v1";
+const SYSTEMS_PROJECTION_CONTRACT_ID: &str =
+    "schema://ioi/components/hypervisor/systems-projection/v1";
+const SYSTEM_MODES: &[(&str, &str)] = &[
+    ("overview", ""),
+    ("design", "/design"),
+    ("operate", "/operate"),
+    ("govern", "/govern"),
+    ("evidence", "/evidence"),
+    ("improve", "/improve"),
+    ("interfaces", "/interfaces"),
+];
+
 fn required(value: &Value, pointer: &str) -> Result<String, VErr> {
     required_string(value, pointer).map(str::to_owned)
 }
 
-fn project_one(data_dir: &str, record: &Value, view: &str) -> Result<Value, VErr> {
+/// A plane's projection as typed presence or typed absence — the refusal CODE a plane answers
+/// with is the reason, never an invented topology and never a silent null.
+fn plane_presence(result: Result<Value, VErr>) -> Value {
+    match result {
+        Ok(projection) => {
+            json!({ "state": "present", "projection": projection, "reason": Value::Null })
+        }
+        Err((code, _)) => json!({ "state": "absent", "projection": Value::Null, "reason": code }),
+    }
+}
+
+/// The seven contextual modes canon names, as routes under the System's canonical route. The
+/// `serving` lane is null until the App binds a renderer to the mode — said, not assumed.
+fn system_modes(system_id: &str) -> Vec<Value> {
+    let tail = system_id.strip_prefix("system://").unwrap_or(system_id);
+    SYSTEM_MODES
+        .iter()
+        .map(|(mode, segment)| {
+            json!({ "mode": mode, "route": format!("/systems/{tail}{segment}"), "serving": Value::Null })
+        })
+        .collect()
+}
+
+/// Policy is decided per row from the request identity: a System is visible to the principal that
+/// proposed its genesis, or to a caller holding the tenant its genesis names as owner. Anything
+/// else is not in this caller's inventory — not hidden, not present.
+fn row_visible_to(
+    record: &Value,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Option<&'static str> {
+    if record.get("proposed_by_ref").and_then(Value::as_str)
+        == Some(identity.principal_ref.as_str())
+    {
+        return Some("proposed_by_ref == principal_ref");
+    }
+    if record
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|owner| identity.authorizes_tenant(owner))
+    {
+        return Some("owner_ref in tenant_refs");
+    }
+    None
+}
+
+fn project_one(data_dir: &str, record: &Value, view: &str, policy: &Value) -> Result<Value, VErr> {
     let system_id = required(record, "/system_id")?;
     let key = super::system_genesis_routes::record_tail(&system_id);
     let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, &key)?
@@ -59,11 +122,59 @@ fn project_one(data_dir: &str, record: &Value, view: &str) -> Result<Value, VErr
             "chain_ref":live.chain_head["chain_ref"]
         }
     });
+    // THE ROW IS CANON'S SHAPE, VALIDATED BEFORE IT IS SERVED. The two plane projections are read
+    // through their owners' own loaders and builders — never by this module opening their records —
+    // and a plane that has nothing admitted for this System is a typed absence carrying that
+    // plane's own refusal code, never a topology this module made up.
+    let mut row = compact;
+    row["schema_version"] = json!(SYSTEMS_PROJECTION_SCHEMA);
+    row["projection_row_id"] = json!(format!("hypervisor_systems_projection:{system_id}"));
+    row["topology"] = json!({
+        "desired": plane_presence(
+            super::system_membership_routes::load_membership_source(data_dir, &key).and_then(|source| {
+                super::system_membership_routes::build_membership_projection(
+                    &source.binding.system_id,
+                    source.desired_topology.as_ref().zip(source.desired_topology_root.as_deref()),
+                    &source.records,
+                    &source.head,
+                )
+            }),
+        ),
+        "observed": plane_presence(
+            super::system_writer_routes::load_writer_source(data_dir, &key).and_then(|source| {
+                super::system_writer_routes::build_writer_projection(
+                    &system_id,
+                    &source.fence_head,
+                    &source.lost_suffix_revisions,
+                )
+            }),
+        ),
+    });
+    row["modes"] = Value::Array(system_modes(&system_id));
+    row["policy_basis"] = policy.clone();
+    row["source_projection_refs"] = json!([
+        "verified_owner_reconstruction",
+        "system_membership_projection",
+        "system_writer_projection"
+    ]);
+    row["read_model_only"] = json!(true);
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        SYSTEMS_PROJECTION_CONTRACT_ID,
+        &row,
+    )
+    .map_err(|error| {
+        verr(
+            "system_projection_row_contract_invalid",
+            format!(
+                "the assembled row violates its registered contract and is NOT served: {error}"
+            ),
+        )
+    })?;
     if view == "compact" {
-        return Ok(compact);
+        return Ok(row);
     }
     Ok(json!({
-        "compact":compact,
+        "compact":row,
         "genesis_admission":admission.record,
         "genesis_admission_receipt":admission.receipt,
         "activation_effect":live.activation_effect,
@@ -77,6 +188,7 @@ fn project_one(data_dir: &str, record: &Value, view: &str) -> Result<Value, VErr
 /// GET /v1/hypervisor/autonomous-systems/projection?view=compact|advanced
 pub(crate) async fn handle_get(
     State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     Query(query): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     let view = query.get("view").map(String::as_str).unwrap_or("compact");
@@ -86,6 +198,13 @@ pub(crate) async fn handle_get(
             "view must be exactly 'compact' or 'advanced'",
         ));
     }
+    // POLICY BEFORE ROWS. The inventory is filtered by the request identity before any row is
+    // built, counted or reported as `honest_empty`; an unresolvable caller is a typed refusal.
+    let identity = match super::substrate_store::resolve_request_identity(&state.data_dir, &headers)
+    {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     match with_source_locks(|| {
         let mut records = super::system_genesis_routes::scan_records(&state.data_dir)
             .map_err(|message| verr("system_projection_source_unreadable", message))?;
@@ -124,17 +243,27 @@ pub(crate) async fn handle_get(
                 record.get("system_id").and_then(Value::as_str) == Some(filter.as_str())
             });
         }
-        let systems = records
+        let visible: Vec<(&Value, &'static str)> = records
             .iter()
-            .map(|record| project_one(&state.data_dir, record, view))
+            .filter_map(|record| row_visible_to(record, &identity).map(|filter| (record, filter)))
+            .collect();
+        let systems = visible
+            .iter()
+            .map(|(record, filter)| {
+                let policy = json!({ "principal_ref": identity.principal_ref, "filter": filter });
+                project_one(&state.data_dir, record, view, &policy)
+            })
             .collect::<Result<Vec<_>, _>>()?;
         Ok::<_, VErr>(json!({
             "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
+            "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
+            "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
             "view":view,
             "state":if systems.is_empty(){"honest_empty"}else{"ready"},
             "systems":systems,
+            "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
             "projection_source":"verified_owner_reconstruction",
-            "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false}
+            "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
         }))
     }) {
         Ok(value) => (StatusCode::OK, Json(value)),

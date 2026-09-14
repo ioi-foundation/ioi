@@ -633,6 +633,45 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Modules 120 -> 121 (2026-09-14, M08.9): ONE MODULE JOINED the reachable graph —
+  // work_projection_routes.rs, the policy-filtered Work read model over the published readers of
+  // the families Hypervisor core owns. It writes NO record family and opens NO plane's records (its
+  // readers are the owners' own `pub(crate)` wrappers); the token, foreign-qualified and
+  // opaque-initialiser movements it brings are attributed below, and every writer bucket held.
+  // Re-pinned 2026-09-14 (M08.9 — the Systems and Work read models: canon's three projection
+  // contracts registered and served, policy before rows, owners never mutated; landed under the
+  // owner's same-day Work-subject-registry ruling, so core Work enumerates ONLY sessions and
+  // automation runs and the first cut's goal-run and room readers were removed BEFORE this pin was
+  // taken — goalrun_routes.rs and outcome_room_routes.rs are byte-identical to HEAD). Tokens
+  // 152110 -> 152770 (+660), attributed per file with the extractor on the HEAD and working copies:
+  // work_projection_routes.rs 0 -> 566 (a NEW module: the projection/subject/facet schema and
+  // contract constants, the six views, the subject-kind table with its canonical ref prefixes,
+  // the three typed-absence families and the two CONTRIBUTED families with their seams, the
+  // activity/execution derivations, five typed refusals, the assembled envelope's registry,
+  // nonclaims and migration map, and five tests), system_projection_routes.rs 93 -> 168 (+75: the
+  // systems-projection schema and contract constants, the seven contextual modes, the two
+  // plane-presence states, the policy basis filters, the source_projection_refs and the
+  // row-contract refusal), lifecycle_routes.rs 14163 -> 14171 (+8: the Session plane's ONE
+  // owner-scoped enumeration `sessions_admitted_for_owner` — owner resolution, strict registry
+  // enumeration, owner filter and its registry-unavailable refusal — which the published
+  // `sessions_for_request` reader AND the list route now compose; the list route's own copy of
+  // the filter and refusal was removed, which is how `check:admission-evidence` found the
+  // duplicate as an eighth `user://local-operator` READ-lane site and why it is seven again),
+  // governance_routes.rs 1688 -> 1693 (+5) and automation_contract_routes.rs 745 -> 749 (+4) —
+  // each the doc comment of one published `pub(crate)` reader wrapped over that plane's PRIVATE
+  // list logic, so the projection never opens a plane's records itself — and hypervisor-daemon.rs
+  // +2 by subtraction (the `#[path]` attribute literal for the new module and the one new route
+  // path literal). Foreign-qualified 4700 -> 4707 (+7): `StatusCode::` occurrences, measured by
+  // member — work_projection_routes.rs BAD_REQUEST ×5, INTERNAL_SERVER_ERROR, OK (7, all new);
+  // lifecycle_routes.rs SERVICE_UNAVAILABLE 59 -> 59 (the list route's refusal moved into the
+  // shared enumeration rather than being duplicated); no other qualified name moved. Opaque-initialiser 2828 -> 2843 (+15): the new slice/usize
+  // constants naming no record family — work_projection_routes.rs `VIEWS` ×5, `SUBJECT_KINDS` ×2,
+  // `FAMILIES_NOT_PROJECTED` ×2, `CONTRIBUTED_FAMILIES` ×2, `RECENTS` ×2 (13) and
+  // system_projection_routes.rs `SYSTEM_MODES` ×2 (definition + use). EVERY WRITER BUCKET HELD
+  // (family 57, non-ODK literal 254, runtime 311), production filesystem calls 242, judged
+  // positions 281, family mentions 285, bare-undeclared 541: the two projections are reads that
+  // admit nothing and write nothing, which the gate's nonmutation fingerprint proves at runtime and
+  // this census confirms statically.
   // Re-pinned 2026-09-14 (M07.5 — metering the substrate: owner-derived metering dimensions,
   // receipt dedup, plan-allowance consumption and the read-derived aggregate on the usage chain).
   // Tokens 151710 -> 152110 (+400), attributed per file with the extractor on the HEAD and working
@@ -840,7 +879,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 120,
+  modules: 121,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -858,7 +897,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 152110,
+  tokenMentions: 152770,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -879,8 +918,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4700,
-    "opaque-initialiser": 2828,
+    "foreign-qualified": 4707,
+    "opaque-initialiser": 2843,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
