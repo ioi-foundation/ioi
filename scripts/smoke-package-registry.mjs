@@ -651,6 +651,7 @@ async function run() {
       surface_capability_depth: "propose",
       object_contract_refs: ["object-model://package-registry-smoke"],
       action_contract_refs: ["action://package-registry-smoke/propose"],
+      dependency_release_refs: [],
       evidence_refs: ["artifact://package-registry-smoke/conformance"],
       idempotency_key: "package-registry-smoke-release-v1",
       recorded_at_ms: 2,

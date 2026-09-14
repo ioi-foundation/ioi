@@ -25,7 +25,12 @@ const CLAUSES = [
   { id: "8", clause: "Enrollment stays optional: a compatible system remains fully operable while the connected/secured service plane exists and is unused by it", unit: "M02.5 · M11.4", checks: [rootScript("check:network-enrollment-continuity-plane")], absences: [absent("M11.4 (product_track)", "check:aiip-enrollment-settlement", "the connected/secured service plane itself")] },
   { id: "9", clause: "Settlement crosses only what was agreed, preserving marketplace, service, verifier, attribution, dispute and settlement owner boundaries", unit: "M11.4 (product_track)", absences: [absent("M11.4 (product_track)", "check:aiip-enrollment-settlement", "the settlement envelope")] },
   { id: "N1", negative: true, clause: "No AIIP path is used inside one system_id", unit: "M11.1", absences: [absent("M11.1", "check:aiip-collaboration-discovery", "the same-system negative")] },
-  { id: "N2", negative: true, clause: "Same-owner multiplicity is explicitly not a pass; ACC-14 clause 7 is where an independently operated external Worker completes the arc", unit: "M11 · ACC-14", structural: (clauses) => ({ ok: clauses.every((c) => c.id === "N2" || (c.checks ?? []).length === 0 || c.id === "8"), detail: "this runner claims nothing about organizational independence: every clause but 8 (enrollment stays optional, M02.5) is a typed absence" }) },
+  // The first run (2026-09-14) failed HERE, on the runner's own table: this predicate exempted
+  // clause 8 but not the evidence clause E, so a green architecture-contracts run read as a claim
+  // of organizational independence. The predicate now says what it means — the only clauses that
+  // execute anything are the single-system enrollment lane and the journey's named evidence, and
+  // neither is an AIIP crossing or an independence claim.
+  { id: "N2", negative: true, clause: "Same-owner multiplicity is explicitly not a pass; ACC-14 clause 7 is where an independently operated external Worker completes the arc", unit: "M11 · ACC-14", structural: (clauses) => { const executing = clauses.filter((c) => (c.checks ?? []).length > 0).map((c) => c.id); const allowed = new Set(["8", "E"]); const stray = executing.filter((id) => !allowed.has(id)); return { ok: stray.length === 0, detail: `executing clauses ${JSON.stringify(executing)} — the single-system enrollment lane (8) and the named evidence (E) only; every AIIP clause is a typed absence${stray.length ? `; stray executing clauses: ${stray.join(", ")}` : ""}` }; } },
   { id: "E", clause: "Journey evidence: architecture contracts and docs", unit: "M11", checks: [rootScript("check:architecture-contracts"), rootScript("check:architecture-docs")] },
 ];
 

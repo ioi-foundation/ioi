@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+  "title": "HypervisorSurfaceReleaseRecord",
+  "description": "One immutable, content-addressed package release for one surface. v2 is the successor that carries canon's `dependency_release_refs` (core-clients-surfaces.md, the HypervisorSurfaceReleaseRecord shape): the admitted releases this release requires, each named by its content-addressed release_ref, which is an exact pin by construction. v1 carried none. The release digest binds the refs, so two releases that differ only in what they depend on are two releases by identity; integrity remains the identity itself (release_ref = {package_ref}/release/{digest over material binding the candidate content hash}) and no separate integrity field is carried.",
+  "x-ioi-schema-version": "ioi.hypervisor.surface_release_record.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "release_ref",
+    "surface_ref",
+    "package_ref",
+    "surface_distribution",
+    "surface_admission_state",
+    "surface_package_disposition",
+    "surface_capability_depth",
+    "object_contract_refs",
+    "action_contract_refs",
+    "dependency_release_refs",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.surface_release_record.v2"
+    },
+    "release_ref": {
+      "type": "string",
+      "pattern": "^package://\\S+/release/\\S+$"
+    },
+    "surface_ref": {
+      "type": "string",
+      "pattern": "^surface://\\S*$"
+    },
+    "package_ref": {
+      "type": "string",
+      "pattern": "^package://\\S*$"
+    },
+    "surface_distribution": {
+      "enum": [
+        "bundled",
+        "direct_package",
+        "organization_catalog",
+        "private_registry",
+        "marketplace"
+      ]
+    },
+    "surface_admission_state": {
+      "enum": [
+        "not_applicable",
+        "candidate",
+        "under_review",
+        "admitted",
+        "rejected",
+        "revoked"
+      ]
+    },
+    "surface_package_disposition": {
+      "enum": [
+        "not_applicable",
+        "active",
+        "deprecated",
+        "superseded",
+        "recalled"
+      ]
+    },
+    "surface_capability_depth": {
+      "enum": [
+        "browse",
+        "inspect",
+        "propose",
+        "act",
+        "workflow_complete"
+      ]
+    },
+    "object_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "action_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "dependency_release_refs": {
+      "description": "The admitted releases this release requires, by content-addressed release_ref. Declared at release admission and frozen by the digest. Every member is RESOLVED at admission against the same registry: an unknown, recalled or foreign-owner dependency refuses the release by name. Empty is a registered fact — a release that depends on nothing says so — and is distinct from the field being absent, which every v1 release is.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^package://\\S+/release/\\S+$"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

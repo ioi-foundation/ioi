@@ -633,7 +633,19 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
-  // Re-pinned 2026-09-14 (d5d3e83ed — five discarded writes this program's M09.3 and M09.5 cuts
+  // Re-pinned 2026-09-14 (M08.10 slice A — `dependency_release_refs` on the v2 release record,
+  // resolved at admission). Tokens 150790 -> 150908, ALL of it package_registry_routes.rs
+  // (1005 -> 1123 measured with the extractor on the HEAD and working copies): the successor's
+  // constants, the request/record field, `parse_release_ref`, `resolve_release_dependencies` with
+  // its four typed refusals, the digest material and two new tests. Foreign-qualified
+  // 4643 -> 4653: `StatusCode::` occurrences in that file 88 -> 98 — six in the resolver and
+  // validator (BAD_REQUEST ×2, UNPROCESSABLE_ENTITY, CONFLICT ×2, FORBIDDEN) and four in the new
+  // tests asserting them. EVERY WRITER BUCKET HELD (family 57, non-ODK literal 254, runtime 311),
+  // production filesystem calls 242, judged positions 281, family mentions 285, and the module's
+  // own constant count 11 -> 11 (two constants changed VALUE from v1 to v2; none was added):
+  // resolution READS release streams that already existed and admits through the same
+  // owner-scoped path — a census that moved tokens and one qualified-name bucket only.
+  // Re-pinned 2026-09-14 (6b4842544 — five discarded writes this program's M09.3 and M09.5 cuts
   // had left behind, found by running the R-18-red mutation-coverage gates to write an exact
   // fence). Tokens 150758 -> 150790, attributed per file with the extractor on the pre- and
   // post-fix sources: environment_routes.rs 3549 -> 3566 (+17: the returned Result in
@@ -784,7 +796,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150790,
+  tokenMentions: 150908,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -805,7 +817,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4643,
+    "foreign-qualified": 4653,
     "opaque-initialiser": 2824,
     "bare-undeclared": 541,
     "ambiguous-module": 0,

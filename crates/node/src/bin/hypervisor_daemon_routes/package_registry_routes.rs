@@ -45,9 +45,12 @@ const INSTALLATION_SCOPE_KIND: &str = "hypervisor-surface-installation";
 const PACKAGE_CANDIDATE_SCHEMA: &str = "ioi.hypervisor.package_candidate.v1";
 const RELEASE_ADMISSION_SCHEMA: &str = "ioi.hypervisor.package_release_admission.v1";
 const INSTALLATION_ADMISSION_SCHEMA: &str = "ioi.hypervisor.package_installation_admission.v1";
-const RELEASE_SCHEMA: &str = "ioi.hypervisor.surface_release_record.v1";
+// v2 is the successor that carries canon's `dependency_release_refs` (M08.10). v1 stays
+// registered and valid for the 28 generated first-party releases; this registry only ever ADMITS
+// v2 from here on, and every reader keys on the admission wrapper rather than the record version.
+const RELEASE_SCHEMA: &str = "ioi.hypervisor.surface_release_record.v2";
 const INSTALLATION_SCHEMA: &str = "ioi.hypervisor.surface_installation_binding.v1";
-const RELEASE_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/surface-release-record/v1";
+const RELEASE_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/surface-release-record/v2";
 const INSTALLATION_CONTRACT_ID: &str =
     "schema://ioi/components/hypervisor/surface-installation-binding/v1";
 
@@ -71,6 +74,9 @@ struct ReleaseRequest {
     surface_capability_depth: String,
     object_contract_refs: Vec<String>,
     action_contract_refs: Vec<String>,
+    // Required, with no serde default: an omitted declaration must not silently become "depends on
+    // nothing". A release that depends on nothing sends `[]` and says so.
+    dependency_release_refs: Vec<String>,
     evidence_refs: Vec<String>,
     idempotency_key: String,
     recorded_at_ms: Option<u64>,
@@ -89,6 +95,7 @@ struct SurfaceReleaseRecord {
     surface_capability_depth: String,
     object_contract_refs: Vec<String>,
     action_contract_refs: Vec<String>,
+    dependency_release_refs: Vec<String>,
     evidence_refs: Vec<String>,
 }
 
@@ -1225,12 +1232,96 @@ fn validate_release_request(request: &ReleaseRequest) -> Result<(), Reply> {
             "evidence_refs accept only artifact://, evidence://, or receipt:// refs",
         ));
     }
+    if !unique_nonempty(&request.dependency_release_refs)
+        || request
+            .dependency_release_refs
+            .iter()
+            .any(|reference| parse_release_ref(reference).is_none())
+    {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "package_release_dependency_ref_invalid",
+            "dependency_release_refs must be unique, content-addressed release refs of the form package://<package_id>/release/<sha256 digest>",
+        ));
+    }
     if !valid_idempotency_key(&request.idempotency_key) {
         return Err(bad(
             StatusCode::BAD_REQUEST,
             "package_idempotency_key_invalid",
             "idempotency_key is required, bounded, and contains no control characters",
         ));
+    }
+    Ok(())
+}
+
+/// A dependency is named by the content-addressed release ref canon gives the record
+/// (`dependency_release_refs: [package://.../release/...]`), which is an exact pin by construction:
+/// the digest IS the compatibility statement, so no separate pin field is carried.
+fn parse_release_ref(reference: &str) -> Option<(String, String)> {
+    let rest = reference.strip_prefix("package://")?;
+    let (package_id, release_digest) = rest.split_once("/release/")?;
+    (valid_id(package_id) && valid_hash(release_digest))
+        .then(|| (package_id.to_owned(), release_digest.to_owned()))
+}
+
+/// Every declared dependency must resolve, in THIS registry, to an admitted release that is still
+/// active and belongs to the same owner as the candidate being released. Resolution happens once,
+/// at admission, and the refs are then frozen by the release digest; nothing re-checks them at
+/// install or serve, and the admission response says so. Unknown, recalled and foreign-owner
+/// dependencies refuse by name — a dependency you cannot read is not a dependency you can pin.
+fn resolve_release_dependencies(
+    data_dir: &str,
+    candidate_owner_ref: &str,
+    dependency_release_refs: &[String],
+) -> Result<(), Reply> {
+    for reference in dependency_release_refs {
+        let Some((package_id, release_digest)) = parse_release_ref(reference) else {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "package_release_dependency_ref_invalid",
+                format!("{reference} is not a content-addressed release ref"),
+            ));
+        };
+        let resource_ref = release_ref(&package_id, &release_digest);
+        let Ok(exact) = stream_head(
+            data_dir,
+            &hash_tail("release", &resource_ref),
+            "package_release_dependency_unresolved",
+        ) else {
+            return Err(bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "package_release_dependency_unresolved",
+                format!("{reference} does not resolve to an admitted release in this registry"),
+            ));
+        };
+        if exact.operation.payload["schema_version"] != RELEASE_ADMISSION_SCHEMA
+            || exact.operation.payload["release"]["release_ref"] != resource_ref
+        {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "package_release_dependency_identity_collision",
+                format!("{reference} resolves to different admitted bytes"),
+            ));
+        }
+        if exact.operation.payload["owner_ref"].as_str() != Some(candidate_owner_ref) {
+            return Err(bad(
+                StatusCode::FORBIDDEN,
+                "package_release_dependency_foreign_owner",
+                format!(
+                    "{reference} is admitted for a different owner; a dependency you cannot read is not a dependency you can pin"
+                ),
+            ));
+        }
+        let (disposition, _) = release_recall_facts(&exact);
+        if disposition != "active" {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "package_release_dependency_recalled",
+                format!(
+                    "{reference} carries disposition {disposition}; a release cannot depend on a release that is no longer active"
+                ),
+            ));
+        }
     }
     Ok(())
 }
@@ -1258,6 +1349,9 @@ fn build_release_admission(
         "surface_capability_depth": request.surface_capability_depth,
         "object_contract_refs": request.object_contract_refs,
         "action_contract_refs": request.action_contract_refs,
+        // Bound into the digest: two releases that differ only in what they depend on are two
+        // releases by identity.
+        "dependency_release_refs": request.dependency_release_refs,
         "evidence_refs": evidence_refs,
     });
     let release_digest = digest(&material)?;
@@ -1282,6 +1376,7 @@ fn build_release_admission(
         surface_capability_depth: request.surface_capability_depth.clone(),
         object_contract_refs: request.object_contract_refs.clone(),
         action_contract_refs: request.action_contract_refs.clone(),
+        dependency_release_refs: request.dependency_release_refs.clone(),
         evidence_refs,
     };
     let release_value = serde_json::to_value(release).map_err(|error| {
@@ -1307,6 +1402,11 @@ fn build_release_admission(
             "package_candidate_content_hash": candidate_record["candidate_content_hash"],
             "admission_decision_ref": format!("decision://hypervisor/packages/{release_digest}"),
             "registration_state": "absent",
+            "dependency_resolution": {
+                "resolved_count": request.dependency_release_refs.len(),
+                "resolved_at": "release_admission",
+                "nonclaim": "Dependencies were resolved against this registry once, at admission, and are frozen by the release digest; nothing re-checks them at install or serve."
+            },
             "nonclaim": "Local release admission does not register, install, expose, mount, serve, or authorize this extension application."
         }),
     ))
@@ -1341,6 +1441,17 @@ pub(crate) async fn handle_release_create(
             "package_expected_head_conflict",
             "expected_package_head is not the current admitted package candidate head",
         );
+    }
+    // Dependencies resolve BEFORE the release is built, so a release that names a dependency this
+    // registry cannot vouch for is never digested, let alone admitted.
+    if let Err(reply) = resolve_release_dependencies(
+        &st.data_dir,
+        candidate.operation.payload["owner_ref"]
+            .as_str()
+            .unwrap_or_default(),
+        &request.dependency_release_refs,
+    ) {
+        return reply;
     }
     let (resource_ref, admission) = match build_release_admission(&candidate, &request) {
         Ok(value) => value,
@@ -2433,6 +2544,7 @@ mod tests {
             surface_capability_depth: "propose".into(),
             object_contract_refs: vec!["object-model://telesupport".into()],
             action_contract_refs: vec!["action://telesupport/reply".into()],
+            dependency_release_refs: vec![],
             evidence_refs: vec!["artifact://telesupport/package-proof".into()],
             idempotency_key: "release-create-1".into(),
             recorded_at_ms: Some(2),
@@ -2542,6 +2654,7 @@ mod tests {
             surface_capability_depth: "propose".into(),
             object_contract_refs: vec!["object-model://telesupport".into()],
             action_contract_refs: vec!["action://telesupport/reply".into()],
+            dependency_release_refs: vec![],
             evidence_refs: vec![],
             idempotency_key: "release-create-1".into(),
             recorded_at_ms: Some(2),
@@ -2719,6 +2832,253 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    /// The candidate half of the ladder, admitted on a fresh data dir the way the handler does it.
+    fn admit_candidate_for_test(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+    ) -> super::super::mutation_event_foundation::MutationCommit {
+        let request = candidate_request();
+        let candidate_record = build_package_candidate(&request, &source()).unwrap();
+        let candidate_resource = package_ref(&request.package_id);
+        let candidate_scope = bind_scope(
+            data_dir,
+            identity,
+            PACKAGE_SCOPE_KIND,
+            &candidate_resource,
+            &request.owner_ref,
+            &request.idempotency_key,
+        )
+        .unwrap();
+        admit(
+            data_dir,
+            true,
+            identity,
+            &candidate_scope,
+            PACKAGE_SCOPE_KIND,
+            &candidate_resource,
+            &hash_tail("package", &candidate_resource),
+            "event_stream.hypervisor_package_candidate_admitted",
+            None,
+            &candidate_record,
+            1,
+            &request.idempotency_key,
+        )
+        .unwrap()
+    }
+
+    /// Candidate → immutable release, admitted on a fresh data dir, the way the handlers do it.
+    /// Returns what the dependency tests need: the release's resource ref, its admitted commit,
+    /// its scope and tail (so a recall successor can be appended) and the admission payload.
+    fn admit_release_for_test(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+        dependency_release_refs: Vec<String>,
+    ) -> (
+        String,
+        super::super::mutation_event_foundation::MutationCommit,
+        super::super::substrate_store::RequestResourceScope,
+        String,
+        Value,
+    ) {
+        let candidate = admit_candidate_for_test(data_dir, identity);
+        let release_request = ReleaseRequest {
+            expected_package_head: candidate.projection.head.clone(),
+            surface_distribution: "private_registry".into(),
+            surface_capability_depth: "propose".into(),
+            object_contract_refs: vec!["object-model://telesupport".into()],
+            action_contract_refs: vec!["action://telesupport/reply".into()],
+            dependency_release_refs,
+            evidence_refs: vec![],
+            idempotency_key: "release-create-1".into(),
+            recorded_at_ms: Some(2),
+        };
+        let (release_resource, release_payload) =
+            build_release_admission(&candidate.projection, &release_request).unwrap();
+        let release_scope = bind_scope(
+            data_dir,
+            identity,
+            RELEASE_SCOPE_KIND,
+            &release_resource,
+            "org://local",
+            &release_request.idempotency_key,
+        )
+        .unwrap();
+        let release_tail = hash_tail("release", &release_resource);
+        let release = admit(
+            data_dir,
+            true,
+            identity,
+            &release_scope,
+            RELEASE_SCOPE_KIND,
+            &release_resource,
+            &release_tail,
+            "event_stream.hypervisor_package_release_admitted",
+            None,
+            &release_payload,
+            2,
+            &release_request.idempotency_key,
+        )
+        .unwrap();
+        (
+            release_resource,
+            release,
+            release_scope,
+            release_tail,
+            release_payload,
+        )
+    }
+
+    fn refusal_code(reply: &Reply) -> String {
+        reply.1 .0.to_string()
+    }
+
+    #[test]
+    fn the_release_digest_binds_dependency_release_refs_and_the_record_carries_them() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "operator",
+            ["org://local".to_string()],
+        );
+        let candidate = admit_candidate_for_test(data_dir, &identity).projection;
+        let base = ReleaseRequest {
+            expected_package_head: candidate.head.clone(),
+            surface_distribution: "private_registry".into(),
+            surface_capability_depth: "propose".into(),
+            object_contract_refs: vec!["object-model://telesupport".into()],
+            action_contract_refs: vec!["action://telesupport/reply".into()],
+            dependency_release_refs: vec![],
+            evidence_refs: vec!["artifact://telesupport/package-proof".into()],
+            idempotency_key: "release-create-1".into(),
+            recorded_at_ms: Some(2),
+        };
+        let dependency = format!("package://acme-ticketing/release/sha256:{}", "1".repeat(64));
+        let with_dependency = ReleaseRequest {
+            dependency_release_refs: vec![dependency.clone()],
+            ..base_clone(&base)
+        };
+        let (without_ref, without_payload) = build_release_admission(&candidate, &base).unwrap();
+        let (with_ref, with_payload) =
+            build_release_admission(&candidate, &with_dependency).unwrap();
+        // Two releases that differ only in what they depend on are two releases by identity.
+        assert_ne!(without_ref, with_ref);
+        let without: SurfaceReleaseRecord =
+            serde_json::from_value(without_payload["release"].clone()).unwrap();
+        let with: SurfaceReleaseRecord =
+            serde_json::from_value(with_payload["release"].clone()).unwrap();
+        assert_eq!(without.schema_version, RELEASE_SCHEMA);
+        assert!(without.dependency_release_refs.is_empty());
+        assert_eq!(with.dependency_release_refs, vec![dependency]);
+        // The builder validated both against the REGISTERED v2 contract before returning; the
+        // admission payload names the resolution posture and its nonclaim rather than implying a
+        // re-check that never happens.
+        assert_eq!(with_payload["dependency_resolution"]["resolved_count"], 1);
+        assert_eq!(
+            with_payload["dependency_resolution"]["resolved_at"],
+            "release_admission"
+        );
+        // A v1-shaped record (no dependency field at all) no longer satisfies the admitted contract.
+        let mut v1_shaped = with_payload["release"].clone();
+        v1_shaped
+            .as_object_mut()
+            .unwrap()
+            .remove("dependency_release_refs");
+        assert!(validate_canonical_contract(
+            RELEASE_CONTRACT_ID,
+            &v1_shaped,
+            "package_release_contract_failed"
+        )
+        .is_err());
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    fn base_clone(base: &ReleaseRequest) -> ReleaseRequest {
+        ReleaseRequest {
+            expected_package_head: base.expected_package_head.clone(),
+            surface_distribution: base.surface_distribution.clone(),
+            surface_capability_depth: base.surface_capability_depth.clone(),
+            object_contract_refs: base.object_contract_refs.clone(),
+            action_contract_refs: base.action_contract_refs.clone(),
+            dependency_release_refs: base.dependency_release_refs.clone(),
+            evidence_refs: base.evidence_refs.clone(),
+            idempotency_key: base.idempotency_key.clone(),
+            recorded_at_ms: base.recorded_at_ms,
+        }
+    }
+
+    #[test]
+    fn dependency_resolution_refuses_unknown_foreign_owner_and_recalled_releases() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "operator",
+            ["org://local".to_string()],
+        );
+
+        // A ref that is not a content-addressed release ref refuses at the shape.
+        let malformed = resolve_release_dependencies(
+            data_dir,
+            "org://local",
+            &["package://acme-ticketing".to_owned()],
+        )
+        .unwrap_err();
+        assert_eq!(malformed.0, StatusCode::BAD_REQUEST);
+        assert!(refusal_code(&malformed).contains("package_release_dependency_ref_invalid"));
+
+        // A well-formed ref nothing in this registry admitted refuses as unresolved.
+        let ghost = format!("package://ghost/release/sha256:{}", "0".repeat(64));
+        let unresolved =
+            resolve_release_dependencies(data_dir, "org://local", &[ghost]).unwrap_err();
+        assert_eq!(unresolved.0, StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(refusal_code(&unresolved).contains("package_release_dependency_unresolved"));
+
+        // Admit a real release; the same owner may depend on it, a different owner may not.
+        let (release_resource, release, release_scope, release_tail, release_payload) =
+            admit_release_for_test(data_dir, &identity, vec![]);
+        resolve_release_dependencies(data_dir, "org://local", &[release_resource.clone()]).unwrap();
+        let foreign =
+            resolve_release_dependencies(data_dir, "org://other", &[release_resource.clone()])
+                .unwrap_err();
+        assert_eq!(foreign.0, StatusCode::FORBIDDEN);
+        assert!(refusal_code(&foreign).contains("package_release_dependency_foreign_owner"));
+
+        // Recall it the way the handler does — the disposition successor on the same stream —
+        // and the same ref that resolved a moment ago now refuses as recalled.
+        let mut recalled: SurfaceReleaseRecord =
+            serde_json::from_value(release_payload["release"].clone()).unwrap();
+        recalled.surface_package_disposition = "recalled".into();
+        let recall_payload = json!({
+            "schema_version": RELEASE_ADMISSION_SCHEMA,
+            "release": serde_json::to_value(&recalled).unwrap(),
+            "owner_ref": "org://local",
+            "recall_reason": "dependency test: recalled after admission",
+            "registration_state": "absent",
+            "transition": "recalled",
+        });
+        admit(
+            data_dir,
+            false,
+            &identity,
+            &release_scope,
+            RELEASE_SCOPE_KIND,
+            &release_resource,
+            &release_tail,
+            "event_stream.hypervisor_package_release_recalled",
+            Some(&release.projection.head),
+            &recall_payload,
+            4,
+            "release-recall-1",
+        )
+        .unwrap();
+        let after_recall =
+            resolve_release_dependencies(data_dir, "org://local", &[release_resource]).unwrap_err();
+        assert_eq!(after_recall.0, StatusCode::CONFLICT);
+        assert!(refusal_code(&after_recall).contains("package_release_dependency_recalled"));
         super::super::substrate_store::reset_handle_for_test();
     }
 

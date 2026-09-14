@@ -72,7 +72,11 @@ export const meta = {
 };
 
 const CANDIDATE_SCHEMA = "ioi.hypervisor.package_candidate.v1";
-const RELEASE_SCHEMA = "ioi.hypervisor.surface_release_record.v1";
+// v2 (M08.10): the release record the daemon admits now carries `dependency_release_refs`. The
+// action lane fails closed when the daemon's receipt is not the declared record, which is how the
+// v1 literal here turned a green admission into `receipt_missing` on the first journey run after
+// the successor landed — the declaration and the daemon move together.
+const RELEASE_SCHEMA = "ioi.hypervisor.surface_release_record.v2";
 const INSTALLATION_SCHEMA = "ioi.hypervisor.surface_installation_binding.v1";
 const PACKAGES_PLANE = "/v1/hypervisor/packages";
 
@@ -137,7 +141,7 @@ const INST_AUTHORITY = { plane: "hypervisor.packages", operation: "POST /v1/hype
 const UNINST_AUTHORITY = { plane: "hypervisor.packages", operation: "POST .../installations/:installation_id/uninstall (expected_installation_head CAS, idempotent replay)" };
 export const actions = [
   { id: "admit-candidate", method: "POST", route: "/actions/admit-candidate", fields: ["owner_ref", "package_id", "domain_app_ref", "idempotency_key"], context: [], authority: PKG_AUTHORITY, receipt: CANDIDATE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
-  { id: "cut-release", method: "POST", route: "/:id/cut-release", fields: ["idempotency_key", "expected_package_head", "surface_distribution", "surface_capability_depth", "object_contract_refs", "action_contract_refs", "evidence_refs"], fieldMax: 4096, context: ["id"], authority: REL_AUTHORITY, receipt: RELEASE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "cut-release", method: "POST", route: "/:id/cut-release", fields: ["idempotency_key", "expected_package_head", "surface_distribution", "surface_capability_depth", "object_contract_refs", "action_contract_refs", "dependency_release_refs", "evidence_refs"], fieldMax: 4096, context: ["id"], authority: REL_AUTHORITY, receipt: RELEASE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "recall-release", method: "POST", route: "/:id/recall", fields: ["idempotency_key", "release_digest", "expected_release_head", "reason"], fieldMax: 600, context: ["id"], authority: RECALL_AUTHORITY, receipt: RELEASE_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "install-release", method: "POST", route: "/:id/install", fields: ["idempotency_key", "release_digest", "expected_release_head", "installation_id", "project_ref", "visibility", "allowed_object_contract_refs", "allowed_action_refs"], fieldMax: 4096, context: ["id"], authority: INST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "uninstall", method: "POST", route: "/:id/uninstall", fields: ["idempotency_key", "release_digest", "installation_id", "expected_installation_head"], context: ["id"], authority: UNINST_AUTHORITY, receipt: INSTALLATION_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
@@ -168,6 +172,9 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     body.surface_capability_depth = fields.surface_capability_depth;
     body.object_contract_refs = refList(fields.object_contract_refs);
     body.action_contract_refs = refList(fields.action_contract_refs);
+    // An empty field is the operator DECLARING no dependencies; the daemon requires the array
+    // rather than defaulting it, and resolves every member against the registry at admission.
+    body.dependency_release_refs = refList(fields.dependency_release_refs);
     body.evidence_refs = refList(fields.evidence_refs);
     redirect = `${LEGACY_ROUTE}?pkg=${enc(id)}`;
   } else if (action.id === "recall-release") {
@@ -386,6 +393,7 @@ function candidateView(model, base, pkg) {
       <label class="fl">Capability depth<select name="surface_capability_depth"${dis}>${["browse", "inspect", "propose", "act", "workflow_complete"].map((v) => `<option value="${v}"${v === "propose" ? " selected" : ""}>${v.replace(/_/g, " ")}</option>`).join("")}</select></label>
       <label class="fl">Object contract refs (whitespace/comma separated)<textarea name="object_contract_refs" rows="2" placeholder="object-model://…"${dis}></textarea></label>
       <label class="fl">Action contract refs<textarea name="action_contract_refs" rows="2" placeholder="action://…"${dis}></textarea></label>
+      <label class="fl">Dependency release refs (content-addressed package://…/release/sha256:… of admitted, active releases this one requires — resolved at admission, frozen by the digest; empty declares none)<textarea name="dependency_release_refs" rows="2" placeholder="package://…/release/sha256:…"${dis}></textarea></label>
       <label class="fl">Evidence refs (artifact:// evidence:// receipt:// — the candidate's own receipt is bound automatically)<textarea name="evidence_refs" rows="2" placeholder="artifact://…"${dis}></textarea></label>
       <button class="act" type="submit"${dis}>Cut release</button> ${casNote}
     </form>`;
@@ -429,6 +437,7 @@ function releaseView(model, base, pkg, rel) {
       <dt>Admission</dt><dd>${pill(rr.surface_admission_state === "admitted" ? "ok" : "muted", rr.surface_admission_state || "—")} ${pill(rr.surface_package_disposition === "active" ? "ok" : "warn", rr.surface_package_disposition || "—")} <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">recall (below) is the one disposition successor the daemon owns — an immutable revision on this stream, never an edit</span></dd>
       ${recalled ? `<dt>Recall reason</dt><dd data-testid="rel-recall-reason">${esc(String(envelope.recall_reason ?? "—"))}</dd>` : ""}
       <dt>Object contracts</dt><dd>${(rr.object_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
+      <dt>Dependencies</dt><dd data-testid="rel-dependencies">${Array.isArray(rr.dependency_release_refs) ? (rr.dependency_release_refs.map((v) => code(v)).join("<br>") || "none declared") : "not carried (v1 release)"}</dd>
       <dt>Action contracts</dt><dd>${(rr.action_contract_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Evidence</dt><dd>${(rr.evidence_refs || []).map((v) => code(v)).join("<br>") || "—"}</dd>
       <dt>Candidate binding</dt><dd>${code(envelope.package_candidate_ref)}<br><span class="sub" style="margin:0;text-transform:none;letter-spacing:0">admitted against candidate head</span> ${code(envelope.package_candidate_head)}</dd>

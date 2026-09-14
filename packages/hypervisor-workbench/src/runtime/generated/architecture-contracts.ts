@@ -3347,6 +3347,21 @@ export type HypervisorSurfaceReleaseRecordV1 = {
   evidence_refs: Array<string>;
 };
 
+export type HypervisorSurfaceReleaseRecordV2 = {
+  schema_version: "ioi.hypervisor.surface_release_record.v2";
+  release_ref: string;
+  surface_ref: string;
+  package_ref: string;
+  surface_distribution: "bundled" | "direct_package" | "organization_catalog" | "private_registry" | "marketplace";
+  surface_admission_state: "not_applicable" | "candidate" | "under_review" | "admitted" | "rejected" | "revoked";
+  surface_package_disposition: "not_applicable" | "active" | "deprecated" | "superseded" | "recalled";
+  surface_capability_depth: "browse" | "inspect" | "propose" | "act" | "workflow_complete";
+  object_contract_refs: Array<string>;
+  action_contract_refs: Array<string>;
+  dependency_release_refs: Array<string>;
+  evidence_refs: Array<string>;
+};
+
 export type HypervisorSurfaceServingBindingV1 = {
   schema_version: "ioi.hypervisor.surface_serving_binding.v1";
   serving_binding_ref: string;
@@ -15550,6 +15565,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/positive-with-dependency.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-missing-dependency-release-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-dependency-not-a-release-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-duplicate-dependency.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/surface-serving-binding/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json",
     "expected": "accept",
@@ -26639,6 +26702,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-installation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/positive-with-dependency.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/positive-with-dependency.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-missing-dependency-release-refs.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-missing-dependency-release-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-dependency-not-a-release-ref.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-dependency-not-a-release-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-duplicate-dependency.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v2/negative-duplicate-dependency.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
@@ -28826,6 +28895,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1": "sha256:829cd261784b99f11a98ecef6bd3ad40767f54253f6115ed476b773c86737572",
   "schema://ioi/components/hypervisor/surface-installation-binding/v1": "sha256:8a4c0fe34b3ccf68462d83fa636be50dbda5cc7ecc81671d50ac324d9f202707",
   "schema://ioi/components/hypervisor/surface-release-record/v1": "sha256:bbd1d787c5fb833f3c004fdbe3759d394c0afafc4c9e5e0cef9e0dda0ccf7904",
+  "schema://ioi/components/hypervisor/surface-release-record/v2": "sha256:9cb6ac13b7697bdef088e5557dd331eb30c0a5edef9cbee829f663d3a5491b88",
   "schema://ioi/components/hypervisor/surface-serving-binding/v1": "sha256:0f35243f2882deccf09df33fe031c0212008153875cbf7a31ed4227c3550d49e",
   "schema://ioi/components/hypervisor/system-interface-binding/v1": "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd",
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8",
@@ -55088,6 +55158,114 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "type": "string"
         },
         "uniqueItems": true
+      },
+      "evidence_refs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/surface-release-record/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/surface-release-record/v2",
+    "title": "HypervisorSurfaceReleaseRecord",
+    "description": "One immutable, content-addressed package release for one surface. v2 is the successor that carries canon's `dependency_release_refs` (core-clients-surfaces.md, the HypervisorSurfaceReleaseRecord shape): the admitted releases this release requires, each named by its content-addressed release_ref, which is an exact pin by construction. v1 carried none. The release digest binds the refs, so two releases that differ only in what they depend on are two releases by identity; integrity remains the identity itself (release_ref = {package_ref}/release/{digest over material binding the candidate content hash}) and no separate integrity field is carried.",
+    "x-ioi-schema-version": "ioi.hypervisor.surface_release_record.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "release_ref",
+      "surface_ref",
+      "package_ref",
+      "surface_distribution",
+      "surface_admission_state",
+      "surface_package_disposition",
+      "surface_capability_depth",
+      "object_contract_refs",
+      "action_contract_refs",
+      "dependency_release_refs",
+      "evidence_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.surface_release_record.v2"
+      },
+      "release_ref": {
+        "type": "string",
+        "pattern": "^package://\\S+/release/\\S+$"
+      },
+      "surface_ref": {
+        "type": "string",
+        "pattern": "^surface://\\S*$"
+      },
+      "package_ref": {
+        "type": "string",
+        "pattern": "^package://\\S*$"
+      },
+      "surface_distribution": {
+        "enum": [
+          "bundled",
+          "direct_package",
+          "organization_catalog",
+          "private_registry",
+          "marketplace"
+        ]
+      },
+      "surface_admission_state": {
+        "enum": [
+          "not_applicable",
+          "candidate",
+          "under_review",
+          "admitted",
+          "rejected",
+          "revoked"
+        ]
+      },
+      "surface_package_disposition": {
+        "enum": [
+          "not_applicable",
+          "active",
+          "deprecated",
+          "superseded",
+          "recalled"
+        ]
+      },
+      "surface_capability_depth": {
+        "enum": [
+          "browse",
+          "inspect",
+          "propose",
+          "act",
+          "workflow_complete"
+        ]
+      },
+      "object_contract_refs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "action_contract_refs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "dependency_release_refs": {
+        "description": "The admitted releases this release requires, by content-addressed release_ref. Declared at release admission and frozen by the digest. Every member is RESOLVED at admission against the same registry: an unknown, recalled or foreign-owner dependency refuses the release by name. Empty is a registered fact — a release that depends on nothing says so — and is distinct from the field being absent, which every v1 release is.",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^package://\\S+/release/\\S+$"
+        }
       },
       "evidence_refs": {
         "type": "array",
@@ -128117,6 +128295,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/components/hypervisor/surface-installation-binding/v1": [],
   "schema://ioi/components/hypervisor/surface-release-record/v1": [],
+  "schema://ioi/components/hypervisor/surface-release-record/v2": [],
   "schema://ioi/components/hypervisor/surface-serving-binding/v1": [],
   "schema://ioi/components/hypervisor/system-interface-binding/v1": [],
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": [],
@@ -142942,6 +143121,12 @@ export function validateHypervisorSurfaceReleaseRecordV1(
   value: unknown,
 ): value is HypervisorSurfaceReleaseRecordV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/surface-release-record/v1", value).ok;
+}
+
+export function validateHypervisorSurfaceReleaseRecordV2(
+  value: unknown,
+): value is HypervisorSurfaceReleaseRecordV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/surface-release-record/v2", value).ok;
 }
 
 export function validateHypervisorSurfaceServingBindingV1(

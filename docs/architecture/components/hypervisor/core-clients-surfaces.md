@@ -2193,7 +2193,7 @@ per-release, per-installation, per-System, or per-runtime cardinality:
 | Record | Cardinality and owned state |
 | --- | --- |
 | `HypervisorApplicationSurfaceRegistration` | one stable `surface://...` definition; class, publisher/origin, creation method, product availability, owner/job, routes, contexts, contracts, and obligations |
-| `HypervisorSurfaceReleaseRecord` | one immutable package release for that surface; distribution, admission, package disposition, capability depth, versioned descriptor, and exact executable contracts |
+| `HypervisorSurfaceReleaseRecord` | one immutable package release for that surface; distribution, admission, package disposition, capability depth, versioned descriptor, exact executable contracts, and dependency release refs (content-addressed refs to the admitted releases it requires, resolved at admission and frozen by the release digest) |
 | `HypervisorSurfaceInstallationBinding` | one organization/project installation of one release; installation, deployment enablement, audience, allowed objects/actions, and authority preview |
 | `HypervisorSystemInterfaceBinding` | one installation bound to one admitted System; System-specific enablement and narrower audience, allowed objects/actions, and authority preview |
 | `HypervisorSurfaceServingBinding` | one serving route/runtime for an installation or System binding; operational health only |
