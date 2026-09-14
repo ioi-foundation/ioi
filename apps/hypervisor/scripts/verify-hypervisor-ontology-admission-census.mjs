@@ -633,6 +633,26 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M09.11, the machine-operation route plane). A MODULE JOINED, 119 -> 120:
+  // `machine_routes.rs`. Tokens 150474 -> 150670 and foreign-qualified 4638 -> 4640.
+  // **A WRITER BUCKET MOVED FOR THE FIRST TIME IN THIS PROGRAM'S CUTS**, and that is the number to
+  // read rather than the module count: non-ODK literal 252 -> 254. The two calls are
+  // `persist_record_durable` into `machine-operations` and `machine-operation-receipts` — two NEW
+  // durable record families, written by LITERAL name so this census can resolve them, which is the
+  // shape this file argues for in its own doctrine (an inline family name lands in the bucket of
+  // calls the census cannot read).
+  // THE ODK FAMILY WRITER BUCKET HELD AT 57, which is the assertion that matters: these families
+  // are the machine plane's own, not an ODK family acquiring a second admitter. Family mentions
+  // held at 285, the runtime-parameter bucket at 311, and production filesystem calls at 242 —
+  // the plane writes through the durable record path and touches no filesystem directly.
+  // The two unadjudicable buckets are attributed EXACTLY rather than waved at, by dumping the
+  // module's const-shaped tokens out of the extractor and diffing them against what the module
+  // declares: precisely two const-shaped names in `machine_routes.rs` are declared elsewhere.
+  // `MACHINE_OPERATION_CONTRACT` (2 occurrences) is imported from `ioi-types`, a crate this walk
+  // does not contain, so it ties to no declaration the census can see -> bare-undeclared
+  // 539 -> 541. `StatusCode::INTERNAL_SERVER_ERROR` (2 occurrences) is qualified by a module
+  // outside the walk -> foreign-qualified 4638 -> 4640. Both counts match their occurrence counts
+  // exactly, which is the difference between an attribution and a story that fits.
   // Re-pinned 2026-09-13 (M13.10 slice C, the guest harness lane and its quarantine round-trip).
   // Tokens 150389 -> 150474, opaque initialisers 2823 -> 2824, production filesystem calls
   // 239 -> 242. Modules 119 and every writer bucket held again — family 57, non-ODK literal 252,
@@ -716,7 +736,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 119,
+  modules: 120,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -734,9 +754,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 150474,
+  tokenMentions: 150670,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 252, runtimeParameter: 311 },
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -755,9 +775,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4638,
+    "foreign-qualified": 4640,
     "opaque-initialiser": 2824,
-    "bare-undeclared": 539,
+    "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

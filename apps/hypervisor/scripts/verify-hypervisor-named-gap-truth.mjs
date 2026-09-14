@@ -161,6 +161,13 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 874 -> 875 (2026-09-14, M09.11): the machine-operation plane's single route,
+  // `/v1/hypervisor/machines/:workload/operations`, carrying POST (submit a proposal for
+  // admission) and GET (read what was recorded) on ONE path — which is why the distinct-path
+  // count moves by one and not by two. A client submits; the daemon resolves the capability
+  // declaration, admits or refuses through the kernel, and mints the identity. No second path was
+  // added for receipts: a receipt is reachable from the operation record that names it, and a
+  // route per record kind is how a plane grows a surface it has to keep answering for.
   // 873 -> 874 (2026-09-13, M09.3): the port revocation act,
   // `/v1/hypervisor/environments/:id/ports/:port/revoke`. ONE path and ONE handler, so this census
   // and the registered-handler one below move by the same amount for once — which they do only
@@ -193,7 +200,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 874,
+  registeredRoutes: 875,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

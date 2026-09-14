@@ -263,6 +263,13 @@ pub fn admit_machine_operation(
     MachineVerdict::admit()
 }
 
+/// The hash of an operation AS ADMITTED. One definition, used by the receipt compiler and by the
+/// durable plane that advances a workload's head — because two places computing "the same" hash is
+/// how a head and a receipt come to disagree about which operation they describe.
+pub fn admitted_request_hash(operation: &Value) -> Result<String, String> {
+    jcs_hash(operation)
+}
+
 /// Compile the receipt for a REFUSED operation. The refusal never reached a backend, so there is no
 /// backend operation to name and the generations do not move — stating otherwise would describe an
 /// effect that was prevented.
@@ -281,7 +288,7 @@ pub fn compile_refusal_receipt(
         "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
         "receipt_ref": receipt_ref,
         "operation_ref": required_string(operation, "/operation_ref")?,
-        "admitted_request_hash": jcs_hash(operation)?,
+        "admitted_request_hash": admitted_request_hash(operation)?,
         "backend_native_operation_id": Value::Null,
         "desired_generation_before": desired_generation_before,
         "desired_generation_after": desired_generation_before,
@@ -338,7 +345,7 @@ pub fn compile_effect_receipt(
         "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
         "receipt_ref": receipt_ref,
         "operation_ref": required_string(operation, "/operation_ref")?,
-        "admitted_request_hash": jcs_hash(operation)?,
+        "admitted_request_hash": admitted_request_hash(operation)?,
         "backend_native_operation_id": native.map(Value::from).unwrap_or(Value::Null),
         "desired_generation_before": desired_generation_before,
         "desired_generation_after": desired_after,

@@ -129,6 +129,15 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
+  // Re-pinned 2026-09-14 (M09.11) from 1130 to 1132 registered handlers: the machine-operation
+  // plane adds ONE route path carrying TWO handlers — POST to submit a proposal, GET to read what
+  // was recorded — so this census moves by 2 while the distinct-path census beside it moves by 1.
+  // That asymmetry is the whole reason the two pins exist separately, and the other pin's comment
+  // says to come looking here; it was right.
+  // WORKSPACE HANDLERS (40) AND CANDIDATES (47) DID NOT MOVE, and I nearly recorded that they did.
+  // The machine plane is daemon-owned end to end: a workspace handler for it would be exactly the
+  // client-side authority ACC-20 clause 5 refuses by name, and the candidate population is about
+  // owner-resolvable environment surfaces, which this plane does not add to.
   // Re-pinned 2026-09-13 (M13.10) from 1130/39/46: registered handlers HELD at 1130 while workspace
   // 39 -> 40 and candidates 46 -> 47. No route was added. `handle_session_execute` now reads the
   // environment record to resolve the execution venue for its receipt (ADR 0053 § 2), which makes
@@ -192,7 +201,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
-  census.registered_route_handlers === 1130 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1132 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

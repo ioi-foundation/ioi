@@ -128,6 +128,8 @@ mod lambda_candidate_source;
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/m048_collaboration_routes.rs"]
 mod m048_collaboration_routes;
+#[path = "hypervisor_daemon_routes/machine_routes.rs"]
+mod machine_routes;
 #[path = "hypervisor_daemon_routes/managed_runtime_routes.rs"]
 mod managed_runtime_routes;
 #[path = "hypervisor_daemon_routes/marketplace_routes.rs"]
@@ -4145,6 +4147,13 @@ async fn async_main() -> anyhow::Result<()> {
         )
         // Cut C — port preview: observe live ports, expose one behind a lease + the loopback
         // preview gateway, unexpose (revoke + teardown). Fail-closed via the gateway's own auth.
+        // M09.11 — the machine-operation plane. A client SUBMITS a proposal; the daemon resolves
+        // the capability declaration, admits or refuses through the kernel, and mints the identity.
+        .route(
+            "/v1/hypervisor/machines/:workload/operations",
+            post(machine_routes::handle_machine_operation_submit)
+                .get(machine_routes::handle_machine_operations_list),
+        )
         .route(
             "/v1/hypervisor/environments/:id/ports",
             get(environment_routes::handle_env_ports),
