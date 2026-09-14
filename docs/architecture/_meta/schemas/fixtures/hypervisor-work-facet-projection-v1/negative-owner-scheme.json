@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.work-facet-projection.v1",
+  "facet_projection_id": "projection://hypervisor/work-facet/review/ap-1",
+  "facet_kind": "review",
+  "facet_type": "approval_request",
+  "facet_ref": "approval-request://ap-1",
+  "owner_ref": "user://someone",
+  "subject_kind": "session",
+  "subject_ref": "session://acme/s1",
+  "canonical_detail_route": "/work/reviews/review/ap-1",
+  "source_projection_ref": "governance-approval-requests",
+  "policy_decision_refs": [],
+  "read_model_only": true
+}

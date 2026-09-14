@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.hypervisor.work-subject-projection.v1",
+  "projection_row_id": "hypervisor_work_subject_projection:goal-run://acme/g1",
+  "subject_kind": "goal_run",
+  "subject_ref": "goal-run://acme/g1",
+  "org_ref": "org://acme",
+  "project_ref": "project://acme/p1",
+  "system_ref": null,
+  "canonical_detail_route": "/work/goals/acme/g1",
+  "display_facets": {
+    "activity": "waiting",
+    "execution_mode": "supervisory"
+  },
+  "review_facet_projection_refs": [],
+  "incident_facet_projection_refs": [],
+  "source_projection_refs": [
+    "daemon-runtime:sessions"
+  ],
+  "policy_decision_refs": [],
+  "read_model_only": true
+}

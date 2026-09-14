@@ -152,7 +152,14 @@ not by drift.
   domain docs.
 - **Work workspace subject registry** — which subjects are core vs
   application-contributed. Owner:
-  `components/hypervisor/core-clients-surfaces.md`.
+  `components/hypervisor/core-clients-surfaces.md` RESOLVED 2026-09-14 (M08.9, private
+  register R-149): core = `session`, `automation_run`, and the substrate's
+  `work_run` / `work_item` / `work_queue` (a typed absence until their owner
+  publishes an enumeration); contributed = `goal_run`, `outcome_room` (the ioi.ai
+  orchestration application), reaching Work only through a Session's typed
+  subject attachment or a registered application-contributed view — recorded as
+  the *Work subject registry* table in
+  `components/hypervisor/core-clients-surfaces.md` § *Hypervisor Work*.
 - **Proof wording** — SLC and north-star language restated as "instantiate
   the packaged application locally" / "AIIP + package contracts"; substance
   unchanged. Owner: `_meta/execution-horizons.md` and the applicable subject

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/work-facet-projection/v1",
+  "title": "HypervisorWorkFacetProjection",
+  "x-ioi-schema-version": "ioi.hypervisor.work-facet-projection.v1",
+  "description": "A policy-filtered cross-owner pointer from a Work row to a review or incident owned elsewhere (core-clients-surfaces.md § Hypervisor Work). It converts nothing into a universal Review or Incident truth object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "facet_projection_id",
+    "facet_kind",
+    "facet_type",
+    "facet_ref",
+    "owner_ref",
+    "subject_kind",
+    "subject_ref",
+    "canonical_detail_route",
+    "source_projection_ref",
+    "policy_decision_refs",
+    "read_model_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.work-facet-projection.v1"
+    },
+    "facet_projection_id": {
+      "type": "string",
+      "pattern": "^projection://hypervisor/work-facet/\\S+$"
+    },
+    "facet_kind": {
+      "enum": [
+        "review",
+        "incident"
+      ]
+    },
+    "facet_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "facet_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*://\\S+$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:surface|agentgres|wallet|system|org)://\\S+$"
+    },
+    "subject_kind": {
+      "enum": [
+        "goal_run",
+        "outcome_room",
+        "automation_run",
+        "session",
+        "work_queue",
+        "work_item",
+        "work_run"
+      ]
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$",
+      "description": "The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."
+    },
+    "canonical_detail_route": {
+      "type": "string",
+      "pattern": "^/\\S*$"
+    },
+    "source_projection_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "policy_decision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^decision://\\S+$"
+      }
+    },
+    "read_model_only": {
+      "const": true
+    }
+  }
+}

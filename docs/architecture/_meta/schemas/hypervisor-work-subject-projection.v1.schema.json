@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+  "title": "HypervisorWorkSubjectProjection",
+  "x-ioi-schema-version": "ioi.hypervisor.work-subject-projection.v1",
+  "description": "One typed row of the policy-filtered Work read model (core-clients-surfaces.md § Hypervisor Work): a canonical subject_kind and subject_ref that deep-link to the type-specific owner, display facets derived without writing any common status back, and the source projections and policy decisions the row was built from. A read model, never a canonical Work object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_row_id",
+    "subject_kind",
+    "subject_ref",
+    "org_ref",
+    "project_ref",
+    "system_ref",
+    "canonical_detail_route",
+    "display_facets",
+    "review_facet_projection_refs",
+    "incident_facet_projection_refs",
+    "source_projection_refs",
+    "policy_decision_refs",
+    "read_model_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.work-subject-projection.v1"
+    },
+    "projection_row_id": {
+      "type": "string",
+      "pattern": "^hypervisor_work_subject_projection:\\S+$"
+    },
+    "subject_kind": {
+      "enum": [
+        "goal_run",
+        "outcome_room",
+        "automation_run",
+        "session",
+        "work_queue",
+        "work_item",
+        "work_run"
+      ]
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$",
+      "description": "The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."
+    },
+    "org_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^org://\\S+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "project_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^project://\\S+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^system://\\S+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "canonical_detail_route": {
+      "type": "string",
+      "pattern": "^/\\S*$"
+    },
+    "display_facets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activity",
+        "execution_mode"
+      ],
+      "properties": {
+        "activity": {
+          "enum": [
+            "active",
+            "waiting",
+            "blocked",
+            "review",
+            "completed",
+            "failed",
+            "archived"
+          ]
+        },
+        "execution_mode": {
+          "enum": [
+            "interactive",
+            "headless",
+            "supervisory",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "review_facet_projection_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^projection://\\S+$"
+      }
+    },
+    "incident_facet_projection_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^projection://\\S+$"
+      }
+    },
+    "source_projection_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "policy_decision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^decision://\\S+$"
+      }
+    },
+    "read_model_only": {
+      "const": true
+    }
+  }
+}

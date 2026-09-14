@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/systems-projection/v1",
+  "title": "HypervisorSystemsProjection",
+  "x-ioi-schema-version": "ioi.hypervisor.systems-projection.v1",
+  "description": "One row of the policy-filtered Systems read model: rebuilt on every read from the verified genesis admission and the live chain, with the membership (desired) and writer (observed) planes composed in as typed presence or typed absence, and the seven contextual modes named as routes. Never persisted, never authority (core-clients-surfaces.md § Hypervisor Systems).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_row_id",
+    "system_id",
+    "source_record_tail",
+    "package_id",
+    "manifest_ref",
+    "genesis_ref",
+    "constitution_ref",
+    "status",
+    "latest_sequence",
+    "network_enrollment_ref",
+    "canonical_roots",
+    "evidence_refs",
+    "topology",
+    "modes",
+    "policy_basis",
+    "source_projection_refs",
+    "read_model_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.systems-projection.v1"
+    },
+    "projection_row_id": {
+      "type": "string",
+      "pattern": "^hypervisor_systems_projection:\\S+$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://\\S+$"
+    },
+    "source_record_tail": {
+      "type": "string",
+      "pattern": "^asg_[0-9a-f]{64}$"
+    },
+    "package_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "manifest_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "genesis_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "constitution_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "latest_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "network_enrollment_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "canonical_roots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_root",
+        "admitted_manifest_root",
+        "initial_profile_bundle_root",
+        "active_profile_set_root",
+        "latest_state_root",
+        "operation_log_root",
+        "chain_root"
+      ],
+      "properties": {
+        "proposal_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "admitted_manifest_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initial_profile_bundle_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_profile_set_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest_state_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operation_log_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chain_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "genesis_admission_receipt_ref",
+        "latest_receipt_ref",
+        "operation_log_ref",
+        "chain_ref"
+      ],
+      "properties": {
+        "genesis_admission_receipt_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest_receipt_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operation_log_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chain_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "desired",
+        "observed"
+      ],
+      "properties": {
+        "desired": {
+          "$ref": "#/$defs/plane_presence"
+        },
+        "observed": {
+          "$ref": "#/$defs/plane_presence"
+        }
+      }
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "route",
+          "serving"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              "overview",
+              "design",
+              "operate",
+              "govern",
+              "evidence",
+              "improve",
+              "interfaces"
+            ]
+          },
+          "route": {
+            "type": "string",
+            "pattern": "^/systems/\\S+$"
+          },
+          "serving": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "policy_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_ref",
+        "filter"
+      ],
+      "properties": {
+        "principal_ref": {
+          "type": "string",
+          "pattern": "^user://\\S+$"
+        },
+        "filter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "source_projection_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "read_model_only": {
+      "const": true
+    }
+  },
+  "$defs": {
+    "plane_presence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "projection",
+        "reason"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "present",
+            "absent"
+          ]
+        },
+        "projection": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

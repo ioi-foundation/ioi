@@ -1981,6 +1981,56 @@ owned by
 [`objects/interop-and-collaboration-terms.md`](../../foundations/objects/interop-and-collaboration-terms.md)
 and are not restated here.
 
+The Systems read model is one row per admitted System, rebuilt on every read
+from the verified genesis admission and the live chain — never persisted, never
+authority — with the membership and writer planes' own projections composed in
+as typed presence or typed absence, and the seven contextual modes named as
+routes over existing owners:
+
+```yaml
+HypervisorSystemsProjection:
+  projection_row_id: hypervisor_systems_projection:...
+  system_id: system://...
+  source_record_tail: asg_...
+  package_id: string
+  manifest_ref: string
+  genesis_ref: string
+  constitution_ref: string | null
+  status: string            # the live chain head's admitted status
+  latest_sequence: integer
+  network_enrollment_ref: string | null
+  canonical_roots:
+    proposal_root | admitted_manifest_root | initial_profile_bundle_root |
+    active_profile_set_root | latest_state_root | operation_log_root |
+    chain_root: hash | null
+  evidence_refs:
+    genesis_admission_receipt_ref | latest_receipt_ref | operation_log_ref |
+    chain_ref: string | null
+  topology:
+    desired:                # the membership plane's projection, or why not
+      state: present | absent
+      projection: HypervisorSystemMembershipProjection | null
+      reason: string | null
+    observed:               # the writer plane's projection, or why not
+      state: present | absent
+      projection: writer projection | null
+      reason: string | null
+  modes:
+    - mode: overview | design | operate | govern | evidence | improve | interfaces
+      route: /systems/{system_id}[/mode]
+      serving: string | null   # the lane that serves the mode today, or null
+  policy_basis:
+    principal_ref: user://...
+    filter: string          # the rule that admitted this row for this caller
+  source_projection_refs: [string]
+  read_model_only: true
+```
+
+A row is served only when its registered contract validates; a System whose
+membership or writer plane has not been admitted projects a typed absence in
+`topology`, never an invented topology. The projection is policy-filtered by
+the request identity before any row is counted or returned.
+
 Implementation status: target contract. Autonomous-system contract/API slices
 exist in canon, but a complete policy-filtered Systems inventory, permanent
 shell destination, and blank-to-genesis product path are not shipped.
@@ -2017,6 +2067,32 @@ deep-links to the type-specific owner. Work may derive display facets across
 GoalRun, OutcomeRoom, AutomationRun, Session, WorkItem, WorkRun, review, and
 incident states, but it never writes one common status back over them. Policy
 filtering occurs before search, counts, recents, aggregation, and caching.
+
+**Work subject registry** (ruled 2026-09-14, M08.9; resolves the "Work
+workspace subject registry" untangling ADR 0022 assigned to this file).
+Hypervisor core Work enumerates only the subject families the substrate owns,
+in session vocabulary. Every other family is CONTRIBUTED and reaches Work
+through exactly two seams: a Session's typed `subject_attachments[]` row that
+points at the owner object, or a Work view the owner application registers
+through the product-surface registration family. Core publishes no reader for
+a contributed family and mints no route for it.
+
+| `subject_kind` | Registry class | Owner | How it reaches Hypervisor Work |
+| --- | --- | --- | --- |
+| `session` | core | Hypervisor Sessions (§ *Hypervisor Sessions*) | enumerated by the core projection through the Session plane's published reader |
+| `automation_run` | core | Automations (§ *Hypervisor Automations*) | enumerated by the core projection through the Automations plane's published reader |
+| `work_run`, `work_item`, `work_queue` | core (substrate) | the work-lifecycle log | a typed absence naming its reason until the owner publishes an enumeration; never an empty list |
+| `goal_run` | contributed | ioi.ai orchestration application ([`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#work--goals-surface)) | a Session attachment, or the contributed Work / Goals view at `/work/goals` |
+| `outcome_room` | contributed | ioi.ai orchestration application ([`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#the-application-contributed-rooms-view)) | a Session attachment, or the contributed Work / Rooms view at `/work/rooms` |
+
+Reviews are `HypervisorWorkFacetProjection` pointers at the approval requests
+the caller holds (Governance owns them); incidents are a typed absence until an
+incident owner publishes a reader. The `subject_kind` enum in the registered row
+shape keeps every kind above, because a contributed row must still be typed
+when it arrives. The compatibility `/__ioi/missions` readout renders the room
+graph and is therefore the contribution seam's to replace, not core's to
+migrate: core Work migrates Sessions and automation runs onto the canonical
+routes and deletes, rather than aliases, the rest (ADR 0022 Decision 2).
 
 System, Project, organization, and OutcomeRoom scope remain orthogonal to work
 kind. System-bound work projects into `System / Operate`; direct, Project,
@@ -4823,6 +4899,12 @@ HypervisorWorkFacetProjection:
   source_projection_ref: agentgres://projection/... | projection://...
   policy_decision_refs: [decision://...]
   read_model_only: true
+
+A row's `subject_ref` is the owner's admitted identity carried verbatim: the
+Session plane admits `session:<id>` today while the target form above is
+`session://...`, and the projection never rewrites an owner's identity to match a
+shape — the registered contract accepts both until the Session plane converges
+(recorded 2026-09-14, M08.9).
 
 `HypervisorWorkFacetProjection` is only a policy-filtered cross-owner pointer.
 It may project `HypervisorWorkRunReviewState`, `review://wallet/...`,

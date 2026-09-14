@@ -142,6 +142,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/surface-serving-binding/v1", "sha256:0f35243f2882deccf09df33fe031c0212008153875cbf7a31ed4227c3550d49e"),
     ("schema://ioi/components/hypervisor/surface-serving-binding/v2", "sha256:4416d3af1ad98cdad4ef05817b04f7ef4800d15e7aaff9f54f8d49dbc558a0c8"),
     ("schema://ioi/components/hypervisor/package-recall-impact/v1", "sha256:16deca21a3172950be55512246fbb4cd0d49fd742b8829123c807769701daabc"),
+    ("schema://ioi/components/hypervisor/systems-projection/v1", "sha256:fc17abc7e5fe1a9abcf4aa007d87d1da229efcd82fb2c3ee6efdfd7181b40911"),
+    ("schema://ioi/components/hypervisor/work-subject-projection/v1", "sha256:8a5daf7884c37a7811e5f020c0f6d4b8f588c5c5ffd2eabc462570f849837fec"),
+    ("schema://ioi/components/hypervisor/work-facet-projection/v1", "sha256:2bc8eb32a870de6d8c040324dec29fb85ee699a3148aa05ef9441aa7d5b7877c"),
     ("schema://ioi/components/hypervisor/system-interface-binding/v1", "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd"),
     ("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8"),
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b"),
@@ -36699,6 +36702,997 @@ pub enum HypervisorPackageRecallImpactV1DoesNotAssertItem {
     ExternalIngressWithdrawn,
     #[serde(rename = r#"reach_beyond_recaller_tenants"#)]
     ReachBeyondRecallerTenants,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1 {
+    pub schema_version: HypervisorSystemsProjectionV1SchemaVersion,
+    pub projection_row_id: String,
+    pub system_id: String,
+    pub source_record_tail: String,
+    pub package_id: String,
+    pub manifest_ref: String,
+    pub genesis_ref: String,
+    pub constitution_ref: Option<String>,
+    pub status: String,
+    pub latest_sequence: ArchitectureContractInteger,
+    pub network_enrollment_ref: Option<String>,
+    pub canonical_roots: HypervisorSystemsProjectionV1CanonicalRoots,
+    pub evidence_refs: HypervisorSystemsProjectionV1EvidenceRefs,
+    pub topology: HypervisorSystemsProjectionV1Topology,
+    pub modes: Vec<HypervisorSystemsProjectionV1ModesItem>,
+    pub policy_basis: HypervisorSystemsProjectionV1PolicyBasis,
+    pub source_projection_refs: Vec<String>,
+    pub read_model_only: HypervisorSystemsProjectionV1ReadModelOnly,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/systems-projection/v1","title":"HypervisorSystemsProjection","x-ioi-schema-version":"ioi.hypervisor.systems-projection.v1","description":"One row of the policy-filtered Systems read model: rebuilt on every read from the verified genesis admission and the live chain, with the membership (desired) and writer (observed) planes composed in as typed presence or typed absence, and the seven contextual modes named as routes. Never persisted, never authority (core-clients-surfaces.md § Hypervisor Systems).","type":"object","additionalProperties":false,"required":["schema_version","projection_row_id","system_id","source_record_tail","package_id","manifest_ref","genesis_ref","constitution_ref","status","latest_sequence","network_enrollment_ref","canonical_roots","evidence_refs","topology","modes","policy_basis","source_projection_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.systems-projection.v1"},"projection_row_id":{"type":"string","pattern":"^hypervisor_systems_projection:\\S+$"},"system_id":{"type":"string","pattern":"^system://\\S+$"},"source_record_tail":{"type":"string","pattern":"^asg_[0-9a-f]{64}$"},"package_id":{"type":"string","minLength":1,"maxLength":500},"manifest_ref":{"type":"string","minLength":1,"maxLength":500},"genesis_ref":{"type":"string","minLength":1,"maxLength":500},"constitution_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"status":{"type":"string","minLength":1,"maxLength":500},"latest_sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"network_enrollment_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"canonical_roots":{"type":"object","additionalProperties":false,"required":["proposal_root","admitted_manifest_root","initial_profile_bundle_root","active_profile_set_root","latest_state_root","operation_log_root","chain_root"],"properties":{"proposal_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"admitted_manifest_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"initial_profile_bundle_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"active_profile_set_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"latest_state_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"operation_log_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"chain_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}},"evidence_refs":{"type":"object","additionalProperties":false,"required":["genesis_admission_receipt_ref","latest_receipt_ref","operation_log_ref","chain_ref"],"properties":{"genesis_admission_receipt_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"latest_receipt_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"operation_log_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"chain_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]}}},"topology":{"type":"object","additionalProperties":false,"required":["desired","observed"],"properties":{"desired":{"$ref":"#/$defs/plane_presence"},"observed":{"$ref":"#/$defs/plane_presence"}}},"modes":{"type":"array","minItems":7,"maxItems":7,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["mode","route","serving"],"properties":{"mode":{"enum":["overview","design","operate","govern","evidence","improve","interfaces"]},"route":{"type":"string","pattern":"^/systems/\\S+$"},"serving":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]}}}},"policy_basis":{"type":"object","additionalProperties":false,"required":["principal_ref","filter"],"properties":{"principal_ref":{"type":"string","pattern":"^user://\\S+$"},"filter":{"type":"string","minLength":1,"maxLength":500}}},"source_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"read_model_only":{"const":true}},"$defs":{"plane_presence":{"type":"object","additionalProperties":false,"required":["state","projection","reason"],"properties":{"state":{"enum":["present","absent"]},"projection":{"anyOf":[{"type":"object"},{"type":"null"}]},"reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorSystemsProjectionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection_row_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"projection_row_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_row_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_record_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_record_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_record_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"package_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<String>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"latest_sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_roots: serde_json::from_value::<HypervisorSystemsProjectionV1CanonicalRoots>(
+                object
+                    .remove(r#"canonical_roots"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_roots"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<HypervisorSystemsProjectionV1EvidenceRefs>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            topology: serde_json::from_value::<HypervisorSystemsProjectionV1Topology>(
+                object
+                    .remove(r#"topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            modes: serde_json::from_value::<Vec<HypervisorSystemsProjectionV1ModesItem>>(
+                object
+                    .remove(r#"modes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"modes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_basis: serde_json::from_value::<HypervisorSystemsProjectionV1PolicyBasis>(
+                object
+                    .remove(r#"policy_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_projection_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_projection_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            read_model_only: serde_json::from_value::<HypervisorSystemsProjectionV1ReadModelOnly>(
+                object
+                    .remove(r#"read_model_only"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"read_model_only"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorSystemsProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.systems-projection.v1"#)]
+    IoiHypervisorSystemsProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1CanonicalRoots {
+    pub proposal_root: Option<String>,
+    pub admitted_manifest_root: Option<String>,
+    pub initial_profile_bundle_root: Option<String>,
+    pub active_profile_set_root: Option<String>,
+    pub latest_state_root: Option<String>,
+    pub operation_log_root: Option<String>,
+    pub chain_root: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1CanonicalRoots {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["proposal_root","admitted_manifest_root","initial_profile_bundle_root","active_profile_set_root","latest_state_root","operation_log_root","chain_root"],"properties":{"proposal_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"admitted_manifest_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"initial_profile_bundle_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"active_profile_set_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"latest_state_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"operation_log_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"chain_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            proposal_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_manifest_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admitted_manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_profile_bundle_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"initial_profile_bundle_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"initial_profile_bundle_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"latest_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_log_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"operation_log_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_log_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"chain_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1EvidenceRefs {
+    pub genesis_admission_receipt_ref: Option<String>,
+    pub latest_receipt_ref: Option<String>,
+    pub operation_log_ref: Option<String>,
+    pub chain_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1EvidenceRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["genesis_admission_receipt_ref","latest_receipt_ref","operation_log_ref","chain_ref"],"properties":{"genesis_admission_receipt_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"latest_receipt_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"operation_log_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"chain_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            genesis_admission_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"genesis_admission_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"genesis_admission_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"latest_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_log_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"operation_log_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_log_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1Topology {
+    pub desired: HypervisorSystemsProjectionV1TopologyDesired,
+    pub observed: HypervisorSystemsProjectionV1TopologyObserved,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1Topology {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["desired","observed"],"properties":{"desired":{"$ref":"#/$defs/plane_presence"},"observed":{"$ref":"#/$defs/plane_presence"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            desired: serde_json::from_value::<HypervisorSystemsProjectionV1TopologyDesired>(
+                object
+                    .remove(r#"desired"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"desired"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed: serde_json::from_value::<HypervisorSystemsProjectionV1TopologyObserved>(
+                object
+                    .remove(r#"observed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1TopologyDesired {
+    pub state: HypervisorSystemsProjectionV1TopologyDesiredState,
+    pub projection: Option<serde_json::Value>,
+    pub reason: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1TopologyDesired {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["state","projection","reason"],"properties":{"state":{"enum":["present","absent"]},"projection":{"anyOf":[{"type":"object"},{"type":"null"}]},"reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<HypervisorSystemsProjectionV1TopologyDesiredState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection: serde_json::from_value::<Option<serde_json::Value>>(
+                object
+                    .remove(r#"projection"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorSystemsProjectionV1TopologyDesiredState {
+    #[serde(rename = r#"present"#)]
+    Present,
+    #[serde(rename = r#"absent"#)]
+    Absent,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1TopologyObserved {
+    pub state: HypervisorSystemsProjectionV1TopologyObservedState,
+    pub projection: Option<serde_json::Value>,
+    pub reason: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1TopologyObserved {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["state","projection","reason"],"properties":{"state":{"enum":["present","absent"]},"projection":{"anyOf":[{"type":"object"},{"type":"null"}]},"reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<HypervisorSystemsProjectionV1TopologyObservedState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection: serde_json::from_value::<Option<serde_json::Value>>(
+                object
+                    .remove(r#"projection"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorSystemsProjectionV1TopologyObservedState {
+    #[serde(rename = r#"present"#)]
+    Present,
+    #[serde(rename = r#"absent"#)]
+    Absent,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1ModesItem {
+    pub mode: HypervisorSystemsProjectionV1ModesItemMode,
+    pub route: String,
+    pub serving: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1ModesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["mode","route","serving"],"properties":{"mode":{"enum":["overview","design","operate","govern","evidence","improve","interfaces"]},"route":{"type":"string","pattern":"^/systems/\\S+$"},"serving":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mode: serde_json::from_value::<HypervisorSystemsProjectionV1ModesItemMode>(
+                object
+                    .remove(r#"mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            route: serde_json::from_value::<String>(
+                object
+                    .remove(r#"route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serving: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"serving"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"serving"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorSystemsProjectionV1ModesItemMode {
+    #[serde(rename = r#"overview"#)]
+    Overview,
+    #[serde(rename = r#"design"#)]
+    Design,
+    #[serde(rename = r#"operate"#)]
+    Operate,
+    #[serde(rename = r#"govern"#)]
+    Govern,
+    #[serde(rename = r#"evidence"#)]
+    Evidence,
+    #[serde(rename = r#"improve"#)]
+    Improve,
+    #[serde(rename = r#"interfaces"#)]
+    Interfaces,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorSystemsProjectionV1PolicyBasis {
+    pub principal_ref: String,
+    pub filter: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1PolicyBasis {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["principal_ref","filter"],"properties":{"principal_ref":{"type":"string","pattern":"^user://\\S+$"},"filter":{"type":"string","minLength":1,"maxLength":500}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            filter: serde_json::from_value::<String>(
+                object
+                    .remove(r#"filter"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"filter"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorSystemsProjectionV1ReadModelOnly {
+    True,
+}
+
+impl serde::Serialize for HypervisorSystemsProjectionV1ReadModelOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorSystemsProjectionV1ReadModelOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorWorkSubjectProjectionV1 {
+    pub schema_version: HypervisorWorkSubjectProjectionV1SchemaVersion,
+    pub projection_row_id: String,
+    pub subject_kind: HypervisorWorkSubjectProjectionV1SubjectKind,
+    pub subject_ref: String,
+    pub org_ref: Option<String>,
+    pub project_ref: Option<String>,
+    pub system_ref: Option<String>,
+    pub canonical_detail_route: String,
+    pub display_facets: HypervisorWorkSubjectProjectionV1DisplayFacets,
+    pub review_facet_projection_refs: Vec<String>,
+    pub incident_facet_projection_refs: Vec<String>,
+    pub source_projection_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub read_model_only: HypervisorWorkSubjectProjectionV1ReadModelOnly,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorWorkSubjectProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/work-subject-projection/v1","title":"HypervisorWorkSubjectProjection","x-ioi-schema-version":"ioi.hypervisor.work-subject-projection.v1","description":"One typed row of the policy-filtered Work read model (core-clients-surfaces.md § Hypervisor Work): a canonical subject_kind and subject_ref that deep-link to the type-specific owner, display facets derived without writing any common status back, and the source projections and policy decisions the row was built from. A read model, never a canonical Work object.","type":"object","additionalProperties":false,"required":["schema_version","projection_row_id","subject_kind","subject_ref","org_ref","project_ref","system_ref","canonical_detail_route","display_facets","review_facet_projection_refs","incident_facet_projection_refs","source_projection_refs","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.work-subject-projection.v1"},"projection_row_id":{"type":"string","pattern":"^hypervisor_work_subject_projection:\\S+$"},"subject_kind":{"enum":["goal_run","outcome_room","automation_run","session","work_queue","work_item","work_run"]},"subject_ref":{"type":"string","pattern":"^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$","description":"The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."},"org_ref":{"anyOf":[{"type":"string","pattern":"^org://\\S+$"},{"type":"null"}]},"project_ref":{"anyOf":[{"type":"string","pattern":"^project://\\S+$"},{"type":"null"}]},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://\\S+$"},{"type":"null"}]},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$"},"display_facets":{"type":"object","additionalProperties":false,"required":["activity","execution_mode"],"properties":{"activity":{"enum":["active","waiting","blocked","review","completed","failed","archived"]},"execution_mode":{"enum":["interactive","headless","supervisory","not_applicable"]}}},"review_facet_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^projection://\\S+$"}},"incident_facet_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^projection://\\S+$"}},"source_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<HypervisorWorkSubjectProjectionV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            projection_row_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"projection_row_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_row_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_kind: serde_json::from_value::<HypervisorWorkSubjectProjectionV1SubjectKind>(
+                object
+                    .remove(r#"subject_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            org_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"org_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"org_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            project_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"project_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"project_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_detail_route: serde_json::from_value::<String>(
+                object
+                    .remove(r#"canonical_detail_route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_detail_route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_facets:
+                serde_json::from_value::<HypervisorWorkSubjectProjectionV1DisplayFacets>(
+                    object
+                        .remove(r#"display_facets"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"display_facets"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            review_facet_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"review_facet_projection_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"review_facet_projection_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incident_facet_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"incident_facet_projection_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"incident_facet_projection_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_projection_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_projection_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_decision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_decision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            read_model_only:
+                serde_json::from_value::<HypervisorWorkSubjectProjectionV1ReadModelOnly>(
+                    object
+                        .remove(r#"read_model_only"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"read_model_only"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkSubjectProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.work-subject-projection.v1"#)]
+    IoiHypervisorWorkSubjectProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkSubjectProjectionV1SubjectKind {
+    #[serde(rename = r#"goal_run"#)]
+    GoalRun,
+    #[serde(rename = r#"outcome_room"#)]
+    OutcomeRoom,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"session"#)]
+    Session,
+    #[serde(rename = r#"work_queue"#)]
+    WorkQueue,
+    #[serde(rename = r#"work_item"#)]
+    WorkItem,
+    #[serde(rename = r#"work_run"#)]
+    WorkRun,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorWorkSubjectProjectionV1DisplayFacets {
+    pub activity: HypervisorWorkSubjectProjectionV1DisplayFacetsActivity,
+    pub execution_mode: HypervisorWorkSubjectProjectionV1DisplayFacetsExecutionMode,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorWorkSubjectProjectionV1DisplayFacets {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["activity","execution_mode"],"properties":{"activity":{"enum":["active","waiting","blocked","review","completed","failed","archived"]},"execution_mode":{"enum":["interactive","headless","supervisory","not_applicable"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            activity: serde_json::from_value::<
+                HypervisorWorkSubjectProjectionV1DisplayFacetsActivity,
+            >(
+                object
+                    .remove(r#"activity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            execution_mode: serde_json::from_value::<
+                HypervisorWorkSubjectProjectionV1DisplayFacetsExecutionMode,
+            >(
+                object
+                    .remove(r#"execution_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"execution_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkSubjectProjectionV1DisplayFacetsActivity {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"waiting"#)]
+    Waiting,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"review"#)]
+    Review,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkSubjectProjectionV1DisplayFacetsExecutionMode {
+    #[serde(rename = r#"interactive"#)]
+    Interactive,
+    #[serde(rename = r#"headless"#)]
+    Headless,
+    #[serde(rename = r#"supervisory"#)]
+    Supervisory,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorWorkSubjectProjectionV1ReadModelOnly {
+    True,
+}
+
+impl serde::Serialize for HypervisorWorkSubjectProjectionV1ReadModelOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorWorkSubjectProjectionV1ReadModelOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorWorkFacetProjectionV1 {
+    pub schema_version: HypervisorWorkFacetProjectionV1SchemaVersion,
+    pub facet_projection_id: String,
+    pub facet_kind: HypervisorWorkFacetProjectionV1FacetKind,
+    pub facet_type: String,
+    pub facet_ref: String,
+    pub owner_ref: String,
+    pub subject_kind: HypervisorWorkFacetProjectionV1SubjectKind,
+    pub subject_ref: String,
+    pub canonical_detail_route: String,
+    pub source_projection_ref: String,
+    pub policy_decision_refs: Vec<String>,
+    pub read_model_only: HypervisorWorkFacetProjectionV1ReadModelOnly,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorWorkFacetProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/work-facet-projection/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/work-facet-projection/v1","title":"HypervisorWorkFacetProjection","x-ioi-schema-version":"ioi.hypervisor.work-facet-projection.v1","description":"A policy-filtered cross-owner pointer from a Work row to a review or incident owned elsewhere (core-clients-surfaces.md § Hypervisor Work). It converts nothing into a universal Review or Incident truth object.","type":"object","additionalProperties":false,"required":["schema_version","facet_projection_id","facet_kind","facet_type","facet_ref","owner_ref","subject_kind","subject_ref","canonical_detail_route","source_projection_ref","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.work-facet-projection.v1"},"facet_projection_id":{"type":"string","pattern":"^projection://hypervisor/work-facet/\\S+$"},"facet_kind":{"enum":["review","incident"]},"facet_type":{"type":"string","minLength":1,"maxLength":500},"facet_ref":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://\\S+$"},"owner_ref":{"type":"string","pattern":"^(?:surface|agentgres|wallet|system|org)://\\S+$"},"subject_kind":{"enum":["goal_run","outcome_room","automation_run","session","work_queue","work_item","work_run"]},"subject_ref":{"type":"string","pattern":"^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$","description":"The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$"},"source_projection_ref":{"type":"string","minLength":1,"maxLength":500},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorWorkFacetProjectionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            facet_projection_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"facet_projection_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"facet_projection_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            facet_kind: serde_json::from_value::<HypervisorWorkFacetProjectionV1FacetKind>(
+                object
+                    .remove(r#"facet_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"facet_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            facet_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"facet_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"facet_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            facet_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"facet_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"facet_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_kind: serde_json::from_value::<HypervisorWorkFacetProjectionV1SubjectKind>(
+                object
+                    .remove(r#"subject_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_detail_route: serde_json::from_value::<String>(
+                object
+                    .remove(r#"canonical_detail_route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_detail_route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_projection_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_projection_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_decision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_decision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            read_model_only:
+                serde_json::from_value::<HypervisorWorkFacetProjectionV1ReadModelOnly>(
+                    object
+                        .remove(r#"read_model_only"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"read_model_only"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkFacetProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.work-facet-projection.v1"#)]
+    IoiHypervisorWorkFacetProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkFacetProjectionV1FacetKind {
+    #[serde(rename = r#"review"#)]
+    Review,
+    #[serde(rename = r#"incident"#)]
+    Incident,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorWorkFacetProjectionV1SubjectKind {
+    #[serde(rename = r#"goal_run"#)]
+    GoalRun,
+    #[serde(rename = r#"outcome_room"#)]
+    OutcomeRoom,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"session"#)]
+    Session,
+    #[serde(rename = r#"work_queue"#)]
+    WorkQueue,
+    #[serde(rename = r#"work_item"#)]
+    WorkItem,
+    #[serde(rename = r#"work_run"#)]
+    WorkRun,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorWorkFacetProjectionV1ReadModelOnly {
+    True,
+}
+
+impl serde::Serialize for HypervisorWorkFacetProjectionV1ReadModelOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorWorkFacetProjectionV1ReadModelOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -146475,6 +147469,134 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/systems-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/systems-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/systems-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/systems-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/systems-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/systems-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-subject-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-subject-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-subject-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-subject-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-subject-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-subject-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-facet-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-facet-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-facet-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/work-facet-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/system-interface-binding/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
         expected_accept: true,
@@ -160694,6 +161816,182 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/systems-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-subject-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-facet-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-facet-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-facet-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/work-facet-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/system-interface-binding/v1"#,
         source_fixture_path: Some(
@@ -173326,6 +174624,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/surface-serving-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/surface-serving-binding/v1","title":"HypervisorSurfaceServingBinding","x-ioi-schema-version":"ioi.hypervisor.surface_serving_binding.v1","type":"object","additionalProperties":false,"required":["schema_version","serving_binding_ref","surface_ref","release_ref","installation_ref","resolved_route","surface_operational_state","health_observation_refs"],"properties":{"schema_version":{"const":"ioi.hypervisor.surface_serving_binding.v1"},"serving_binding_ref":{"type":"string","pattern":"^surface-serving://\\S*$"},"surface_ref":{"type":"string","pattern":"^surface://\\S*$"},"release_ref":{"type":"string","pattern":"^package://\\S+/release/\\S+$"},"installation_ref":{"type":"string","pattern":"^install://\\S*$"},"system_binding_ref":{"anyOf":[{"type":"string","pattern":"^package-binding://\\S*$"},{"type":"null"}]},"resolved_route":{"type":"string","pattern":"^/\\S*$"},"runtime_ref":{"anyOf":[{"type":"string","pattern":"^runtime://\\S*$"},{"type":"null"}]},"surface_operational_state":{"enum":["inactive","starting","ready","serving","degraded","blocked","stopped","unavailable"]},"health_observation_refs":{"type":"array","items":{"type":"string","pattern":"^observation://\\S*$"},"uniqueItems":true}}}"#),
     ("schema://ioi/components/hypervisor/surface-serving-binding/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/surface-serving-binding/v2","title":"HypervisorSurfaceServingBinding","x-ioi-schema-version":"ioi.hypervisor.surface_serving_binding.v2","type":"object","additionalProperties":false,"required":["schema_version","serving_binding_ref","surface_ref","release_ref","installation_ref","resolved_route","surface_operational_state","health_observation_refs"],"properties":{"schema_version":{"const":"ioi.hypervisor.surface_serving_binding.v2"},"serving_binding_ref":{"type":"string","pattern":"^surface-serving://\\S*$"},"surface_ref":{"type":"string","pattern":"^surface://\\S*$"},"release_ref":{"type":"string","pattern":"^package://\\S+/release/\\S+$"},"installation_ref":{"type":"string","pattern":"^install://\\S*$"},"system_binding_ref":{"anyOf":[{"type":"string","pattern":"^package-binding://\\S*$"},{"type":"null"}]},"resolved_route":{"type":"string","pattern":"^/\\S*$"},"runtime_ref":{"description":"The runtime this binding serves through, named by that runtime's OWN canonical ref: runtime:// for a first-party application runtime, domain-app-runtime:// for a mounted DomainApp runtime (M08.10 slice C). The operational state is that runtime owner's admitted state, never declared by the caller.","anyOf":[{"type":"string","pattern":"^(?:runtime://\\S*|domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127})$"},{"type":"null"}]},"surface_operational_state":{"enum":["inactive","starting","ready","serving","degraded","blocked","stopped","unavailable"]},"health_observation_refs":{"type":"array","items":{"type":"string","pattern":"^observation://\\S*$"},"uniqueItems":true}}}"#),
     ("schema://ioi/components/hypervisor/package-recall-impact/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/package-recall-impact/v1","title":"HypervisorPackageRecallImpact","x-ioi-schema-version":"ioi.hypervisor.package_recall_impact.v1","description":"What one release recall reaches, DERIVED at the recall admission from admitted truth and frozen on the recall successor: the installations over the release with their registration and serving state, the Systems bound to the DomainApps whose runtimes serve them, the releases that depend on it, and the remediation handoffs to the owners that may stop or roll back — because Packages itself stops, mutates and terminates nothing (core-clients-surfaces.md § Hypervisor Packages).","type":"object","additionalProperties":false,"required":["schema_version","recall_impact_ref","release_ref","recall_reason","affected_installations","affected_system_refs","affected_system_binding_refs","dependent_release_refs","remediation_handoffs","does_not_assert"],"properties":{"schema_version":{"const":"ioi.hypervisor.package_recall_impact.v1"},"recall_impact_ref":{"type":"string","pattern":"^package-recall-impact://\\S+/sha256:[0-9a-f]{64}$"},"release_ref":{"type":"string","pattern":"^package://\\S+/release/\\S+$"},"recall_reason":{"type":"string","minLength":1,"maxLength":500},"affected_installations":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["installation_ref","org_ref","surface_installation_state","surface_enablement_state","registration_state","serving_binding_ref","runtime_ref","surface_operational_state"],"properties":{"installation_ref":{"type":"string","pattern":"^install://\\S*$"},"org_ref":{"type":"string","pattern":"^(?:org|project)://\\S*$"},"surface_installation_state":{"enum":["not_installed","installing","installed","uninstalled","failed"]},"surface_enablement_state":{"enum":["not_applicable","enabled","disabled"]},"registration_state":{"enum":["admitted","absent"]},"serving_binding_ref":{"anyOf":[{"type":"string","pattern":"^surface-serving://\\S*$"},{"type":"null"}]},"runtime_ref":{"anyOf":[{"type":"string","pattern":"^(?:runtime://\\S*|domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127})$"},{"type":"null"}]},"surface_operational_state":{"anyOf":[{"enum":["inactive","starting","ready","serving","degraded","blocked","stopped","unavailable"]},{"type":"null"}]}}}},"affected_system_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^system://\\S*$"}},"dependent_release_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^package://\\S+/release/\\S+$"}},"remediation_handoffs":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["kind","owner","route","subject_ref"],"properties":{"kind":{"enum":["stop_serving","unmount","rollback","migrate"]},"owner":{"enum":["domain_apps","governance"]},"route":{"type":"string","pattern":"^/v1/hypervisor/\\S*$"},"subject_ref":{"type":"string","pattern":"^(?:domain-app|domain-app-runtime|release-control)://\\S*$"}}}},"does_not_assert":{"type":"array","uniqueItems":true,"minItems":4,"items":{"enum":["runtime_stopped","system_mutated","binding_mutated","dependent_release_recalled","external_ingress_withdrawn","reach_beyond_recaller_tenants"]}},"affected_system_binding_refs":{"description":"System binding refs the affected DomainApps carry under a scheme other than system:// (the DomainApp plane authors system_binding_refs free-form); listed so no bound System is dropped for having the wrong prefix.","type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9-]*://\\S*$"}}}}"#),
+    ("schema://ioi/components/hypervisor/systems-projection/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/systems-projection/v1","title":"HypervisorSystemsProjection","x-ioi-schema-version":"ioi.hypervisor.systems-projection.v1","description":"One row of the policy-filtered Systems read model: rebuilt on every read from the verified genesis admission and the live chain, with the membership (desired) and writer (observed) planes composed in as typed presence or typed absence, and the seven contextual modes named as routes. Never persisted, never authority (core-clients-surfaces.md § Hypervisor Systems).","type":"object","additionalProperties":false,"required":["schema_version","projection_row_id","system_id","source_record_tail","package_id","manifest_ref","genesis_ref","constitution_ref","status","latest_sequence","network_enrollment_ref","canonical_roots","evidence_refs","topology","modes","policy_basis","source_projection_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.systems-projection.v1"},"projection_row_id":{"type":"string","pattern":"^hypervisor_systems_projection:\\S+$"},"system_id":{"type":"string","pattern":"^system://\\S+$"},"source_record_tail":{"type":"string","pattern":"^asg_[0-9a-f]{64}$"},"package_id":{"type":"string","minLength":1,"maxLength":500},"manifest_ref":{"type":"string","minLength":1,"maxLength":500},"genesis_ref":{"type":"string","minLength":1,"maxLength":500},"constitution_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"status":{"type":"string","minLength":1,"maxLength":500},"latest_sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"network_enrollment_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"canonical_roots":{"type":"object","additionalProperties":false,"required":["proposal_root","admitted_manifest_root","initial_profile_bundle_root","active_profile_set_root","latest_state_root","operation_log_root","chain_root"],"properties":{"proposal_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"admitted_manifest_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"initial_profile_bundle_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"active_profile_set_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"latest_state_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"operation_log_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]},"chain_root":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}},"evidence_refs":{"type":"object","additionalProperties":false,"required":["genesis_admission_receipt_ref","latest_receipt_ref","operation_log_ref","chain_ref"],"properties":{"genesis_admission_receipt_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"latest_receipt_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"operation_log_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"chain_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]}}},"topology":{"type":"object","additionalProperties":false,"required":["desired","observed"],"properties":{"desired":{"$ref":"#/$defs/plane_presence"},"observed":{"$ref":"#/$defs/plane_presence"}}},"modes":{"type":"array","minItems":7,"maxItems":7,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["mode","route","serving"],"properties":{"mode":{"enum":["overview","design","operate","govern","evidence","improve","interfaces"]},"route":{"type":"string","pattern":"^/systems/\\S+$"},"serving":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]}}}},"policy_basis":{"type":"object","additionalProperties":false,"required":["principal_ref","filter"],"properties":{"principal_ref":{"type":"string","pattern":"^user://\\S+$"},"filter":{"type":"string","minLength":1,"maxLength":500}}},"source_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"read_model_only":{"const":true}},"$defs":{"plane_presence":{"type":"object","additionalProperties":false,"required":["state","projection","reason"],"properties":{"state":{"enum":["present","absent"]},"projection":{"anyOf":[{"type":"object"},{"type":"null"}]},"reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/components/hypervisor/work-subject-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/work-subject-projection/v1","title":"HypervisorWorkSubjectProjection","x-ioi-schema-version":"ioi.hypervisor.work-subject-projection.v1","description":"One typed row of the policy-filtered Work read model (core-clients-surfaces.md § Hypervisor Work): a canonical subject_kind and subject_ref that deep-link to the type-specific owner, display facets derived without writing any common status back, and the source projections and policy decisions the row was built from. A read model, never a canonical Work object.","type":"object","additionalProperties":false,"required":["schema_version","projection_row_id","subject_kind","subject_ref","org_ref","project_ref","system_ref","canonical_detail_route","display_facets","review_facet_projection_refs","incident_facet_projection_refs","source_projection_refs","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.work-subject-projection.v1"},"projection_row_id":{"type":"string","pattern":"^hypervisor_work_subject_projection:\\S+$"},"subject_kind":{"enum":["goal_run","outcome_room","automation_run","session","work_queue","work_item","work_run"]},"subject_ref":{"type":"string","pattern":"^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$","description":"The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."},"org_ref":{"anyOf":[{"type":"string","pattern":"^org://\\S+$"},{"type":"null"}]},"project_ref":{"anyOf":[{"type":"string","pattern":"^project://\\S+$"},{"type":"null"}]},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://\\S+$"},{"type":"null"}]},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$"},"display_facets":{"type":"object","additionalProperties":false,"required":["activity","execution_mode"],"properties":{"activity":{"enum":["active","waiting","blocked","review","completed","failed","archived"]},"execution_mode":{"enum":["interactive","headless","supervisory","not_applicable"]}}},"review_facet_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^projection://\\S+$"}},"incident_facet_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^projection://\\S+$"}},"source_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#),
+    ("schema://ioi/components/hypervisor/work-facet-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/work-facet-projection/v1","title":"HypervisorWorkFacetProjection","x-ioi-schema-version":"ioi.hypervisor.work-facet-projection.v1","description":"A policy-filtered cross-owner pointer from a Work row to a review or incident owned elsewhere (core-clients-surfaces.md § Hypervisor Work). It converts nothing into a universal Review or Incident truth object.","type":"object","additionalProperties":false,"required":["schema_version","facet_projection_id","facet_kind","facet_type","facet_ref","owner_ref","subject_kind","subject_ref","canonical_detail_route","source_projection_ref","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.work-facet-projection.v1"},"facet_projection_id":{"type":"string","pattern":"^projection://hypervisor/work-facet/\\S+$"},"facet_kind":{"enum":["review","incident"]},"facet_type":{"type":"string","minLength":1,"maxLength":500},"facet_ref":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://\\S+$"},"owner_ref":{"type":"string","pattern":"^(?:surface|agentgres|wallet|system|org)://\\S+$"},"subject_kind":{"enum":["goal_run","outcome_room","automation_run","session","work_queue","work_item","work_run"]},"subject_ref":{"type":"string","pattern":"^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$","description":"The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$"},"source_projection_ref":{"type":"string","minLength":1,"maxLength":500},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#),
     ("schema://ioi/components/hypervisor/system-interface-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/system-interface-binding/v1","title":"HypervisorSystemInterfaceBinding","x-ioi-schema-version":"ioi.hypervisor.system_interface_binding.v1","type":"object","additionalProperties":false,"required":["schema_version","system_binding_ref","surface_ref","release_ref","installation_ref","system_ref","surface_enablement_state","visibility","allowed_object_contract_refs","allowed_action_refs","binding_admission_ref","state_root_ref"],"properties":{"schema_version":{"const":"ioi.hypervisor.system_interface_binding.v1"},"system_binding_ref":{"type":"string","pattern":"^package-binding://\\S*$"},"surface_ref":{"type":"string","pattern":"^surface://\\S*$"},"release_ref":{"type":"string","pattern":"^package://\\S+/release/\\S+$"},"installation_ref":{"type":"string","pattern":"^install://\\S*$"},"system_ref":{"type":"string","pattern":"^system://\\S*$"},"surface_enablement_state":{"enum":["not_applicable","enabled","disabled"]},"visibility":{"enum":["private","organization","permissioned","public"]},"allowed_object_contract_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},"allowed_action_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},"binding_admission_ref":{"type":"string","pattern":"^decision://\\S*$"},"state_root_ref":{"type":"string","pattern":"^agentgres://state-root/\\S*$"}}}"#),
     ("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","title":"HypervisorVirtualMachineStatePayload","x-ioi-schema-version":"ioi.components.hypervisor.virtual-machine-state-payload.v1","type":"object","additionalProperties":false,"required":["schema_version","workload_ref","owner_ref","environment_ref","target_content_hash","desired_generation","expected_head","machine_architecture","boot","compute","volume_attachment_specs","network_attachment_specs","device_attachment_specs","policy_refs","observed"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.virtual-machine-state-payload.v1"},"workload_ref":{"$ref":"#/$defs/ref"},"owner_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"target_content_hash":{"$ref":"#/$defs/hash"},"desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"expected_head":{"$ref":"#/$defs/hash"},"machine_architecture":{"$ref":"#/$defs/name"},"boot":{"type":"object","additionalProperties":false,"required":["mode","image_ref"],"properties":{"mode":{"enum":["kernel_initramfs","firmware_disk","imported_image","template_clone"]},"image_ref":{"$ref":"#/$defs/ref"},"firmware_profile_ref":{"$ref":"#/$defs/ref"},"kernel_ref":{"$ref":"#/$defs/ref"},"initramfs_ref":{"$ref":"#/$defs/ref"}}},"compute":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib"],"properties":{"vcpus":{"type":"integer","minimum":1,"maximum":65535},"memory_mib":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"volume_attachment_specs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"network_attachment_specs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"device_attachment_specs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"policy_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"observed":{"type":"object","additionalProperties":false,"required":["observed_generation","desired_phase","observed_phase","backend_registration_ref","backend_capability_declaration_ref","backend_capability_declaration_hash","backend_instance_evidence_ref","boot_epoch","receipt_refs","cleanup_obligation_refs"],"properties":{"observed_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"desired_phase":{"$ref":"#/$defs/name"},"observed_phase":{"$ref":"#/$defs/name"},"backend_registration_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_hash":{"$ref":"#/$defs/hash"},"backend_instance_evidence_ref":{"$ref":"#/$defs/ref"},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"receipt_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"cleanup_obligation_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}}}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"}}}"##),
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","title":"HypervisorVmEnforcementDeclaration","x-ioi-schema-version":"ioi.components.hypervisor.vm-enforcement-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","backend","guest_kernel_boundary","fresh_instance","instance_scope","workrun_ref","isolation_binding_ref","isolation_binding_hash","principal_ref","network_policy","network_device_count","host_mount_count","host_control_socket_count","guest_channel","output_policy"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.vm-enforcement-declaration.v1"},"backend":{"enum":["cloud-hypervisor","firecracker","qemu"]},"guest_kernel_boundary":{"const":true},"fresh_instance":{"type":"boolean"},"instance_scope":{"enum":["environment_scoped","fresh_per_workrun"]},"workrun_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_ref":{"$ref":"#/$defs/nullableRef"},"isolation_binding_hash":{"$ref":"#/$defs/nullableHash"},"principal_ref":{"$ref":"#/$defs/nullableRef"},"network_policy":{"const":"deny_all_no_virtual_nic"},"network_device_count":{"enum":[0]},"host_mount_count":{"enum":[0]},"host_control_socket_count":{"enum":[0]},"guest_channel":{"const":"host_initiated_vsock_uds_bounded"},"output_policy":{"const":"bounded_regular_file_archive_quarantine"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##),
@@ -173620,6 +174921,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/surface-serving-binding/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/surface-serving-binding/v2", r#"[]"#),
     ("schema://ioi/components/hypervisor/package-recall-impact/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/systems-projection/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/work-subject-projection/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/work-facet-projection/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/system-interface-binding/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/vm-enforcement-declaration/v1", r#"[]"#),
@@ -173822,6 +175126,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:(?:context-profile|resource|evidence)://[^\s]{1,500}|scope:[^\s]{1,500})$"#,
         r#"^(?:(?:context-profile|resource|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
+    ),
+    (
+        r#"^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\S+|session:\S+)$"#,
+        r#"^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+|session:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+)$"#,
     ),
     (
         r#"^(?:(?:grant|policy|receipt)://[^\s]{1,500}|scope:[^\s]{1,500})$"#,
@@ -174677,6 +175985,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:state|environment|worktree|dataset)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:surface|agentgres|wallet|system|org)://\S+$"#,
+        r#"^(?:surface|agentgres|wallet|system|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:surface|hypervisor-workspace)://\S*$"#,
         r#"^(?:surface|hypervisor-workspace)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
@@ -174965,6 +176277,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
     ),
     (
+        r#"^/systems/\S+$"#,
+        r#"^/systems/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^/v1/hypervisor/\S*$"#,
         r#"^/v1/hypervisor/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
@@ -175115,6 +176431,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9_-]*(?:://|:)[^\s]{1,240}$"#,
         r#"^[a-z][a-z0-9_-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9_-]*://\S+$"#,
+        r#"^[a-z][a-z0-9_-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (r#"^[a-z][a-z0-9_-]{0,127}$"#, r#"^[a-z][a-z0-9_-]{0,127}$"#),
     (r#"^[a-z][a-z0-9_]*$"#, r#"^[a-z][a-z0-9_]*$"#),
@@ -175347,6 +176667,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^artifact://foundry-dataset/[0-9a-f]{64}$"#,
         r#"^artifact://foundry-dataset/[0-9a-f]{64}$"#,
     ),
+    (r#"^asg_[0-9a-f]{64}$"#, r#"^asg_[0-9a-f]{64}$"#),
     (
         r#"^assurance-evidence://[^\s]+$"#,
         r#"^assurance-evidence://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
@@ -175642,6 +176963,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^decision://\S*$"#,
         r#"^decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^decision://\S+$"#,
+        r#"^decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^deployment-profile://[A-Za-z0-9._:/-]+$"#,
@@ -175989,6 +177314,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^host-maintenance-plan://\S+$"#,
         r#"^host-maintenance-plan://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^hypervisor_systems_projection:\S+$"#,
+        r#"^hypervisor_systems_projection:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^hypervisor_work_subject_projection:\S+$"#,
+        r#"^hypervisor_work_subject_projection:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^hypervisoros-node://[^\s]{1,248}$"#,
@@ -176579,6 +177912,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^project://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
     (
+        r#"^project://\S+$"#,
+        r#"^project://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^project:[^\s]{1,200}$"#,
         r#"^project:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,200}$"#,
     ),
@@ -176587,8 +177924,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^projection://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^projection://\S+$"#,
+        r#"^projection://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^projection://hypervisor/product-surface/\S*$"#,
         r#"^projection://hypervisor/product-surface/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^projection://hypervisor/work-facet/\S+$"#,
+        r#"^projection://hypervisor/work-facet/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^proof://[^\s]+$"#,
@@ -177134,6 +178479,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^system://\S*$"#,
         r#"^system://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^system://\S+$"#,
+        r#"^system://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^target-binding:[^\s]{1,240}$"#,
@@ -178930,6 +180279,22 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json"))),
@@ -180442,6 +181807,21 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/systems-projection/v1" => {
+            serde_json::from_value::<HypervisorSystemsProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/work-subject-projection/v1" => {
+            serde_json::from_value::<HypervisorWorkSubjectProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/work-facet-projection/v1" => {
+            serde_json::from_value::<HypervisorWorkFacetProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/system-interface-binding/v1" => {
             serde_json::from_value::<HypervisorSystemInterfaceBindingV1>(value.clone())
                 .map(|_| ())
@@ -181903,6 +183283,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/systems-projection/v1" => {
+            let projection = serde_json::from_value::<HypervisorSystemsProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/work-subject-projection/v1" => {
+            let projection = serde_json::from_value::<HypervisorWorkSubjectProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/work-facet-projection/v1" => {
+            let projection = serde_json::from_value::<HypervisorWorkFacetProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/system-interface-binding/v1" => {
             let projection = serde_json::from_value::<HypervisorSystemInterfaceBindingV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -182999,8 +184394,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1421,
-            "the registered golden corpus must remain the explicit 1421-fixture bar",
+            1437,
+            "the registered golden corpus must remain the explicit 1437-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -183242,7 +184637,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 931,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 943,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -3415,6 +3415,93 @@ export type HypervisorPackageRecallImpactV1 = {
   affected_system_binding_refs: Array<string>;
 };
 
+export type HypervisorSystemsProjectionV1 = {
+  schema_version: "ioi.hypervisor.systems-projection.v1";
+  projection_row_id: string;
+  system_id: string;
+  source_record_tail: string;
+  package_id: string;
+  manifest_ref: string;
+  genesis_ref: string;
+  constitution_ref: string | null;
+  status: string;
+  latest_sequence: number;
+  network_enrollment_ref: string | null;
+  canonical_roots: {
+      proposal_root: string | null;
+      admitted_manifest_root: string | null;
+      initial_profile_bundle_root: string | null;
+      active_profile_set_root: string | null;
+      latest_state_root: string | null;
+      operation_log_root: string | null;
+      chain_root: string | null;
+    };
+  evidence_refs: {
+      genesis_admission_receipt_ref: string | null;
+      latest_receipt_ref: string | null;
+      operation_log_ref: string | null;
+      chain_ref: string | null;
+    };
+  topology: {
+      desired: {
+            state: "present" | "absent";
+            projection: Record<string, unknown> | null;
+            reason: string | null;
+          };
+      observed: {
+            state: "present" | "absent";
+            projection: Record<string, unknown> | null;
+            reason: string | null;
+          };
+    };
+  modes: Array<{
+        mode: "overview" | "design" | "operate" | "govern" | "evidence" | "improve" | "interfaces";
+        route: string;
+        serving: string | null;
+      }>;
+  policy_basis: {
+      principal_ref: string;
+      filter: string;
+    };
+  source_projection_refs: Array<string>;
+  read_model_only: true;
+};
+
+export type HypervisorWorkSubjectProjectionV1 = {
+  schema_version: "ioi.hypervisor.work-subject-projection.v1";
+  projection_row_id: string;
+  subject_kind: "goal_run" | "outcome_room" | "automation_run" | "session" | "work_queue" | "work_item" | "work_run";
+  subject_ref: string;
+  org_ref: string | null;
+  project_ref: string | null;
+  system_ref: string | null;
+  canonical_detail_route: string;
+  display_facets: {
+      activity: "active" | "waiting" | "blocked" | "review" | "completed" | "failed" | "archived";
+      execution_mode: "interactive" | "headless" | "supervisory" | "not_applicable";
+    };
+  review_facet_projection_refs: Array<string>;
+  incident_facet_projection_refs: Array<string>;
+  source_projection_refs: Array<string>;
+  policy_decision_refs: Array<string>;
+  read_model_only: true;
+};
+
+export type HypervisorWorkFacetProjectionV1 = {
+  schema_version: "ioi.hypervisor.work-facet-projection.v1";
+  facet_projection_id: string;
+  facet_kind: "review" | "incident";
+  facet_type: string;
+  facet_ref: string;
+  owner_ref: string;
+  subject_kind: "goal_run" | "outcome_room" | "automation_run" | "session" | "work_queue" | "work_item" | "work_run";
+  subject_ref: string;
+  canonical_detail_route: string;
+  source_projection_ref: string;
+  policy_decision_refs: Array<string>;
+  read_model_only: true;
+};
+
 export type HypervisorSystemInterfaceBindingV1 = {
   schema_version: "ioi.hypervisor.system_interface_binding.v1";
   system_binding_ref: string;
@@ -15960,6 +16047,134 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/system-interface-binding/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
     "expected": "accept",
@@ -27109,6 +27324,22 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-handoff-outside-owners.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-system-ref-foreign-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json","contract_id":"schema://ioi/components/hypervisor/package-recall-impact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-package-recall-impact-v1/negative-missing-system-binding-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json","contract_id":"schema://ioi/components/hypervisor/systems-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-activated-with-desired-topology.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json","contract_id":"schema://ioi/components/hypervisor/systems-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/positive-genesis-only-typed-absences.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/systems-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json","contract_id":"schema://ioi/components/hypervisor/systems-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-six-modes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json","contract_id":"schema://ioi/components/hypervisor/systems-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-invented-topology-state.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json","contract_id":"schema://ioi/components/hypervisor/systems-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-systems-projection-v1/negative-read-model-false.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json","contract_id":"schema://ioi/components/hypervisor/work-subject-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-session-row.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json","contract_id":"schema://ioi/components/hypervisor/work-subject-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/positive-goal-run-row.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/work-subject-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json","contract_id":"schema://ioi/components/hypervisor/work-subject-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-subject-kind-outside-enum.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json","contract_id":"schema://ioi/components/hypervisor/work-subject-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-activity-outside-enum.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json","contract_id":"schema://ioi/components/hypervisor/work-subject-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-subject-projection-v1/negative-read-model-false.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/positive-review-facet.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","contract_id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","mutation_id":null,"value_json":null}),
@@ -28286,6 +28517,7 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
 export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
   "^(?:(?:context-profile|resource|evidence)://[^\\s]{1,500}|scope:[^\\s]{1,500})$",
+  "^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$",
   "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$",
   "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
@@ -28500,6 +28732,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:skill|skill-entry)://[^\\s]{1,500}$",
   "^(?:spend|contribution|receipt)://[^\\s]{1,500}$",
   "^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$",
+  "^(?:surface|agentgres|wallet|system|org)://\\S+$",
   "^(?:surface|hypervisor-workspace)://\\S*$",
   "^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$",
   "^(?:system|agent|worker|runtime)://[^\\s]+$",
@@ -28572,6 +28805,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^/[^\\s]{0,200}$",
   "^/\\S*$",
   "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^/systems/\\S+$",
   "^/v1/hypervisor/\\S*$",
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
@@ -28622,6 +28856,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
   "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$",
+  "^[a-z][a-z0-9_-]*://\\S+$",
   "^[a-z][a-z0-9_-]{0,127}$",
   "^[a-z][a-z0-9_]*$",
   "^[a-z][a-z0-9_]{0,159}$",
@@ -28685,6 +28920,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact://[^\\s]{1,500}$",
   "^artifact://foundry-checkpoint/[0-9a-f]{64}$",
   "^artifact://foundry-dataset/[0-9a-f]{64}$",
+  "^asg_[0-9a-f]{64}$",
   "^assurance-evidence://[^\\s]+$",
   "^assurance-profile://[^\\s]{1,248}$",
   "^assurance-transition://[^\\s]{1,460}$",
@@ -28762,6 +28998,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^decision://[^\\s]{1,248}$",
   "^decision://[^\\s]{1,500}$",
   "^decision://\\S*$",
+  "^decision://\\S+$",
   "^deployment-profile://[A-Za-z0-9._:/-]+$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -28851,6 +29088,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^harness-session-terminal-attach:[^\\s]{1,300}$",
   "^harness-terminal-transcript:[^\\s]{1,300}$",
   "^host-maintenance-plan://\\S+$",
+  "^hypervisor_systems_projection:\\S+$",
+  "^hypervisor_work_subject_projection:\\S+$",
   "^hypervisoros-node://[^\\s]{1,248}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^ifc-label://[^\\s]+$",
@@ -29004,9 +29243,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^project://[^\\s?#\\\\]+$",
   "^project://\\S*$",
+  "^project://\\S+$",
   "^project:[^\\s]{1,200}$",
   "^projection://[^\\s]{1,240}$",
+  "^projection://\\S+$",
   "^projection://hypervisor/product-surface/\\S*$",
+  "^projection://hypervisor/work-facet/\\S+$",
   "^proof://[^\\s]+$",
   "^proof://[^\\s]{1,248}$",
   "^proof://[^\\s]{1,500}$",
@@ -29150,6 +29392,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system://[^\\s]{1,248}$",
   "^system://[^\\s]{1,500}$",
   "^system://\\S*$",
+  "^system://\\S+$",
   "^target-binding:[^\\s]{1,240}$",
   "^task-class://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^task://[^\\s]+$",
@@ -29317,6 +29560,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/surface-serving-binding/v1": "sha256:0f35243f2882deccf09df33fe031c0212008153875cbf7a31ed4227c3550d49e",
   "schema://ioi/components/hypervisor/surface-serving-binding/v2": "sha256:4416d3af1ad98cdad4ef05817b04f7ef4800d15e7aaff9f54f8d49dbc558a0c8",
   "schema://ioi/components/hypervisor/package-recall-impact/v1": "sha256:16deca21a3172950be55512246fbb4cd0d49fd742b8829123c807769701daabc",
+  "schema://ioi/components/hypervisor/systems-projection/v1": "sha256:fc17abc7e5fe1a9abcf4aa007d87d1da229efcd82fb2c3ee6efdfd7181b40911",
+  "schema://ioi/components/hypervisor/work-subject-projection/v1": "sha256:8a5daf7884c37a7811e5f020c0f6d4b8f588c5c5ffd2eabc462570f849837fec",
+  "schema://ioi/components/hypervisor/work-facet-projection/v1": "sha256:2bc8eb32a870de6d8c040324dec29fb85ee699a3148aa05ef9441aa7d5b7877c",
   "schema://ioi/components/hypervisor/system-interface-binding/v1": "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd",
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8",
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b",
@@ -56074,6 +56320,631 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]*://\\S*$"
         }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/systems-projection/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/systems-projection/v1",
+    "title": "HypervisorSystemsProjection",
+    "x-ioi-schema-version": "ioi.hypervisor.systems-projection.v1",
+    "description": "One row of the policy-filtered Systems read model: rebuilt on every read from the verified genesis admission and the live chain, with the membership (desired) and writer (observed) planes composed in as typed presence or typed absence, and the seven contextual modes named as routes. Never persisted, never authority (core-clients-surfaces.md § Hypervisor Systems).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "projection_row_id",
+      "system_id",
+      "source_record_tail",
+      "package_id",
+      "manifest_ref",
+      "genesis_ref",
+      "constitution_ref",
+      "status",
+      "latest_sequence",
+      "network_enrollment_ref",
+      "canonical_roots",
+      "evidence_refs",
+      "topology",
+      "modes",
+      "policy_basis",
+      "source_projection_refs",
+      "read_model_only"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.systems-projection.v1"
+      },
+      "projection_row_id": {
+        "type": "string",
+        "pattern": "^hypervisor_systems_projection:\\S+$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://\\S+$"
+      },
+      "source_record_tail": {
+        "type": "string",
+        "pattern": "^asg_[0-9a-f]{64}$"
+      },
+      "package_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "manifest_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "genesis_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "constitution_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "latest_sequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "network_enrollment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonical_roots": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_root",
+          "admitted_manifest_root",
+          "initial_profile_bundle_root",
+          "active_profile_set_root",
+          "latest_state_root",
+          "operation_log_root",
+          "chain_root"
+        ],
+        "properties": {
+          "proposal_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "admitted_manifest_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initial_profile_bundle_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active_profile_set_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_state_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation_log_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chain_root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "evidence_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "genesis_admission_receipt_ref",
+          "latest_receipt_ref",
+          "operation_log_ref",
+          "chain_ref"
+        ],
+        "properties": {
+          "genesis_admission_receipt_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_receipt_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation_log_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chain_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "topology": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "desired",
+          "observed"
+        ],
+        "properties": {
+          "desired": {
+            "$ref": "#/$defs/plane_presence"
+          },
+          "observed": {
+            "$ref": "#/$defs/plane_presence"
+          }
+        }
+      },
+      "modes": {
+        "type": "array",
+        "minItems": 7,
+        "maxItems": 7,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "route",
+            "serving"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "overview",
+                "design",
+                "operate",
+                "govern",
+                "evidence",
+                "improve",
+                "interfaces"
+              ]
+            },
+            "route": {
+              "type": "string",
+              "pattern": "^/systems/\\S+$"
+            },
+            "serving": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "policy_basis": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "principal_ref",
+          "filter"
+        ],
+        "properties": {
+          "principal_ref": {
+            "type": "string",
+            "pattern": "^user://\\S+$"
+          },
+          "filter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      },
+      "source_projection_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "read_model_only": {
+        "const": true
+      }
+    },
+    "$defs": {
+      "plane_presence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "projection",
+          "reason"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "present",
+              "absent"
+            ]
+          },
+          "projection": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/work-subject-projection/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/work-subject-projection/v1",
+    "title": "HypervisorWorkSubjectProjection",
+    "x-ioi-schema-version": "ioi.hypervisor.work-subject-projection.v1",
+    "description": "One typed row of the policy-filtered Work read model (core-clients-surfaces.md § Hypervisor Work): a canonical subject_kind and subject_ref that deep-link to the type-specific owner, display facets derived without writing any common status back, and the source projections and policy decisions the row was built from. A read model, never a canonical Work object.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "projection_row_id",
+      "subject_kind",
+      "subject_ref",
+      "org_ref",
+      "project_ref",
+      "system_ref",
+      "canonical_detail_route",
+      "display_facets",
+      "review_facet_projection_refs",
+      "incident_facet_projection_refs",
+      "source_projection_refs",
+      "policy_decision_refs",
+      "read_model_only"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.work-subject-projection.v1"
+      },
+      "projection_row_id": {
+        "type": "string",
+        "pattern": "^hypervisor_work_subject_projection:\\S+$"
+      },
+      "subject_kind": {
+        "enum": [
+          "goal_run",
+          "outcome_room",
+          "automation_run",
+          "session",
+          "work_queue",
+          "work_item",
+          "work_run"
+        ]
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$",
+        "description": "The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."
+      },
+      "org_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^org://\\S+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "project_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^project://\\S+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://\\S+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonical_detail_route": {
+        "type": "string",
+        "pattern": "^/\\S*$"
+      },
+      "display_facets": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "activity",
+          "execution_mode"
+        ],
+        "properties": {
+          "activity": {
+            "enum": [
+              "active",
+              "waiting",
+              "blocked",
+              "review",
+              "completed",
+              "failed",
+              "archived"
+            ]
+          },
+          "execution_mode": {
+            "enum": [
+              "interactive",
+              "headless",
+              "supervisory",
+              "not_applicable"
+            ]
+          }
+        }
+      },
+      "review_facet_projection_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^projection://\\S+$"
+        }
+      },
+      "incident_facet_projection_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^projection://\\S+$"
+        }
+      },
+      "source_projection_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "policy_decision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^decision://\\S+$"
+        }
+      },
+      "read_model_only": {
+        "const": true
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/work-facet-projection/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/work-facet-projection/v1",
+    "title": "HypervisorWorkFacetProjection",
+    "x-ioi-schema-version": "ioi.hypervisor.work-facet-projection.v1",
+    "description": "A policy-filtered cross-owner pointer from a Work row to a review or incident owned elsewhere (core-clients-surfaces.md § Hypervisor Work). It converts nothing into a universal Review or Incident truth object.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "facet_projection_id",
+      "facet_kind",
+      "facet_type",
+      "facet_ref",
+      "owner_ref",
+      "subject_kind",
+      "subject_ref",
+      "canonical_detail_route",
+      "source_projection_ref",
+      "policy_decision_refs",
+      "read_model_only"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.work-facet-projection.v1"
+      },
+      "facet_projection_id": {
+        "type": "string",
+        "pattern": "^projection://hypervisor/work-facet/\\S+$"
+      },
+      "facet_kind": {
+        "enum": [
+          "review",
+          "incident"
+        ]
+      },
+      "facet_type": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "facet_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*://\\S+$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:surface|agentgres|wallet|system|org)://\\S+$"
+      },
+      "subject_kind": {
+        "enum": [
+          "goal_run",
+          "outcome_room",
+          "automation_run",
+          "session",
+          "work_queue",
+          "work_item",
+          "work_run"
+        ]
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$",
+        "description": "The owner's canonical subject identity, carried verbatim. The Session plane admits `session:<id>` today; canon names `session://...` as the target form, and the row never rewrites the owner's identity to match."
+      },
+      "canonical_detail_route": {
+        "type": "string",
+        "pattern": "^/\\S*$"
+      },
+      "source_projection_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "policy_decision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^decision://\\S+$"
+        }
+      },
+      "read_model_only": {
+        "const": true
       }
     }
   },
@@ -129956,6 +130827,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/surface-serving-binding/v1": [],
   "schema://ioi/components/hypervisor/surface-serving-binding/v2": [],
   "schema://ioi/components/hypervisor/package-recall-impact/v1": [],
+  "schema://ioi/components/hypervisor/systems-projection/v1": [],
+  "schema://ioi/components/hypervisor/work-subject-projection/v1": [],
+  "schema://ioi/components/hypervisor/work-facet-projection/v1": [],
   "schema://ioi/components/hypervisor/system-interface-binding/v1": [],
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": [],
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": [],
@@ -144855,6 +145729,24 @@ export function validateHypervisorPackageRecallImpactV1(
   value: unknown,
 ): value is HypervisorPackageRecallImpactV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/package-recall-impact/v1", value).ok;
+}
+
+export function validateHypervisorSystemsProjectionV1(
+  value: unknown,
+): value is HypervisorSystemsProjectionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/systems-projection/v1", value).ok;
+}
+
+export function validateHypervisorWorkSubjectProjectionV1(
+  value: unknown,
+): value is HypervisorWorkSubjectProjectionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/work-subject-projection/v1", value).ok;
+}
+
+export function validateHypervisorWorkFacetProjectionV1(
+  value: unknown,
+): value is HypervisorWorkFacetProjectionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/work-facet-projection/v1", value).ok;
 }
 
 export function validateHypervisorSystemInterfaceBindingV1(

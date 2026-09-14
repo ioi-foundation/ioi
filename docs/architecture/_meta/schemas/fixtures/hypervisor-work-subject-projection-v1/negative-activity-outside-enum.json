@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.hypervisor.work-subject-projection.v1",
+  "projection_row_id": "hypervisor_work_subject_projection:session://acme/s1",
+  "subject_kind": "session",
+  "subject_ref": "session://acme/s1",
+  "org_ref": "org://acme",
+  "project_ref": "project://acme/p1",
+  "system_ref": null,
+  "canonical_detail_route": "/work/sessions/acme/s1",
+  "display_facets": {
+    "activity": "running",
+    "execution_mode": "interactive"
+  },
+  "review_facet_projection_refs": [
+    "projection://hypervisor/work-facet/review/ap-1"
+  ],
+  "incident_facet_projection_refs": [],
+  "source_projection_refs": [
+    "daemon-runtime:sessions"
+  ],
+  "policy_decision_refs": [],
+  "read_model_only": true
+}

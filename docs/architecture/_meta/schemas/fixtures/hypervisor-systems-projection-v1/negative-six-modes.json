@@ -1,0 +1,83 @@
+{
+  "schema_version": "ioi.hypervisor.systems-projection.v1",
+  "projection_row_id": "hypervisor_systems_projection:system://acme/one",
+  "system_id": "system://acme/one",
+  "source_record_tail": "asg_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "package_id": "acme-system",
+  "manifest_ref": "odk://acme/manifest/1",
+  "genesis_ref": "system-genesis://acme/one",
+  "constitution_ref": "constitution://acme/one/1",
+  "status": "activated",
+  "latest_sequence": 3,
+  "network_enrollment_ref": null,
+  "canonical_roots": {
+    "proposal_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "admitted_manifest_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "initial_profile_bundle_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "active_profile_set_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "latest_state_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "operation_log_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "chain_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "evidence_refs": {
+    "genesis_admission_receipt_ref": "receipt://acme/genesis",
+    "latest_receipt_ref": "receipt://acme/latest",
+    "operation_log_ref": "oplog://acme/one",
+    "chain_ref": "chain://acme/one"
+  },
+  "topology": {
+    "desired": {
+      "state": "present",
+      "projection": {
+        "system_id": "system://acme/one",
+        "members": []
+      },
+      "reason": null
+    },
+    "observed": {
+      "state": "absent",
+      "projection": null,
+      "reason": "system_writer_source_missing"
+    }
+  },
+  "modes": [
+    {
+      "mode": "overview",
+      "route": "/systems/acme/one",
+      "serving": null
+    },
+    {
+      "mode": "design",
+      "route": "/systems/acme/one/design",
+      "serving": null
+    },
+    {
+      "mode": "operate",
+      "route": "/systems/acme/one/operate",
+      "serving": null
+    },
+    {
+      "mode": "govern",
+      "route": "/systems/acme/one/govern",
+      "serving": null
+    },
+    {
+      "mode": "evidence",
+      "route": "/systems/acme/one/evidence",
+      "serving": null
+    },
+    {
+      "mode": "improve",
+      "route": "/systems/acme/one/improve",
+      "serving": null
+    }
+  ],
+  "policy_basis": {
+    "principal_ref": "user://operator-1",
+    "filter": "proposed_by_ref == principal_ref"
+  },
+  "source_projection_refs": [
+    "verified_owner_reconstruction"
+  ],
+  "read_model_only": true
+}
