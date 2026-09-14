@@ -1704,7 +1704,14 @@ console session grants no ambient authority to mutate another machine or to
 bypass brokered credential and device policy.
 
 This family is **target canon and is not yet registered or implemented as one
-complete production path**. The current VM state payload and backend capability
+complete production path**. Two of the eleven are registered: `HypervisorMachineOperation`
+and `HypervisorMachineOperationReceipt`, which are the two this section already
+specifies to the field. The remaining nine are NAMED here and specified nowhere,
+so each needs its fields decided in canon before it is registered — a schema
+whose fields exist in no canon would make the registry the specification, which
+is the wrong way round. Registering two of eleven qualifies nothing on its own:
+the family is a family, and ACC-20 clause 1 asks for contracts before surfaces,
+not for some of them. The current VM state payload and backend capability
 declaration are prerequisites, not evidence of Workstation, Infrastructure, or
 HypervisorOS lifecycle conformance. Contract registration and generated
 projection agreement precede any product claim over the family.

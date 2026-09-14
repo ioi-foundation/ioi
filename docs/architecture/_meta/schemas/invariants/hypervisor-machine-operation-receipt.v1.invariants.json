@@ -1,0 +1,20 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-machine-operation-receipt/typed-failure/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_machine_operation_receipt.failure_and_ambiguity_are_typed",
+      "description": "A refusal or an ambiguity MUST name its reason. This is the one rule that keeps the three-member result vocabulary honest: `ambiguous` exists so that an unconfirmable external completion can be stated rather than guessed, and without this rule it degrades into a way to record 'something happened' with no obligation to say what — which is worse than the two-member vocabulary it replaced, because it looks like more information while carrying less.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.result_reason",
+        "when_path": "$.result",
+        "values": [
+          "refused",
+          "ambiguous"
+        ]
+      }
+    }
+  ]
+}

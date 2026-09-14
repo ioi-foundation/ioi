@@ -12215,6 +12215,58 @@ export type FoundryQualifiedMeasurementV2 = {
     };
 };
 
+export type HypervisorMachineOperationV1 = {
+  schema_version: "ioi.hypervisor.machine-operation.v1";
+  operation_ref: string;
+  operation: "discover" | "define" | "import" | "create" | "start" | "stop" | "pause" | "resume" | "reboot" | "open_console" | "close_console" | "snapshot" | "clone" | "restore" | "migrate" | "delete";
+  workload_ref: string;
+  desired_generation: number;
+  expected_head: string;
+  owner_ref: string;
+  environment_ref: string;
+  backend_registration_ref: string;
+  capability_declaration_ref: string;
+  capability_declaration_hash: string;
+  affected_image_bindings: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  affected_volume_bindings: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  affected_network_bindings: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  affected_device_bindings: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  authority_refs: Array<string>;
+  policy_refs: Array<string>;
+  idempotency_key_hash: string;
+  cleanup_obligation_ref: string | null;
+  durability_boundary_ref: string;
+  observation_boundary_ref: string;
+};
+
+export type HypervisorMachineOperationReceiptV1 = {
+  schema_version: "ioi.hypervisor.machine-operation-receipt.v1";
+  receipt_ref: string;
+  operation_ref: string;
+  admitted_request_hash: string;
+  backend_native_operation_id: string | null;
+  desired_generation_before: number;
+  desired_generation_after: number;
+  observed_generation_before: number;
+  observed_generation_after: number;
+  result: "succeeded" | "refused" | "ambiguous";
+  result_reason: string | null;
+  consequence_receipt_refs: Array<string>;
+  verifier_profile_ref: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -23040,6 +23092,102 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -27045,6 +27193,18 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -27805,6 +27965,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^local-agent-pairing://[^\\s]{1,500}$",
   "^location://[^\\s]{1,248}$",
   "^lost-suffix://[^\\s]{1,248}$",
+  "^machine-operation-receipt://\\S+$",
+  "^machine-operation://\\S+$",
   "^mapping://[^\\s]{1,240}$",
   "^mapping://[a-z0-9][a-z0-9._-]{0,127}$",
   "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
@@ -28395,7 +28557,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-run-plan/v1": "sha256:e6ccabf3fc112636175eae9d0890b439f0ec8e640c6e098156f28924cebb6bcd",
   "schema://ioi/components/hypervisor/foundry-draft-spec/v1": "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822",
   "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7",
-  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a"
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a",
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1": "sha256:7789c4fbdba7e8ea8df3f22aa61b35864edf9355c344c6cd267ae82631626826",
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1": "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -122910,6 +123074,302 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+    "title": "HypervisorMachineOperation",
+    "description": "THE VERSIONED MACHINE OPERATION, WHICH IS WHY THE VERB CANNOT BE A BACKEND STRING. Canon's machine-control family names eleven contracts and specifies the fields of exactly two; this is one of them, authored from canon's own binding list rather than from a shape invented here. Its purpose is ACC-20 clause 3: discover/define/import/create, start/stop/pause/resume/reboot, console open/close, snapshot/clone/restore, supported migration and delete resolve to the SAME versioned daemon operations, and backend aliases never become canonical verbs. A backend that calls reboot `restart` does not get to widen the vocabulary by saying so, which is the entire reason `operation` is a closed enum and not a string. WHY THE CAPABILITY DECLARATION IS BOUND BY REF AND HASH TOGETHER. Canon: backend support is a capability matrix, not a lowest-common-denominator lie, and an unsupported operation fails BEFORE effect with the exact typed reason from the CURRENT capability declaration. A ref alone would let the declaration drift under the operation between admission and effect, which is the drifted cell ACC-20 clause 4 requires to refuse; the hash is what makes 'current' checkable rather than assumed. WHAT IS DELIBERATELY A REF AND NOT AN ENUM. Canon says an operation binds its 'declared durability and observation boundary' but nowhere states a vocabulary for either, and neither term appears anywhere else in this estate's canon or code. Minting one here would make this schema the specification for a thing canon has not decided, which inverts the ordering this estate works by, so both are carried as refs to a declaration that owns its own vocabulary.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-operation.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "operation_ref",
+      "operation",
+      "workload_ref",
+      "desired_generation",
+      "expected_head",
+      "owner_ref",
+      "environment_ref",
+      "backend_registration_ref",
+      "capability_declaration_ref",
+      "capability_declaration_hash",
+      "affected_image_bindings",
+      "affected_volume_bindings",
+      "affected_network_bindings",
+      "affected_device_bindings",
+      "authority_refs",
+      "policy_refs",
+      "idempotency_key_hash",
+      "cleanup_obligation_ref",
+      "durability_boundary_ref",
+      "observation_boundary_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-operation.v1"
+      },
+      "operation_ref": {
+        "type": "string",
+        "pattern": "^machine-operation://\\S+$",
+        "description": "The operation's OWN canonical identity, minted by the daemon. Canon is explicit that backend-native ids never become canonical identity; they arrive on the receipt as evidence instead."
+      },
+      "operation": {
+        "enum": [
+          "discover",
+          "define",
+          "import",
+          "create",
+          "start",
+          "stop",
+          "pause",
+          "resume",
+          "reboot",
+          "open_console",
+          "close_console",
+          "snapshot",
+          "clone",
+          "restore",
+          "migrate",
+          "delete"
+        ],
+        "description": "Canon's minimum lifecycle vocabulary, exactly and in its order. Closed on purpose: 'an exact versioned operation member rather than a backend-authored string'. A backend extension is expressed by the capability matrix declaring the cell supported, never by adding a verb here."
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The target VirtualMachineWorkload."
+      },
+      "desired_generation": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The target generation this operation acts on. Bound with `expected_head` because a generation alone says WHEN the caller looked and not WHAT it saw."
+      },
+      "expected_head": {
+        "$ref": "#/$defs/hash",
+        "description": "The canonical head the caller expects. A stale generation is one of the cases ACC-20 clause 7 requires to converge without double effect, and that is only decidable if the request carries what it believed."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "backend_registration_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The registered backend this operation is bound to. Provider ids stay evidence; the registration is the admitted thing."
+      },
+      "capability_declaration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "capability_declaration_hash": {
+        "$ref": "#/$defs/hash",
+        "description": "The EXACT declaration consulted, not merely which one. Unsupported, stale, unknown and drifted cells must refuse before effect (ACC-20 clause 4), and a drifted cell is undetectable from a ref."
+      },
+      "affected_image_bindings": {
+        "$ref": "#/$defs/boundRefs",
+        "description": "Every image the operation affects, each bound by ref AND hash as canon requires. An empty array is a claim — this operation affects no image — and is why the field is required rather than optional."
+      },
+      "affected_volume_bindings": {
+        "$ref": "#/$defs/boundRefs"
+      },
+      "affected_network_bindings": {
+        "$ref": "#/$defs/boundRefs"
+      },
+      "affected_device_bindings": {
+        "$ref": "#/$defs/boundRefs"
+      },
+      "authority_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "The authority under which this crosses. ACC-20 clause 5: authority and effects do not move into clients — a client submits a proposal and the daemon plus the wallet-owned authority path admit it."
+      },
+      "policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "idempotency_key_hash": {
+        "$ref": "#/$defs/hash",
+        "description": "The HASH of the caller's idempotency key, matching the estate's existing convention on `connector-mapping.v2` rather than minting a second one. Duplicate and replayed requests must converge without double effect (ACC-20 clause 7), and the durable record needs to recognise a repeat without retaining the key itself."
+      },
+      "cleanup_obligation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The cleanup/compensation obligation this operation owes if it fails or becomes ambiguous. Present-and-null rather than absent: an operation that owes nothing has SAID so, and an absent field would be indistinguishable from one nobody computed."
+      },
+      "durability_boundary_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The declared durability boundary — what is guaranteed to survive a crash at this point. A ref, not an enum, because canon names the binding and not its vocabulary (see the title description)."
+      },
+      "observation_boundary_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The declared observation boundary — what the daemon can honestly claim to have observed rather than inferred. Canon requires uncertain external completion to reconcile honestly instead of being assumed complete, which needs the boundary stated in the request rather than reconstructed afterwards."
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "boundRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "boundRefs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/boundRef"
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+    "title": "HypervisorMachineOperationReceipt",
+    "description": "WHAT ACTUALLY HAPPENED TO A MACHINE, INCLUDING WHEN THAT IS NOT KNOWN. Canon's binding list for this receipt is exact: the admitted request, backend-native operation identity AS EVIDENCE, pre and post desired AND observed generations, result or typed ambiguity/refusal, consequence receipts, and the exact verifier profile. THE RESULT VOCABULARY HAS THREE MEMBERS AND NOT TWO, WHICH IS THE POINT. `ambiguous` is a first-class outcome beside `succeeded` and `refused` because ACC-20 clause 7 requires uncertain external completion to reconcile honestly rather than be recorded as either — a backend that timed out after the effect may have started may have done the work, and a receipt forced to choose would be inventing one of the two answers. The estate's existing reconciler doctrine says the same thing from the other side: restart from an ambiguous claim becomes `reconciliation_required` rather than a second invocation. FOUR GENERATIONS, NOT TWO, BECAUSE DESIRED AND OBSERVED NEVER COLLAPSE. Canon states that desired and observed state never collapse into one mutable status field; a receipt that recorded a single before and after would re-collapse them at the moment of recording. The gap between `observed_generation_after` and `desired_generation_after` is exactly how a caller learns that an operation was admitted and has not yet landed. THE BACKEND'S OWN ID IS EVIDENCE AND NEVER IDENTITY. It is carried so an operator can correlate with the backend's console, and it is nullable because a refusal before effect has no backend operation to name — but canonical identity is always the daemon's `operation_ref`.",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-operation-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_ref",
+      "operation_ref",
+      "admitted_request_hash",
+      "backend_native_operation_id",
+      "desired_generation_before",
+      "desired_generation_after",
+      "observed_generation_before",
+      "observed_generation_after",
+      "result",
+      "result_reason",
+      "consequence_receipt_refs",
+      "verifier_profile_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-operation-receipt.v1"
+      },
+      "receipt_ref": {
+        "type": "string",
+        "pattern": "^machine-operation-receipt://\\S+$"
+      },
+      "operation_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The canonical operation this answers."
+      },
+      "admitted_request_hash": {
+        "$ref": "#/$defs/hash",
+        "description": "The hash of the request AS ADMITTED, which is not necessarily the request as submitted. Binding the admitted form is what makes a receipt evidence about the operation the daemon actually ran rather than about what a client said it wanted."
+      },
+      "backend_native_operation_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "EVIDENCE, never identity. Null when the operation refused before reaching the backend, which is a claim rather than an omission — a refusal that named a backend operation would be describing an effect it prevented."
+      },
+      "desired_generation_before": {
+        "$ref": "#/$defs/generation"
+      },
+      "desired_generation_after": {
+        "$ref": "#/$defs/generation"
+      },
+      "observed_generation_before": {
+        "$ref": "#/$defs/generation"
+      },
+      "observed_generation_after": {
+        "$ref": "#/$defs/generation",
+        "description": "Observed, not desired. When this trails `desired_generation_after` the operation is admitted and not yet landed, and saying so is the difference between a runtime that reports state and one that reports intentions."
+      },
+      "result": {
+        "enum": [
+          "succeeded",
+          "refused",
+          "ambiguous"
+        ],
+        "description": "Three members. `ambiguous` is not a failure mode of the vocabulary, it is a fact the vocabulary must be able to state: an external completion the daemon could not confirm is neither a success nor a refusal, and forcing it into either would be inventing the answer."
+      },
+      "result_reason": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The TYPED reason, snake_case so it is a member of a vocabulary rather than a sentence. Required-and-nullable: null is admitted only alongside `succeeded`, and a refusal or ambiguity without a reason is exactly the untyped failure canon refuses — see the portable invariant."
+      },
+      "consequence_receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Receipts for what this operation caused downstream. An empty array is a claim that it caused nothing further."
+      },
+      "verifier_profile_ref": {
+        "$ref": "#/$defs/ref",
+        "description": "The EXACT verifier profile under which this receipt's claims were checked. ACC-20 clause 10 keeps the hosted and attached matrices separate; evidence from one cannot promote the other, and a receipt that did not name its profile could be read as either."
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "generation": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -139370,7 +139830,23 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/foundry-run-plan/v1": [],
   "schema://ioi/components/hypervisor/foundry-draft-spec/v1": [],
   "schema://ioi/components/hypervisor/foundry-draft-run-plan/v1": [],
-  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": []
+  "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": [],
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1": [],
+  "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1": [
+    {
+      "rule_id": "hypervisor_machine_operation_receipt.failure_and_ambiguity_are_typed",
+      "description": "A refusal or an ambiguity MUST name its reason. This is the one rule that keeps the three-member result vocabulary honest: `ambiguous` exists so that an unconfirmable external completion can be stated rather than guessed, and without this rule it degrades into a way to record 'something happened' with no obligation to say what — which is worse than the two-member vocabulary it replaced, because it looks like more information while carrying less.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.result_reason",
+        "when_path": "$.result",
+        "values": [
+          "refused",
+          "ambiguous"
+        ]
+      }
+    }
+  ]
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -141897,4 +142373,16 @@ export function validateFoundryQualifiedMeasurementV2(
   value: unknown,
 ): value is FoundryQualifiedMeasurementV2 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", value).ok;
+}
+
+export function validateHypervisorMachineOperationV1(
+  value: unknown,
+): value is HypervisorMachineOperationV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", value).ok;
+}
+
+export function validateHypervisorMachineOperationReceiptV1(
+  value: unknown,
+): value is HypervisorMachineOperationReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", value).ok;
 }

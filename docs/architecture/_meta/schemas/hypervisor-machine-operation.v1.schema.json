@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+  "title": "HypervisorMachineOperation",
+  "description": "THE VERSIONED MACHINE OPERATION, WHICH IS WHY THE VERB CANNOT BE A BACKEND STRING. Canon's machine-control family names eleven contracts and specifies the fields of exactly two; this is one of them, authored from canon's own binding list rather than from a shape invented here. Its purpose is ACC-20 clause 3: discover/define/import/create, start/stop/pause/resume/reboot, console open/close, snapshot/clone/restore, supported migration and delete resolve to the SAME versioned daemon operations, and backend aliases never become canonical verbs. A backend that calls reboot `restart` does not get to widen the vocabulary by saying so, which is the entire reason `operation` is a closed enum and not a string. WHY THE CAPABILITY DECLARATION IS BOUND BY REF AND HASH TOGETHER. Canon: backend support is a capability matrix, not a lowest-common-denominator lie, and an unsupported operation fails BEFORE effect with the exact typed reason from the CURRENT capability declaration. A ref alone would let the declaration drift under the operation between admission and effect, which is the drifted cell ACC-20 clause 4 requires to refuse; the hash is what makes 'current' checkable rather than assumed. WHAT IS DELIBERATELY A REF AND NOT AN ENUM. Canon says an operation binds its 'declared durability and observation boundary' but nowhere states a vocabulary for either, and neither term appears anywhere else in this estate's canon or code. Minting one here would make this schema the specification for a thing canon has not decided, which inverts the ordering this estate works by, so both are carried as refs to a declaration that owns its own vocabulary.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-operation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_ref",
+    "operation",
+    "workload_ref",
+    "desired_generation",
+    "expected_head",
+    "owner_ref",
+    "environment_ref",
+    "backend_registration_ref",
+    "capability_declaration_ref",
+    "capability_declaration_hash",
+    "affected_image_bindings",
+    "affected_volume_bindings",
+    "affected_network_bindings",
+    "affected_device_bindings",
+    "authority_refs",
+    "policy_refs",
+    "idempotency_key_hash",
+    "cleanup_obligation_ref",
+    "durability_boundary_ref",
+    "observation_boundary_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-operation.v1"
+    },
+    "operation_ref": {
+      "type": "string",
+      "pattern": "^machine-operation://\\S+$",
+      "description": "The operation's OWN canonical identity, minted by the daemon. Canon is explicit that backend-native ids never become canonical identity; they arrive on the receipt as evidence instead."
+    },
+    "operation": {
+      "enum": [
+        "discover",
+        "define",
+        "import",
+        "create",
+        "start",
+        "stop",
+        "pause",
+        "resume",
+        "reboot",
+        "open_console",
+        "close_console",
+        "snapshot",
+        "clone",
+        "restore",
+        "migrate",
+        "delete"
+      ],
+      "description": "Canon's minimum lifecycle vocabulary, exactly and in its order. Closed on purpose: 'an exact versioned operation member rather than a backend-authored string'. A backend extension is expressed by the capability matrix declaring the cell supported, never by adding a verb here."
+    },
+    "workload_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The target VirtualMachineWorkload."
+    },
+    "desired_generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The target generation this operation acts on. Bound with `expected_head` because a generation alone says WHEN the caller looked and not WHAT it saw."
+    },
+    "expected_head": {
+      "$ref": "#/$defs/hash",
+      "description": "The canonical head the caller expects. A stale generation is one of the cases ACC-20 clause 7 requires to converge without double effect, and that is only decidable if the request carries what it believed."
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "environment_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "backend_registration_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The registered backend this operation is bound to. Provider ids stay evidence; the registration is the admitted thing."
+    },
+    "capability_declaration_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "capability_declaration_hash": {
+      "$ref": "#/$defs/hash",
+      "description": "The EXACT declaration consulted, not merely which one. Unsupported, stale, unknown and drifted cells must refuse before effect (ACC-20 clause 4), and a drifted cell is undetectable from a ref."
+    },
+    "affected_image_bindings": {
+      "$ref": "#/$defs/boundRefs",
+      "description": "Every image the operation affects, each bound by ref AND hash as canon requires. An empty array is a claim — this operation affects no image — and is why the field is required rather than optional."
+    },
+    "affected_volume_bindings": {
+      "$ref": "#/$defs/boundRefs"
+    },
+    "affected_network_bindings": {
+      "$ref": "#/$defs/boundRefs"
+    },
+    "affected_device_bindings": {
+      "$ref": "#/$defs/boundRefs"
+    },
+    "authority_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "The authority under which this crosses. ACC-20 clause 5: authority and effects do not move into clients — a client submits a proposal and the daemon plus the wallet-owned authority path admit it."
+    },
+    "policy_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "idempotency_key_hash": {
+      "$ref": "#/$defs/hash",
+      "description": "The HASH of the caller's idempotency key, matching the estate's existing convention on `connector-mapping.v2` rather than minting a second one. Duplicate and replayed requests must converge without double effect (ACC-20 clause 7), and the durable record needs to recognise a repeat without retaining the key itself."
+    },
+    "cleanup_obligation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The cleanup/compensation obligation this operation owes if it fails or becomes ambiguous. Present-and-null rather than absent: an operation that owes nothing has SAID so, and an absent field would be indistinguishable from one nobody computed."
+    },
+    "durability_boundary_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The declared durability boundary — what is guaranteed to survive a crash at this point. A ref, not an enum, because canon names the binding and not its vocabulary (see the title description)."
+    },
+    "observation_boundary_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The declared observation boundary — what the daemon can honestly claim to have observed rather than inferred. Canon requires uncertain external completion to reconcile honestly instead of being assumed complete, which needs the boundary stated in the request rather than reconstructed afterwards."
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "boundRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "hash"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/ref" },
+        "hash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "boundRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/boundRef" }
+    }
+  }
+}

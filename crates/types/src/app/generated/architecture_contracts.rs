@@ -319,6 +319,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", "sha256:0cb744fe297d6820b7725d2366b78fa4b3667b8d74795ee9682cee5e130eb822"),
     ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", "sha256:5bd97b8567bf2d61925a6e696a7f115c4cb8ec3715f41e266bf6e15a231401f7"),
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", "sha256:7789c4fbdba7e8ea8df3f22aa61b35864edf9355c344c6cd267ae82631626826"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -138347,6 +138349,544 @@ impl<'de> serde::Deserialize<'de>
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineOperationV1 {
+    pub schema_version: HypervisorMachineOperationV1SchemaVersion,
+    pub operation_ref: String,
+    pub operation: HypervisorMachineOperationV1Operation,
+    pub workload_ref: String,
+    pub desired_generation: ArchitectureContractInteger,
+    pub expected_head: String,
+    pub owner_ref: String,
+    pub environment_ref: String,
+    pub backend_registration_ref: String,
+    pub capability_declaration_ref: String,
+    pub capability_declaration_hash: String,
+    pub affected_image_bindings: Vec<HypervisorMachineOperationV1AffectedImageBindingsItem>,
+    pub affected_volume_bindings: Vec<HypervisorMachineOperationV1AffectedVolumeBindingsItem>,
+    pub affected_network_bindings: Vec<HypervisorMachineOperationV1AffectedNetworkBindingsItem>,
+    pub affected_device_bindings: Vec<HypervisorMachineOperationV1AffectedDeviceBindingsItem>,
+    pub authority_refs: Vec<String>,
+    pub policy_refs: Vec<String>,
+    pub idempotency_key_hash: String,
+    pub cleanup_obligation_ref: Option<String>,
+    pub durability_boundary_ref: String,
+    pub observation_boundary_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineOperationV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","title":"HypervisorMachineOperation","description":"THE VERSIONED MACHINE OPERATION, WHICH IS WHY THE VERB CANNOT BE A BACKEND STRING. Canon's machine-control family names eleven contracts and specifies the fields of exactly two; this is one of them, authored from canon's own binding list rather than from a shape invented here. Its purpose is ACC-20 clause 3: discover/define/import/create, start/stop/pause/resume/reboot, console open/close, snapshot/clone/restore, supported migration and delete resolve to the SAME versioned daemon operations, and backend aliases never become canonical verbs. A backend that calls reboot `restart` does not get to widen the vocabulary by saying so, which is the entire reason `operation` is a closed enum and not a string. WHY THE CAPABILITY DECLARATION IS BOUND BY REF AND HASH TOGETHER. Canon: backend support is a capability matrix, not a lowest-common-denominator lie, and an unsupported operation fails BEFORE effect with the exact typed reason from the CURRENT capability declaration. A ref alone would let the declaration drift under the operation between admission and effect, which is the drifted cell ACC-20 clause 4 requires to refuse; the hash is what makes 'current' checkable rather than assumed. WHAT IS DELIBERATELY A REF AND NOT AN ENUM. Canon says an operation binds its 'declared durability and observation boundary' but nowhere states a vocabulary for either, and neither term appears anywhere else in this estate's canon or code. Minting one here would make this schema the specification for a thing canon has not decided, which inverts the ordering this estate works by, so both are carried as refs to a declaration that owns its own vocabulary.","x-ioi-schema-version":"ioi.hypervisor.machine-operation.v1","type":"object","additionalProperties":false,"required":["schema_version","operation_ref","operation","workload_ref","desired_generation","expected_head","owner_ref","environment_ref","backend_registration_ref","capability_declaration_ref","capability_declaration_hash","affected_image_bindings","affected_volume_bindings","affected_network_bindings","affected_device_bindings","authority_refs","policy_refs","idempotency_key_hash","cleanup_obligation_ref","durability_boundary_ref","observation_boundary_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation.v1"},"operation_ref":{"type":"string","pattern":"^machine-operation://\\S+$","description":"The operation's OWN canonical identity, minted by the daemon. Canon is explicit that backend-native ids never become canonical identity; they arrive on the receipt as evidence instead."},"operation":{"enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"],"description":"Canon's minimum lifecycle vocabulary, exactly and in its order. Closed on purpose: 'an exact versioned operation member rather than a backend-authored string'. A backend extension is expressed by the capability matrix declaring the cell supported, never by adding a verb here."},"workload_ref":{"$ref":"#/$defs/ref","description":"The target VirtualMachineWorkload."},"desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The target generation this operation acts on. Bound with `expected_head` because a generation alone says WHEN the caller looked and not WHAT it saw."},"expected_head":{"$ref":"#/$defs/hash","description":"The canonical head the caller expects. A stale generation is one of the cases ACC-20 clause 7 requires to converge without double effect, and that is only decidable if the request carries what it believed."},"owner_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"backend_registration_ref":{"$ref":"#/$defs/ref","description":"The registered backend this operation is bound to. Provider ids stay evidence; the registration is the admitted thing."},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash","description":"The EXACT declaration consulted, not merely which one. Unsupported, stale, unknown and drifted cells must refuse before effect (ACC-20 clause 4), and a drifted cell is undetectable from a ref."},"affected_image_bindings":{"$ref":"#/$defs/boundRefs","description":"Every image the operation affects, each bound by ref AND hash as canon requires. An empty array is a claim — this operation affects no image — and is why the field is required rather than optional."},"affected_volume_bindings":{"$ref":"#/$defs/boundRefs"},"affected_network_bindings":{"$ref":"#/$defs/boundRefs"},"affected_device_bindings":{"$ref":"#/$defs/boundRefs"},"authority_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The authority under which this crosses. ACC-20 clause 5: authority and effects do not move into clients — a client submits a proposal and the daemon plus the wallet-owned authority path admit it."},"policy_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"idempotency_key_hash":{"$ref":"#/$defs/hash","description":"The HASH of the caller's idempotency key, matching the estate's existing convention on `connector-mapping.v2` rather than minting a second one. Duplicate and replayed requests must converge without double effect (ACC-20 clause 7), and the durable record needs to recognise a repeat without retaining the key itself."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The cleanup/compensation obligation this operation owes if it fails or becomes ambiguous. Present-and-null rather than absent: an operation that owes nothing has SAID so, and an absent field would be indistinguishable from one nobody computed."},"durability_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared durability boundary — what is guaranteed to survive a crash at this point. A ref, not an enum, because canon names the binding and not its vocabulary (see the title description)."},"observation_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared observation boundary — what the daemon can honestly claim to have observed rather than inferred. Canon requires uncertain external completion to reconcile honestly instead of being assumed complete, which needs the boundary stated in the request rather than reconstructed afterwards."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"boundRef":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"boundRefs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/boundRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMachineOperationV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation: serde_json::from_value::<HypervisorMachineOperationV1Operation>(
+                object
+                    .remove(r#"operation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            desired_generation: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"desired_generation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"desired_generation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expected_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expected_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_registration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backend_registration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backend_registration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_image_bindings: serde_json::from_value::<
+                Vec<HypervisorMachineOperationV1AffectedImageBindingsItem>,
+            >(
+                object
+                    .remove(r#"affected_image_bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected_image_bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_volume_bindings: serde_json::from_value::<
+                Vec<HypervisorMachineOperationV1AffectedVolumeBindingsItem>,
+            >(
+                object
+                    .remove(r#"affected_volume_bindings"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"affected_volume_bindings"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_network_bindings: serde_json::from_value::<
+                Vec<HypervisorMachineOperationV1AffectedNetworkBindingsItem>,
+            >(
+                object
+                    .remove(r#"affected_network_bindings"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"affected_network_bindings"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_device_bindings: serde_json::from_value::<
+                Vec<HypervisorMachineOperationV1AffectedDeviceBindingsItem>,
+            >(
+                object
+                    .remove(r#"affected_device_bindings"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"affected_device_bindings"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_key_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_obligation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cleanup_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            durability_boundary_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"durability_boundary_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"durability_boundary_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_boundary_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observation_boundary_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"observation_boundary_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineOperationV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-operation.v1"#)]
+    IoiHypervisorMachineOperationV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineOperationV1Operation {
+    #[serde(rename = r#"discover"#)]
+    Discover,
+    #[serde(rename = r#"define"#)]
+    Define,
+    #[serde(rename = r#"import"#)]
+    Import,
+    #[serde(rename = r#"create"#)]
+    Create,
+    #[serde(rename = r#"start"#)]
+    Start,
+    #[serde(rename = r#"stop"#)]
+    Stop,
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"reboot"#)]
+    Reboot,
+    #[serde(rename = r#"open_console"#)]
+    OpenConsole,
+    #[serde(rename = r#"close_console"#)]
+    CloseConsole,
+    #[serde(rename = r#"snapshot"#)]
+    Snapshot,
+    #[serde(rename = r#"clone"#)]
+    Clone,
+    #[serde(rename = r#"restore"#)]
+    Restore,
+    #[serde(rename = r#"migrate"#)]
+    Migrate,
+    #[serde(rename = r#"delete"#)]
+    Delete,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineOperationV1AffectedImageBindingsItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineOperationV1AffectedImageBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineOperationV1AffectedVolumeBindingsItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineOperationV1AffectedVolumeBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineOperationV1AffectedNetworkBindingsItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineOperationV1AffectedNetworkBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineOperationV1AffectedDeviceBindingsItem {
+    pub r#ref: String,
+    pub hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineOperationV1AffectedDeviceBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineOperationReceiptV1 {
+    pub schema_version: HypervisorMachineOperationReceiptV1SchemaVersion,
+    pub receipt_ref: String,
+    pub operation_ref: String,
+    pub admitted_request_hash: String,
+    pub backend_native_operation_id: Option<String>,
+    pub desired_generation_before: ArchitectureContractInteger,
+    pub desired_generation_after: ArchitectureContractInteger,
+    pub observed_generation_before: ArchitectureContractInteger,
+    pub observed_generation_after: ArchitectureContractInteger,
+    pub result: HypervisorMachineOperationReceiptV1Result,
+    pub result_reason: Option<String>,
+    pub consequence_receipt_refs: Vec<String>,
+    pub verifier_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineOperationReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","title":"HypervisorMachineOperationReceipt","description":"WHAT ACTUALLY HAPPENED TO A MACHINE, INCLUDING WHEN THAT IS NOT KNOWN. Canon's binding list for this receipt is exact: the admitted request, backend-native operation identity AS EVIDENCE, pre and post desired AND observed generations, result or typed ambiguity/refusal, consequence receipts, and the exact verifier profile. THE RESULT VOCABULARY HAS THREE MEMBERS AND NOT TWO, WHICH IS THE POINT. `ambiguous` is a first-class outcome beside `succeeded` and `refused` because ACC-20 clause 7 requires uncertain external completion to reconcile honestly rather than be recorded as either — a backend that timed out after the effect may have started may have done the work, and a receipt forced to choose would be inventing one of the two answers. The estate's existing reconciler doctrine says the same thing from the other side: restart from an ambiguous claim becomes `reconciliation_required` rather than a second invocation. FOUR GENERATIONS, NOT TWO, BECAUSE DESIRED AND OBSERVED NEVER COLLAPSE. Canon states that desired and observed state never collapse into one mutable status field; a receipt that recorded a single before and after would re-collapse them at the moment of recording. The gap between `observed_generation_after` and `desired_generation_after` is exactly how a caller learns that an operation was admitted and has not yet landed. THE BACKEND'S OWN ID IS EVIDENCE AND NEVER IDENTITY. It is carried so an operator can correlate with the backend's console, and it is nullable because a refusal before effect has no backend operation to name — but canonical identity is always the daemon's `operation_ref`.","x-ioi-schema-version":"ioi.hypervisor.machine-operation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","operation_ref","admitted_request_hash","backend_native_operation_id","desired_generation_before","desired_generation_after","observed_generation_before","observed_generation_after","result","result_reason","consequence_receipt_refs","verifier_profile_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation-receipt.v1"},"receipt_ref":{"type":"string","pattern":"^machine-operation-receipt://\\S+$"},"operation_ref":{"$ref":"#/$defs/ref","description":"The canonical operation this answers."},"admitted_request_hash":{"$ref":"#/$defs/hash","description":"The hash of the request AS ADMITTED, which is not necessarily the request as submitted. Binding the admitted form is what makes a receipt evidence about the operation the daemon actually ran rather than about what a client said it wanted."},"backend_native_operation_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the operation refused before reaching the backend, which is a claim rather than an omission — a refusal that named a backend operation would be describing an effect it prevented."},"desired_generation_before":{"$ref":"#/$defs/generation"},"desired_generation_after":{"$ref":"#/$defs/generation"},"observed_generation_before":{"$ref":"#/$defs/generation"},"observed_generation_after":{"$ref":"#/$defs/generation","description":"Observed, not desired. When this trails `desired_generation_after` the operation is admitted and not yet landed, and saying so is the difference between a runtime that reports state and one that reports intentions."},"result":{"enum":["succeeded","refused","ambiguous"],"description":"Three members. `ambiguous` is not a failure mode of the vocabulary, it is a fact the vocabulary must be able to state: an external completion the daemon could not confirm is neither a success nor a refusal, and forcing it into either would be inventing the answer."},"result_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"},{"type":"null"}],"description":"The TYPED reason, snake_case so it is a member of a vocabulary rather than a sentence. Required-and-nullable: null is admitted only alongside `succeeded`, and a refusal or ambiguity without a reason is exactly the untyped failure canon refuses — see the portable invariant."},"consequence_receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Receipts for what this operation caused downstream. An empty array is a claim that it caused nothing further."},"verifier_profile_ref":{"$ref":"#/$defs/ref","description":"The EXACT verifier profile under which this receipt's claims were checked. ACC-20 clause 10 keeps the hosted and attached matrices separate; evidence from one cannot promote the other, and a receipt that did not name its profile could be read as either."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"generation":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorMachineOperationReceiptV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_native_operation_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"backend_native_operation_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backend_native_operation_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            desired_generation_before: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"desired_generation_before"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"desired_generation_before"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            desired_generation_after: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"desired_generation_after"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"desired_generation_after"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_generation_before: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"observed_generation_before"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"observed_generation_before"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_generation_after: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"observed_generation_after"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"observed_generation_after"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result: serde_json::from_value::<HypervisorMachineOperationReceiptV1Result>(
+                object
+                    .remove(r#"result"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"result_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consequence_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"consequence_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"consequence_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineOperationReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-operation-receipt.v1"#)]
+    IoiHypervisorMachineOperationReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineOperationReceiptV1Result {
+    #[serde(rename = r#"succeeded"#)]
+    Succeeded,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"ambiguous"#)]
+    Ambiguous,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -149169,6 +149709,102 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2",
         path: "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -165668,6 +166304,138 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -167356,6 +168124,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-spec/v1","title":"FoundryDraftSpec","description":"A DRAFT DECLARATION OF A CAPABILITY BUILD, BOUND TO MOUNTS THAT ALREADY EXIST — and deliberately NOT canon's `FoundrySpec`. The daemon's foundation cut served this object under canon's name while sharing exactly ONE field with it (`status`): canon's family is a model-TRAINING pipeline with base models, datasets, a training mode and packaging targets, where this is an eval and route-comparison draft that names existing model routes, providers, backends and endpoints. Registering it under its own name is what lets canon keep its own, and what finally makes this object refusable — its routes are live and, until this contract, minted a `schema_version` present in no registry and validated nothing, so every malformed body was a 201. THE OBJECT IS INERT BY CONSTRUCTION and the shape says so: it NAMES policy and evidence refs and never enforces them, it declares `inputs` it does not execute, and it holds no promotion, alias or registry mutation of any kind. `kind` is closed at the five the daemon admits, because a typo there is a draft that describes the wrong sort of build rather than one that refuses.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","name","description","kind","status","model_route_refs","provider_refs","backend_refs","endpoint_refs","evidence_refs","inputs","authority_policy_ref","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-spec.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_spec"},"id":{"type":"string","pattern":"^fspec_[0-9a-f]+$"},"name":{"type":"string","minLength":1},"description":{"type":"string"},"kind":{"type":"string","description":"Closed at the five the daemon admits. A typo here is a draft describing the wrong sort of build rather than one that refuses.","enum":["model_tune","model_eval","tool_build","inference_endpoint","ontology"]},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"model_route_refs":{"$ref":"#/$defs/refs"},"provider_refs":{"$ref":"#/$defs/refs"},"backend_refs":{"$ref":"#/$defs/refs"},"endpoint_refs":{"$ref":"#/$defs/refs"},"evidence_refs":{"$ref":"#/$defs/refs","description":"Opaque provenance pointers. NAMED, never executed and never enforced — a draft cites evidence, it does not act on it."},"inputs":{"type":"object","description":"Declared build inputs. Deliberately unconstrained in shape and deliberately not executed: this plane dispatches nothing, so constraining them here would assert a contract over something no runtime reads."},"authority_policy_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"A policy this draft NAMES. It crosses no authority and grants none; naming a policy is not applying one."},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
     ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-draft-run-plan/v1","title":"FoundryDraftRunPlan","description":"THE DRAFT PHASES A CAPABILITY-BUILD DRAFT WOULD RUN, AND THE PROMOTION IT EXPLICITLY DOES NOT PERFORM. Like its spec this is NOT canon's `FoundryRunPlan`: canon has a closed seven-stage vocabulary, executor bindings and required artifact contracts, where this holds opaque `steps`, a target route/provider and a promotion PREVIEW. Registered under its own name so canon keeps its, and so this object stops being unvalidatable. THE TWO FIELDS THAT CARRY THE SAFETY PROPERTY ARE `spec_content_hash` AND `promotion_preview`. The hash pins the spec CONTENT the plan was drafted against, so a later spec edit surfaces as drift on read instead of silently changing what the plan meant — the plan cannot be quietly re-aimed. And `promotion_preview.would_promote` is a const FALSE: this plane performs no promotion, registry alias or model mutation, and a record claiming otherwise is refused OFFLINE rather than trusted at runtime, which is the difference between an inert plane and a plane that says it is inert.","x-ioi-schema-version":"ioi.components.hypervisor.foundry-draft-run-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","spec_ref","spec_content_hash","name","description","status","target_route_ref","target_provider_ref","steps","inputs","evidence_refs","promotion_preview","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.hypervisor.foundry-draft-run-plan.v1"},"object":{"type":"string","const":"ioi.hypervisor.foundry_draft_run_plan"},"id":{"type":"string","pattern":"^frun_[0-9a-f]+$"},"spec_ref":{"type":"string","minLength":1},"spec_content_hash":{"type":"string","minLength":1,"description":"Pins the spec CONTENT this plan was drafted against, so a later spec edit surfaces as drift on read rather than silently changing the plan's meaning."},"name":{"type":"string","minLength":1},"description":{"type":"string"},"status":{"type":"string","enum":["draft","ready","superseded","archived"]},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"steps":{"type":"array","description":"Planned phases, opaque by design: nothing here is dispatched. Constraining their shape would assert a contract over something no runtime reads."},"inputs":{"type":"object"},"evidence_refs":{"$ref":"#/$defs/refs"},"promotion_preview":{"$ref":"#/$defs/promotion_preview"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"promotion_preview":{"type":"object","additionalProperties":false,"description":"A preview and never an act. `would_promote` is a const false, so a record claiming this plane promotes is refused offline rather than trusted at runtime.","required":["would_promote","note","target_route_ref","target_provider_ref","from_spec_kind"],"properties":{"would_promote":{"type":"boolean","const":false},"note":{"type":"string","minLength":1},"target_route_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"target_provider_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"from_spec_kind":{"anyOf":[{"type":"string"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","title":"FoundryQualifiedMeasurement","description":"A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.","x-ioi-schema-version":"ioi.foundry-qualified-measurement.v2","type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"type":"string","const":"ioi.foundry-qualified-measurement.v2"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","cost_basis_ref","failure_schedule_ref","model_fingerprint","recipe_fingerprint","software_fingerprint","hardware_fingerprint","topology_fingerprint","time_to_quality"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"enum":["daemon_cpu_process","distributed"]},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"},"model_fingerprint":{"$ref":"#/$defs/modelFingerprint"},"recipe_fingerprint":{"$ref":"#/$defs/recipeFingerprint"},"software_fingerprint":{"$ref":"#/$defs/softwareFingerprint"},"hardware_fingerprint":{"$ref":"#/$defs/hardwareFingerprint"},"topology_fingerprint":{"$ref":"#/$defs/topologyFingerprint"},"time_to_quality":{"$ref":"#/$defs/timeToQuality"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"contentHash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"modelFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.","required":["model_ref","weights_digest","parameter_count"],"properties":{"model_ref":{"$ref":"#/$defs/ref"},"weights_digest":{"$ref":"#/$defs/contentHash"},"parameter_count":{"$ref":"#/$defs/positiveInteger"}}},"recipeFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.","required":["recipe_ref","recipe_body_hash"],"properties":{"recipe_ref":{"$ref":"#/$defs/ref"},"recipe_body_hash":{"$ref":"#/$defs/contentHash"}}},"softwareFingerprint":{"type":"object","additionalProperties":false,"description":"The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.","required":["operating_system","daemon_release_ref","trainer_backend_profile_ref"],"properties":{"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"$ref":"#/$defs/ref"}}},"hardwareFingerprint":{"type":"object","additionalProperties":false,"description":"The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.","required":["hardware_architecture","logical_cpu_count","memory_bytes","accelerator"],"properties":{"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"accelerator":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}},"topologyFingerprint":{"type":"object","additionalProperties":false,"description":"The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.","required":["runtime_node_ref","environment_ref","process_count","node_count","parallelism"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"process_count":{"$ref":"#/$defs/positiveInteger"},"node_count":{"$ref":"#/$defs/positiveInteger"},"parallelism":{"enum":["single_process","multi_process","multi_node"]}}},"timeToQuality":{"type":"object","additionalProperties":false,"description":"How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.","required":["quality_metric","target_value","reached","elapsed_nanoseconds"],"properties":{"quality_metric":{"type":"string","minLength":1},"target_value":{"type":"number"},"reached":{"type":"boolean"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"}}}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","title":"HypervisorMachineOperation","description":"THE VERSIONED MACHINE OPERATION, WHICH IS WHY THE VERB CANNOT BE A BACKEND STRING. Canon's machine-control family names eleven contracts and specifies the fields of exactly two; this is one of them, authored from canon's own binding list rather than from a shape invented here. Its purpose is ACC-20 clause 3: discover/define/import/create, start/stop/pause/resume/reboot, console open/close, snapshot/clone/restore, supported migration and delete resolve to the SAME versioned daemon operations, and backend aliases never become canonical verbs. A backend that calls reboot `restart` does not get to widen the vocabulary by saying so, which is the entire reason `operation` is a closed enum and not a string. WHY THE CAPABILITY DECLARATION IS BOUND BY REF AND HASH TOGETHER. Canon: backend support is a capability matrix, not a lowest-common-denominator lie, and an unsupported operation fails BEFORE effect with the exact typed reason from the CURRENT capability declaration. A ref alone would let the declaration drift under the operation between admission and effect, which is the drifted cell ACC-20 clause 4 requires to refuse; the hash is what makes 'current' checkable rather than assumed. WHAT IS DELIBERATELY A REF AND NOT AN ENUM. Canon says an operation binds its 'declared durability and observation boundary' but nowhere states a vocabulary for either, and neither term appears anywhere else in this estate's canon or code. Minting one here would make this schema the specification for a thing canon has not decided, which inverts the ordering this estate works by, so both are carried as refs to a declaration that owns its own vocabulary.","x-ioi-schema-version":"ioi.hypervisor.machine-operation.v1","type":"object","additionalProperties":false,"required":["schema_version","operation_ref","operation","workload_ref","desired_generation","expected_head","owner_ref","environment_ref","backend_registration_ref","capability_declaration_ref","capability_declaration_hash","affected_image_bindings","affected_volume_bindings","affected_network_bindings","affected_device_bindings","authority_refs","policy_refs","idempotency_key_hash","cleanup_obligation_ref","durability_boundary_ref","observation_boundary_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation.v1"},"operation_ref":{"type":"string","pattern":"^machine-operation://\\S+$","description":"The operation's OWN canonical identity, minted by the daemon. Canon is explicit that backend-native ids never become canonical identity; they arrive on the receipt as evidence instead."},"operation":{"enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"],"description":"Canon's minimum lifecycle vocabulary, exactly and in its order. Closed on purpose: 'an exact versioned operation member rather than a backend-authored string'. A backend extension is expressed by the capability matrix declaring the cell supported, never by adding a verb here."},"workload_ref":{"$ref":"#/$defs/ref","description":"The target VirtualMachineWorkload."},"desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The target generation this operation acts on. Bound with `expected_head` because a generation alone says WHEN the caller looked and not WHAT it saw."},"expected_head":{"$ref":"#/$defs/hash","description":"The canonical head the caller expects. A stale generation is one of the cases ACC-20 clause 7 requires to converge without double effect, and that is only decidable if the request carries what it believed."},"owner_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"backend_registration_ref":{"$ref":"#/$defs/ref","description":"The registered backend this operation is bound to. Provider ids stay evidence; the registration is the admitted thing."},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash","description":"The EXACT declaration consulted, not merely which one. Unsupported, stale, unknown and drifted cells must refuse before effect (ACC-20 clause 4), and a drifted cell is undetectable from a ref."},"affected_image_bindings":{"$ref":"#/$defs/boundRefs","description":"Every image the operation affects, each bound by ref AND hash as canon requires. An empty array is a claim — this operation affects no image — and is why the field is required rather than optional."},"affected_volume_bindings":{"$ref":"#/$defs/boundRefs"},"affected_network_bindings":{"$ref":"#/$defs/boundRefs"},"affected_device_bindings":{"$ref":"#/$defs/boundRefs"},"authority_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The authority under which this crosses. ACC-20 clause 5: authority and effects do not move into clients — a client submits a proposal and the daemon plus the wallet-owned authority path admit it."},"policy_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"idempotency_key_hash":{"$ref":"#/$defs/hash","description":"The HASH of the caller's idempotency key, matching the estate's existing convention on `connector-mapping.v2` rather than minting a second one. Duplicate and replayed requests must converge without double effect (ACC-20 clause 7), and the durable record needs to recognise a repeat without retaining the key itself."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The cleanup/compensation obligation this operation owes if it fails or becomes ambiguous. Present-and-null rather than absent: an operation that owes nothing has SAID so, and an absent field would be indistinguishable from one nobody computed."},"durability_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared durability boundary — what is guaranteed to survive a crash at this point. A ref, not an enum, because canon names the binding and not its vocabulary (see the title description)."},"observation_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared observation boundary — what the daemon can honestly claim to have observed rather than inferred. Canon requires uncertain external completion to reconcile honestly instead of being assumed complete, which needs the boundary stated in the request rather than reconstructed afterwards."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"boundRef":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"boundRefs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/boundRef"}}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","title":"HypervisorMachineOperationReceipt","description":"WHAT ACTUALLY HAPPENED TO A MACHINE, INCLUDING WHEN THAT IS NOT KNOWN. Canon's binding list for this receipt is exact: the admitted request, backend-native operation identity AS EVIDENCE, pre and post desired AND observed generations, result or typed ambiguity/refusal, consequence receipts, and the exact verifier profile. THE RESULT VOCABULARY HAS THREE MEMBERS AND NOT TWO, WHICH IS THE POINT. `ambiguous` is a first-class outcome beside `succeeded` and `refused` because ACC-20 clause 7 requires uncertain external completion to reconcile honestly rather than be recorded as either — a backend that timed out after the effect may have started may have done the work, and a receipt forced to choose would be inventing one of the two answers. The estate's existing reconciler doctrine says the same thing from the other side: restart from an ambiguous claim becomes `reconciliation_required` rather than a second invocation. FOUR GENERATIONS, NOT TWO, BECAUSE DESIRED AND OBSERVED NEVER COLLAPSE. Canon states that desired and observed state never collapse into one mutable status field; a receipt that recorded a single before and after would re-collapse them at the moment of recording. The gap between `observed_generation_after` and `desired_generation_after` is exactly how a caller learns that an operation was admitted and has not yet landed. THE BACKEND'S OWN ID IS EVIDENCE AND NEVER IDENTITY. It is carried so an operator can correlate with the backend's console, and it is nullable because a refusal before effect has no backend operation to name — but canonical identity is always the daemon's `operation_ref`.","x-ioi-schema-version":"ioi.hypervisor.machine-operation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","operation_ref","admitted_request_hash","backend_native_operation_id","desired_generation_before","desired_generation_after","observed_generation_before","observed_generation_after","result","result_reason","consequence_receipt_refs","verifier_profile_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation-receipt.v1"},"receipt_ref":{"type":"string","pattern":"^machine-operation-receipt://\\S+$"},"operation_ref":{"$ref":"#/$defs/ref","description":"The canonical operation this answers."},"admitted_request_hash":{"$ref":"#/$defs/hash","description":"The hash of the request AS ADMITTED, which is not necessarily the request as submitted. Binding the admitted form is what makes a receipt evidence about the operation the daemon actually ran rather than about what a client said it wanted."},"backend_native_operation_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the operation refused before reaching the backend, which is a claim rather than an omission — a refusal that named a backend operation would be describing an effect it prevented."},"desired_generation_before":{"$ref":"#/$defs/generation"},"desired_generation_after":{"$ref":"#/$defs/generation"},"observed_generation_before":{"$ref":"#/$defs/generation"},"observed_generation_after":{"$ref":"#/$defs/generation","description":"Observed, not desired. When this trails `desired_generation_after` the operation is admitted and not yet landed, and saying so is the difference between a runtime that reports state and one that reports intentions."},"result":{"enum":["succeeded","refused","ambiguous"],"description":"Three members. `ambiguous` is not a failure mode of the vocabulary, it is a fact the vocabulary must be able to state: an external completion the daemon could not confirm is neither a success nor a refusal, and forcing it into either would be inventing the answer."},"result_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"},{"type":"null"}],"description":"The TYPED reason, snake_case so it is a member of a vocabulary rather than a sentence. Required-and-nullable: null is admitted only alongside `succeeded`, and a refusal or ambiguity without a reason is exactly the untyped failure canon refuses — see the portable invariant."},"consequence_receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Receipts for what this operation caused downstream. An empty array is a claim that it caused nothing further."},"verifier_profile_ref":{"$ref":"#/$defs/ref","description":"The EXACT verifier profile under which this receipt's claims were checked. ACC-20 clause 10 keeps the hosted and attached matrices separate; evidence from one cannot promote the other, and a receipt that did not name its profile could be read as either."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"generation":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -167635,6 +168405,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-draft-spec/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-draft-run-plan/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", r#"[]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", r#"[{"rule_id":"hypervisor_machine_operation_receipt.failure_and_ambiguity_are_typed","description":"A refusal or an ambiguity MUST name its reason. This is the one rule that keeps the three-member result vocabulary honest: `ambiguous` exists so that an unconfirmable external completion can be stated rather than guessed, and without this rule it degrades into a way to record 'something happened' with no obligation to say what — which is worse than the two-member vocabulary it replaced, because it looks like more information while carrying less.","expression":{"operator":"non_empty_when_in","path":"$.result_reason","when_path":"$.result","values":["refused","ambiguous"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -169928,6 +170700,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^lost-suffix://[^\s]{1,248}$"#,
         r#"^lost-suffix://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^machine-operation-receipt://\S+$"#,
+        r#"^machine-operation-receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-operation://\S+$"#,
+        r#"^machine-operation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^mapping://[^\s]{1,240}$"#,
@@ -173603,6 +174383,18 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/positive-complete-fingerprints.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-no-model-fingerprint.json"))),
     ("docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v2/negative-speed-without-quality.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-create.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/positive-discover-owes-no-cleanup.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-backend-authored-verb.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-capability-declaration-without-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-v1/negative-affected-ref-without-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-succeeded.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-admitted-not-yet-landed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-ambiguous-is-typed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/positive-refused-before-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -174986,6 +175778,16 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2" => {
             serde_json::from_value::<FoundryQualifiedMeasurementV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1" => {
+            serde_json::from_value::<HypervisorMachineOperationV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1" => {
+            serde_json::from_value::<HypervisorMachineOperationReceiptV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -176375,6 +177177,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineOperationV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineOperationReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -176511,8 +177323,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1352,
-            "the registered golden corpus must remain the explicit 1352-fixture bar",
+            1364,
+            "the registered golden corpus must remain the explicit 1364-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -176754,7 +177566,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 908,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 910,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

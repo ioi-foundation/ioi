@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1",
+  "title": "HypervisorMachineOperationReceipt",
+  "description": "WHAT ACTUALLY HAPPENED TO A MACHINE, INCLUDING WHEN THAT IS NOT KNOWN. Canon's binding list for this receipt is exact: the admitted request, backend-native operation identity AS EVIDENCE, pre and post desired AND observed generations, result or typed ambiguity/refusal, consequence receipts, and the exact verifier profile. THE RESULT VOCABULARY HAS THREE MEMBERS AND NOT TWO, WHICH IS THE POINT. `ambiguous` is a first-class outcome beside `succeeded` and `refused` because ACC-20 clause 7 requires uncertain external completion to reconcile honestly rather than be recorded as either — a backend that timed out after the effect may have started may have done the work, and a receipt forced to choose would be inventing one of the two answers. The estate's existing reconciler doctrine says the same thing from the other side: restart from an ambiguous claim becomes `reconciliation_required` rather than a second invocation. FOUR GENERATIONS, NOT TWO, BECAUSE DESIRED AND OBSERVED NEVER COLLAPSE. Canon states that desired and observed state never collapse into one mutable status field; a receipt that recorded a single before and after would re-collapse them at the moment of recording. The gap between `observed_generation_after` and `desired_generation_after` is exactly how a caller learns that an operation was admitted and has not yet landed. THE BACKEND'S OWN ID IS EVIDENCE AND NEVER IDENTITY. It is carried so an operator can correlate with the backend's console, and it is nullable because a refusal before effect has no backend operation to name — but canonical identity is always the daemon's `operation_ref`.",
+  "x-ioi-schema-version": "ioi.hypervisor.machine-operation-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_ref",
+    "operation_ref",
+    "admitted_request_hash",
+    "backend_native_operation_id",
+    "desired_generation_before",
+    "desired_generation_after",
+    "observed_generation_before",
+    "observed_generation_after",
+    "result",
+    "result_reason",
+    "consequence_receipt_refs",
+    "verifier_profile_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.machine-operation-receipt.v1"
+    },
+    "receipt_ref": {
+      "type": "string",
+      "pattern": "^machine-operation-receipt://\\S+$"
+    },
+    "operation_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The canonical operation this answers."
+    },
+    "admitted_request_hash": {
+      "$ref": "#/$defs/hash",
+      "description": "The hash of the request AS ADMITTED, which is not necessarily the request as submitted. Binding the admitted form is what makes a receipt evidence about the operation the daemon actually ran rather than about what a client said it wanted."
+    },
+    "backend_native_operation_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "EVIDENCE, never identity. Null when the operation refused before reaching the backend, which is a claim rather than an omission — a refusal that named a backend operation would be describing an effect it prevented."
+    },
+    "desired_generation_before": {
+      "$ref": "#/$defs/generation"
+    },
+    "desired_generation_after": {
+      "$ref": "#/$defs/generation"
+    },
+    "observed_generation_before": {
+      "$ref": "#/$defs/generation"
+    },
+    "observed_generation_after": {
+      "$ref": "#/$defs/generation",
+      "description": "Observed, not desired. When this trails `desired_generation_after` the operation is admitted and not yet landed, and saying so is the difference between a runtime that reports state and one that reports intentions."
+    },
+    "result": {
+      "enum": [
+        "succeeded",
+        "refused",
+        "ambiguous"
+      ],
+      "description": "Three members. `ambiguous` is not a failure mode of the vocabulary, it is a fact the vocabulary must be able to state: an external completion the daemon could not confirm is neither a success nor a refusal, and forcing it into either would be inventing the answer."
+    },
+    "result_reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The TYPED reason, snake_case so it is a member of a vocabulary rather than a sentence. Required-and-nullable: null is admitted only alongside `succeeded`, and a refusal or ambiguity without a reason is exactly the untyped failure canon refuses — see the portable invariant."
+    },
+    "consequence_receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "Receipts for what this operation caused downstream. An empty array is a claim that it caused nothing further."
+    },
+    "verifier_profile_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The EXACT verifier profile under which this receipt's claims were checked. ACC-20 clause 10 keeps the hosted and attached matrices separate; evidence from one cannot promote the other, and a receipt that did not name its profile could be read as either."
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}
