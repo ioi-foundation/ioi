@@ -78,6 +78,10 @@ const LEASE_REQUEST_FIELDS: &[&str] = &[
     "leased_refs",
     "information_flow_label_refs",
     "permitted_recipient_roles",
+    // The shared write spine reads these two from the BODY (`require_write_caller`). They are the
+    // SPINE's fields, not dimensions of this object, so admitting them does not weaken the fence
+    // below that refuses a privacy dimension the lease INHERITS.
+    "owner_ref",
     "idempotency_key",
 ];
 
@@ -89,6 +93,7 @@ const NARROW_REQUEST_FIELDS: &[&str] = &[
     "leased_refs",
     "information_flow_label_refs",
     "permitted_recipient_roles",
+    "owner_ref",
     "idempotency_key",
 ];
 
@@ -101,10 +106,11 @@ const HANDOFF_REQUEST_FIELDS: &[&str] = &[
     "context_lease_refs",
     "acceptance_refs",
     "receipt_refs",
+    "owner_ref",
     "idempotency_key",
 ];
 
-const DECISION_REQUEST_FIELDS: &[&str] = &["idempotency_key"];
+const DECISION_REQUEST_FIELDS: &[&str] = &["owner_ref", "idempotency_key"];
 
 /// The non-grants a handoff carries on every record. They are CONSTANT by construction: the block
 /// exists to be inspectable, so a caller cannot supply it and cannot weaken it.
@@ -311,13 +317,23 @@ fn refuse_widening(prior: &Value, next: &Value) -> Result<(), Reply> {
     }
 }
 
+/// The CURRENT lease and the head a successor must compare against.
+///
+/// Selected by MAXIMUM `seq`, never by position in the returned vector: a read of a stream carries
+/// no ordering guarantee, and taking the first match returned the GENESIS entry once a narrowing
+/// existed — whose head is stale, so every later successor lost the compare-and-swap. The driven
+/// verifier caught exactly that as `event_stream_expected_head_conflict`.
 fn lease_from_history(history: &[agentgres::mux::ExactProjection]) -> Option<(Value, String)> {
-    history.iter().find_map(|entry| {
-        matches!(
-            entry.operation.op_kind.as_str(),
-            LEASE_ADMITTED_OP | LEASE_NARROWED_OP | LEASE_REVOKED_OP
-        )
-        .then(|| {
+    history
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.operation.op_kind.as_str(),
+                LEASE_ADMITTED_OP | LEASE_NARROWED_OP | LEASE_REVOKED_OP
+            )
+        })
+        .max_by_key(|entry| entry.seq)
+        .and_then(|entry| {
             entry
                 .operation
                 .payload
@@ -325,17 +341,20 @@ fn lease_from_history(history: &[agentgres::mux::ExactProjection]) -> Option<(Va
                 .cloned()
                 .map(|lease| (lease, entry.head.clone()))
         })
-        .flatten()
-    })
 }
 
+/// The CURRENT handoff and its head, by maximum `seq` for the same reason as the lease above.
 fn handoff_from_history(history: &[agentgres::mux::ExactProjection]) -> Option<(Value, String)> {
-    history.iter().find_map(|entry| {
-        matches!(
-            entry.operation.op_kind.as_str(),
-            HANDOFF_ADMITTED_OP | HANDOFF_ACCEPTED_OP | HANDOFF_REJECTED_OP
-        )
-        .then(|| {
+    history
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.operation.op_kind.as_str(),
+                HANDOFF_ADMITTED_OP | HANDOFF_ACCEPTED_OP | HANDOFF_REJECTED_OP
+            )
+        })
+        .max_by_key(|entry| entry.seq)
+        .and_then(|entry| {
             entry
                 .operation
                 .payload
@@ -343,8 +362,6 @@ fn handoff_from_history(history: &[agentgres::mux::ExactProjection]) -> Option<(
                 .cloned()
                 .map(|handoff| (handoff, entry.head.clone()))
         })
-        .flatten()
-    })
 }
 
 // ------------------------------------------------------------------------------------- leases
@@ -536,7 +553,9 @@ async fn admit_lease_successor(
             object.insert("status".into(), json!("revoked"));
         } else {
             for member in NARROW_REQUEST_FIELDS {
-                if *member == "idempotency_key" {
+                // The spine's own body fields are not members of this record: copying them in would
+                // make the record violate its own closed contract.
+                if matches!(*member, "idempotency_key" | "owner_ref") {
                     continue;
                 }
                 if let Some(value) = body.get(*member) {
@@ -570,7 +589,9 @@ async fn admit_lease_successor(
     });
     let commit = match admit_owner_scoped_mutation(
         &st.data_dir,
-        true,
+        // A successor is NOT a genesis mutation: the spine refuses `genesis` beside an expected_head,
+        // which is the whole point of the flag.
+        false,
         ScopedMutation {
             identity: &caller.identity,
             scope: &scope,
@@ -1003,7 +1024,9 @@ async fn decide_handoff(
     });
     let commit = match admit_owner_scoped_mutation(
         &st.data_dir,
-        true,
+        // Acceptance and rejection are successors, so genesis is false and the CAS on the head is
+        // what makes the decision exactly once.
+        false,
         ScopedMutation {
             identity: &caller.identity,
             scope: &scope,

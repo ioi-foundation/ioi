@@ -249,6 +249,12 @@ const PINNED = {
   // standing-lease consumer loop and the standing-lease population drills among them — and two of
   // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
   // coverage count that lags its population stops being a closed world.
+  // 108 -> 109 (2026-09-15, M04.11): one absence-worded assertion joined, in the new
+  // `check:context-lease-handoff-lifecycle` — the typed absence that NO MCP tool reaches the context
+  // families, so the unit's "native and MCP" negative matrix is proven on the only path that reaches
+  // them and the MCP half is owned by M01.10/M01.11. This is the trigger the paragraph below names:
+  // the unit shipped a verifier, so this pin moved even though the second stage holds at 17 (the
+  // assertion resolves no probe URL — it reads the gateway's tool list rather than probing a route).
   // 107 -> 108 (2026-09-13, M10.5): one absence-worded assertion joined, in
   // `check:foundry-spec-contracts` — the pinned ABSENCE that the daemon no longer stamps canon's
   // family names on records sharing one property with canon's shape.
@@ -263,7 +269,7 @@ const PINNED = {
   // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
   // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
   // second stage holds at 17 while the first moves.
-  verifierAbsenceLabels: 108,
+  verifierAbsenceLabels: 109,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

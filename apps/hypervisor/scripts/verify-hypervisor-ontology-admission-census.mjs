@@ -633,6 +633,13 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-15 (M04.11 slice D): tokens 153360 -> 153372 (+12), all in
+  // goal_run_context_routes.rs — the only Rust file the slice touched — and all three edits are fixes
+  // the DRIVEN verifier found that the module's unit tests could not: `genesis: false` on both
+  // successor admissions (the spine refuses genesis beside an expected_head), the narrow loop
+  // skipping the spine's own body fields, and both history readers selecting the current entry by
+  // `max_by_key(seq)` instead of taking the first match. Modules 122, opaque-initialiser 2854,
+  // foreign-qualified 4739 and every writer bucket HELD.
   // Re-pinned 2026-09-15 (M04.11 slice C2): the activation lane ADMITS its context lease instead
   // of writing an inline literal. Tokens 153327 -> 153360 (+33), split by the same experiment as
   // slice C: with goalrun_routes.rs alone reverted the census read 153376, so the new
@@ -929,7 +936,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 153360,
+  tokenMentions: 153372,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
