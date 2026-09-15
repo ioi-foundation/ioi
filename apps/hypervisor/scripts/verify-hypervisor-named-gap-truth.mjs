@@ -161,6 +161,13 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 879 -> 886 (2026-09-14, M04.11): the GoalRun-owned ContextLease and ContextHandoff lifecycle —
+  // SEVEN paths on `/v1/goal-orchestration/goal-runs/:id/...`: context-leases (POST), its narrow,
+  // revoke and resolution, context-handoffs (POST), and its accept and reject. Narrow/revoke/accept/
+  // reject are SUCCESSORS on the object own stream, so the shared mutation spine owns the CAS and
+  // this module adds no write path. Seven distinct paths here, seven handlers in
+  // verify-hypervisor-environment-owner-source.mjs, both pins moved in the SAME commit as the
+  // routes. 887 `.route(` occurrences, 887 with a path literal, 886 distinct paths.
   // 878 -> 879 (2026-09-14, M08.9): the Work read model, `/v1/hypervisor/work-projection` (GET) —
   // typed HypervisorWorkSubjectProjection rows derived through the work families' PUBLISHED owner
   // readers with policy applied before search, counts and recents; the Systems projection route
@@ -227,7 +234,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 879,
+  registeredRoutes: 886,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

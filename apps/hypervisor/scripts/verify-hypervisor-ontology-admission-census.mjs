@@ -633,6 +633,17 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-14 (M04.11 slice C): the GoalRun-owned ContextLease and ContextHandoff
+  // lifecycle. Modules 121 -> 122 (goal_run_context_routes.rs joins the graph). Tokens
+  // 152781 -> 153327 (+546), SPLIT BY MEASUREMENT rather than by assumption: the module
+  // declaration was temporarily removed and the census re-run, which read 121 modules and 152788
+  // tokens — so +539 are the new module itself and +7 are hypervisor-daemon.rs's seven route
+  // registrations. In that same experiment BOTH buckets sat exactly at their pins, which is the
+  // evidence that opaque-initialiser 2843 -> 2854 (+11) and foreign-qualified 4708 -> 4739 (+31)
+  // are ENTIRELY the new module's: its StatusCode:: members, std::time:: clock and the const
+  // request-field tables. Every WRITER BUCKET HELD (family 57 / non-ODK 254 / runtime 311): the
+  // module writes through the shared owner-scoped mutation spine and owns no literal writer call
+  // site of its own, which is the point of composing that spine rather than persisting beside it.
   // Re-pinned 2026-09-14 (the M07.5 regression fix, ledger LXXXIV): tokens 152770 -> 152781
   // (+11, all provider_transport.rs 638 -> 649, measured with the extractor on the HEAD and working
   // copies: the `economics_join_pending` marker the transport now writes on the invocation
@@ -891,7 +902,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 121,
+  modules: 122,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -909,7 +920,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 152781,
+  tokenMentions: 153327,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -930,8 +941,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4708,
-    "opaque-initialiser": 2843,
+    "foreign-qualified": 4739,
+    "opaque-initialiser": 2854,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

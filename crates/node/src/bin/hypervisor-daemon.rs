@@ -102,6 +102,8 @@ mod foundry_routes;
 mod gcp_candidate_source;
 #[path = "hypervisor_daemon_routes/goal_profile_contract_routes.rs"]
 mod goal_profile_contract_routes;
+#[path = "hypervisor_daemon_routes/goal_run_context_routes.rs"]
+mod goal_run_context_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/governance_routes.rs"]
@@ -2832,6 +2834,37 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/goal-runs/:id/results",
             post(goalrun_routes::handle_goal_run_result_create),
+        )
+        // M04.11 — the GoalRun's own ContextLease and ContextHandoff revisions. Narrow, revoke,
+        // accept and reject are SUCCESSORS on the object's own stream, so the shared mutation spine
+        // owns the CAS; the resolution is a read model rebuilt on every read.
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-leases",
+            post(goal_run_context_routes::handle_context_lease_admit),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-leases/:lease_id/narrow",
+            post(goal_run_context_routes::handle_context_lease_narrow),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-leases/:lease_id/revoke",
+            post(goal_run_context_routes::handle_context_lease_revoke),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-leases/:lease_id/resolution",
+            get(goal_run_context_routes::handle_context_lease_resolution),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-handoffs",
+            post(goal_run_context_routes::handle_context_handoff_admit),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-handoffs/:handoff_id/accept",
+            post(goal_run_context_routes::handle_context_handoff_accept),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/context-handoffs/:handoff_id/reject",
+            post(goal_run_context_routes::handle_context_handoff_reject),
         )
         .route(
             "/v1/goal-orchestration/goal-runs/:id/outcome-deltas",

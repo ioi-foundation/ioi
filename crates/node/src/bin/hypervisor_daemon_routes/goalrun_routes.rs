@@ -1164,7 +1164,7 @@ fn activation_key_from_ref(reference: &str) -> Option<&str> {
         })
 }
 
-fn sealed(mut record: Value) -> Value {
+pub(crate) fn sealed(mut record: Value) -> Value {
     let root = sha256_canonical(&record);
     if let Some(object) = record.as_object_mut() {
         object.insert("receipt_root".into(), json!(root));

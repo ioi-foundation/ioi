@@ -222,6 +222,13 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
+  // 1138 -> 1145 (2026-09-14, M04.11): SEVEN handlers, the GoalRun-owned ContextLease and
+  // ContextHandoff lifecycle — lease admit, narrow, revoke and resolution, handoff admit, accept
+  // and reject. Here handlers and distinct paths move by the SAME amount for once, because every
+  // one of the seven paths carries exactly one method; `check:named-gap-truth` moved 879 -> 886 in
+  // this same commit. `workspace` (40) and `candidates` (47) are unchanged: these routes own no
+  // environment route and serve no workspace lane, which is the evidence that only the registered
+  // bucket moved.
   // 1137 -> 1138 (2026-09-14, M08.9): ONE handler, `GET /v1/hypervisor/work-projection` — the
   // policy-filtered Work read model over four published owner readers (sessions, goal runs, rooms,
   // automation runs) and the governance approval reader. It is a READ that writes nothing and owns
@@ -229,7 +236,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // evidence that only the registered-handler bucket moved. The Systems projection route already
   // existed and gained identity policy in place, so it adds no handler. Moved in the SAME commit as
   // the route, together with `check:named-gap-truth` (878 -> 879 distinct paths).
-  census.registered_route_handlers === 1138 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1145 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
