@@ -3486,6 +3486,9 @@ pub(crate) async fn handle_substrate_status(
         "engine_domains": engine_domains,
         "engine_open_error": engine_open_error,
         "engine_recovery": engine_recovery,
+        // M12.1 — the typed-availability read model, composed into readiness rather than served
+        // as a second plane (core-clients-surfaces.md § Standalone Local Completeness).
+        "connected_capabilities": super::lifecycle_routes::connected_capability_dispositions(&st.data_dir),
         "admitted": ADMITTED.load(Ordering::Relaxed),
         "errors": ERRORS.load(Ordering::Relaxed),
         "backfilled": BACKFILLED.load(Ordering::Relaxed),

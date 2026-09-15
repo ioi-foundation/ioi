@@ -346,6 +346,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/evaluation-epoch/v1", "sha256:062741b0dadebdba1090c1fa2196e82100e545e08c5e2ebd579b9ed001d85f89"),
     ("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", "sha256:f6e321cab5d88abcc6e1f5c729af4842c7cc6942e706d38a2a891a65c68f1f20"),
     ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", "sha256:51cd5599e3e05db1e1e3c6766c0a611410b9595c45801db23a14f4f66e098d8b"),
+    ("schema://ioi/foundations/conformance-profile/v1", "sha256:0848d51bbc621590955a5a8a5c09c214d25b8ab11033cc8245089304a91ea878"),
+    ("schema://ioi/components/hypervisor/connected-capability-disposition/v1", "sha256:509d3a140eada82e5d5fcefd1e26a72d53c21dea1977ed963da9aa8e423c3148"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -147258,6 +147260,515 @@ pub enum ImprovementOrderCutoffReceiptEnvelopeV1TerminalDisposition {
     Blocked,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConformanceProfileV1 {
+    pub schema_version: ConformanceProfileV1SchemaVersion,
+    pub profile_id: String,
+    pub family: ConformanceProfileV1Family,
+    pub version: String,
+    pub required_interfaces: Vec<ConformanceProfileV1RequiredInterfacesItem>,
+    pub required_events: Vec<ConformanceProfileV1RequiredEventsItem>,
+    pub required_receipts: Vec<ConformanceProfileV1RequiredReceiptsItem>,
+    pub negative_tests: Vec<ConformanceProfileV1NegativeTestsItem>,
+    pub compatibility_level: ConformanceProfileV1CompatibilityLevel,
+    pub declared_envelope_ref: Option<String>,
+    pub fixture: Option<ConformanceProfileV1Fixture>,
+}
+
+impl<'de> serde::Deserialize<'de> for ConformanceProfileV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/conformance-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/conformance-profile/v1","title":"ConformanceProfile","description":"A NARROWER PROFILE FOR PROTOCOL OR RUNTIME COMPATIBILITY: what a subject must expose and how it must refuse, portable and non-probative — it defines what must be proven and proves nothing itself (ecosystem-assurance-certification-liability.md § ConformanceProfile). A `runtime_node` profile may name the deployment FIXTURE it is checked under: the endpoint families the fixture denies and the egress it allows, so a runner can fail a deployment that quietly reaches past them. A registered invariant requires a runtime_node profile to declare its negative tests, because the negative half is the load-bearing half.","x-ioi-schema-version":"ioi.conformance-profile.v1","type":"object","additionalProperties":false,"$defs":{"profileId":{"type":"string","pattern":"^conformance_profile://[^\\s]{1,248}$"},"apiRef":{"type":"string","pattern":"^api://[^\\s]{1,248}$"},"canonRef":{"type":"string","pattern":"^canon://docs/architecture/[^\\s]{1,240}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"label":{"type":"string","minLength":1,"maxLength":240},"fixtureId":{"type":"string","pattern":"^[a-z][a-z0-9_]{2,63}$"},"endpointFamily":{"enum":["ioi_ai_account","hosted_wallet_network_login","marketplace","ioi_network_enrollment","ioi_l1","license_heartbeat","telemetry","update_service","external_model_provider"]},"egressClass":{"enum":["loopback","local_ipc","declared_byo_endpoint"]}},"required":["schema_version","profile_id","family","version","required_interfaces","required_events","required_receipts","negative_tests","compatibility_level","declared_envelope_ref","fixture"],"properties":{"schema_version":{"const":"ioi.conformance-profile.v1"},"profile_id":{"$ref":"#/$defs/profileId"},"family":{"enum":["worker_endpoint","harness_adapter","runtime_node","wallet_authority_client","mcp_gateway","ctee_private_workspace","hypervisoros_node","embodied_runtime","service_endpoint","executable_eval_world","storage_backend","agentgres_domain","standard_das"]},"version":{"$ref":"#/$defs/version"},"required_interfaces":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["interface_ref"],"properties":{"interface_ref":{"$ref":"#/$defs/apiRef"}}}},"required_events":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["event_type"],"properties":{"event_type":{"$ref":"#/$defs/label"}}}},"required_receipts":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["receipt_type"],"properties":{"receipt_type":{"$ref":"#/$defs/label"}}}},"negative_tests":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["condition","expected"],"properties":{"condition":{"$ref":"#/$defs/label"},"expected":{"enum":["reject","fail_closed","quarantine"]}}}},"compatibility_level":{"enum":["experimental","compatible","certified","restricted","revoked"]},"declared_envelope_ref":{"anyOf":[{"$ref":"#/$defs/canonRef"},{"type":"null"}]},"fixture":{"anyOf":[{"type":"object","additionalProperties":false,"required":["fixture_id","denied_endpoint_families","allowed_egress"],"properties":{"fixture_id":{"$ref":"#/$defs/fixtureId"},"denied_endpoint_families":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/endpointFamily"}},"allowed_egress":{"type":"array","maxItems":3,"items":{"$ref":"#/$defs/egressClass"}}}},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ConformanceProfileV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            family: serde_json::from_value::<ConformanceProfileV1Family>(
+                object
+                    .remove(r#"family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_interfaces: serde_json::from_value::<
+                Vec<ConformanceProfileV1RequiredInterfacesItem>,
+            >(
+                object
+                    .remove(r#"required_interfaces"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_interfaces"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_events: serde_json::from_value::<Vec<ConformanceProfileV1RequiredEventsItem>>(
+                object
+                    .remove(r#"required_events"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_events"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_receipts: serde_json::from_value::<
+                Vec<ConformanceProfileV1RequiredReceiptsItem>,
+            >(
+                object
+                    .remove(r#"required_receipts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_receipts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            negative_tests: serde_json::from_value::<Vec<ConformanceProfileV1NegativeTestsItem>>(
+                object
+                    .remove(r#"negative_tests"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"negative_tests"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_level: serde_json::from_value::<ConformanceProfileV1CompatibilityLevel>(
+                object
+                    .remove(r#"compatibility_level"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility_level"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_envelope_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"declared_envelope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_envelope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fixture: serde_json::from_value::<Option<ConformanceProfileV1Fixture>>(
+                object
+                    .remove(r#"fixture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fixture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConformanceProfileV1SchemaVersion {
+    #[serde(rename = r#"ioi.conformance-profile.v1"#)]
+    IoiConformanceProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConformanceProfileV1Family {
+    #[serde(rename = r#"worker_endpoint"#)]
+    WorkerEndpoint,
+    #[serde(rename = r#"harness_adapter"#)]
+    HarnessAdapter,
+    #[serde(rename = r#"runtime_node"#)]
+    RuntimeNode,
+    #[serde(rename = r#"wallet_authority_client"#)]
+    WalletAuthorityClient,
+    #[serde(rename = r#"mcp_gateway"#)]
+    McpGateway,
+    #[serde(rename = r#"ctee_private_workspace"#)]
+    CteePrivateWorkspace,
+    #[serde(rename = r#"hypervisoros_node"#)]
+    HypervisorosNode,
+    #[serde(rename = r#"embodied_runtime"#)]
+    EmbodiedRuntime,
+    #[serde(rename = r#"service_endpoint"#)]
+    ServiceEndpoint,
+    #[serde(rename = r#"executable_eval_world"#)]
+    ExecutableEvalWorld,
+    #[serde(rename = r#"storage_backend"#)]
+    StorageBackend,
+    #[serde(rename = r#"agentgres_domain"#)]
+    AgentgresDomain,
+    #[serde(rename = r#"standard_das"#)]
+    StandardDas,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConformanceProfileV1RequiredInterfacesItem {
+    pub interface_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConformanceProfileV1RequiredInterfacesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/conformance-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["interface_ref"],"properties":{"interface_ref":{"$ref":"#/$defs/apiRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            interface_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"interface_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interface_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConformanceProfileV1RequiredEventsItem {
+    pub event_type: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConformanceProfileV1RequiredEventsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/conformance-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["event_type"],"properties":{"event_type":{"$ref":"#/$defs/label"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            event_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"event_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"event_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConformanceProfileV1RequiredReceiptsItem {
+    pub receipt_type: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConformanceProfileV1RequiredReceiptsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/conformance-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["receipt_type"],"properties":{"receipt_type":{"$ref":"#/$defs/label"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            receipt_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConformanceProfileV1NegativeTestsItem {
+    pub condition: String,
+    pub expected: ConformanceProfileV1NegativeTestsItemExpected,
+}
+
+impl<'de> serde::Deserialize<'de> for ConformanceProfileV1NegativeTestsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/conformance-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["condition","expected"],"properties":{"condition":{"$ref":"#/$defs/label"},"expected":{"enum":["reject","fail_closed","quarantine"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            condition: serde_json::from_value::<String>(
+                object
+                    .remove(r#"condition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"condition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected: serde_json::from_value::<ConformanceProfileV1NegativeTestsItemExpected>(
+                object
+                    .remove(r#"expected"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expected"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConformanceProfileV1NegativeTestsItemExpected {
+    #[serde(rename = r#"reject"#)]
+    Reject,
+    #[serde(rename = r#"fail_closed"#)]
+    FailClosed,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConformanceProfileV1CompatibilityLevel {
+    #[serde(rename = r#"experimental"#)]
+    Experimental,
+    #[serde(rename = r#"compatible"#)]
+    Compatible,
+    #[serde(rename = r#"certified"#)]
+    Certified,
+    #[serde(rename = r#"restricted"#)]
+    Restricted,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConformanceProfileV1Fixture {
+    pub fixture_id: String,
+    pub denied_endpoint_families: Vec<ConformanceProfileV1FixtureDeniedEndpointFamiliesItem>,
+    pub allowed_egress: Vec<ConformanceProfileV1FixtureAllowedEgressItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for ConformanceProfileV1Fixture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/conformance-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["fixture_id","denied_endpoint_families","allowed_egress"],"properties":{"fixture_id":{"$ref":"#/$defs/fixtureId"},"denied_endpoint_families":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/endpointFamily"}},"allowed_egress":{"type":"array","maxItems":3,"items":{"$ref":"#/$defs/egressClass"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            fixture_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"fixture_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fixture_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            denied_endpoint_families: serde_json::from_value::<
+                Vec<ConformanceProfileV1FixtureDeniedEndpointFamiliesItem>,
+            >(
+                object
+                    .remove(r#"denied_endpoint_families"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"denied_endpoint_families"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allowed_egress: serde_json::from_value::<
+                Vec<ConformanceProfileV1FixtureAllowedEgressItem>,
+            >(
+                object
+                    .remove(r#"allowed_egress"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allowed_egress"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConformanceProfileV1FixtureDeniedEndpointFamiliesItem {
+    #[serde(rename = r#"ioi_ai_account"#)]
+    IoiAiAccount,
+    #[serde(rename = r#"hosted_wallet_network_login"#)]
+    HostedWalletNetworkLogin,
+    #[serde(rename = r#"marketplace"#)]
+    Marketplace,
+    #[serde(rename = r#"ioi_network_enrollment"#)]
+    IoiNetworkEnrollment,
+    #[serde(rename = r#"ioi_l1"#)]
+    IoiL1,
+    #[serde(rename = r#"license_heartbeat"#)]
+    LicenseHeartbeat,
+    #[serde(rename = r#"telemetry"#)]
+    Telemetry,
+    #[serde(rename = r#"update_service"#)]
+    UpdateService,
+    #[serde(rename = r#"external_model_provider"#)]
+    ExternalModelProvider,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConformanceProfileV1FixtureAllowedEgressItem {
+    #[serde(rename = r#"loopback"#)]
+    Loopback,
+    #[serde(rename = r#"local_ipc"#)]
+    LocalIpc,
+    #[serde(rename = r#"declared_byo_endpoint"#)]
+    DeclaredByoEndpoint,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectedCapabilityDispositionV1 {
+    pub schema_version: ConnectedCapabilityDispositionV1SchemaVersion,
+    pub capability: ConnectedCapabilityDispositionV1Capability,
+    pub disposition: ConnectedCapabilityDispositionV1Disposition,
+    pub reason_code: ConnectedCapabilityDispositionV1ReasonCode,
+    pub basis: String,
+    pub declared_endpoint_host: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectedCapabilityDispositionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","title":"ConnectedCapabilityDisposition","description":"ONE CONNECTED CAPABILITY, TYPED. The daemon's readiness projection enumerates every IOI-managed endpoint family the standalone contract names and says, for each, whether this deployment has it `available` (a declared endpoint the daemon can name), `degraded` (declared but not executable) or `unavailable` (with the reason), together with the BASIS the daemon read — an environment variable name or a record family, never a secret. `available` is never inferred from a connection; connection alone cannot upload, own, meter, authorize or complete a locally governed System (core-clients-surfaces.md § Standalone Local Completeness). A registered invariant requires an available or degraded disposition to name its endpoint host.","x-ioi-schema-version":"ioi.connected-capability-disposition.v1","type":"object","additionalProperties":false,"$defs":{"host":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"}},"required":["schema_version","capability","disposition","reason_code","basis","declared_endpoint_host"],"properties":{"schema_version":{"const":"ioi.connected-capability-disposition.v1"},"capability":{"enum":["ioi_ai_account","hosted_wallet_network_login","marketplace","ioi_network_enrollment","ioi_l1","license_heartbeat","telemetry","update_service","external_model_provider"]},"disposition":{"enum":["available","unavailable","degraded"]},"reason_code":{"enum":["not_configured","deployment_local_authority_bound","not_enrolled","operator_supplied_packages_only","no_remote_route_declared","declared_endpoint","declared_endpoint_not_executable"]},"basis":{"type":"string","minLength":1,"maxLength":240},"declared_endpoint_host":{"anyOf":[{"$ref":"#/$defs/host"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<ConnectedCapabilityDispositionV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            capability: serde_json::from_value::<ConnectedCapabilityDispositionV1Capability>(
+                object
+                    .remove(r#"capability"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<ConnectedCapabilityDispositionV1Disposition>(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<ConnectedCapabilityDispositionV1ReasonCode>(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            basis: serde_json::from_value::<String>(
+                object
+                    .remove(r#"basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_endpoint_host: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"declared_endpoint_host"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_endpoint_host"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectedCapabilityDispositionV1SchemaVersion {
+    #[serde(rename = r#"ioi.connected-capability-disposition.v1"#)]
+    IoiConnectedCapabilityDispositionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectedCapabilityDispositionV1Capability {
+    #[serde(rename = r#"ioi_ai_account"#)]
+    IoiAiAccount,
+    #[serde(rename = r#"hosted_wallet_network_login"#)]
+    HostedWalletNetworkLogin,
+    #[serde(rename = r#"marketplace"#)]
+    Marketplace,
+    #[serde(rename = r#"ioi_network_enrollment"#)]
+    IoiNetworkEnrollment,
+    #[serde(rename = r#"ioi_l1"#)]
+    IoiL1,
+    #[serde(rename = r#"license_heartbeat"#)]
+    LicenseHeartbeat,
+    #[serde(rename = r#"telemetry"#)]
+    Telemetry,
+    #[serde(rename = r#"update_service"#)]
+    UpdateService,
+    #[serde(rename = r#"external_model_provider"#)]
+    ExternalModelProvider,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectedCapabilityDispositionV1Disposition {
+    #[serde(rename = r#"available"#)]
+    Available,
+    #[serde(rename = r#"unavailable"#)]
+    Unavailable,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectedCapabilityDispositionV1ReasonCode {
+    #[serde(rename = r#"not_configured"#)]
+    NotConfigured,
+    #[serde(rename = r#"deployment_local_authority_bound"#)]
+    DeploymentLocalAuthorityBound,
+    #[serde(rename = r#"not_enrolled"#)]
+    NotEnrolled,
+    #[serde(rename = r#"operator_supplied_packages_only"#)]
+    OperatorSuppliedPackagesOnly,
+    #[serde(rename = r#"no_remote_route_declared"#)]
+    NoRemoteRouteDeclared,
+    #[serde(rename = r#"declared_endpoint"#)]
+    DeclaredEndpoint,
+    #[serde(rename = r#"declared_endpoint_not_executable"#)]
+    DeclaredEndpointNotExecutable,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -159300,6 +159811,102 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("conformance_profile.runtime_node.declares_negative_tests"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("connected_capability_disposition.available_or_degraded.names_its_endpoint_host"),
     },
 ];
 
@@ -177467,6 +178074,138 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/connected-capability-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -179182,6 +179921,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/evaluation-epoch/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/evaluation-epoch/v1","title":"EvaluationEpochEnvelope","description":"ONE FROZEN JUDGMENT CONTRACT FOR ONE CAMPAIGN. The epoch copies its coordinates from the active campaign it is created under — campaign ref, contract revision and root, the pursuit profile and snapshot refs, both orders, the generation index, the incumbent and its root, the ledgers it inherits — and freezes with them the evaluation suites, evaluator versions, statistical policy, holdout custody and the sealed-evaluation exposure budget in units its ledger may reserve. `frozen_root` commits every member except itself, the lifecycle projections, the challenge evidence and the admission stamp, is re-derived offline by a registered invariant, and is BINDING from freeze onward, so a successor that moved a frozen member is inadmissible. Lifecycle is a projection: `draft → frozen → active → closed`, with `challenged` reachable from active and `invalidated` from frozen, active or challenged; a challenged epoch names its evidence. Search cannot redefine an epoch, and a campaign has at most one active epoch (bounded-improvement.md § EvaluationEpochEnvelope).","x-ioi-schema-version":"ioi.evaluation-epoch.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","evaluation_epoch_id","campaign_ref","campaign_contract_revision_ref","campaign_contract_root","predecessor_epoch_ref","pursuit_goal_run_profile_revision_ref","pursuit_profile_resolution_and_component_snapshot_refs","target_improvement_order","pursuit_method_order","base_target_generation_index","target_graph_and_order_path_roots","deployment_incumbent_ref","deployment_incumbent_root","synchronization_cutoff_receipt_ref","visible_eval_refs","sealed_holdout_commitment_refs","transfer_ood_and_adversarial_eval_refs","recursive_seat_and_metaproductivity_metric_refs","cross_play_and_causal_ablation_policy_ref","transfer_non_regression_and_hard_constraint_gate_refs","metric_and_selection_policy_ref","cost_normalization_ref","confirmatory_estimand_and_minimum_effect_refs","statistical_test_and_winner_adjustment_refs","risk_wealth_allocation_ref","power_and_inconclusive_stop_policy_ref","campaign_false_promotion_budget_ref","ancestor_statistical_risk_budget_ledger_ref","inherited_evaluation_exposure_ledger_refs","sealed_feedback_release_and_exposure_spend_policy_refs","evaluation_exposure_budget_policy_ref","evaluation_exposure_budget_units","evaluator_version_and_affiliation_refs","holdout_custodian_refs","external_reality_anchor_refs","operational_acceptance_owner_refs","leakage_rotation_and_challenge_policy_refs","frozen_root","lifecycle_ref","lifecycle_status","challenge_evidence_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-epoch.v1"},"evaluation_epoch_id":{"$ref":"#/$defs/epochRef"},"campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"campaign_contract_revision_ref":{"$ref":"#/$defs/campaignRevisionRef"},"campaign_contract_root":{"$ref":"#/$defs/sha256"},"predecessor_epoch_ref":{"anyOf":[{"$ref":"#/$defs/epochRef"},{"type":"null"}]},"pursuit_goal_run_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/goalRunProfileRevisionRef"},{"type":"null"}]},"pursuit_profile_resolution_and_component_snapshot_refs":{"$ref":"#/$defs/refList"},"target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"pursuit_method_order":{"type":"integer","minimum":1,"maximum":1001},"base_target_generation_index":{"$ref":"#/$defs/boundedOrder"},"target_graph_and_order_path_roots":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"deployment_incumbent_ref":{"type":"string","minLength":1,"maxLength":512},"deployment_incumbent_root":{"$ref":"#/$defs/sha256"},"synchronization_cutoff_receipt_ref":{"anyOf":[{"$ref":"#/$defs/cutoffReceiptRef"},{"type":"null"}]},"visible_eval_refs":{"$ref":"#/$defs/refList"},"sealed_holdout_commitment_refs":{"$ref":"#/$defs/refList"},"transfer_ood_and_adversarial_eval_refs":{"$ref":"#/$defs/refList"},"recursive_seat_and_metaproductivity_metric_refs":{"$ref":"#/$defs/refList"},"cross_play_and_causal_ablation_policy_ref":{"$ref":"#/$defs/policyRef"},"transfer_non_regression_and_hard_constraint_gate_refs":{"$ref":"#/$defs/refList"},"metric_and_selection_policy_ref":{"$ref":"#/$defs/policyRef"},"cost_normalization_ref":{"$ref":"#/$defs/policyRef"},"confirmatory_estimand_and_minimum_effect_refs":{"$ref":"#/$defs/refList"},"statistical_test_and_winner_adjustment_refs":{"$ref":"#/$defs/refList"},"risk_wealth_allocation_ref":{"$ref":"#/$defs/policyRef"},"power_and_inconclusive_stop_policy_ref":{"$ref":"#/$defs/policyRef"},"campaign_false_promotion_budget_ref":{"$ref":"#/$defs/policyRef"},"ancestor_statistical_risk_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"inherited_evaluation_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"sealed_feedback_release_and_exposure_spend_policy_refs":{"$ref":"#/$defs/policyRefList"},"evaluation_exposure_budget_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluation_exposure_budget_units":{"$ref":"#/$defs/boundedUnits"},"evaluator_version_and_affiliation_refs":{"$ref":"#/$defs/refList"},"holdout_custodian_refs":{"$ref":"#/$defs/refList"},"external_reality_anchor_refs":{"$ref":"#/$defs/refList"},"operational_acceptance_owner_refs":{"$ref":"#/$defs/refList"},"leakage_rotation_and_challenge_policy_refs":{"$ref":"#/$defs/policyRefList"},"frozen_root":{"$ref":"#/$defs/sha256"},"lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"lifecycle_status":{"enum":["draft","frozen","active","challenged","closed","invalidated"]},"challenge_evidence_refs":{"$ref":"#/$defs/refList"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","title":"EvaluationExposureLedgerEnvelope","description":"THE APPEND-ONLY ACCOUNT OF SEALED-EVALUATION EXPOSURE FOR ONE FROZEN EPOCH. Created by the epoch's freeze with the frozen budget, it accumulates reservation, spend, return, contamination, rotation and invalidation entries, each chained to the previous entry's root, and derives the remaining exposure as a SUBTRACTION — `remaining_units = exposure_budget_units − (reserved_units − returned_units)` — so a reservation beyond the budget, or a spend or return beyond the outstanding reservation, is refused rather than absorbed. Every integer here is bounded: units and budgets to 1000000000, sequences to 1000000, entries to 4096 per ledger. Registered invariants require the head sequence to equal the entry count and spent, returned and remaining never to exceed what they are drawn from; the per-entry root chain is verified by the gate against a live daemon, because it needs the predecessor entry. It is evaluation-integrity state, not currency, authority or permission to reveal sealed material (bounded-improvement.md § EvaluationExposureLedgerEnvelope).","x-ioi-schema-version":"ioi.evaluation-exposure-ledger.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","evaluation_exposure_ledger_id","evaluation_epoch_ref","ancestor_exposure_ledger_refs","steward_refs","sealed_suite_and_world_commitment_refs","exposure_budget_ref","exposure_budget_units","reserved_units","spent_units","returned_units","remaining_units","contaminated","entries","admitted_entry_refs","ledger_head_sequence","ledger_head_root","derived_exposure_and_contamination_projection_ref","lifecycle_decision_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-exposure-ledger.v1"},"evaluation_exposure_ledger_id":{"$ref":"#/$defs/exposureLedgerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"ancestor_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"steward_refs":{"$ref":"#/$defs/refList"},"sealed_suite_and_world_commitment_refs":{"$ref":"#/$defs/refList"},"exposure_budget_ref":{"$ref":"#/$defs/policyRef"},"exposure_budget_units":{"$ref":"#/$defs/boundedUnits"},"reserved_units":{"$ref":"#/$defs/boundedUnits"},"spent_units":{"$ref":"#/$defs/boundedUnits"},"returned_units":{"$ref":"#/$defs/boundedUnits"},"remaining_units":{"$ref":"#/$defs/boundedUnits"},"contaminated":{"type":"boolean"},"entries":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["entry_seq","entry_ref","entry_kind","units","candidate_family_commitment","selected_case_commitment","information_return_class","evaluator_version_refs","access_receipt_refs","contamination_flag","previous_entry_root","entry_root"],"properties":{"entry_seq":{"type":"integer","minimum":1,"maximum":1000000},"entry_ref":{"$ref":"#/$defs/exposureEntryRef"},"entry_kind":{"enum":["reservation","spend","return","contamination","rotation","invalidation"]},"units":{"$ref":"#/$defs/boundedUnits"},"candidate_family_commitment":{"$ref":"#/$defs/sha256"},"selected_case_commitment":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"information_return_class":{"enum":["none","aggregate","per_case","labels","internals"]},"evaluator_version_refs":{"$ref":"#/$defs/refList"},"access_receipt_refs":{"$ref":"#/$defs/refList"},"contamination_flag":{"type":"boolean"},"previous_entry_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"entry_root":{"$ref":"#/$defs/sha256"}}}},"admitted_entry_refs":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureEntryRef"}},"ledger_head_sequence":{"$ref":"#/$defs/boundedSequence"},"ledger_head_root":{"$ref":"#/$defs/sha256"},"derived_exposure_and_contamination_projection_ref":{"$ref":"#/$defs/projectionRef"},"lifecycle_decision_refs":{"$ref":"#/$defs/refList"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","title":"ImprovementOrderCutoffReceiptEnvelope","description":"A TYPED EVIDENCE CUTOFF BETWEEN ADJACENT TARGET ORDERS — neither a live synchronization object nor later promotion proof. It binds one closed source epoch of one active campaign, the frozen source roots, the eligible findings and the eligibility decisions that admit them (resolved through the learning-boundary plane, never copied), the egress receipt an institutional-boundary crossing requires, the denied or quarantined classes, the destination base root and the previous cutoff root. `receipt_root` commits every member except itself, `content_hash` and the admission stamp and is re-derived offline; a registered invariant requires the destination order to lie strictly above the source order (the daemon enforces exactly plus one) and an `evidence_ready` disposition to carry at least one eligible ref. `blocked` names what a refused cutoff would have been and is never written by the daemon (bounded-improvement.md § ImprovementOrderCutoffReceiptEnvelope).","x-ioi-schema-version":"ioi.improvement-order-cutoff-receipt.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","receipt_id","receipt_profile","receipt_profile_ref","source_campaign_ref","source_evaluation_epoch_ref","synchronization_wave_ref","source_campaign_epoch_and_archive_roots","source_target_improvement_order","source_target_generation_cutoff","intended_destination_target_order","per_order_source_version_and_cutoff_vector_ref","destination_base_root","agenda_revision_ref","agenda_and_task_distribution_roots","boundary_crossing","eligible_finding_and_outcome_refs","learning_evidence_eligibility_refs","learning_egress_receipt_refs","boundary_enforcement_access_and_custody_receipt_refs","effective_learning_policy_hash","denied_or_quarantined_information_class_refs","source_incumbent_resolved_component_snapshot_ref","inherited_budget_risk_and_exposure_reservation_roots","dependency_and_statistical_assumption_delta_ref","signal_bundle_ref","terminal_disposition","previous_cutoff_receipt_root","receipt_root","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-order-cutoff-receipt.v1"},"receipt_id":{"$ref":"#/$defs/cutoffReceiptRef"},"receipt_profile":{"const":"improvement_order_cutoff"},"receipt_profile_ref":{"const":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"},"source_campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"source_evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"synchronization_wave_ref":{"$ref":"#/$defs/artifactRef"},"source_campaign_epoch_and_archive_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"source_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"source_target_generation_cutoff":{"$ref":"#/$defs/boundedOrder"},"intended_destination_target_order":{"type":"integer","minimum":1,"maximum":1001},"per_order_source_version_and_cutoff_vector_ref":{"$ref":"#/$defs/artifactRef"},"destination_base_root":{"$ref":"#/$defs/sha256"},"agenda_revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"agenda_and_task_distribution_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"boundary_crossing":{"enum":["same_boundary","institutional_boundary"]},"eligible_finding_and_outcome_refs":{"$ref":"#/$defs/refList"},"learning_evidence_eligibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/eligibilityRevisionRef"}},"learning_egress_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/receiptRef"}},"boundary_enforcement_access_and_custody_receipt_refs":{"$ref":"#/$defs/refList"},"effective_learning_policy_hash":{"$ref":"#/$defs/sha256"},"denied_or_quarantined_information_class_refs":{"$ref":"#/$defs/refList"},"source_incumbent_resolved_component_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"inherited_budget_risk_and_exposure_reservation_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"dependency_and_statistical_assumption_delta_ref":{"$ref":"#/$defs/artifactRef"},"signal_bundle_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"terminal_disposition":{"enum":["evidence_ready","no_change","blocked"]},"previous_cutoff_receipt_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"receipt_root":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/conformance-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/conformance-profile/v1","title":"ConformanceProfile","description":"A NARROWER PROFILE FOR PROTOCOL OR RUNTIME COMPATIBILITY: what a subject must expose and how it must refuse, portable and non-probative — it defines what must be proven and proves nothing itself (ecosystem-assurance-certification-liability.md § ConformanceProfile). A `runtime_node` profile may name the deployment FIXTURE it is checked under: the endpoint families the fixture denies and the egress it allows, so a runner can fail a deployment that quietly reaches past them. A registered invariant requires a runtime_node profile to declare its negative tests, because the negative half is the load-bearing half.","x-ioi-schema-version":"ioi.conformance-profile.v1","type":"object","additionalProperties":false,"$defs":{"profileId":{"type":"string","pattern":"^conformance_profile://[^\\s]{1,248}$"},"apiRef":{"type":"string","pattern":"^api://[^\\s]{1,248}$"},"canonRef":{"type":"string","pattern":"^canon://docs/architecture/[^\\s]{1,240}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"label":{"type":"string","minLength":1,"maxLength":240},"fixtureId":{"type":"string","pattern":"^[a-z][a-z0-9_]{2,63}$"},"endpointFamily":{"enum":["ioi_ai_account","hosted_wallet_network_login","marketplace","ioi_network_enrollment","ioi_l1","license_heartbeat","telemetry","update_service","external_model_provider"]},"egressClass":{"enum":["loopback","local_ipc","declared_byo_endpoint"]}},"required":["schema_version","profile_id","family","version","required_interfaces","required_events","required_receipts","negative_tests","compatibility_level","declared_envelope_ref","fixture"],"properties":{"schema_version":{"const":"ioi.conformance-profile.v1"},"profile_id":{"$ref":"#/$defs/profileId"},"family":{"enum":["worker_endpoint","harness_adapter","runtime_node","wallet_authority_client","mcp_gateway","ctee_private_workspace","hypervisoros_node","embodied_runtime","service_endpoint","executable_eval_world","storage_backend","agentgres_domain","standard_das"]},"version":{"$ref":"#/$defs/version"},"required_interfaces":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["interface_ref"],"properties":{"interface_ref":{"$ref":"#/$defs/apiRef"}}}},"required_events":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["event_type"],"properties":{"event_type":{"$ref":"#/$defs/label"}}}},"required_receipts":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["receipt_type"],"properties":{"receipt_type":{"$ref":"#/$defs/label"}}}},"negative_tests":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["condition","expected"],"properties":{"condition":{"$ref":"#/$defs/label"},"expected":{"enum":["reject","fail_closed","quarantine"]}}}},"compatibility_level":{"enum":["experimental","compatible","certified","restricted","revoked"]},"declared_envelope_ref":{"anyOf":[{"$ref":"#/$defs/canonRef"},{"type":"null"}]},"fixture":{"anyOf":[{"type":"object","additionalProperties":false,"required":["fixture_id","denied_endpoint_families","allowed_egress"],"properties":{"fixture_id":{"$ref":"#/$defs/fixtureId"},"denied_endpoint_families":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/endpointFamily"}},"allowed_egress":{"type":"array","maxItems":3,"items":{"$ref":"#/$defs/egressClass"}}}},{"type":"null"}]}}}"##),
+    ("schema://ioi/components/hypervisor/connected-capability-disposition/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","title":"ConnectedCapabilityDisposition","description":"ONE CONNECTED CAPABILITY, TYPED. The daemon's readiness projection enumerates every IOI-managed endpoint family the standalone contract names and says, for each, whether this deployment has it `available` (a declared endpoint the daemon can name), `degraded` (declared but not executable) or `unavailable` (with the reason), together with the BASIS the daemon read — an environment variable name or a record family, never a secret. `available` is never inferred from a connection; connection alone cannot upload, own, meter, authorize or complete a locally governed System (core-clients-surfaces.md § Standalone Local Completeness). A registered invariant requires an available or degraded disposition to name its endpoint host.","x-ioi-schema-version":"ioi.connected-capability-disposition.v1","type":"object","additionalProperties":false,"$defs":{"host":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"}},"required":["schema_version","capability","disposition","reason_code","basis","declared_endpoint_host"],"properties":{"schema_version":{"const":"ioi.connected-capability-disposition.v1"},"capability":{"enum":["ioi_ai_account","hosted_wallet_network_login","marketplace","ioi_network_enrollment","ioi_l1","license_heartbeat","telemetry","update_service","external_model_provider"]},"disposition":{"enum":["available","unavailable","degraded"]},"reason_code":{"enum":["not_configured","deployment_local_authority_bound","not_enrolled","operator_supplied_packages_only","no_remote_route_declared","declared_endpoint","declared_endpoint_not_executable"]},"basis":{"type":"string","minLength":1,"maxLength":240},"declared_endpoint_host":{"anyOf":[{"$ref":"#/$defs/host"},{"type":"null"}]}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -179488,6 +180229,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/evaluation-epoch/v1", r#"[{"rule_id":"evaluation_epoch.frozen_root.freezes_the_judgment_contract","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.frozen_root commits THE FROZEN CONTRACT — every member except the root itself, the lifecycle projections, the challenge evidence and the admission stamp; binding from freeze onward, so a successor that moved a frozen member is inadmissible, under the domain separator `ioi.evaluation-epoch-frozen-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.evaluation-epoch-frozen-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_epoch_id":{"path":"$.evaluation_epoch_id"},"campaign_ref":{"path":"$.campaign_ref"},"campaign_contract_revision_ref":{"path":"$.campaign_contract_revision_ref"},"campaign_contract_root":{"path":"$.campaign_contract_root"},"predecessor_epoch_ref":{"path":"$.predecessor_epoch_ref"},"pursuit_goal_run_profile_revision_ref":{"path":"$.pursuit_goal_run_profile_revision_ref"},"pursuit_profile_resolution_and_component_snapshot_refs":{"path":"$.pursuit_profile_resolution_and_component_snapshot_refs"},"target_improvement_order":{"path":"$.target_improvement_order"},"pursuit_method_order":{"path":"$.pursuit_method_order"},"base_target_generation_index":{"path":"$.base_target_generation_index"},"target_graph_and_order_path_roots":{"path":"$.target_graph_and_order_path_roots"},"deployment_incumbent_ref":{"path":"$.deployment_incumbent_ref"},"deployment_incumbent_root":{"path":"$.deployment_incumbent_root"},"synchronization_cutoff_receipt_ref":{"path":"$.synchronization_cutoff_receipt_ref"},"visible_eval_refs":{"path":"$.visible_eval_refs"},"sealed_holdout_commitment_refs":{"path":"$.sealed_holdout_commitment_refs"},"transfer_ood_and_adversarial_eval_refs":{"path":"$.transfer_ood_and_adversarial_eval_refs"},"recursive_seat_and_metaproductivity_metric_refs":{"path":"$.recursive_seat_and_metaproductivity_metric_refs"},"cross_play_and_causal_ablation_policy_ref":{"path":"$.cross_play_and_causal_ablation_policy_ref"},"transfer_non_regression_and_hard_constraint_gate_refs":{"path":"$.transfer_non_regression_and_hard_constraint_gate_refs"},"metric_and_selection_policy_ref":{"path":"$.metric_and_selection_policy_ref"},"cost_normalization_ref":{"path":"$.cost_normalization_ref"},"confirmatory_estimand_and_minimum_effect_refs":{"path":"$.confirmatory_estimand_and_minimum_effect_refs"},"statistical_test_and_winner_adjustment_refs":{"path":"$.statistical_test_and_winner_adjustment_refs"},"risk_wealth_allocation_ref":{"path":"$.risk_wealth_allocation_ref"},"power_and_inconclusive_stop_policy_ref":{"path":"$.power_and_inconclusive_stop_policy_ref"},"campaign_false_promotion_budget_ref":{"path":"$.campaign_false_promotion_budget_ref"},"ancestor_statistical_risk_budget_ledger_ref":{"path":"$.ancestor_statistical_risk_budget_ledger_ref"},"inherited_evaluation_exposure_ledger_refs":{"path":"$.inherited_evaluation_exposure_ledger_refs"},"sealed_feedback_release_and_exposure_spend_policy_refs":{"path":"$.sealed_feedback_release_and_exposure_spend_policy_refs"},"evaluation_exposure_budget_policy_ref":{"path":"$.evaluation_exposure_budget_policy_ref"},"evaluation_exposure_budget_units":{"path":"$.evaluation_exposure_budget_units"},"evaluator_version_and_affiliation_refs":{"path":"$.evaluator_version_and_affiliation_refs"},"holdout_custodian_refs":{"path":"$.holdout_custodian_refs"},"external_reality_anchor_refs":{"path":"$.external_reality_anchor_refs"},"operational_acceptance_owner_refs":{"path":"$.operational_acceptance_owner_refs"},"leakage_rotation_and_challenge_policy_refs":{"path":"$.leakage_rotation_and_challenge_policy_refs"}},"expected_path":"$.frozen_root","expected_encoding":"sha256_string"}},{"rule_id":"evaluation_epoch.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.evaluation-epoch-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.evaluation-epoch-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_epoch_id":{"path":"$.evaluation_epoch_id"},"campaign_ref":{"path":"$.campaign_ref"},"campaign_contract_revision_ref":{"path":"$.campaign_contract_revision_ref"},"campaign_contract_root":{"path":"$.campaign_contract_root"},"predecessor_epoch_ref":{"path":"$.predecessor_epoch_ref"},"pursuit_goal_run_profile_revision_ref":{"path":"$.pursuit_goal_run_profile_revision_ref"},"pursuit_profile_resolution_and_component_snapshot_refs":{"path":"$.pursuit_profile_resolution_and_component_snapshot_refs"},"target_improvement_order":{"path":"$.target_improvement_order"},"pursuit_method_order":{"path":"$.pursuit_method_order"},"base_target_generation_index":{"path":"$.base_target_generation_index"},"target_graph_and_order_path_roots":{"path":"$.target_graph_and_order_path_roots"},"deployment_incumbent_ref":{"path":"$.deployment_incumbent_ref"},"deployment_incumbent_root":{"path":"$.deployment_incumbent_root"},"synchronization_cutoff_receipt_ref":{"path":"$.synchronization_cutoff_receipt_ref"},"visible_eval_refs":{"path":"$.visible_eval_refs"},"sealed_holdout_commitment_refs":{"path":"$.sealed_holdout_commitment_refs"},"transfer_ood_and_adversarial_eval_refs":{"path":"$.transfer_ood_and_adversarial_eval_refs"},"recursive_seat_and_metaproductivity_metric_refs":{"path":"$.recursive_seat_and_metaproductivity_metric_refs"},"cross_play_and_causal_ablation_policy_ref":{"path":"$.cross_play_and_causal_ablation_policy_ref"},"transfer_non_regression_and_hard_constraint_gate_refs":{"path":"$.transfer_non_regression_and_hard_constraint_gate_refs"},"metric_and_selection_policy_ref":{"path":"$.metric_and_selection_policy_ref"},"cost_normalization_ref":{"path":"$.cost_normalization_ref"},"confirmatory_estimand_and_minimum_effect_refs":{"path":"$.confirmatory_estimand_and_minimum_effect_refs"},"statistical_test_and_winner_adjustment_refs":{"path":"$.statistical_test_and_winner_adjustment_refs"},"risk_wealth_allocation_ref":{"path":"$.risk_wealth_allocation_ref"},"power_and_inconclusive_stop_policy_ref":{"path":"$.power_and_inconclusive_stop_policy_ref"},"campaign_false_promotion_budget_ref":{"path":"$.campaign_false_promotion_budget_ref"},"ancestor_statistical_risk_budget_ledger_ref":{"path":"$.ancestor_statistical_risk_budget_ledger_ref"},"inherited_evaluation_exposure_ledger_refs":{"path":"$.inherited_evaluation_exposure_ledger_refs"},"sealed_feedback_release_and_exposure_spend_policy_refs":{"path":"$.sealed_feedback_release_and_exposure_spend_policy_refs"},"evaluation_exposure_budget_policy_ref":{"path":"$.evaluation_exposure_budget_policy_ref"},"evaluation_exposure_budget_units":{"path":"$.evaluation_exposure_budget_units"},"evaluator_version_and_affiliation_refs":{"path":"$.evaluator_version_and_affiliation_refs"},"holdout_custodian_refs":{"path":"$.holdout_custodian_refs"},"external_reality_anchor_refs":{"path":"$.external_reality_anchor_refs"},"operational_acceptance_owner_refs":{"path":"$.operational_acceptance_owner_refs"},"leakage_rotation_and_challenge_policy_refs":{"path":"$.leakage_rotation_and_challenge_policy_refs"},"frozen_root":{"path":"$.frozen_root"},"lifecycle_ref":{"path":"$.lifecycle_ref"},"lifecycle_status":{"path":"$.lifecycle_status"},"challenge_evidence_refs":{"path":"$.challenge_evidence_refs"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"evaluation_epoch.challenge.names_its_evidence","description":"A CHALLENGE APPENDS LINKED EVIDENCE rather than rewriting the epoch; a challenged epoch with no evidence would be a status somebody asserted.","expression":{"operator":"non_empty_when_in","when_path":"$.lifecycle_status","values":["challenged"],"path":"$.challenge_evidence_refs"}}]"#),
     ("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", r#"[{"rule_id":"evaluation_exposure_ledger.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp — including every ledger entry and the derived counters, so a counter edited to make an exposure fit fails offline, under the domain separator `ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_exposure_ledger_id":{"path":"$.evaluation_exposure_ledger_id"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"ancestor_exposure_ledger_refs":{"path":"$.ancestor_exposure_ledger_refs"},"steward_refs":{"path":"$.steward_refs"},"sealed_suite_and_world_commitment_refs":{"path":"$.sealed_suite_and_world_commitment_refs"},"exposure_budget_ref":{"path":"$.exposure_budget_ref"},"exposure_budget_units":{"path":"$.exposure_budget_units"},"reserved_units":{"path":"$.reserved_units"},"spent_units":{"path":"$.spent_units"},"returned_units":{"path":"$.returned_units"},"remaining_units":{"path":"$.remaining_units"},"contaminated":{"path":"$.contaminated"},"entries":{"path":"$.entries"},"admitted_entry_refs":{"path":"$.admitted_entry_refs"},"ledger_head_sequence":{"path":"$.ledger_head_sequence"},"ledger_head_root":{"path":"$.ledger_head_root"},"derived_exposure_and_contamination_projection_ref":{"path":"$.derived_exposure_and_contamination_projection_ref"},"lifecycle_decision_refs":{"path":"$.lifecycle_decision_refs"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"evaluation_exposure_ledger.head.counts_the_entries","description":"THE HEAD SEQUENCE IS THE ENTRY COUNT, and the admitted entry refs are the entries; two independent statements about the same list is the cheapest tell that one was edited.","expression":{"operator":"array_length_equals","array_path":"$.entries","count_path":"$.ledger_head_sequence"}},{"rule_id":"evaluation_exposure_ledger.refs.count_the_entries","description":"Every admitted entry is addressable, and nothing is addressable that was not admitted.","expression":{"operator":"array_length_equals","array_path":"$.admitted_entry_refs","count_path":"$.ledger_head_sequence"}},{"rule_id":"evaluation_exposure_ledger.spent.never_exceeds_reserved","description":"EXPOSURE IS SPENT FROM A RESERVATION. Spent units can never exceed reserved units; the daemon refuses the finer rule (spend beyond the outstanding reservation) live, and this is the bound the portable language can state.","expression":{"operator":"numbers_lte","paths":["$.spent_units","$.reserved_units"]}},{"rule_id":"evaluation_exposure_ledger.returned.never_exceeds_reserved","description":"Only reserved exposure can be returned.","expression":{"operator":"numbers_lte","paths":["$.returned_units","$.reserved_units"]}},{"rule_id":"evaluation_exposure_ledger.remaining.never_exceeds_budget","description":"Remaining exposure is derived from the budget by subtraction and can never exceed it; a ledger that claimed more remaining than it was given would have minted exposure.","expression":{"operator":"numbers_lte","paths":["$.remaining_units","$.exposure_budget_units"]}}]"#),
     ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", r#"[{"rule_id":"improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.receipt_root commits THE RECEIPT — every member except the root itself, the entry commitment and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_profile":{"path":"$.receipt_profile"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"source_campaign_ref":{"path":"$.source_campaign_ref"},"source_evaluation_epoch_ref":{"path":"$.source_evaluation_epoch_ref"},"synchronization_wave_ref":{"path":"$.synchronization_wave_ref"},"source_campaign_epoch_and_archive_roots":{"path":"$.source_campaign_epoch_and_archive_roots"},"source_target_improvement_order":{"path":"$.source_target_improvement_order"},"source_target_generation_cutoff":{"path":"$.source_target_generation_cutoff"},"intended_destination_target_order":{"path":"$.intended_destination_target_order"},"per_order_source_version_and_cutoff_vector_ref":{"path":"$.per_order_source_version_and_cutoff_vector_ref"},"destination_base_root":{"path":"$.destination_base_root"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_and_task_distribution_roots":{"path":"$.agenda_and_task_distribution_roots"},"boundary_crossing":{"path":"$.boundary_crossing"},"eligible_finding_and_outcome_refs":{"path":"$.eligible_finding_and_outcome_refs"},"learning_evidence_eligibility_refs":{"path":"$.learning_evidence_eligibility_refs"},"learning_egress_receipt_refs":{"path":"$.learning_egress_receipt_refs"},"boundary_enforcement_access_and_custody_receipt_refs":{"path":"$.boundary_enforcement_access_and_custody_receipt_refs"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"denied_or_quarantined_information_class_refs":{"path":"$.denied_or_quarantined_information_class_refs"},"source_incumbent_resolved_component_snapshot_ref":{"path":"$.source_incumbent_resolved_component_snapshot_ref"},"inherited_budget_risk_and_exposure_reservation_roots":{"path":"$.inherited_budget_risk_and_exposure_reservation_roots"},"dependency_and_statistical_assumption_delta_ref":{"path":"$.dependency_and_statistical_assumption_delta_ref"},"signal_bundle_ref":{"path":"$.signal_bundle_ref"},"terminal_disposition":{"path":"$.terminal_disposition"},"previous_cutoff_receipt_root":{"path":"$.previous_cutoff_receipt_root"}},"expected_path":"$.receipt_root","expected_encoding":"sha256_string"}},{"rule_id":"improvement_order_cutoff_receipt.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_profile":{"path":"$.receipt_profile"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"source_campaign_ref":{"path":"$.source_campaign_ref"},"source_evaluation_epoch_ref":{"path":"$.source_evaluation_epoch_ref"},"synchronization_wave_ref":{"path":"$.synchronization_wave_ref"},"source_campaign_epoch_and_archive_roots":{"path":"$.source_campaign_epoch_and_archive_roots"},"source_target_improvement_order":{"path":"$.source_target_improvement_order"},"source_target_generation_cutoff":{"path":"$.source_target_generation_cutoff"},"intended_destination_target_order":{"path":"$.intended_destination_target_order"},"per_order_source_version_and_cutoff_vector_ref":{"path":"$.per_order_source_version_and_cutoff_vector_ref"},"destination_base_root":{"path":"$.destination_base_root"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_and_task_distribution_roots":{"path":"$.agenda_and_task_distribution_roots"},"boundary_crossing":{"path":"$.boundary_crossing"},"eligible_finding_and_outcome_refs":{"path":"$.eligible_finding_and_outcome_refs"},"learning_evidence_eligibility_refs":{"path":"$.learning_evidence_eligibility_refs"},"learning_egress_receipt_refs":{"path":"$.learning_egress_receipt_refs"},"boundary_enforcement_access_and_custody_receipt_refs":{"path":"$.boundary_enforcement_access_and_custody_receipt_refs"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"denied_or_quarantined_information_class_refs":{"path":"$.denied_or_quarantined_information_class_refs"},"source_incumbent_resolved_component_snapshot_ref":{"path":"$.source_incumbent_resolved_component_snapshot_ref"},"inherited_budget_risk_and_exposure_reservation_roots":{"path":"$.inherited_budget_risk_and_exposure_reservation_roots"},"dependency_and_statistical_assumption_delta_ref":{"path":"$.dependency_and_statistical_assumption_delta_ref"},"signal_bundle_ref":{"path":"$.signal_bundle_ref"},"terminal_disposition":{"path":"$.terminal_disposition"},"previous_cutoff_receipt_root":{"path":"$.previous_cutoff_receipt_root"},"receipt_root":{"path":"$.receipt_root"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"improvement_order_cutoff_receipt.edge.destination_lies_above_source","description":"EVIDENCE MOVES UPWARD ONE ADJACENT EDGE. The destination order lies strictly above the source order; the daemon refuses anything but exactly plus one, and this is the half the portable language can state.","expression":{"operator":"numbers_lt","paths":["$.source_target_improvement_order","$.intended_destination_target_order"]}},{"rule_id":"improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence","description":"An `evidence_ready` cutoff names at least one eligible finding or outcome; a cutoff that was ready with nothing to move would be a synchronization claim with no evidence in it.","expression":{"operator":"non_empty_when_in","when_path":"$.terminal_disposition","values":["evidence_ready"],"path":"$.eligible_finding_and_outcome_refs"}}]"#),
+    ("schema://ioi/foundations/conformance-profile/v1", r#"[{"rule_id":"conformance_profile.runtime_node.declares_negative_tests","description":"THE NEGATIVE HALF IS THE LOAD-BEARING HALF. A runtime_node profile with no negative tests could be passed by a deployment that quietly reaches a first-party dependency, which is the exact failure the standalone contract exists to name (execution-horizons.md § Required sovereign-local fixture; core-clients-surfaces.md § Standalone Local Completeness). A runtime_node profile therefore declares at least one negative test.","expression":{"operator":"non_empty_when_in","path":"$.negative_tests","when_path":"$.family","values":["runtime_node"]}}]"#),
+    ("schema://ioi/components/hypervisor/connected-capability-disposition/v1", r#"[{"rule_id":"connected_capability_disposition.available_or_degraded.names_its_endpoint_host","description":"AVAILABLE MEANS DECLARED. A capability the daemon reports available or degraded must name the endpoint host it read from its declaration; a disposition that claimed availability with no host would be availability inferred from nothing, which is exactly the hidden prerequisite the standalone contract forbids.","expression":{"operator":"non_empty_when_in","path":"$.declared_endpoint_host","when_path":"$.disposition","values":["available","degraded"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -180750,6 +181493,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^[A-Za-z0-9+/]*={0,2}$"#, r#"^[A-Za-z0-9+/]*={0,2}$"#),
     (r#"^[A-Za-z0-9.-]+$"#, r#"^[A-Za-z0-9.-]+$"#),
     (
+        r#"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"#,
+        r#"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"#,
+    ),
+    (
         r#"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
         r#"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
     ),
@@ -180884,6 +181631,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"#,
     ),
     (r#"^[a-z][a-z0-9_]{1,80}$"#, r#"^[a-z][a-z0-9_]{1,80}$"#),
+    (r#"^[a-z][a-z0-9_]{2,63}$"#, r#"^[a-z][a-z0-9_]{2,63}$"#),
     (r#"^aai_[0-9a-f]+$"#, r#"^aai_[0-9a-f]+$"#),
     (
         r#"^acceptance://[^\s]+$"#,
@@ -181049,6 +181797,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^api://[^\s]{1,240}$"#,
         r#"^api://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^api://[^\s]{1,248}$"#,
+        r#"^api://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^appraisal://[^\s]{1,248}$"#,
@@ -181217,6 +181969,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$"#,
     ),
     (
+        r#"^canon://docs/architecture/[^\s]{1,240}$"#,
+        r#"^canon://docs/architecture/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^capability-offer://[^\s]{1,500}$"#,
         r#"^capability-offer://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -181316,6 +182072,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^conformance-profile://[^\s]{1,248}$"#,
         r#"^conformance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^conformance_profile://[^\s]{1,248}$"#,
+        r#"^conformance_profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (r#"^conn_[0-9a-f]{16}$"#, r#"^conn_[0-9a-f]{16}$"#),
     (
@@ -185913,6 +186673,18 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json"))),
     ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json"))),
     ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -187431,6 +188203,16 @@ mod tests {
         },
         "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1" => {
             serde_json::from_value::<ImprovementOrderCutoffReceiptEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/conformance-profile/v1" => {
+            serde_json::from_value::<ConformanceProfileV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/connected-capability-disposition/v1" => {
+            serde_json::from_value::<ConnectedCapabilityDispositionV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -188955,6 +189737,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/conformance-profile/v1" => {
+            let projection = serde_json::from_value::<ConformanceProfileV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/connected-capability-disposition/v1" => {
+            let projection = serde_json::from_value::<ConnectedCapabilityDispositionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -189091,8 +189883,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1504,
-            "the registered golden corpus must remain the explicit 1504-fixture bar",
+            1516,
+            "the registered golden corpus must remain the explicit 1516-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -189334,7 +190126,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 985,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 990,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

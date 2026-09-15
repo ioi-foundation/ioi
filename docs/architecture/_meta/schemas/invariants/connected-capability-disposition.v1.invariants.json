@@ -1,0 +1,20 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/connected-capability-disposition/declared-host/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+  "rules": [
+    {
+      "rule_id": "connected_capability_disposition.available_or_degraded.names_its_endpoint_host",
+      "description": "AVAILABLE MEANS DECLARED. A capability the daemon reports available or degraded must name the endpoint host it read from its declaration; a disposition that claimed availability with no host would be availability inferred from nothing, which is exactly the hidden prerequisite the standalone contract forbids.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.declared_endpoint_host",
+        "when_path": "$.disposition",
+        "values": [
+          "available",
+          "degraded"
+        ]
+      }
+    }
+  ]
+}

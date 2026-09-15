@@ -12,8 +12,8 @@ Superseded by: none.
 Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
 ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
-Implementation status: planned (the assurance/certification/liability layer and deterministic deployment-policy obligation projection are not implemented on current master; any future projection must deliberately return no legal-conformity decision)
-Last implementation audit: 2026-07-18
+Implementation status: planned (the assurance/certification/liability layer and deterministic deployment-policy obligation projection are not implemented on current master; any future projection must deliberately return no legal-conformity decision. Exception, 2026-09-15: the `ConformanceProfile` shape is a registered contract with one instantiated standalone profile and an executable runner, `check:standalone-conformance` — M12.1; conformance results still promote to no certification claim)
+Last implementation audit: 2026-09-15 (ConformanceProfile registration and the standalone instance; the rest of the layer unchanged since 2026-07-18)
 
 ## Canonical Definition
 
@@ -195,6 +195,7 @@ compatibility.
 
 ```yaml
 ConformanceProfile:
+  schema_version: ioi.conformance-profile.v1
   profile_id: conformance_profile://...
   family:
     worker_endpoint | harness_adapter | runtime_node |
@@ -213,11 +214,45 @@ ConformanceProfile:
       expected: reject | fail_closed | quarantine
   compatibility_level:
     experimental | compatible | certified | restricted | revoked
+  # The declared capability/durability/custody/assurance envelope the profile is
+  # scoped to (a canon section), or null when the profile is envelope-free.
+  declared_envelope_ref: canon://... | null
+  # The deployment fixture a runtime_node profile is checked under, or null.
+  # A runner refuses a deployment that reaches past `allowed_egress`; every
+  # family in `denied_endpoint_families` must read typed unavailable or
+  # degraded, never fabricated success.
+  fixture:
+    fixture_id: embedded_single_operator_offline | ...
+    denied_endpoint_families:
+      - ioi_ai_account | hosted_wallet_network_login | marketplace |
+        ioi_network_enrollment | ioi_l1 | license_heartbeat | telemetry |
+        update_service | external_model_provider
+    allowed_egress:
+      - loopback | local_ipc | declared_byo_endpoint
 ```
 
 Conformance is about interface and behavior compatibility. Certification may
 consume conformance results, but conformance alone is not a legal, insurance,
 or safety guarantee.
+
+`ConformanceProfile` is a registered contract
+(`schema://ioi/foundations/conformance-profile/v1`, 2026-09-15). A registered
+invariant requires a `runtime_node` profile to declare at least one negative
+test: the negative half is the load-bearing half, because a profile with no
+negative tests could be passed by a deployment that quietly reaches a
+first-party dependency. The first instantiated profile is the standalone
+sovereign-local profile
+`conformance_profile://ioi/standalone/embedded-single-operator-offline/v1`
+(family `runtime_node`; fixture `embedded_single_operator_offline` with the
+nine denied families named by
+[`execution-horizons.md`](../_meta/execution-horizons.md) § *Required
+sovereign-local fixture*; envelope
+[`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md)
+§ *Intended user and supported deployment*), whose one tracked document is the
+contract's positive fixture and whose runner is `check:standalone-conformance`
+(see [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+§ *Standalone Local Completeness*). The profile defines what must be proven;
+the runner's evidence, pinned to the profile's digest, is the proof.
 
 ### `CertificationClaim`
 

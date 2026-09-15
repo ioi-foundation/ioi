@@ -1,0 +1,8 @@
+{
+  "schema_version": "ioi.connected-capability-disposition.v1",
+  "capability": "hosted_wallet_network_login",
+  "disposition": "unavailable",
+  "reason_code": "deployment_local_authority_bound",
+  "basis": "IOI_WALLET_NETWORK_RPC_ADDR names a loopback host: the deployment-local authority node is bound instead of a hosted login",
+  "declared_endpoint_host": null
+}

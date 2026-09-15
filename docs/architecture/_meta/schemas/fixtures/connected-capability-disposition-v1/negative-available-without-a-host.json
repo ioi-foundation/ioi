@@ -1,0 +1,8 @@
+{
+  "schema_version": "ioi.connected-capability-disposition.v1",
+  "capability": "external_model_provider",
+  "disposition": "available",
+  "reason_code": "declared_endpoint",
+  "basis": "model-route-registry: an active route whose provider_binding names a non-loopback base_url with a sealed credential",
+  "declared_endpoint_host": null
+}

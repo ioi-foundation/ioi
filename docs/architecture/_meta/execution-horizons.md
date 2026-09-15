@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-09-15 (the sovereign-local fixture's runner and harness recorded as built; horizon framing unchanged since 2026-08-12).
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -139,6 +139,27 @@ Not required to claim this first profile complete:
 Those capabilities remain canonical where their profiles require them and
 advance through later horizons. The first proof wins by closing one real
 vertical, not by simulating the entire roadmap.
+
+**The fixture is executable (2026-09-15, M12.1).** The runner is
+`check:standalone-conformance` and the isolated-egress harness is
+`scripts/lib/egress-harness.mjs`: a user+network namespace holding only
+loopback (every non-loopback destination refused by the kernel), a
+seccomp-filtered `strace` ledger of every `connect`/`sendto` from every
+descendant process with the DNS question names parsed from it, and unix-socket
+bridges for the declared loopback dependencies. The instantiated profile is
+`conformance_profile://ioi/standalone/embedded-single-operator-offline/v1`, a
+registered `ConformanceProfile` naming the nine denied families above. What the
+runner proves today is the bounded-alpha envelope
+([`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md)
+§ *Intended user and supported deployment*) under this fixture — bootstrap,
+deployment-local identity and authority, governed local work, receipts,
+restart and recovery, backup and restore across daemons, portable evidence
+replay, update and rollback — with every denied family typed unavailable on
+the daemon's own readiness projection, and the negative half executed: a
+declared dependency severed mid-run terminates the run typed, and a deployment
+pointed at a non-loopback dependency fails the profile. The selected profile's
+OutcomeRoom-backed institution below remains target until `M12.3`/`M12.4`
+compose it under the same fixture.
 
 ## Undeniable-product proof gate
 
@@ -351,7 +372,8 @@ Why this one and not another:
   matrix, the runner and the passing estate.
 
 What it costs: the contract-first build steps 1–9 below, the
-sovereign-local-completeness runner and isolated-egress harness, and the
+sovereign-local-completeness runner and isolated-egress harness (both built
+2026-09-15, M12.1 — see § *Required sovereign-local fixture*), and the
 discipline to refuse partial credit — `incomplete` is not a weaker pass.
 
 What it unlocks, in order: the second proof is Horizon 2A continuity across

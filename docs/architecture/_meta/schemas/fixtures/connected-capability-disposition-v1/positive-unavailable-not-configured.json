@@ -1,0 +1,8 @@
+{
+  "schema_version": "ioi.connected-capability-disposition.v1",
+  "capability": "telemetry",
+  "disposition": "unavailable",
+  "reason_code": "not_configured",
+  "basis": "no telemetry sink is configured in this daemon (no endpoint variable, no record family)",
+  "declared_endpoint_host": null
+}

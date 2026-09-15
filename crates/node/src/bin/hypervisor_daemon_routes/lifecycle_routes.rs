@@ -9967,6 +9967,229 @@ fn parse_host_port(upstream: &str) -> (String, u16) {
     }
 }
 
+// ---------------------------------------------------------------------------------------------
+// The typed-availability read model (M12.1; core-clients-surfaces.md § Standalone Local
+// Completeness § The typed-availability read model; contract
+// schema://ioi/components/hypervisor/connected-capability-disposition/v1).
+//
+// One disposition per IOI-managed endpoint family the standalone contract names, computed from
+// what this daemon actually READ — an environment variable name, a record family — and never from
+// a probe of a hidden endpoint. `available` requires a declared endpoint the daemon can name;
+// `degraded` is declared but not executable; `unavailable` carries its reason. Connection alone
+// never makes a family available. Every disposition is validated against the registered contract
+// before it is served, so the projection cannot drift from canon's shape silently.
+// ---------------------------------------------------------------------------------------------
+
+const CONNECTED_CAPABILITY_DISPOSITION_CONTRACT_ID: &str =
+    "schema://ioi/components/hypervisor/connected-capability-disposition/v1";
+
+/// Whether a host string names loopback (127.0.0.0/8, ::1, localhost).
+fn host_is_loopback(host: &str) -> bool {
+    let trimmed = host.trim_matches(|c| c == '[' || c == ']');
+    trimmed.eq_ignore_ascii_case("localhost")
+        || trimmed == "::1"
+        || trimmed.starts_with("127.")
+        || trimmed == "0.0.0.0"
+}
+
+fn disposition(
+    capability: &str,
+    disposition: &str,
+    reason_code: &str,
+    basis: &str,
+    declared_endpoint_host: Option<&str>,
+) -> Value {
+    json!({
+        "schema_version": "ioi.connected-capability-disposition.v1",
+        "capability": capability,
+        "disposition": disposition,
+        "reason_code": reason_code,
+        "basis": basis,
+        "declared_endpoint_host": declared_endpoint_host,
+    })
+}
+
+/// The hosted wallet.network login family: the daemon reads exactly the endpoint variables its
+/// wallet client reads. A loopback RPC host is the deployment-local authority node (bounded alpha,
+/// ADR 0052) and is NOT a hosted login; a non-loopback host is a declared endpoint.
+fn hosted_wallet_network_login_disposition() -> Value {
+    let rpc = std::env::var("IOI_WALLET_NETWORK_RPC_ADDR")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    let url = std::env::var("IOI_WALLET_NETWORK_URL")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    match rpc.as_deref().or(url.as_deref()) {
+        None => disposition(
+            "hosted_wallet_network_login",
+            "unavailable",
+            "not_configured",
+            "IOI_WALLET_NETWORK_RPC_ADDR and IOI_WALLET_NETWORK_URL are unset: no wallet.network endpoint of any kind is bound",
+            None,
+        ),
+        Some(endpoint) => {
+            let (host, _) = parse_host_port(endpoint);
+            let variable = if rpc.is_some() { "IOI_WALLET_NETWORK_RPC_ADDR" } else { "IOI_WALLET_NETWORK_URL" };
+            if host_is_loopback(&host) {
+                disposition(
+                    "hosted_wallet_network_login",
+                    "unavailable",
+                    "deployment_local_authority_bound",
+                    &format!("{variable} names a loopback host: the deployment-local authority node is bound instead of a hosted login"),
+                    None,
+                )
+            } else {
+                disposition(
+                    "hosted_wallet_network_login",
+                    "available",
+                    "declared_endpoint",
+                    &format!("{variable} names a non-loopback wallet.network host"),
+                    Some(host.as_str()),
+                )
+            }
+        }
+    }
+}
+
+/// The external model provider family, read from the model-route registry: an ACTIVE route whose
+/// provider binding names a non-loopback host is a declared external provider; with a sealed
+/// credential it is executable (available), without one it is declared but not executable
+/// (degraded). Every-route-loopback is the standalone posture.
+fn external_model_provider_disposition(data_dir: &str) -> Value {
+    // The registry materialises the env-configured local route lazily from its own read handlers;
+    // this read model composes the same seed so an empty world never hides the real env route.
+    super::model_routes::ensure_seed(data_dir);
+    let routes = super::read_record_dir(data_dir, super::model_routes::RECORD_DIR);
+    let mut declared: Vec<(String, bool)> = Vec::new();
+    for route in &routes {
+        let active = route
+            .pointer("/lifecycle/status")
+            .and_then(Value::as_str)
+            .map(|status| status != "disabled" && status != "revoked")
+            .unwrap_or(true);
+        if !active {
+            continue;
+        }
+        let base_url = route
+            .pointer("/provider_binding/base_url")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if base_url.is_empty() {
+            continue;
+        }
+        let (host, _) = parse_host_port(base_url);
+        if host.is_empty() || host_is_loopback(&host) {
+            continue;
+        }
+        let sealed = route
+            .pointer("/credential_binding/kind")
+            .and_then(Value::as_str)
+            .map(|kind| kind == "sealed_capability_lease")
+            .unwrap_or(false);
+        declared.push((host, sealed));
+    }
+    if let Some((host, _)) = declared.iter().find(|(_, sealed)| *sealed) {
+        return disposition(
+            "external_model_provider",
+            "available",
+            "declared_endpoint",
+            &format!("model-route-registry: {} route(s) read; an active route names a non-loopback provider host with a sealed credential", routes.len()),
+            Some(host.as_str()),
+        );
+    }
+    if let Some((host, _)) = declared.first() {
+        return disposition(
+            "external_model_provider",
+            "degraded",
+            "declared_endpoint_not_executable",
+            &format!("model-route-registry: {} route(s) read; an active route names a non-loopback provider host but holds no sealed credential", routes.len()),
+            Some(host.as_str()),
+        );
+    }
+    disposition(
+        "external_model_provider",
+        "unavailable",
+        "no_remote_route_declared",
+        &format!("model-route-registry: {} route(s) read; every active route's provider host is loopback", routes.len()),
+        None,
+    )
+}
+
+/// The nine IOI-managed endpoint families, each typed from what this daemon read. Serialised in
+/// canon's order. Each member is validated against the registered contract; a member that failed
+/// validation is replaced by a typed `projection_failed` entry rather than served as a shape canon
+/// did not declare.
+pub(crate) fn connected_capability_dispositions(data_dir: &str) -> Vec<Value> {
+    let members = vec![
+        disposition(
+            "ioi_ai_account",
+            "unavailable",
+            "not_configured",
+            "identity is deployment-local (one-boot bootstrap token, then password login); this daemon reads no ioi.ai account or IdP endpoint variable",
+            None,
+        ),
+        hosted_wallet_network_login_disposition(),
+        disposition(
+            "marketplace",
+            "unavailable",
+            "not_configured",
+            "no marketplace endpoint is configured; the marketplace object plane is admission-only over local records",
+            None,
+        ),
+        disposition(
+            "ioi_network_enrollment",
+            "unavailable",
+            "not_enrolled",
+            "no IOI Network enrollment client is configured in this daemon (no endpoint variable, no client module)",
+            None,
+        ),
+        disposition(
+            "ioi_l1",
+            "unavailable",
+            "not_configured",
+            "no IOI L1 endpoint variable or client is configured in this daemon",
+            None,
+        ),
+        disposition(
+            "license_heartbeat",
+            "unavailable",
+            "not_configured",
+            "no license service endpoint or heartbeat client exists in this daemon",
+            None,
+        ),
+        disposition(
+            "telemetry",
+            "unavailable",
+            "not_configured",
+            "no telemetry sink endpoint is configured; receipts and usage stay in the local data directory",
+            None,
+        ),
+        disposition(
+            "update_service",
+            "unavailable",
+            "operator_supplied_packages_only",
+            "release change plans admit operator-supplied packages verified under the operator-pinned signer; no update discovery endpoint exists",
+            None,
+        ),
+        external_model_provider_disposition(data_dir),
+    ];
+    members
+        .into_iter()
+        .map(|member| {
+            match ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                CONNECTED_CAPABILITY_DISPOSITION_CONTRACT_ID,
+                &member,
+            ) {
+                Ok(()) => member,
+                Err(reason) => json!({
+                    "capability": member.get("capability").cloned().unwrap_or(Value::Null),
+                    "projection_failed": reason,
+                }),
+            }
+        })
+        .collect()
+}
+
 /// `which`-style PATH lookup for an executable (no process spawn). None if absent.
 pub(crate) fn binary_on_path(name: &str) -> Option<String> {
     let path = std::env::var_os("PATH")?;

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+  "title": "ConnectedCapabilityDisposition",
+  "description": "ONE CONNECTED CAPABILITY, TYPED. The daemon's readiness projection enumerates every IOI-managed endpoint family the standalone contract names and says, for each, whether this deployment has it `available` (a declared endpoint the daemon can name), `degraded` (declared but not executable) or `unavailable` (with the reason), together with the BASIS the daemon read — an environment variable name or a record family, never a secret. `available` is never inferred from a connection; connection alone cannot upload, own, meter, authorize or complete a locally governed System (core-clients-surfaces.md § Standalone Local Completeness). A registered invariant requires an available or degraded disposition to name its endpoint host.",
+  "x-ioi-schema-version": "ioi.connected-capability-disposition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "host": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capability",
+    "disposition",
+    "reason_code",
+    "basis",
+    "declared_endpoint_host"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.connected-capability-disposition.v1"
+    },
+    "capability": {
+      "enum": [
+        "ioi_ai_account",
+        "hosted_wallet_network_login",
+        "marketplace",
+        "ioi_network_enrollment",
+        "ioi_l1",
+        "license_heartbeat",
+        "telemetry",
+        "update_service",
+        "external_model_provider"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "available",
+        "unavailable",
+        "degraded"
+      ]
+    },
+    "reason_code": {
+      "enum": [
+        "not_configured",
+        "deployment_local_authority_bound",
+        "not_enrolled",
+        "operator_supplied_packages_only",
+        "no_remote_route_declared",
+        "declared_endpoint",
+        "declared_endpoint_not_executable"
+      ]
+    },
+    "basis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "declared_endpoint_host": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

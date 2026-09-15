@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/conformance-profile/v1",
+  "title": "ConformanceProfile",
+  "description": "A NARROWER PROFILE FOR PROTOCOL OR RUNTIME COMPATIBILITY: what a subject must expose and how it must refuse, portable and non-probative — it defines what must be proven and proves nothing itself (ecosystem-assurance-certification-liability.md § ConformanceProfile). A `runtime_node` profile may name the deployment FIXTURE it is checked under: the endpoint families the fixture denies and the egress it allows, so a runner can fail a deployment that quietly reaches past them. A registered invariant requires a runtime_node profile to declare its negative tests, because the negative half is the load-bearing half.",
+  "x-ioi-schema-version": "ioi.conformance-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "profileId": {
+      "type": "string",
+      "pattern": "^conformance_profile://[^\\s]{1,248}$"
+    },
+    "apiRef": {
+      "type": "string",
+      "pattern": "^api://[^\\s]{1,248}$"
+    },
+    "canonRef": {
+      "type": "string",
+      "pattern": "^canon://docs/architecture/[^\\s]{1,240}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "fixtureId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,63}$"
+    },
+    "endpointFamily": {
+      "enum": [
+        "ioi_ai_account",
+        "hosted_wallet_network_login",
+        "marketplace",
+        "ioi_network_enrollment",
+        "ioi_l1",
+        "license_heartbeat",
+        "telemetry",
+        "update_service",
+        "external_model_provider"
+      ]
+    },
+    "egressClass": {
+      "enum": [
+        "loopback",
+        "local_ipc",
+        "declared_byo_endpoint"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile_id",
+    "family",
+    "version",
+    "required_interfaces",
+    "required_events",
+    "required_receipts",
+    "negative_tests",
+    "compatibility_level",
+    "declared_envelope_ref",
+    "fixture"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.conformance-profile.v1"
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profileId"
+    },
+    "family": {
+      "enum": [
+        "worker_endpoint",
+        "harness_adapter",
+        "runtime_node",
+        "wallet_authority_client",
+        "mcp_gateway",
+        "ctee_private_workspace",
+        "hypervisoros_node",
+        "embodied_runtime",
+        "service_endpoint",
+        "executable_eval_world",
+        "storage_backend",
+        "agentgres_domain",
+        "standard_das"
+      ]
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "required_interfaces": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "interface_ref"
+        ],
+        "properties": {
+          "interface_ref": {
+            "$ref": "#/$defs/apiRef"
+          }
+        }
+      }
+    },
+    "required_events": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    },
+    "required_receipts": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receipt_type"
+        ],
+        "properties": {
+          "receipt_type": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    },
+    "negative_tests": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "condition",
+          "expected"
+        ],
+        "properties": {
+          "condition": {
+            "$ref": "#/$defs/label"
+          },
+          "expected": {
+            "enum": [
+              "reject",
+              "fail_closed",
+              "quarantine"
+            ]
+          }
+        }
+      }
+    },
+    "compatibility_level": {
+      "enum": [
+        "experimental",
+        "compatible",
+        "certified",
+        "restricted",
+        "revoked"
+      ]
+    },
+    "declared_envelope_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/canonRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fixture": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fixture_id",
+            "denied_endpoint_families",
+            "allowed_egress"
+          ],
+          "properties": {
+            "fixture_id": {
+              "$ref": "#/$defs/fixtureId"
+            },
+            "denied_endpoint_families": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "$ref": "#/$defs/endpointFamily"
+              }
+            },
+            "allowed_egress": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/egressClass"
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -633,6 +633,17 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-15 (M12.1): tokens 155513 -> 155607 (+94); modules 123, opaque-initialiser
+  // 3108, foreign-qualified 4857, bare-undeclared 541 and EVERY writer bucket HELD (family 57 /
+  // non-ODK 254 / runtime 311). The typed-availability read model (canon's nine connected-capability
+  // families as `connected_capabilities[]` on the substrate status projection) is a READ projection:
+  // it composes the model-route registry's own seed and reads its record dir through the shared
+  // reader, and writes nothing. The split is MEASURED by reverting each edited file to HEAD in turn
+  // and re-running the census: with substrate_store.rs at HEAD it read 155606, with
+  // lifecycle_routes.rs at HEAD it read 155514 — so the projection in lifecycle_routes.rs is +93
+  // (the nine family literals, their reason codes and bases, the contract id) and the one-line
+  // composition in substrate_store.rs is +1 (the `connected_capabilities` key). Both files restored
+  // by copy and digest-verified. Moved in the SAME COMMIT as the daemon change.
   // Re-pinned 2026-09-15 (M10.1): modules 122 -> 123, tokens 153372 -> 155513 (+2141),
   // opaque-initialiser 2854 -> 3108 (+254), foreign-qualified 4739 -> 4857 (+118); bare-undeclared
   // 541 and EVERY writer bucket HELD (family 57 / non-ODK 254 / runtime 311) — the spine writes only
@@ -951,7 +962,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 155513,
+  tokenMentions: 155607,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,

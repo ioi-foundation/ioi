@@ -1,0 +1,19 @@
+{
+  "$id": "invariant://ioi/foundations/conformance-profile/negative-half/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+  "rules": [
+    {
+      "rule_id": "conformance_profile.runtime_node.declares_negative_tests",
+      "description": "THE NEGATIVE HALF IS THE LOAD-BEARING HALF. A runtime_node profile with no negative tests could be passed by a deployment that quietly reaches a first-party dependency, which is the exact failure the standalone contract exists to name (execution-horizons.md § Required sovereign-local fixture; core-clients-surfaces.md § Standalone Local Completeness). A runtime_node profile therefore declares at least one negative test.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.negative_tests",
+        "when_path": "$.family",
+        "values": [
+          "runtime_node"
+        ]
+      }
+    }
+  ]
+}

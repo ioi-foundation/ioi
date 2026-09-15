@@ -13080,6 +13080,42 @@ export type ImprovementOrderCutoffReceiptEnvelopeV1 = {
   admitted_at: string;
 };
 
+export type ConformanceProfileV1 = {
+  schema_version: "ioi.conformance-profile.v1";
+  profile_id: string;
+  family: "worker_endpoint" | "harness_adapter" | "runtime_node" | "wallet_authority_client" | "mcp_gateway" | "ctee_private_workspace" | "hypervisoros_node" | "embodied_runtime" | "service_endpoint" | "executable_eval_world" | "storage_backend" | "agentgres_domain" | "standard_das";
+  version: string;
+  required_interfaces: Array<{
+        interface_ref: string;
+      }>;
+  required_events: Array<{
+        event_type: string;
+      }>;
+  required_receipts: Array<{
+        receipt_type: string;
+      }>;
+  negative_tests: Array<{
+        condition: string;
+        expected: "reject" | "fail_closed" | "quarantine";
+      }>;
+  compatibility_level: "experimental" | "compatible" | "certified" | "restricted" | "revoked";
+  declared_envelope_ref: string | null;
+  fixture: {
+      fixture_id: string;
+      denied_endpoint_families: Array<"ioi_ai_account" | "hosted_wallet_network_login" | "marketplace" | "ioi_network_enrollment" | "ioi_l1" | "license_heartbeat" | "telemetry" | "update_service" | "external_model_provider">;
+      allowed_egress: Array<"loopback" | "local_ipc" | "declared_byo_endpoint">;
+    } | null;
+};
+
+export type ConnectedCapabilityDispositionV1 = {
+  schema_version: "ioi.connected-capability-disposition.v1";
+  capability: "ioi_ai_account" | "hosted_wallet_network_login" | "marketplace" | "ioi_network_enrollment" | "ioi_l1" | "license_heartbeat" | "telemetry" | "update_service" | "external_model_provider";
+  disposition: "available" | "unavailable" | "degraded";
+  reason_code: "not_configured" | "deployment_local_authority_bound" | "not_enrolled" | "operator_supplied_packages_only" | "no_remote_route_declared" | "declared_endpoint" | "declared_endpoint_not_executable";
+  basis: string;
+  declared_endpoint_host: string | null;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -25121,6 +25157,102 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "conformance_profile.runtime_node.declares_negative_tests"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "connected_capability_disposition.available_or_degraded.names_its_endpoint_host"
   }
 ] as const;
 
@@ -29278,6 +29410,18 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json","contract_id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json","contract_id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json","contract_id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json","contract_id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json","contract_id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -29764,6 +29908,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Z]{3}$",
   "^[A-Za-z0-9+/]*={0,2}$",
   "^[A-Za-z0-9.-]+$",
+  "^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$",
@@ -29806,6 +29951,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_]{0,159}$",
   "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$",
   "^[a-z][a-z0-9_]{1,80}$",
+  "^[a-z][a-z0-9_]{2,63}$",
   "^aai_[0-9a-f]+$",
   "^acceptance://[^\\s]+$",
   "^action-request://[^\\s]{1,500}$",
@@ -29849,6 +29995,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://trace/[^\\s]{1,240}$",
   "^akash1[02-9ac-hj-np-z]{38}$",
   "^api://[^\\s]{1,240}$",
+  "^api://[^\\s]{1,248}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
   "^approval-ceremony-context://[^\\s]{1,500}$",
@@ -29892,6 +30039,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^build://[^\\s]+$",
   "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
   "^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$",
+  "^canon://docs/architecture/[^\\s]{1,240}$",
   "^capability-offer://[^\\s]{1,500}$",
   "^caveat://[^\\s]+$",
   "^caveat://[^\\s]{1,500}$",
@@ -29918,6 +30066,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^compute://[^\\s]{1,500}$",
   "^conflict-key://[^\\s]{1,248}$",
   "^conformance-profile://[^\\s]{1,248}$",
+  "^conformance_profile://[^\\s]{1,248}$",
   "^conn_[0-9a-f]{16}$",
   "^connector-mapping://cmap_[0-9a-f]{12,32}$",
   "^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -30732,7 +30881,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/improvement-campaign/v1": "sha256:248984be8835493361b89337332682d46d324f2986aa197f0e23f64239fc80f2",
   "schema://ioi/foundations/objects/evaluation-epoch/v1": "sha256:062741b0dadebdba1090c1fa2196e82100e545e08c5e2ebd579b9ed001d85f89",
   "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1": "sha256:f6e321cab5d88abcc6e1f5c729af4842c7cc6942e706d38a2a891a65c68f1f20",
-  "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1": "sha256:51cd5599e3e05db1e1e3c6766c0a611410b9595c45801db23a14f4f66e098d8b"
+  "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1": "sha256:51cd5599e3e05db1e1e3c6766c0a611410b9595c45801db23a14f4f66e098d8b",
+  "schema://ioi/foundations/conformance-profile/v1": "sha256:0848d51bbc621590955a5a8a5c09c214d25b8ab11033cc8245089304a91ea878",
+  "schema://ioi/components/hypervisor/connected-capability-disposition/v1": "sha256:509d3a140eada82e5d5fcefd1e26a72d53c21dea1977ed963da9aa8e423c3148"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -131620,6 +131771,303 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/canonicalTimestamp"
       }
     }
+  },
+  "schema://ioi/foundations/conformance-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/conformance-profile/v1",
+    "title": "ConformanceProfile",
+    "description": "A NARROWER PROFILE FOR PROTOCOL OR RUNTIME COMPATIBILITY: what a subject must expose and how it must refuse, portable and non-probative — it defines what must be proven and proves nothing itself (ecosystem-assurance-certification-liability.md § ConformanceProfile). A `runtime_node` profile may name the deployment FIXTURE it is checked under: the endpoint families the fixture denies and the egress it allows, so a runner can fail a deployment that quietly reaches past them. A registered invariant requires a runtime_node profile to declare its negative tests, because the negative half is the load-bearing half.",
+    "x-ioi-schema-version": "ioi.conformance-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "profileId": {
+        "type": "string",
+        "pattern": "^conformance_profile://[^\\s]{1,248}$"
+      },
+      "apiRef": {
+        "type": "string",
+        "pattern": "^api://[^\\s]{1,248}$"
+      },
+      "canonRef": {
+        "type": "string",
+        "pattern": "^canon://docs/architecture/[^\\s]{1,240}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "fixtureId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{2,63}$"
+      },
+      "endpointFamily": {
+        "enum": [
+          "ioi_ai_account",
+          "hosted_wallet_network_login",
+          "marketplace",
+          "ioi_network_enrollment",
+          "ioi_l1",
+          "license_heartbeat",
+          "telemetry",
+          "update_service",
+          "external_model_provider"
+        ]
+      },
+      "egressClass": {
+        "enum": [
+          "loopback",
+          "local_ipc",
+          "declared_byo_endpoint"
+        ]
+      }
+    },
+    "required": [
+      "schema_version",
+      "profile_id",
+      "family",
+      "version",
+      "required_interfaces",
+      "required_events",
+      "required_receipts",
+      "negative_tests",
+      "compatibility_level",
+      "declared_envelope_ref",
+      "fixture"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.conformance-profile.v1"
+      },
+      "profile_id": {
+        "$ref": "#/$defs/profileId"
+      },
+      "family": {
+        "enum": [
+          "worker_endpoint",
+          "harness_adapter",
+          "runtime_node",
+          "wallet_authority_client",
+          "mcp_gateway",
+          "ctee_private_workspace",
+          "hypervisoros_node",
+          "embodied_runtime",
+          "service_endpoint",
+          "executable_eval_world",
+          "storage_backend",
+          "agentgres_domain",
+          "standard_das"
+        ]
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "required_interfaces": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "interface_ref"
+          ],
+          "properties": {
+            "interface_ref": {
+              "$ref": "#/$defs/apiRef"
+            }
+          }
+        }
+      },
+      "required_events": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type"
+          ],
+          "properties": {
+            "event_type": {
+              "$ref": "#/$defs/label"
+            }
+          }
+        }
+      },
+      "required_receipts": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "receipt_type"
+          ],
+          "properties": {
+            "receipt_type": {
+              "$ref": "#/$defs/label"
+            }
+          }
+        }
+      },
+      "negative_tests": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "condition",
+            "expected"
+          ],
+          "properties": {
+            "condition": {
+              "$ref": "#/$defs/label"
+            },
+            "expected": {
+              "enum": [
+                "reject",
+                "fail_closed",
+                "quarantine"
+              ]
+            }
+          }
+        }
+      },
+      "compatibility_level": {
+        "enum": [
+          "experimental",
+          "compatible",
+          "certified",
+          "restricted",
+          "revoked"
+        ]
+      },
+      "declared_envelope_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fixture": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fixture_id",
+              "denied_endpoint_families",
+              "allowed_egress"
+            ],
+            "properties": {
+              "fixture_id": {
+                "$ref": "#/$defs/fixtureId"
+              },
+              "denied_endpoint_families": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "$ref": "#/$defs/endpointFamily"
+                }
+              },
+              "allowed_egress": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "$ref": "#/$defs/egressClass"
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/connected-capability-disposition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+    "title": "ConnectedCapabilityDisposition",
+    "description": "ONE CONNECTED CAPABILITY, TYPED. The daemon's readiness projection enumerates every IOI-managed endpoint family the standalone contract names and says, for each, whether this deployment has it `available` (a declared endpoint the daemon can name), `degraded` (declared but not executable) or `unavailable` (with the reason), together with the BASIS the daemon read — an environment variable name or a record family, never a secret. `available` is never inferred from a connection; connection alone cannot upload, own, meter, authorize or complete a locally governed System (core-clients-surfaces.md § Standalone Local Completeness). A registered invariant requires an available or degraded disposition to name its endpoint host.",
+    "x-ioi-schema-version": "ioi.connected-capability-disposition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "host": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "capability",
+      "disposition",
+      "reason_code",
+      "basis",
+      "declared_endpoint_host"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.connected-capability-disposition.v1"
+      },
+      "capability": {
+        "enum": [
+          "ioi_ai_account",
+          "hosted_wallet_network_login",
+          "marketplace",
+          "ioi_network_enrollment",
+          "ioi_l1",
+          "license_heartbeat",
+          "telemetry",
+          "update_service",
+          "external_model_provider"
+        ]
+      },
+      "disposition": {
+        "enum": [
+          "available",
+          "unavailable",
+          "degraded"
+        ]
+      },
+      "reason_code": {
+        "enum": [
+          "not_configured",
+          "deployment_local_authority_bound",
+          "not_enrolled",
+          "operator_supplied_packages_only",
+          "no_remote_route_declared",
+          "declared_endpoint",
+          "declared_endpoint_not_executable"
+        ]
+      },
+      "basis": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "declared_endpoint_host": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/host"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -149447,6 +149895,35 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.eligible_finding_and_outcome_refs"
       }
     }
+  ],
+  "schema://ioi/foundations/conformance-profile/v1": [
+    {
+      "rule_id": "conformance_profile.runtime_node.declares_negative_tests",
+      "description": "THE NEGATIVE HALF IS THE LOAD-BEARING HALF. A runtime_node profile with no negative tests could be passed by a deployment that quietly reaches a first-party dependency, which is the exact failure the standalone contract exists to name (execution-horizons.md § Required sovereign-local fixture; core-clients-surfaces.md § Standalone Local Completeness). A runtime_node profile therefore declares at least one negative test.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.negative_tests",
+        "when_path": "$.family",
+        "values": [
+          "runtime_node"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/connected-capability-disposition/v1": [
+    {
+      "rule_id": "connected_capability_disposition.available_or_degraded.names_its_endpoint_host",
+      "description": "AVAILABLE MEANS DECLARED. A capability the daemon reports available or degraded must name the endpoint host it read from its declaration; a disposition that claimed availability with no host would be availability inferred from nothing, which is exactly the hidden prerequisite the standalone contract forbids.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.declared_endpoint_host",
+        "when_path": "$.disposition",
+        "values": [
+          "available",
+          "degraded"
+        ]
+      }
+    }
   ]
 };
 
@@ -152136,4 +152613,16 @@ export function validateImprovementOrderCutoffReceiptEnvelopeV1(
   value: unknown,
 ): value is ImprovementOrderCutoffReceiptEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", value).ok;
+}
+
+export function validateConformanceProfileV1(
+  value: unknown,
+): value is ConformanceProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/conformance-profile/v1", value).ok;
+}
+
+export function validateConnectedCapabilityDispositionV1(
+  value: unknown,
+): value is ConnectedCapabilityDispositionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/connected-capability-disposition/v1", value).ok;
 }

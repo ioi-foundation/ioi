@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.conformance-profile.v1",
+  "profile_id": "conformance_profile://ioi/worker-endpoint/minimal/v1",
+  "family": "worker_endpoint",
+  "version": "0.1.0",
+  "required_interfaces": [
+    {
+      "interface_ref": "api://worker-endpoint/v1/health"
+    },
+    {
+      "interface_ref": "api://worker-endpoint/v1/work-claims"
+    }
+  ],
+  "required_events": [
+    {
+      "event_type": "work_claim_admitted"
+    }
+  ],
+  "required_receipts": [
+    {
+      "receipt_type": "work_result_receipt"
+    }
+  ],
+  "negative_tests": [],
+  "compatibility_level": "experimental",
+  "declared_envelope_ref": null,
+  "fixture": null
+}

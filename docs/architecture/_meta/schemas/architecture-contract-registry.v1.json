@@ -17404,6 +17404,127 @@
           "expected_rule_id": "improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+      "canonical_name": "ConformanceProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/ecosystem-assurance-certification-liability.md#conformanceprofile",
+      "schema_version": "ioi.conformance-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "conformance-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/conformance-profile/negative-half/v1",
+          "path": "invariants/conformance-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ConformanceProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ConformanceProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json",
+        "fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/conformance-profile-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/conformance-profile-v1/negative-runtime-node-without-negative-tests.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "conformance_profile.runtime_node.declares_negative_tests"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+      "canonical_name": "ConnectedCapabilityDisposition",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#connectedcapabilitydisposition",
+      "schema_version": "ioi.connected-capability-disposition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "connected-capability-disposition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/connected-capability-disposition/declared-host/v1",
+          "path": "invariants/connected-capability-disposition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ConnectedCapabilityDispositionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ConnectedCapabilityDispositionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/connected-capability-disposition-v1/positive-unavailable-not-configured.json",
+        "fixtures/connected-capability-disposition-v1/positive-available-declared-endpoint.json",
+        "fixtures/connected-capability-disposition-v1/positive-unavailable-deployment-local-authority.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/connected-capability-disposition-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "connected_capability_disposition.available_or_degraded.names_its_endpoint_host"
+        }
+      ]
     }
   ]
 }
