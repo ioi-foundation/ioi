@@ -1,0 +1,231 @@
+{
+  "$id": "invariant://ioi/foundations/objects/improvement-order-cutoff-receipt/immutable-owner-scoped-revision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.receipt_root commits THE RECEIPT — every member except the root itself, the entry commitment and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_profile": {
+            "path": "$.receipt_profile"
+          },
+          "receipt_profile_ref": {
+            "path": "$.receipt_profile_ref"
+          },
+          "source_campaign_ref": {
+            "path": "$.source_campaign_ref"
+          },
+          "source_evaluation_epoch_ref": {
+            "path": "$.source_evaluation_epoch_ref"
+          },
+          "synchronization_wave_ref": {
+            "path": "$.synchronization_wave_ref"
+          },
+          "source_campaign_epoch_and_archive_roots": {
+            "path": "$.source_campaign_epoch_and_archive_roots"
+          },
+          "source_target_improvement_order": {
+            "path": "$.source_target_improvement_order"
+          },
+          "source_target_generation_cutoff": {
+            "path": "$.source_target_generation_cutoff"
+          },
+          "intended_destination_target_order": {
+            "path": "$.intended_destination_target_order"
+          },
+          "per_order_source_version_and_cutoff_vector_ref": {
+            "path": "$.per_order_source_version_and_cutoff_vector_ref"
+          },
+          "destination_base_root": {
+            "path": "$.destination_base_root"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_and_task_distribution_roots": {
+            "path": "$.agenda_and_task_distribution_roots"
+          },
+          "boundary_crossing": {
+            "path": "$.boundary_crossing"
+          },
+          "eligible_finding_and_outcome_refs": {
+            "path": "$.eligible_finding_and_outcome_refs"
+          },
+          "learning_evidence_eligibility_refs": {
+            "path": "$.learning_evidence_eligibility_refs"
+          },
+          "learning_egress_receipt_refs": {
+            "path": "$.learning_egress_receipt_refs"
+          },
+          "boundary_enforcement_access_and_custody_receipt_refs": {
+            "path": "$.boundary_enforcement_access_and_custody_receipt_refs"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "denied_or_quarantined_information_class_refs": {
+            "path": "$.denied_or_quarantined_information_class_refs"
+          },
+          "source_incumbent_resolved_component_snapshot_ref": {
+            "path": "$.source_incumbent_resolved_component_snapshot_ref"
+          },
+          "inherited_budget_risk_and_exposure_reservation_roots": {
+            "path": "$.inherited_budget_risk_and_exposure_reservation_roots"
+          },
+          "dependency_and_statistical_assumption_delta_ref": {
+            "path": "$.dependency_and_statistical_assumption_delta_ref"
+          },
+          "signal_bundle_ref": {
+            "path": "$.signal_bundle_ref"
+          },
+          "terminal_disposition": {
+            "path": "$.terminal_disposition"
+          },
+          "previous_cutoff_receipt_root": {
+            "path": "$.previous_cutoff_receipt_root"
+          }
+        },
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_order_cutoff_receipt.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_profile": {
+            "path": "$.receipt_profile"
+          },
+          "receipt_profile_ref": {
+            "path": "$.receipt_profile_ref"
+          },
+          "source_campaign_ref": {
+            "path": "$.source_campaign_ref"
+          },
+          "source_evaluation_epoch_ref": {
+            "path": "$.source_evaluation_epoch_ref"
+          },
+          "synchronization_wave_ref": {
+            "path": "$.synchronization_wave_ref"
+          },
+          "source_campaign_epoch_and_archive_roots": {
+            "path": "$.source_campaign_epoch_and_archive_roots"
+          },
+          "source_target_improvement_order": {
+            "path": "$.source_target_improvement_order"
+          },
+          "source_target_generation_cutoff": {
+            "path": "$.source_target_generation_cutoff"
+          },
+          "intended_destination_target_order": {
+            "path": "$.intended_destination_target_order"
+          },
+          "per_order_source_version_and_cutoff_vector_ref": {
+            "path": "$.per_order_source_version_and_cutoff_vector_ref"
+          },
+          "destination_base_root": {
+            "path": "$.destination_base_root"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_and_task_distribution_roots": {
+            "path": "$.agenda_and_task_distribution_roots"
+          },
+          "boundary_crossing": {
+            "path": "$.boundary_crossing"
+          },
+          "eligible_finding_and_outcome_refs": {
+            "path": "$.eligible_finding_and_outcome_refs"
+          },
+          "learning_evidence_eligibility_refs": {
+            "path": "$.learning_evidence_eligibility_refs"
+          },
+          "learning_egress_receipt_refs": {
+            "path": "$.learning_egress_receipt_refs"
+          },
+          "boundary_enforcement_access_and_custody_receipt_refs": {
+            "path": "$.boundary_enforcement_access_and_custody_receipt_refs"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "denied_or_quarantined_information_class_refs": {
+            "path": "$.denied_or_quarantined_information_class_refs"
+          },
+          "source_incumbent_resolved_component_snapshot_ref": {
+            "path": "$.source_incumbent_resolved_component_snapshot_ref"
+          },
+          "inherited_budget_risk_and_exposure_reservation_roots": {
+            "path": "$.inherited_budget_risk_and_exposure_reservation_roots"
+          },
+          "dependency_and_statistical_assumption_delta_ref": {
+            "path": "$.dependency_and_statistical_assumption_delta_ref"
+          },
+          "signal_bundle_ref": {
+            "path": "$.signal_bundle_ref"
+          },
+          "terminal_disposition": {
+            "path": "$.terminal_disposition"
+          },
+          "previous_cutoff_receipt_root": {
+            "path": "$.previous_cutoff_receipt_root"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_order_cutoff_receipt.edge.destination_lies_above_source",
+      "description": "EVIDENCE MOVES UPWARD ONE ADJACENT EDGE. The destination order lies strictly above the source order; the daemon refuses anything but exactly plus one, and this is the half the portable language can state.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.source_target_improvement_order",
+          "$.intended_destination_target_order"
+        ]
+      }
+    },
+    {
+      "rule_id": "improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence",
+      "description": "An `evidence_ready` cutoff names at least one eligible finding or outcome; a cutoff that was ready with nothing to move would be a synchronization claim with no evidence in it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.terminal_disposition",
+        "values": [
+          "evidence_ready"
+        ],
+        "path": "$.eligible_finding_and_outcome_refs"
+      }
+    }
+  ]
+}

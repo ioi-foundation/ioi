@@ -781,54 +781,15 @@ The artifact root domain is
 
 ### ImprovementGovernanceProfileEnvelope
 
-An accountable owner binds one immutable, owner-qualified policy profile for
-bounded improvement. For a System, its constitution protects the selected
-profile and change path. A user, project, or organization may bind the same
-profile family for a non-System research Campaign, but that does not create a
-System, constitution, or bounded-DAS conformance claim. The profile controls
-whether the owner scope may admit Campaign work; it is not a campaign,
-evaluator, authority grant, or promotion decision.
-
-```yaml
-ImprovementGovernanceProfileEnvelope:
-  schema_version: ioi.improvement-governance-profile.v1
-  improvement_governance_profile_id: improvement-governance-profile://...
-  revision_ref: improvement-governance-profile://.../revision/...
-  version: semver_or_hash
-  predecessor_revision_ref:
-    improvement-governance-profile://.../revision/... | null
-  content_hash: hash
-  owner_ref: user://... | org://... | project://... | system://...
-  system_id: system://... | null
-  mutable_target_allowlist_refs: []
-  protected_target_refs: []
-  protected_target_change_decision_profile_refs: []
-  max_target_improvement_order: nonnegative_integer
-  max_active_nested_campaign_depth: positive_integer
-  max_unattended_target_generations: nonnegative_integer
-  ancestor_reservation_policy_refs:
-    resource_budget: policy://...
-    statistical_risk_budget: policy://...
-    evaluation_exposure_budget: policy://...
-  campaign_admission_policy_ref: policy://...
-  campaign_stop_policy_ref: policy://...
-  evaluator_firewall_policy_ref: policy://...
-  evaluator_independence_policy_ref: policy://...
-  promotion_authority_policy_ref: policy://...
-  irreversible_effect_recovery_policy_ref: policy://...
-  registry_lifecycle_ref: agentgres://object/... | decision://... | null
-  registry_status: draft | active | superseded | revoked
-```
-
-The revision body and `content_hash` are immutable; registry lifecycle and
-status are projections outside that hash. Descendants reserve disjoint
-resource, statistical-risk, and evaluation-exposure allowances from their
-ancestors. Naming a higher target order or creating another GoalRun never
-duplicates or resets those allowances. For a System-scoped profile,
-replacement follows the constitution's protected change path; otherwise it
-follows the owner scope's declared governance path. Either applies only to
-newly admitted work unless an explicit pause, quarantine, or migration decision
-says otherwise.
+The shape moved (2026-09-15, the `ownership_move` the canon-modularization
+ledger recorded) to
+[`bounded-improvement.md` § ImprovementGovernanceProfileEnvelope](./bounded-improvement.md#improvementgovernanceprofileenvelope),
+which owns every shape of the bounded-improvement family. What this document
+keeps is the System's side of the binding: a constitution protects the
+selected System-scoped profile and its change path, a null profile disables
+Campaign admission and unattended target generation for that System, and
+enabling or replacing the profile follows the constitution's protected
+amendment path rather than an implicit default.
 
 ### AutonomousSystemDeploymentProfileEnvelope
 

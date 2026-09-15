@@ -3291,18 +3291,31 @@ them.
 
 ## Bounded Improvement Campaign APIs
 
-The routes in this section are target contract and are not present in the
-currently audited daemon. The live improvement surface remains the narrower
-proposal/simulation/apply path described by
-[`improvement-governance-gates.md`](./improvement-governance-gates.md).
+The six-object governance spine — governance profile, agenda, campaign,
+evaluation epoch, exposure ledger and order-cutoff receipt — is SERVED by
+`improvement_campaign_routes.rs` (M10.1, 2026-09-15) as registered contracts on
+the shared owner-scoped mutation chain
+([`improvement-governance-gates.md` § Bounded improvement campaign spine](./improvement-governance-gates.md#bounded-improvement-campaign-spine-implemented-m101)).
+The candidate, attempt, finding and evidence-claim routes below remain target
+contract and are annotated as such. The live direct improvement surface is still
+the proposal/simulation/apply path described by
+[`improvement-governance-gates.md`](./improvement-governance-gates.md), which
+this plane reaches only through the upgrade-proposal handoff at the end of this
+section.
 
 Ordinary one-shot changes may continue to submit a direct `UpgradeProposal`.
 Only adaptive, repeated, sealed-evaluation, multi-epoch, or recursively claimed
 work needs an `ImprovementCampaign`.
 
-Target agenda and campaign routes:
+Governance-profile, agenda and campaign routes (served). `{profile_ref}`,
+`{agenda_ref}` and `{campaign_ref}` are family tokens; `{revision_ref}` is the
+revision ordinal:
 
 ```http
+POST /v1/hypervisor/improvement-governance-profiles
+GET  /v1/hypervisor/improvement-governance-profiles
+GET  /v1/hypervisor/improvement-governance-profiles/{profile_ref}/revisions/{revision_ref}
+
 POST /v1/hypervisor/improvement-agendas
 GET  /v1/hypervisor/improvement-agendas
 GET  /v1/hypervisor/improvement-agendas/{agenda_ref}/revisions/{revision_ref}
@@ -3315,12 +3328,19 @@ POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/admit
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/start
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/pause
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/stop
+```
+
+Candidate routes — planned, no registered route; the candidate, attempt and
+finding objects are M10.2's and M10.8's in the implementation program:
+
+```http
 GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}/candidates
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/attempts
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/findings
 ```
 
-Target evaluation and exposure routes:
+Evaluation and exposure routes (served). `{epoch_ref}` is the epoch's family
+token; `rotate` appends a rotation entry to the epoch's ledger:
 
 ```http
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/evaluation-epochs
@@ -3337,38 +3357,62 @@ POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
 POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
 ```
 
-Target synchronization, claim, and promotion routes:
+Synchronization and promotion routes (served):
 
 ```http
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/order-cutoffs
 GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}/order-cutoffs
-POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/evidence-claims
-GET  /v1/hypervisor/improvement-evidence-claims/{claim_ref}
-POST /v1/hypervisor/improvement-evidence-claims/{claim_ref}/challenge
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/upgrade-proposals
 ```
 
+Evidence-claim routes — planned, no registered route; the
+`ImprovementEvidenceClaim` object is M12.5's in the implementation program:
+
+```http
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/evidence-claims
+GET  /v1/hypervisor/improvement-evidence-claims/{claim_ref}
+POST /v1/hypervisor/improvement-evidence-claims/{claim_ref}/challenge
+```
+
 Create and admit are separate. Campaign creation records a proposed immutable
-contract revision; admission resolves the owner-scope improvement-governance
-profile and, when System-scoped, the constitution, plus the mutable target,
-protected exclusions, exact incumbent root, selected GoalRunProfile and
-component closure, target path/order, active-depth ceiling, learning boundary,
-evaluator-independence posture, and disjoint ancestor budget reservations. Only
-admission may create the coordinating GoalRun or make the campaign runnable.
+contract revision, resolving the mutable target's current root and the bound
+learning-boundary profile's effective policy hash into the contract; admission
+resolves the owner-scope improvement-governance profile (the owner's CURRENT
+revision), the released agenda revision and its items, the mutable target
+again (stale since creation is `target_base_stale`), protected exclusions and
+the allowlist, the exact incumbent root, target order and active-depth
+ceilings, the learning boundary, and a non-empty recovery posture. A
+coordinating pursuit (a `GoalRunProfile` revision and its resolution receipt)
+is recorded as the goal-orchestration application's own declaration and never
+resolved by core, which publishes no reader for that application's families
+(ADR 0023; term-boundaries.md § Which layer owns which); core's own
+coordinating subjects are `session://` and `work-run://`. System-scoped admission under a
+constitution, atomic target bundles and disjoint ancestor budget reservations
+are refused or left null typed rather than pretended. Only admission makes the
+campaign runnable (`start`); the coordinating work subject is declared, not
+created here.
 
 Epoch freeze commits the evaluator contract before confirmatory candidate
-access. Exposure operations append entries against the frozen ledger head and
-must use expected-head concurrency; changing candidate identity, spawning a
-child, or raising claimed target order never restores spent exposure or
-statistical-risk allowance. Challenge and invalidation append lifecycle records
-and dependent-claim impact; they never mutate the frozen epoch body.
+access and creates the epoch's exposure ledger from the frozen budget.
+Exposure operations append entries against the frozen ledger head and must
+name the exact current head; changing candidate identity, spawning a child, or
+raising claimed target order never restores spent exposure or statistical-risk
+allowance. Challenge and invalidation append lifecycle records; they never
+mutate the frozen epoch body.
 
 `POST .../order-cutoffs` emits an `ImprovementOrderCutoffReceipt`, not an
 authority-bearing synchronization object. It accepts only eligible typed
-evidence at one adjacent target-order edge, binds denied or quarantined classes,
-and cannot include evidence produced by a successor activated in the same sync
-wave. Promotion remains an `UpgradeProposal` evaluated by the target owner's
-ordinary Governance and release API.
+evidence at one adjacent target-order edge, resolved through the learning
+boundary plane's own readers, binds denied or quarantined classes, and refuses
+a released agenda successor at the same cutoff. Promotion remains an
+`UpgradeProposal` evaluated by the target owner's ordinary Governance and
+release API: `POST .../upgrade-proposals` nominates a candidate under the
+campaign's active frozen epoch by writing an ordinary PENDING improvement
+proposal bound to the campaign, the epoch and the frozen contract root; the
+direct gate and the campaign-grade bindings then decide at apply time. The
+24-hour decomposition guard on the direct path is planned; no proposal route
+reads `improvement_campaign_ref` from a caller today, and the handoff above is
+the binding's only writer.
 
 ## Structured Error Shape
 

@@ -340,6 +340,12 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", "sha256:18a988066a820224a25f662ce0922845bcb88e116233dd03d7e651cf228e871b"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", "sha256:70d9cd9e9c62679f2b4d6d019585316fa86c8a1c225da5dfb076e90579df5881"),
     ("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", "sha256:4146f6f5f1cf11f275a2eada7cbc8285c1cbc1bc4d96a928178ffb7981656c5a"),
+    ("schema://ioi/foundations/objects/improvement-governance-profile/v1", "sha256:7fb6fe67351d2ead0633bf3a32f2e58100da62ee2ce56762e4059762d83df297"),
+    ("schema://ioi/foundations/objects/improvement-agenda/v1", "sha256:02824eb43257a82049ae4f4879f025df3e5131258e96c420ace732a4fbf20c71"),
+    ("schema://ioi/foundations/objects/improvement-campaign/v1", "sha256:248984be8835493361b89337332682d46d324f2986aa197f0e23f64239fc80f2"),
+    ("schema://ioi/foundations/objects/evaluation-epoch/v1", "sha256:062741b0dadebdba1090c1fa2196e82100e545e08c5e2ebd579b9ed001d85f89"),
+    ("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", "sha256:f6e321cab5d88abcc6e1f5c729af4842c7cc6942e706d38a2a891a65c68f1f20"),
+    ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", "sha256:51cd5599e3e05db1e1e3c6766c0a611410b9595c45801db23a14f4f66e098d8b"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -144933,6 +144939,2325 @@ pub enum HypervisorHostMaintenancePlanV1PlanState {
     Ambiguous,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementGovernanceProfileEnvelopeV1 {
+    pub schema_version: ImprovementGovernanceProfileEnvelopeV1SchemaVersion,
+    pub improvement_governance_profile_id: String,
+    pub revision_ref: String,
+    pub version: String,
+    pub predecessor_revision_ref: Option<String>,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub system_id: Option<String>,
+    pub mutable_target_allowlist_refs: Vec<String>,
+    pub protected_target_refs: Vec<String>,
+    pub protected_target_change_decision_profile_refs: Vec<String>,
+    pub max_target_improvement_order: ArchitectureContractInteger,
+    pub max_active_nested_campaign_depth: ArchitectureContractInteger,
+    pub max_unattended_target_generations: ArchitectureContractInteger,
+    pub ancestor_reservation_policy_refs:
+        ImprovementGovernanceProfileEnvelopeV1AncestorReservationPolicyRefs,
+    pub campaign_admission_policy_ref: String,
+    pub campaign_stop_policy_ref: String,
+    pub evaluator_firewall_policy_ref: String,
+    pub evaluator_independence_policy_ref: String,
+    pub promotion_authority_policy_ref: String,
+    pub irreversible_effect_recovery_policy_ref: String,
+    pub registry_lifecycle_ref: Option<String>,
+    pub registry_status: ImprovementGovernanceProfileEnvelopeV1RegistryStatus,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementGovernanceProfileEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","title":"ImprovementGovernanceProfileEnvelope","description":"THE OWNER'S IMMUTABLE CAMPAIGN-ADMISSION POLICY. One owner-qualified revision of the policy under which the owner scope may admit ImprovementCampaign work: which targets are mutable and which protected, the target-order, nesting and unattended-generation ceilings, the ancestor reservation policies, and the admission, stop, evaluator-firewall, evaluator-independence, promotion-authority and irreversible-effect-recovery policies. It is not a campaign, an evaluator, an authority grant or a promotion decision. Identity is derived from the durable stream (bounded-improvement.md § ImprovementGovernanceProfileEnvelope); `content_hash` commits the immutable body under a domain separator and excludes the registry projections and the admission stamp, so a later status is a projection and never a rewrite. A non-null `system_id` is admitted by shape and refused by the daemon until the constitution's protected profile binding exists.","x-ioi-schema-version":"ioi.improvement-governance-profile.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","improvement_governance_profile_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","system_id","mutable_target_allowlist_refs","protected_target_refs","protected_target_change_decision_profile_refs","max_target_improvement_order","max_active_nested_campaign_depth","max_unattended_target_generations","ancestor_reservation_policy_refs","campaign_admission_policy_ref","campaign_stop_policy_ref","evaluator_firewall_policy_ref","evaluator_independence_policy_ref","promotion_authority_policy_ref","irreversible_effect_recovery_policy_ref","registry_lifecycle_ref","registry_status","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-governance-profile.v1"},"improvement_governance_profile_id":{"$ref":"#/$defs/profileFamilyRef"},"revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"version":{"$ref":"#/$defs/version"},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"system_id":{"$ref":"#/$defs/optionalSystemRef"},"mutable_target_allowlist_refs":{"$ref":"#/$defs/refList"},"protected_target_refs":{"$ref":"#/$defs/refList"},"protected_target_change_decision_profile_refs":{"$ref":"#/$defs/refList"},"max_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"max_active_nested_campaign_depth":{"$ref":"#/$defs/boundedPositive"},"max_unattended_target_generations":{"$ref":"#/$defs/boundedOrder"},"ancestor_reservation_policy_refs":{"type":"object","additionalProperties":false,"required":["resource_budget","statistical_risk_budget","evaluation_exposure_budget"],"properties":{"resource_budget":{"$ref":"#/$defs/policyRef"},"statistical_risk_budget":{"$ref":"#/$defs/policyRef"},"evaluation_exposure_budget":{"$ref":"#/$defs/policyRef"}}},"campaign_admission_policy_ref":{"$ref":"#/$defs/policyRef"},"campaign_stop_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluator_firewall_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluator_independence_policy_ref":{"$ref":"#/$defs/policyRef"},"promotion_authority_policy_ref":{"$ref":"#/$defs/policyRef"},"irreversible_effect_recovery_policy_ref":{"$ref":"#/$defs/policyRef"},"registry_lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"registry_status":{"enum":["draft","active","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                ImprovementGovernanceProfileEnvelopeV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_governance_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"improvement_governance_profile_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"improvement_governance_profile_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mutable_target_allowlist_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"mutable_target_allowlist_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mutable_target_allowlist_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_target_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_target_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protected_target_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_target_change_decision_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_target_change_decision_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"protected_target_change_decision_profile_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_target_improvement_order: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_target_improvement_order"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"max_target_improvement_order"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_active_nested_campaign_depth:
+                serde_json::from_value::<ArchitectureContractInteger>(
+                    object
+                        .remove(r#"max_active_nested_campaign_depth"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"max_active_nested_campaign_depth"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            max_unattended_target_generations:
+                serde_json::from_value::<ArchitectureContractInteger>(
+                    object
+                        .remove(r#"max_unattended_target_generations"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"max_unattended_target_generations"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            ancestor_reservation_policy_refs: serde_json::from_value::<
+                ImprovementGovernanceProfileEnvelopeV1AncestorReservationPolicyRefs,
+            >(
+                object
+                    .remove(r#"ancestor_reservation_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ancestor_reservation_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_admission_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_admission_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"campaign_admission_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_stop_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_stop_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"campaign_stop_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_firewall_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluator_firewall_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluator_firewall_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_independence_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluator_independence_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluator_independence_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotion_authority_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"promotion_authority_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"promotion_authority_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            irreversible_effect_recovery_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"irreversible_effect_recovery_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"irreversible_effect_recovery_policy_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_lifecycle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"registry_lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<
+                ImprovementGovernanceProfileEnvelopeV1RegistryStatus,
+            >(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementGovernanceProfileEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.improvement-governance-profile.v1"#)]
+    IoiImprovementGovernanceProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementGovernanceProfileEnvelopeV1AncestorReservationPolicyRefs {
+    pub resource_budget: String,
+    pub statistical_risk_budget: String,
+    pub evaluation_exposure_budget: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ImprovementGovernanceProfileEnvelopeV1AncestorReservationPolicyRefs
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["resource_budget","statistical_risk_budget","evaluation_exposure_budget"],"properties":{"resource_budget":{"$ref":"#/$defs/policyRef"},"statistical_risk_budget":{"$ref":"#/$defs/policyRef"},"evaluation_exposure_budget":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            resource_budget: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resource_budget"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_budget"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            statistical_risk_budget: serde_json::from_value::<String>(
+                object
+                    .remove(r#"statistical_risk_budget"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"statistical_risk_budget"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_exposure_budget: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_exposure_budget"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluation_exposure_budget"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementGovernanceProfileEnvelopeV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementAgendaEnvelopeV1 {
+    pub schema_version: ImprovementAgendaEnvelopeV1SchemaVersion,
+    pub improvement_agenda_id: String,
+    pub revision_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub predecessor_revision_ref: Option<String>,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub system_id: Option<String>,
+    pub constitution_and_policy_refs: Vec<String>,
+    pub governance_policy_refs: Vec<String>,
+    pub release_decision_ref: Option<String>,
+    pub target_graph_ref: String,
+    pub portfolio_allocation_policy_ref: String,
+    pub items: Vec<ImprovementAgendaEnvelopeV1ItemsItem>,
+    pub registry_lifecycle_ref: Option<String>,
+    pub registry_status: ImprovementAgendaEnvelopeV1RegistryStatus,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementAgendaEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-agenda/v1","title":"ImprovementAgendaEnvelope","description":"AN IMMUTABLE-BY-REVISION, NON-EXECUTABLE PORTFOLIO OF QUESTIONS WORTH INVESTIGATING. It requests targets and evidence; it cannot choose current-epoch truth or authorize target mutation, and only a RELEASED revision is campaign-admission eligible. `content_hash` commits the body and excludes the registry projections, the release decision and the admission stamp, so a release is a successor admission of the SAME revision carrying the identical hash (bounded-improvement.md § ImprovementAgendaEnvelope). A registered invariant requires a released revision to name its release decision.","x-ioi-schema-version":"ioi.improvement-agenda.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","improvement_agenda_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","system_id","constitution_and_policy_refs","governance_policy_refs","release_decision_ref","target_graph_ref","portfolio_allocation_policy_ref","items","registry_lifecycle_ref","registry_status","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-agenda.v1"},"improvement_agenda_id":{"$ref":"#/$defs/agendaFamilyRef"},"revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"revision":{"$ref":"#/$defs/boundedPositive"},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/agendaRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"system_id":{"$ref":"#/$defs/optionalSystemRef"},"constitution_and_policy_refs":{"$ref":"#/$defs/refList"},"governance_policy_refs":{"$ref":"#/$defs/refList"},"release_decision_ref":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"target_graph_ref":{"$ref":"#/$defs/artifactRef"},"portfolio_allocation_policy_ref":{"$ref":"#/$defs/policyRef"},"items":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["agenda_item_id","target_ref","target_class","requested_target_improvement_order","requested_target_order_path_ref","mechanism_hypothesis_ref","causal_prediction_and_falsifier_ref","minimum_decisive_test_ref","evidence_gap_and_uncertainty_ref","transfer_and_reproduction_requirement_refs","hard_constraint_and_risk_refs","protected_exclusion_refs","dependency_and_readiness_refs","requested_budget_ref","effect_recovery_policy_ref"],"properties":{"agenda_item_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"target_ref":{"type":"string","minLength":1,"maxLength":512},"target_class":{"type":"string","minLength":1,"maxLength":128},"requested_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"requested_target_order_path_ref":{"$ref":"#/$defs/artifactRef"},"mechanism_hypothesis_ref":{"$ref":"#/$defs/artifactRef"},"causal_prediction_and_falsifier_ref":{"$ref":"#/$defs/artifactRef"},"minimum_decisive_test_ref":{"type":"string","pattern":"^(?:policy|artifact)://[^\\s]{1,248}$"},"evidence_gap_and_uncertainty_ref":{"$ref":"#/$defs/artifactRef"},"transfer_and_reproduction_requirement_refs":{"$ref":"#/$defs/refList"},"hard_constraint_and_risk_refs":{"$ref":"#/$defs/refList"},"protected_exclusion_refs":{"$ref":"#/$defs/refList"},"dependency_and_readiness_refs":{"$ref":"#/$defs/refList"},"requested_budget_ref":{"$ref":"#/$defs/budgetRef"},"effect_recovery_policy_ref":{"$ref":"#/$defs/policyRef"}}}},"registry_lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"registry_status":{"enum":["draft","evaluable","released","superseded","retired"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ImprovementAgendaEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_agenda_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"improvement_agenda_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"improvement_agenda_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_and_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"constitution_and_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"constitution_and_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governance_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"governance_policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governance_policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"release_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_graph_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_graph_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_graph_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            portfolio_allocation_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"portfolio_allocation_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"portfolio_allocation_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            items: serde_json::from_value::<Vec<ImprovementAgendaEnvelopeV1ItemsItem>>(
+                object
+                    .remove(r#"items"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"items"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_lifecycle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"registry_lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<ImprovementAgendaEnvelopeV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementAgendaEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.improvement-agenda.v1"#)]
+    IoiImprovementAgendaV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementAgendaEnvelopeV1ItemsItem {
+    pub agenda_item_id: String,
+    pub target_ref: String,
+    pub target_class: String,
+    pub requested_target_improvement_order: ArchitectureContractInteger,
+    pub requested_target_order_path_ref: String,
+    pub mechanism_hypothesis_ref: String,
+    pub causal_prediction_and_falsifier_ref: String,
+    pub minimum_decisive_test_ref: String,
+    pub evidence_gap_and_uncertainty_ref: String,
+    pub transfer_and_reproduction_requirement_refs: Vec<String>,
+    pub hard_constraint_and_risk_refs: Vec<String>,
+    pub protected_exclusion_refs: Vec<String>,
+    pub dependency_and_readiness_refs: Vec<String>,
+    pub requested_budget_ref: String,
+    pub effect_recovery_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementAgendaEnvelopeV1ItemsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["agenda_item_id","target_ref","target_class","requested_target_improvement_order","requested_target_order_path_ref","mechanism_hypothesis_ref","causal_prediction_and_falsifier_ref","minimum_decisive_test_ref","evidence_gap_and_uncertainty_ref","transfer_and_reproduction_requirement_refs","hard_constraint_and_risk_refs","protected_exclusion_refs","dependency_and_readiness_refs","requested_budget_ref","effect_recovery_policy_ref"],"properties":{"agenda_item_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"target_ref":{"type":"string","minLength":1,"maxLength":512},"target_class":{"type":"string","minLength":1,"maxLength":128},"requested_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"requested_target_order_path_ref":{"$ref":"#/$defs/artifactRef"},"mechanism_hypothesis_ref":{"$ref":"#/$defs/artifactRef"},"causal_prediction_and_falsifier_ref":{"$ref":"#/$defs/artifactRef"},"minimum_decisive_test_ref":{"type":"string","pattern":"^(?:policy|artifact)://[^\\s]{1,248}$"},"evidence_gap_and_uncertainty_ref":{"$ref":"#/$defs/artifactRef"},"transfer_and_reproduction_requirement_refs":{"$ref":"#/$defs/refList"},"hard_constraint_and_risk_refs":{"$ref":"#/$defs/refList"},"protected_exclusion_refs":{"$ref":"#/$defs/refList"},"dependency_and_readiness_refs":{"$ref":"#/$defs/refList"},"requested_budget_ref":{"$ref":"#/$defs/budgetRef"},"effect_recovery_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            agenda_item_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agenda_item_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agenda_item_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_target_improvement_order:
+                serde_json::from_value::<ArchitectureContractInteger>(
+                    object
+                        .remove(r#"requested_target_improvement_order"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"requested_target_improvement_order"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            requested_target_order_path_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_target_order_path_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"requested_target_order_path_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mechanism_hypothesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mechanism_hypothesis_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mechanism_hypothesis_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            causal_prediction_and_falsifier_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"causal_prediction_and_falsifier_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"causal_prediction_and_falsifier_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_decisive_test_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"minimum_decisive_test_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"minimum_decisive_test_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_gap_and_uncertainty_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_gap_and_uncertainty_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_gap_and_uncertainty_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transfer_and_reproduction_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"transfer_and_reproduction_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"transfer_and_reproduction_requirement_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hard_constraint_and_risk_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"hard_constraint_and_risk_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"hard_constraint_and_risk_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_exclusion_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_exclusion_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"protected_exclusion_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_and_readiness_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"dependency_and_readiness_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dependency_and_readiness_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_budget_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_budget_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_budget_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_recovery_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effect_recovery_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"effect_recovery_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementAgendaEnvelopeV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"evaluable"#)]
+    Evaluable,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementCampaignEnvelopeV1 {
+    pub schema_version: ImprovementCampaignEnvelopeV1SchemaVersion,
+    pub improvement_campaign_id: String,
+    pub campaign_contract_revision_ref: String,
+    pub campaign_contract_revision: ArchitectureContractInteger,
+    pub predecessor_contract_revision_ref: Option<String>,
+    pub campaign_contract_root: String,
+    pub owner_ref: String,
+    pub system_id: Option<String>,
+    pub improvement_governance_profile_revision_ref: String,
+    pub effective_governance_snapshot_ref: Option<String>,
+    pub campaign_admission_decision_ref: Option<String>,
+    pub campaign_admission_receipt_ref: Option<String>,
+    pub admission_authority_and_constitution_snapshot_refs: Vec<String>,
+    pub coordinating_work_subject_ref: Option<String>,
+    pub child_work_subject_refs: Vec<String>,
+    pub coordinating_pursuit: ImprovementCampaignEnvelopeV1CoordinatingPursuit,
+    pub improvement_assurance_profile: ImprovementCampaignEnvelopeV1ImprovementAssuranceProfile,
+    pub resolved_component_snapshot_ref: String,
+    pub outcome_room_ref: Option<String>,
+    pub agenda_revision_ref: String,
+    pub agenda_item_refs: Vec<String>,
+    pub campaign_mode: ImprovementCampaignEnvelopeV1CampaignMode,
+    pub target_class: String,
+    pub mutable_target_ref: Option<String>,
+    pub atomic_target_bundle_ref: Option<String>,
+    pub target_base_root: String,
+    pub protected_boundary_refs: Vec<String>,
+    pub target_improvement_order: ArchitectureContractInteger,
+    pub pursuit_method_order: ArchitectureContractInteger,
+    pub target_to_pursuit_method_edge_ref: String,
+    pub target_order_path_ref: String,
+    pub target_order_assignment_receipt_ref: Option<String>,
+    pub base_target_generation_index: ArchitectureContractInteger,
+    pub effective_target_order_ceiling: Option<ArchitectureContractInteger>,
+    pub effective_target_order_ceiling_ref: Option<String>,
+    pub max_active_nested_campaign_depth: Option<ArchitectureContractInteger>,
+    pub parent_execution_campaign_ref: Option<String>,
+    pub predecessor_target_generation_campaign_ref: Option<String>,
+    pub source_lower_order_campaign_refs: Vec<String>,
+    pub deployment_incumbent_ref: String,
+    pub deployment_incumbent_root: String,
+    pub candidate_archive_ref: Option<String>,
+    pub candidate_resolved_component_snapshot_refs: Vec<String>,
+    pub active_evaluation_epoch_ref: Option<String>,
+    pub historical_evaluation_epoch_refs: Vec<String>,
+    pub search_and_candidate_archive_policy_refs: Vec<String>,
+    pub synchronization_policy_ref: String,
+    pub improvement_order_cutoff_receipt_refs: Vec<String>,
+    pub ancestor_resource_budget_ledger_ref: String,
+    pub resource_reservation_refs: Vec<String>,
+    pub ancestor_statistical_risk_budget_ledger_ref: String,
+    pub statistical_risk_reservation_refs: Vec<String>,
+    pub inherited_evaluation_exposure_ledger_refs: Vec<String>,
+    pub evaluation_exposure_reservation_refs: Vec<String>,
+    pub learning_boundary_profile_ref: String,
+    pub effective_learning_policy_hash: String,
+    pub stop_policy_ref: String,
+    pub rollback_recall_containment_compensation_and_reconciliation_policy_refs: Vec<String>,
+    pub operation_head_sequence: ArchitectureContractInteger,
+    pub operation_head_root: String,
+    pub derived_state_projection_ref: String,
+    pub lifecycle_status: ImprovementCampaignEnvelopeV1LifecycleStatus,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementCampaignEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-campaign/v1","title":"ImprovementCampaignEnvelope","description":"THE OPTIONAL MULTI-EPOCH DOMAIN LIFECYCLE FOR ONE MUTABLE TARGET, in three tiers with three commitments (bounded-improvement.md § ImprovementCampaignEnvelope). THE CONTRACT — every member declared at creation plus the four the daemon resolves then (the target and incumbent roots read through the target's owner, the pursuit-method order and edge, and the learning-boundary policy hash read through that plane) — is frozen by `campaign_contract_root`, and a registered invariant re-derives that root offline, so a lifecycle successor that moved a contract member is inadmissible rather than merely suspicious. ADMISSION FACTS are null while proposed and written once by admission; a registered invariant requires an admitted, active, paused, stopped or closed campaign to name its admission decision. PROJECTIONS (child work, candidate refs, the active and historical epochs, cutoffs, reservations, the operation head and `lifecycle_status`) advance by later operations, and `content_hash` commits the whole entry except itself, the chained `operation_head_root` and the admission stamp. THE CAMPAIGN OWNS NO PRODUCTION MUTATION: its only exit is an ordinary pending UpgradeProposal bound to it, evaluated by the target owner's unchanged gate. A non-null `system_id` and an atomic target bundle are admitted by shape and refused typed by the daemon until their owners build the constitution binding and the bundle activation owner.","x-ioi-schema-version":"ioi.improvement-campaign.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","improvement_campaign_id","campaign_contract_revision_ref","campaign_contract_revision","predecessor_contract_revision_ref","campaign_contract_root","owner_ref","system_id","improvement_governance_profile_revision_ref","effective_governance_snapshot_ref","campaign_admission_decision_ref","campaign_admission_receipt_ref","admission_authority_and_constitution_snapshot_refs","coordinating_work_subject_ref","child_work_subject_refs","coordinating_pursuit","improvement_assurance_profile","resolved_component_snapshot_ref","outcome_room_ref","agenda_revision_ref","agenda_item_refs","campaign_mode","target_class","mutable_target_ref","atomic_target_bundle_ref","target_base_root","protected_boundary_refs","target_improvement_order","pursuit_method_order","target_to_pursuit_method_edge_ref","target_order_path_ref","target_order_assignment_receipt_ref","base_target_generation_index","effective_target_order_ceiling","effective_target_order_ceiling_ref","max_active_nested_campaign_depth","parent_execution_campaign_ref","predecessor_target_generation_campaign_ref","source_lower_order_campaign_refs","deployment_incumbent_ref","deployment_incumbent_root","candidate_archive_ref","candidate_resolved_component_snapshot_refs","active_evaluation_epoch_ref","historical_evaluation_epoch_refs","search_and_candidate_archive_policy_refs","synchronization_policy_ref","improvement_order_cutoff_receipt_refs","ancestor_resource_budget_ledger_ref","resource_reservation_refs","ancestor_statistical_risk_budget_ledger_ref","statistical_risk_reservation_refs","inherited_evaluation_exposure_ledger_refs","evaluation_exposure_reservation_refs","learning_boundary_profile_ref","effective_learning_policy_hash","stop_policy_ref","rollback_recall_containment_compensation_and_reconciliation_policy_refs","operation_head_sequence","operation_head_root","derived_state_projection_ref","lifecycle_status","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-campaign.v1"},"improvement_campaign_id":{"$ref":"#/$defs/campaignFamilyRef"},"campaign_contract_revision_ref":{"$ref":"#/$defs/campaignRevisionRef"},"campaign_contract_revision":{"$ref":"#/$defs/boundedPositive"},"predecessor_contract_revision_ref":{"anyOf":[{"$ref":"#/$defs/campaignRevisionRef"},{"type":"null"}]},"campaign_contract_root":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"system_id":{"$ref":"#/$defs/optionalSystemRef"},"improvement_governance_profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"effective_governance_snapshot_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"campaign_admission_decision_ref":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"campaign_admission_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"admission_authority_and_constitution_snapshot_refs":{"$ref":"#/$defs/refList"},"coordinating_work_subject_ref":{"anyOf":[{"$ref":"#/$defs/workSubjectRef"},{"type":"null"}]},"child_work_subject_refs":{"$ref":"#/$defs/refList"},"coordinating_pursuit":{"type":"object","additionalProperties":false,"required":["goal_run_profile_revision_ref","goal_run_profile_resolution_receipt_ref"],"properties":{"goal_run_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/goalRunProfileRevisionRef"},{"type":"null"}]},"goal_run_profile_resolution_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]}}},"improvement_assurance_profile":{"enum":["local_lightweight","independent_review","protected_build","adversarial_control","threshold_recovery","failure_domain_independent"]},"resolved_component_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"outcome_room_ref":{"anyOf":[{"$ref":"#/$defs/outcomeRoomRef"},{"type":"null"}]},"agenda_revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"agenda_item_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}},"campaign_mode":{"enum":["optimization","recursive_seat_test","transfer_test","independent_reproduction","evaluator_campaign"]},"target_class":{"type":"string","minLength":1,"maxLength":128},"mutable_target_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}]},"atomic_target_bundle_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"target_base_root":{"$ref":"#/$defs/sha256"},"protected_boundary_refs":{"$ref":"#/$defs/refList"},"target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"pursuit_method_order":{"type":"integer","minimum":1,"maximum":1001},"target_to_pursuit_method_edge_ref":{"type":"string","pattern":"^(?:artifact|receipt)://[^\\s]{1,248}$"},"target_order_path_ref":{"$ref":"#/$defs/artifactRef"},"target_order_assignment_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"base_target_generation_index":{"$ref":"#/$defs/boundedOrder"},"effective_target_order_ceiling":{"anyOf":[{"$ref":"#/$defs/boundedOrder"},{"type":"null"}]},"effective_target_order_ceiling_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy|decision)://[^\\s]{1,248}$"},{"type":"null"}]},"max_active_nested_campaign_depth":{"anyOf":[{"$ref":"#/$defs/boundedPositive"},{"type":"null"}]},"parent_execution_campaign_ref":{"anyOf":[{"$ref":"#/$defs/campaignFamilyRef"},{"type":"null"}]},"predecessor_target_generation_campaign_ref":{"anyOf":[{"$ref":"#/$defs/campaignFamilyRef"},{"type":"null"}]},"source_lower_order_campaign_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/campaignFamilyRef"}},"deployment_incumbent_ref":{"type":"string","minLength":1,"maxLength":512},"deployment_incumbent_root":{"$ref":"#/$defs/sha256"},"candidate_archive_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"candidate_resolved_component_snapshot_refs":{"$ref":"#/$defs/refList"},"active_evaluation_epoch_ref":{"anyOf":[{"$ref":"#/$defs/epochRef"},{"type":"null"}]},"historical_evaluation_epoch_refs":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/$defs/epochRef"}},"search_and_candidate_archive_policy_refs":{"$ref":"#/$defs/policyRefList"},"synchronization_policy_ref":{"$ref":"#/$defs/policyRef"},"improvement_order_cutoff_receipt_refs":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/$defs/cutoffReceiptRef"}},"ancestor_resource_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"resource_reservation_refs":{"$ref":"#/$defs/refList"},"ancestor_statistical_risk_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"statistical_risk_reservation_refs":{"$ref":"#/$defs/refList"},"inherited_evaluation_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"evaluation_exposure_reservation_refs":{"$ref":"#/$defs/refList"},"learning_boundary_profile_ref":{"$ref":"#/$defs/learningBoundaryRevisionRef"},"effective_learning_policy_hash":{"$ref":"#/$defs/sha256"},"stop_policy_ref":{"$ref":"#/$defs/policyRef"},"rollback_recall_containment_compensation_and_reconciliation_policy_refs":{"$ref":"#/$defs/policyRefList"},"operation_head_sequence":{"$ref":"#/$defs/boundedSequence"},"operation_head_root":{"$ref":"#/$defs/sha256"},"derived_state_projection_ref":{"$ref":"#/$defs/projectionRef"},"lifecycle_status":{"enum":["proposed","admitted","active","paused","stopped","closed"]},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ImprovementCampaignEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_campaign_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"improvement_campaign_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"improvement_campaign_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_contract_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_contract_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_contract_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"campaign_contract_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_contract_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_contract_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_contract_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_contract_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_contract_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_contract_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_contract_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_governance_profile_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"improvement_governance_profile_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"improvement_governance_profile_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_governance_snapshot_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effective_governance_snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_governance_snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_admission_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"campaign_admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_admission_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"campaign_admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_authority_and_constitution_snapshot_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"admission_authority_and_constitution_snapshot_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_authority_and_constitution_snapshot_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordinating_work_subject_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"coordinating_work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordinating_work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            child_work_subject_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"child_work_subject_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"child_work_subject_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordinating_pursuit: serde_json::from_value::<ImprovementCampaignEnvelopeV1CoordinatingPursuit>(
+                object
+                    .remove(r#"coordinating_pursuit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordinating_pursuit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_assurance_profile: serde_json::from_value::<ImprovementCampaignEnvelopeV1ImprovementAssuranceProfile>(
+                object
+                    .remove(r#"improvement_assurance_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"improvement_assurance_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_component_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_component_snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_component_snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agenda_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agenda_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agenda_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agenda_item_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"agenda_item_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agenda_item_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_mode: serde_json::from_value::<ImprovementCampaignEnvelopeV1CampaignMode>(
+                object
+                    .remove(r#"campaign_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mutable_target_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"mutable_target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mutable_target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            atomic_target_bundle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"atomic_target_bundle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"atomic_target_bundle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_base_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_base_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_base_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_boundary_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_boundary_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protected_boundary_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_improvement_order: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"target_improvement_order"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_improvement_order"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pursuit_method_order: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"pursuit_method_order"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pursuit_method_order"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_to_pursuit_method_edge_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_to_pursuit_method_edge_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_to_pursuit_method_edge_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_order_path_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_order_path_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_order_path_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_order_assignment_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"target_order_assignment_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_order_assignment_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_target_generation_index: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"base_target_generation_index"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_target_generation_index"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_target_order_ceiling: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"effective_target_order_ceiling"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_target_order_ceiling"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_target_order_ceiling_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effective_target_order_ceiling_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_target_order_ceiling_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_active_nested_campaign_depth: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"max_active_nested_campaign_depth"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_active_nested_campaign_depth"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_execution_campaign_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"parent_execution_campaign_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_execution_campaign_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_target_generation_campaign_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_target_generation_campaign_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_target_generation_campaign_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_lower_order_campaign_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_lower_order_campaign_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_lower_order_campaign_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_incumbent_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_incumbent_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_incumbent_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_incumbent_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_incumbent_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_incumbent_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_archive_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"candidate_archive_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_archive_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_resolved_component_snapshot_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"candidate_resolved_component_snapshot_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_resolved_component_snapshot_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_evaluation_epoch_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_evaluation_epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_evaluation_epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            historical_evaluation_epoch_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"historical_evaluation_epoch_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"historical_evaluation_epoch_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            search_and_candidate_archive_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"search_and_candidate_archive_policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"search_and_candidate_archive_policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            synchronization_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"synchronization_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"synchronization_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_order_cutoff_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"improvement_order_cutoff_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"improvement_order_cutoff_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ancestor_resource_budget_ledger_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ancestor_resource_budget_ledger_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ancestor_resource_budget_ledger_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_reservation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resource_reservation_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_reservation_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ancestor_statistical_risk_budget_ledger_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ancestor_statistical_risk_budget_ledger_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ancestor_statistical_risk_budget_ledger_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            statistical_risk_reservation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"statistical_risk_reservation_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"statistical_risk_reservation_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inherited_evaluation_exposure_ledger_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"inherited_evaluation_exposure_ledger_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"inherited_evaluation_exposure_ledger_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_exposure_reservation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluation_exposure_reservation_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_exposure_reservation_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_boundary_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"learning_boundary_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"learning_boundary_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_learning_policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_learning_policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_learning_policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stop_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stop_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stop_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_recall_containment_compensation_and_reconciliation_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"rollback_recall_containment_compensation_and_reconciliation_policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_recall_containment_compensation_and_reconciliation_policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_head_sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"operation_head_sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_head_sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_head_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_head_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_state_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_state_projection_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_state_projection_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_status: serde_json::from_value::<ImprovementCampaignEnvelopeV1LifecycleStatus>(
+                object
+                    .remove(r#"lifecycle_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementCampaignEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.improvement-campaign.v1"#)]
+    IoiImprovementCampaignV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementCampaignEnvelopeV1CoordinatingPursuit {
+    pub goal_run_profile_revision_ref: Option<String>,
+    pub goal_run_profile_resolution_receipt_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementCampaignEnvelopeV1CoordinatingPursuit {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["goal_run_profile_revision_ref","goal_run_profile_resolution_receipt_ref"],"properties":{"goal_run_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/goalRunProfileRevisionRef"},{"type":"null"}]},"goal_run_profile_resolution_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            goal_run_profile_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"goal_run_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"goal_run_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_profile_resolution_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"goal_run_profile_resolution_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"goal_run_profile_resolution_receipt_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementCampaignEnvelopeV1ImprovementAssuranceProfile {
+    #[serde(rename = r#"local_lightweight"#)]
+    LocalLightweight,
+    #[serde(rename = r#"independent_review"#)]
+    IndependentReview,
+    #[serde(rename = r#"protected_build"#)]
+    ProtectedBuild,
+    #[serde(rename = r#"adversarial_control"#)]
+    AdversarialControl,
+    #[serde(rename = r#"threshold_recovery"#)]
+    ThresholdRecovery,
+    #[serde(rename = r#"failure_domain_independent"#)]
+    FailureDomainIndependent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementCampaignEnvelopeV1CampaignMode {
+    #[serde(rename = r#"optimization"#)]
+    Optimization,
+    #[serde(rename = r#"recursive_seat_test"#)]
+    RecursiveSeatTest,
+    #[serde(rename = r#"transfer_test"#)]
+    TransferTest,
+    #[serde(rename = r#"independent_reproduction"#)]
+    IndependentReproduction,
+    #[serde(rename = r#"evaluator_campaign"#)]
+    EvaluatorCampaign,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementCampaignEnvelopeV1LifecycleStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"stopped"#)]
+    Stopped,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationEpochEnvelopeV1 {
+    pub schema_version: EvaluationEpochEnvelopeV1SchemaVersion,
+    pub evaluation_epoch_id: String,
+    pub campaign_ref: String,
+    pub campaign_contract_revision_ref: String,
+    pub campaign_contract_root: String,
+    pub predecessor_epoch_ref: Option<String>,
+    pub pursuit_goal_run_profile_revision_ref: Option<String>,
+    pub pursuit_profile_resolution_and_component_snapshot_refs: Vec<String>,
+    pub target_improvement_order: ArchitectureContractInteger,
+    pub pursuit_method_order: ArchitectureContractInteger,
+    pub base_target_generation_index: ArchitectureContractInteger,
+    pub target_graph_and_order_path_roots: Vec<String>,
+    pub deployment_incumbent_ref: String,
+    pub deployment_incumbent_root: String,
+    pub synchronization_cutoff_receipt_ref: Option<String>,
+    pub visible_eval_refs: Vec<String>,
+    pub sealed_holdout_commitment_refs: Vec<String>,
+    pub transfer_ood_and_adversarial_eval_refs: Vec<String>,
+    pub recursive_seat_and_metaproductivity_metric_refs: Vec<String>,
+    pub cross_play_and_causal_ablation_policy_ref: String,
+    pub transfer_non_regression_and_hard_constraint_gate_refs: Vec<String>,
+    pub metric_and_selection_policy_ref: String,
+    pub cost_normalization_ref: String,
+    pub confirmatory_estimand_and_minimum_effect_refs: Vec<String>,
+    pub statistical_test_and_winner_adjustment_refs: Vec<String>,
+    pub risk_wealth_allocation_ref: String,
+    pub power_and_inconclusive_stop_policy_ref: String,
+    pub campaign_false_promotion_budget_ref: String,
+    pub ancestor_statistical_risk_budget_ledger_ref: String,
+    pub inherited_evaluation_exposure_ledger_refs: Vec<String>,
+    pub sealed_feedback_release_and_exposure_spend_policy_refs: Vec<String>,
+    pub evaluation_exposure_budget_policy_ref: String,
+    pub evaluation_exposure_budget_units: ArchitectureContractInteger,
+    pub evaluator_version_and_affiliation_refs: Vec<String>,
+    pub holdout_custodian_refs: Vec<String>,
+    pub external_reality_anchor_refs: Vec<String>,
+    pub operational_acceptance_owner_refs: Vec<String>,
+    pub leakage_rotation_and_challenge_policy_refs: Vec<String>,
+    pub frozen_root: String,
+    pub lifecycle_ref: Option<String>,
+    pub lifecycle_status: EvaluationEpochEnvelopeV1LifecycleStatus,
+    pub challenge_evidence_refs: Vec<String>,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationEpochEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/evaluation-epoch/v1","title":"EvaluationEpochEnvelope","description":"ONE FROZEN JUDGMENT CONTRACT FOR ONE CAMPAIGN. The epoch copies its coordinates from the active campaign it is created under — campaign ref, contract revision and root, the pursuit profile and snapshot refs, both orders, the generation index, the incumbent and its root, the ledgers it inherits — and freezes with them the evaluation suites, evaluator versions, statistical policy, holdout custody and the sealed-evaluation exposure budget in units its ledger may reserve. `frozen_root` commits every member except itself, the lifecycle projections, the challenge evidence and the admission stamp, is re-derived offline by a registered invariant, and is BINDING from freeze onward, so a successor that moved a frozen member is inadmissible. Lifecycle is a projection: `draft → frozen → active → closed`, with `challenged` reachable from active and `invalidated` from frozen, active or challenged; a challenged epoch names its evidence. Search cannot redefine an epoch, and a campaign has at most one active epoch (bounded-improvement.md § EvaluationEpochEnvelope).","x-ioi-schema-version":"ioi.evaluation-epoch.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","evaluation_epoch_id","campaign_ref","campaign_contract_revision_ref","campaign_contract_root","predecessor_epoch_ref","pursuit_goal_run_profile_revision_ref","pursuit_profile_resolution_and_component_snapshot_refs","target_improvement_order","pursuit_method_order","base_target_generation_index","target_graph_and_order_path_roots","deployment_incumbent_ref","deployment_incumbent_root","synchronization_cutoff_receipt_ref","visible_eval_refs","sealed_holdout_commitment_refs","transfer_ood_and_adversarial_eval_refs","recursive_seat_and_metaproductivity_metric_refs","cross_play_and_causal_ablation_policy_ref","transfer_non_regression_and_hard_constraint_gate_refs","metric_and_selection_policy_ref","cost_normalization_ref","confirmatory_estimand_and_minimum_effect_refs","statistical_test_and_winner_adjustment_refs","risk_wealth_allocation_ref","power_and_inconclusive_stop_policy_ref","campaign_false_promotion_budget_ref","ancestor_statistical_risk_budget_ledger_ref","inherited_evaluation_exposure_ledger_refs","sealed_feedback_release_and_exposure_spend_policy_refs","evaluation_exposure_budget_policy_ref","evaluation_exposure_budget_units","evaluator_version_and_affiliation_refs","holdout_custodian_refs","external_reality_anchor_refs","operational_acceptance_owner_refs","leakage_rotation_and_challenge_policy_refs","frozen_root","lifecycle_ref","lifecycle_status","challenge_evidence_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-epoch.v1"},"evaluation_epoch_id":{"$ref":"#/$defs/epochRef"},"campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"campaign_contract_revision_ref":{"$ref":"#/$defs/campaignRevisionRef"},"campaign_contract_root":{"$ref":"#/$defs/sha256"},"predecessor_epoch_ref":{"anyOf":[{"$ref":"#/$defs/epochRef"},{"type":"null"}]},"pursuit_goal_run_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/goalRunProfileRevisionRef"},{"type":"null"}]},"pursuit_profile_resolution_and_component_snapshot_refs":{"$ref":"#/$defs/refList"},"target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"pursuit_method_order":{"type":"integer","minimum":1,"maximum":1001},"base_target_generation_index":{"$ref":"#/$defs/boundedOrder"},"target_graph_and_order_path_roots":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"deployment_incumbent_ref":{"type":"string","minLength":1,"maxLength":512},"deployment_incumbent_root":{"$ref":"#/$defs/sha256"},"synchronization_cutoff_receipt_ref":{"anyOf":[{"$ref":"#/$defs/cutoffReceiptRef"},{"type":"null"}]},"visible_eval_refs":{"$ref":"#/$defs/refList"},"sealed_holdout_commitment_refs":{"$ref":"#/$defs/refList"},"transfer_ood_and_adversarial_eval_refs":{"$ref":"#/$defs/refList"},"recursive_seat_and_metaproductivity_metric_refs":{"$ref":"#/$defs/refList"},"cross_play_and_causal_ablation_policy_ref":{"$ref":"#/$defs/policyRef"},"transfer_non_regression_and_hard_constraint_gate_refs":{"$ref":"#/$defs/refList"},"metric_and_selection_policy_ref":{"$ref":"#/$defs/policyRef"},"cost_normalization_ref":{"$ref":"#/$defs/policyRef"},"confirmatory_estimand_and_minimum_effect_refs":{"$ref":"#/$defs/refList"},"statistical_test_and_winner_adjustment_refs":{"$ref":"#/$defs/refList"},"risk_wealth_allocation_ref":{"$ref":"#/$defs/policyRef"},"power_and_inconclusive_stop_policy_ref":{"$ref":"#/$defs/policyRef"},"campaign_false_promotion_budget_ref":{"$ref":"#/$defs/policyRef"},"ancestor_statistical_risk_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"inherited_evaluation_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"sealed_feedback_release_and_exposure_spend_policy_refs":{"$ref":"#/$defs/policyRefList"},"evaluation_exposure_budget_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluation_exposure_budget_units":{"$ref":"#/$defs/boundedUnits"},"evaluator_version_and_affiliation_refs":{"$ref":"#/$defs/refList"},"holdout_custodian_refs":{"$ref":"#/$defs/refList"},"external_reality_anchor_refs":{"$ref":"#/$defs/refList"},"operational_acceptance_owner_refs":{"$ref":"#/$defs/refList"},"leakage_rotation_and_challenge_policy_refs":{"$ref":"#/$defs/policyRefList"},"frozen_root":{"$ref":"#/$defs/sha256"},"lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"lifecycle_status":{"enum":["draft","frozen","active","challenged","closed","invalidated"]},"challenge_evidence_refs":{"$ref":"#/$defs/refList"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<EvaluationEpochEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_epoch_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_epoch_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_epoch_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"campaign_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_contract_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_contract_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_contract_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_epoch_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pursuit_goal_run_profile_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"pursuit_goal_run_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"pursuit_goal_run_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pursuit_profile_resolution_and_component_snapshot_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"pursuit_profile_resolution_and_component_snapshot_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"pursuit_profile_resolution_and_component_snapshot_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_improvement_order: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"target_improvement_order"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_improvement_order"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pursuit_method_order: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"pursuit_method_order"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pursuit_method_order"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_target_generation_index: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"base_target_generation_index"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"base_target_generation_index"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_graph_and_order_path_roots: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"target_graph_and_order_path_roots"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_graph_and_order_path_roots"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_incumbent_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_incumbent_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"deployment_incumbent_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_incumbent_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_incumbent_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"deployment_incumbent_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            synchronization_cutoff_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"synchronization_cutoff_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"synchronization_cutoff_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visible_eval_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"visible_eval_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"visible_eval_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sealed_holdout_commitment_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"sealed_holdout_commitment_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"sealed_holdout_commitment_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transfer_ood_and_adversarial_eval_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"transfer_ood_and_adversarial_eval_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transfer_ood_and_adversarial_eval_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recursive_seat_and_metaproductivity_metric_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"recursive_seat_and_metaproductivity_metric_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"recursive_seat_and_metaproductivity_metric_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cross_play_and_causal_ablation_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cross_play_and_causal_ablation_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"cross_play_and_causal_ablation_policy_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transfer_non_regression_and_hard_constraint_gate_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"transfer_non_regression_and_hard_constraint_gate_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"transfer_non_regression_and_hard_constraint_gate_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            metric_and_selection_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"metric_and_selection_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"metric_and_selection_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_normalization_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cost_normalization_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_normalization_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confirmatory_estimand_and_minimum_effect_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"confirmatory_estimand_and_minimum_effect_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"confirmatory_estimand_and_minimum_effect_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            statistical_test_and_winner_adjustment_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"statistical_test_and_winner_adjustment_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"statistical_test_and_winner_adjustment_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_wealth_allocation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"risk_wealth_allocation_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"risk_wealth_allocation_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            power_and_inconclusive_stop_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"power_and_inconclusive_stop_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"power_and_inconclusive_stop_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_false_promotion_budget_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_false_promotion_budget_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"campaign_false_promotion_budget_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ancestor_statistical_risk_budget_ledger_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ancestor_statistical_risk_budget_ledger_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ancestor_statistical_risk_budget_ledger_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inherited_evaluation_exposure_ledger_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"inherited_evaluation_exposure_ledger_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"inherited_evaluation_exposure_ledger_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sealed_feedback_release_and_exposure_spend_policy_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"sealed_feedback_release_and_exposure_spend_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"sealed_feedback_release_and_exposure_spend_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_exposure_budget_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_exposure_budget_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluation_exposure_budget_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_exposure_budget_units:
+                serde_json::from_value::<ArchitectureContractInteger>(
+                    object
+                        .remove(r#"evaluation_exposure_budget_units"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"evaluation_exposure_budget_units"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            evaluator_version_and_affiliation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluator_version_and_affiliation_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluator_version_and_affiliation_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holdout_custodian_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"holdout_custodian_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holdout_custodian_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_reality_anchor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"external_reality_anchor_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"external_reality_anchor_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operational_acceptance_owner_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"operational_acceptance_owner_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operational_acceptance_owner_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            leakage_rotation_and_challenge_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"leakage_rotation_and_challenge_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"leakage_rotation_and_challenge_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frozen_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"frozen_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frozen_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_status: serde_json::from_value::<EvaluationEpochEnvelopeV1LifecycleStatus>(
+                object
+                    .remove(r#"lifecycle_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"challenge_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationEpochEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.evaluation-epoch.v1"#)]
+    IoiEvaluationEpochV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationEpochEnvelopeV1LifecycleStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"frozen"#)]
+    Frozen,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+    #[serde(rename = r#"invalidated"#)]
+    Invalidated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationExposureLedgerEnvelopeV1 {
+    pub schema_version: EvaluationExposureLedgerEnvelopeV1SchemaVersion,
+    pub evaluation_exposure_ledger_id: String,
+    pub evaluation_epoch_ref: String,
+    pub ancestor_exposure_ledger_refs: Vec<String>,
+    pub steward_refs: Vec<String>,
+    pub sealed_suite_and_world_commitment_refs: Vec<String>,
+    pub exposure_budget_ref: String,
+    pub exposure_budget_units: ArchitectureContractInteger,
+    pub reserved_units: ArchitectureContractInteger,
+    pub spent_units: ArchitectureContractInteger,
+    pub returned_units: ArchitectureContractInteger,
+    pub remaining_units: ArchitectureContractInteger,
+    pub contaminated: bool,
+    pub entries: Vec<EvaluationExposureLedgerEnvelopeV1EntriesItem>,
+    pub admitted_entry_refs: Vec<String>,
+    pub ledger_head_sequence: ArchitectureContractInteger,
+    pub ledger_head_root: String,
+    pub derived_exposure_and_contamination_projection_ref: String,
+    pub lifecycle_decision_refs: Vec<String>,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationExposureLedgerEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","title":"EvaluationExposureLedgerEnvelope","description":"THE APPEND-ONLY ACCOUNT OF SEALED-EVALUATION EXPOSURE FOR ONE FROZEN EPOCH. Created by the epoch's freeze with the frozen budget, it accumulates reservation, spend, return, contamination, rotation and invalidation entries, each chained to the previous entry's root, and derives the remaining exposure as a SUBTRACTION — `remaining_units = exposure_budget_units − (reserved_units − returned_units)` — so a reservation beyond the budget, or a spend or return beyond the outstanding reservation, is refused rather than absorbed. Every integer here is bounded: units and budgets to 1000000000, sequences to 1000000, entries to 4096 per ledger. Registered invariants require the head sequence to equal the entry count and spent, returned and remaining never to exceed what they are drawn from; the per-entry root chain is verified by the gate against a live daemon, because it needs the predecessor entry. It is evaluation-integrity state, not currency, authority or permission to reveal sealed material (bounded-improvement.md § EvaluationExposureLedgerEnvelope).","x-ioi-schema-version":"ioi.evaluation-exposure-ledger.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","evaluation_exposure_ledger_id","evaluation_epoch_ref","ancestor_exposure_ledger_refs","steward_refs","sealed_suite_and_world_commitment_refs","exposure_budget_ref","exposure_budget_units","reserved_units","spent_units","returned_units","remaining_units","contaminated","entries","admitted_entry_refs","ledger_head_sequence","ledger_head_root","derived_exposure_and_contamination_projection_ref","lifecycle_decision_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-exposure-ledger.v1"},"evaluation_exposure_ledger_id":{"$ref":"#/$defs/exposureLedgerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"ancestor_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"steward_refs":{"$ref":"#/$defs/refList"},"sealed_suite_and_world_commitment_refs":{"$ref":"#/$defs/refList"},"exposure_budget_ref":{"$ref":"#/$defs/policyRef"},"exposure_budget_units":{"$ref":"#/$defs/boundedUnits"},"reserved_units":{"$ref":"#/$defs/boundedUnits"},"spent_units":{"$ref":"#/$defs/boundedUnits"},"returned_units":{"$ref":"#/$defs/boundedUnits"},"remaining_units":{"$ref":"#/$defs/boundedUnits"},"contaminated":{"type":"boolean"},"entries":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["entry_seq","entry_ref","entry_kind","units","candidate_family_commitment","selected_case_commitment","information_return_class","evaluator_version_refs","access_receipt_refs","contamination_flag","previous_entry_root","entry_root"],"properties":{"entry_seq":{"type":"integer","minimum":1,"maximum":1000000},"entry_ref":{"$ref":"#/$defs/exposureEntryRef"},"entry_kind":{"enum":["reservation","spend","return","contamination","rotation","invalidation"]},"units":{"$ref":"#/$defs/boundedUnits"},"candidate_family_commitment":{"$ref":"#/$defs/sha256"},"selected_case_commitment":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"information_return_class":{"enum":["none","aggregate","per_case","labels","internals"]},"evaluator_version_refs":{"$ref":"#/$defs/refList"},"access_receipt_refs":{"$ref":"#/$defs/refList"},"contamination_flag":{"type":"boolean"},"previous_entry_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"entry_root":{"$ref":"#/$defs/sha256"}}}},"admitted_entry_refs":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureEntryRef"}},"ledger_head_sequence":{"$ref":"#/$defs/boundedSequence"},"ledger_head_root":{"$ref":"#/$defs/sha256"},"derived_exposure_and_contamination_projection_ref":{"$ref":"#/$defs/projectionRef"},"lifecycle_decision_refs":{"$ref":"#/$defs/refList"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<EvaluationExposureLedgerEnvelopeV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            evaluation_exposure_ledger_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_exposure_ledger_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluation_exposure_ledger_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ancestor_exposure_ledger_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ancestor_exposure_ledger_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ancestor_exposure_ledger_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            steward_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"steward_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"steward_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sealed_suite_and_world_commitment_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"sealed_suite_and_world_commitment_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"sealed_suite_and_world_commitment_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_budget_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exposure_budget_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_budget_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_budget_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"exposure_budget_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_budget_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reserved_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"reserved_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reserved_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            spent_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"spent_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"spent_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            returned_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"returned_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"returned_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            remaining_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"remaining_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"remaining_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contaminated: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"contaminated"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contaminated"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entries: serde_json::from_value::<Vec<EvaluationExposureLedgerEnvelopeV1EntriesItem>>(
+                object
+                    .remove(r#"entries"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entries"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_entry_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"admitted_entry_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_entry_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ledger_head_sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"ledger_head_sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ledger_head_sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ledger_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ledger_head_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ledger_head_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_exposure_and_contamination_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_exposure_and_contamination_projection_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"derived_exposure_and_contamination_projection_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"lifecycle_decision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_decision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationExposureLedgerEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.evaluation-exposure-ledger.v1"#)]
+    IoiEvaluationExposureLedgerV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationExposureLedgerEnvelopeV1EntriesItem {
+    pub entry_seq: ArchitectureContractInteger,
+    pub entry_ref: String,
+    pub entry_kind: EvaluationExposureLedgerEnvelopeV1EntriesItemEntryKind,
+    pub units: ArchitectureContractInteger,
+    pub candidate_family_commitment: String,
+    pub selected_case_commitment: Option<String>,
+    pub information_return_class:
+        EvaluationExposureLedgerEnvelopeV1EntriesItemInformationReturnClass,
+    pub evaluator_version_refs: Vec<String>,
+    pub access_receipt_refs: Vec<String>,
+    pub contamination_flag: bool,
+    pub previous_entry_root: Option<String>,
+    pub entry_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationExposureLedgerEnvelopeV1EntriesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["entry_seq","entry_ref","entry_kind","units","candidate_family_commitment","selected_case_commitment","information_return_class","evaluator_version_refs","access_receipt_refs","contamination_flag","previous_entry_root","entry_root"],"properties":{"entry_seq":{"type":"integer","minimum":1,"maximum":1000000},"entry_ref":{"$ref":"#/$defs/exposureEntryRef"},"entry_kind":{"enum":["reservation","spend","return","contamination","rotation","invalidation"]},"units":{"$ref":"#/$defs/boundedUnits"},"candidate_family_commitment":{"$ref":"#/$defs/sha256"},"selected_case_commitment":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"information_return_class":{"enum":["none","aggregate","per_case","labels","internals"]},"evaluator_version_refs":{"$ref":"#/$defs/refList"},"access_receipt_refs":{"$ref":"#/$defs/refList"},"contamination_flag":{"type":"boolean"},"previous_entry_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"entry_root":{"$ref":"#/$defs/sha256"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            entry_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"entry_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entry_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entry_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"entry_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entry_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entry_kind: serde_json::from_value::<
+                EvaluationExposureLedgerEnvelopeV1EntriesItemEntryKind,
+            >(
+                object
+                    .remove(r#"entry_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entry_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_family_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"candidate_family_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"candidate_family_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected_case_commitment: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"selected_case_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"selected_case_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            information_return_class: serde_json::from_value::<
+                EvaluationExposureLedgerEnvelopeV1EntriesItemInformationReturnClass,
+            >(
+                object
+                    .remove(r#"information_return_class"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"information_return_class"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_version_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluator_version_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_version_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            access_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"access_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"access_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contamination_flag: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"contamination_flag"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contamination_flag"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_entry_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_entry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"previous_entry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entry_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"entry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationExposureLedgerEnvelopeV1EntriesItemEntryKind {
+    #[serde(rename = r#"reservation"#)]
+    Reservation,
+    #[serde(rename = r#"spend"#)]
+    Spend,
+    #[serde(rename = r#"return"#)]
+    Return,
+    #[serde(rename = r#"contamination"#)]
+    Contamination,
+    #[serde(rename = r#"rotation"#)]
+    Rotation,
+    #[serde(rename = r#"invalidation"#)]
+    Invalidation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationExposureLedgerEnvelopeV1EntriesItemInformationReturnClass {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"aggregate"#)]
+    Aggregate,
+    #[serde(rename = r#"per_case"#)]
+    PerCase,
+    #[serde(rename = r#"labels"#)]
+    Labels,
+    #[serde(rename = r#"internals"#)]
+    Internals,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementOrderCutoffReceiptEnvelopeV1 {
+    pub schema_version: ImprovementOrderCutoffReceiptEnvelopeV1SchemaVersion,
+    pub receipt_id: String,
+    pub receipt_profile: ImprovementOrderCutoffReceiptEnvelopeV1ReceiptProfile,
+    pub receipt_profile_ref: ImprovementOrderCutoffReceiptEnvelopeV1ReceiptProfileRef,
+    pub source_campaign_ref: String,
+    pub source_evaluation_epoch_ref: String,
+    pub synchronization_wave_ref: String,
+    pub source_campaign_epoch_and_archive_roots: Vec<String>,
+    pub source_target_improvement_order: ArchitectureContractInteger,
+    pub source_target_generation_cutoff: ArchitectureContractInteger,
+    pub intended_destination_target_order: ArchitectureContractInteger,
+    pub per_order_source_version_and_cutoff_vector_ref: String,
+    pub destination_base_root: String,
+    pub agenda_revision_ref: String,
+    pub agenda_and_task_distribution_roots: Vec<String>,
+    pub boundary_crossing: ImprovementOrderCutoffReceiptEnvelopeV1BoundaryCrossing,
+    pub eligible_finding_and_outcome_refs: Vec<String>,
+    pub learning_evidence_eligibility_refs: Vec<String>,
+    pub learning_egress_receipt_refs: Vec<String>,
+    pub boundary_enforcement_access_and_custody_receipt_refs: Vec<String>,
+    pub effective_learning_policy_hash: String,
+    pub denied_or_quarantined_information_class_refs: Vec<String>,
+    pub source_incumbent_resolved_component_snapshot_ref: String,
+    pub inherited_budget_risk_and_exposure_reservation_roots: Vec<String>,
+    pub dependency_and_statistical_assumption_delta_ref: String,
+    pub signal_bundle_ref: Option<String>,
+    pub terminal_disposition: ImprovementOrderCutoffReceiptEnvelopeV1TerminalDisposition,
+    pub previous_cutoff_receipt_root: Option<String>,
+    pub receipt_root: String,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementOrderCutoffReceiptEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","title":"ImprovementOrderCutoffReceiptEnvelope","description":"A TYPED EVIDENCE CUTOFF BETWEEN ADJACENT TARGET ORDERS — neither a live synchronization object nor later promotion proof. It binds one closed source epoch of one active campaign, the frozen source roots, the eligible findings and the eligibility decisions that admit them (resolved through the learning-boundary plane, never copied), the egress receipt an institutional-boundary crossing requires, the denied or quarantined classes, the destination base root and the previous cutoff root. `receipt_root` commits every member except itself, `content_hash` and the admission stamp and is re-derived offline; a registered invariant requires the destination order to lie strictly above the source order (the daemon enforces exactly plus one) and an `evidence_ready` disposition to carry at least one eligible ref. `blocked` names what a refused cutoff would have been and is never written by the daemon (bounded-improvement.md § ImprovementOrderCutoffReceiptEnvelope).","x-ioi-schema-version":"ioi.improvement-order-cutoff-receipt.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","receipt_id","receipt_profile","receipt_profile_ref","source_campaign_ref","source_evaluation_epoch_ref","synchronization_wave_ref","source_campaign_epoch_and_archive_roots","source_target_improvement_order","source_target_generation_cutoff","intended_destination_target_order","per_order_source_version_and_cutoff_vector_ref","destination_base_root","agenda_revision_ref","agenda_and_task_distribution_roots","boundary_crossing","eligible_finding_and_outcome_refs","learning_evidence_eligibility_refs","learning_egress_receipt_refs","boundary_enforcement_access_and_custody_receipt_refs","effective_learning_policy_hash","denied_or_quarantined_information_class_refs","source_incumbent_resolved_component_snapshot_ref","inherited_budget_risk_and_exposure_reservation_roots","dependency_and_statistical_assumption_delta_ref","signal_bundle_ref","terminal_disposition","previous_cutoff_receipt_root","receipt_root","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-order-cutoff-receipt.v1"},"receipt_id":{"$ref":"#/$defs/cutoffReceiptRef"},"receipt_profile":{"const":"improvement_order_cutoff"},"receipt_profile_ref":{"const":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"},"source_campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"source_evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"synchronization_wave_ref":{"$ref":"#/$defs/artifactRef"},"source_campaign_epoch_and_archive_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"source_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"source_target_generation_cutoff":{"$ref":"#/$defs/boundedOrder"},"intended_destination_target_order":{"type":"integer","minimum":1,"maximum":1001},"per_order_source_version_and_cutoff_vector_ref":{"$ref":"#/$defs/artifactRef"},"destination_base_root":{"$ref":"#/$defs/sha256"},"agenda_revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"agenda_and_task_distribution_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"boundary_crossing":{"enum":["same_boundary","institutional_boundary"]},"eligible_finding_and_outcome_refs":{"$ref":"#/$defs/refList"},"learning_evidence_eligibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/eligibilityRevisionRef"}},"learning_egress_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/receiptRef"}},"boundary_enforcement_access_and_custody_receipt_refs":{"$ref":"#/$defs/refList"},"effective_learning_policy_hash":{"$ref":"#/$defs/sha256"},"denied_or_quarantined_information_class_refs":{"$ref":"#/$defs/refList"},"source_incumbent_resolved_component_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"inherited_budget_risk_and_exposure_reservation_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"dependency_and_statistical_assumption_delta_ref":{"$ref":"#/$defs/artifactRef"},"signal_bundle_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"terminal_disposition":{"enum":["evidence_ready","no_change","blocked"]},"previous_cutoff_receipt_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"receipt_root":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                ImprovementOrderCutoffReceiptEnvelopeV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile: serde_json::from_value::<
+                ImprovementOrderCutoffReceiptEnvelopeV1ReceiptProfile,
+            >(
+                object
+                    .remove(r#"receipt_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<
+                ImprovementOrderCutoffReceiptEnvelopeV1ReceiptProfileRef,
+            >(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_campaign_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_campaign_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_campaign_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_evaluation_epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_evaluation_epoch_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_evaluation_epoch_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            synchronization_wave_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"synchronization_wave_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"synchronization_wave_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_campaign_epoch_and_archive_roots: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_campaign_epoch_and_archive_roots"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"source_campaign_epoch_and_archive_roots"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_target_improvement_order: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_target_improvement_order"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_target_improvement_order"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_target_generation_cutoff: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_target_generation_cutoff"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_target_generation_cutoff"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            intended_destination_target_order:
+                serde_json::from_value::<ArchitectureContractInteger>(
+                    object
+                        .remove(r#"intended_destination_target_order"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"intended_destination_target_order"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            per_order_source_version_and_cutoff_vector_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"per_order_source_version_and_cutoff_vector_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"per_order_source_version_and_cutoff_vector_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination_base_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"destination_base_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination_base_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agenda_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agenda_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agenda_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agenda_and_task_distribution_roots: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"agenda_and_task_distribution_roots"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"agenda_and_task_distribution_roots"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary_crossing: serde_json::from_value::<
+                ImprovementOrderCutoffReceiptEnvelopeV1BoundaryCrossing,
+            >(
+                object
+                    .remove(r#"boundary_crossing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boundary_crossing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligible_finding_and_outcome_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligible_finding_and_outcome_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"eligible_finding_and_outcome_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_evidence_eligibility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"learning_evidence_eligibility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"learning_evidence_eligibility_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_egress_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"learning_egress_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"learning_egress_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary_enforcement_access_and_custody_receipt_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"boundary_enforcement_access_and_custody_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"boundary_enforcement_access_and_custody_receipt_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_learning_policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_learning_policy_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"effective_learning_policy_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            denied_or_quarantined_information_class_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"denied_or_quarantined_information_class_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"denied_or_quarantined_information_class_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_incumbent_resolved_component_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_incumbent_resolved_component_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"source_incumbent_resolved_component_snapshot_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inherited_budget_risk_and_exposure_reservation_roots: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"inherited_budget_risk_and_exposure_reservation_roots"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"inherited_budget_risk_and_exposure_reservation_roots"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_and_statistical_assumption_delta_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dependency_and_statistical_assumption_delta_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"dependency_and_statistical_assumption_delta_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signal_bundle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"signal_bundle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signal_bundle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terminal_disposition: serde_json::from_value::<
+                ImprovementOrderCutoffReceiptEnvelopeV1TerminalDisposition,
+            >(
+                object
+                    .remove(r#"terminal_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terminal_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_cutoff_receipt_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_cutoff_receipt_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"previous_cutoff_receipt_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementOrderCutoffReceiptEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.improvement-order-cutoff-receipt.v1"#)]
+    IoiImprovementOrderCutoffReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementOrderCutoffReceiptEnvelopeV1ReceiptProfile {
+    #[serde(rename = r#"improvement_order_cutoff"#)]
+    ImprovementOrderCutoff,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementOrderCutoffReceiptEnvelopeV1ReceiptProfileRef {
+    #[serde(rename = r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#)]
+    SchemaIoiFoundationsObjectsImprovementOrderCutoffReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementOrderCutoffReceiptEnvelopeV1BoundaryCrossing {
+    #[serde(rename = r#"same_boundary"#)]
+    SameBoundary,
+    #[serde(rename = r#"institutional_boundary"#)]
+    InstitutionalBoundary,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementOrderCutoffReceiptEnvelopeV1TerminalDisposition {
+    #[serde(rename = r#"evidence_ready"#)]
+    EvidenceReady,
+    #[serde(rename = r#"no_change"#)]
+    NoChange,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -156615,6 +158940,366 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_governance_profile.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_governance_profile.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_agenda.release.names_its_decision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-agenda/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_agenda.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_campaign.campaign_contract_root.freezes_the_contract"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_campaign.admission.names_its_decision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-campaign/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_campaign.target.names_exactly_one_shape"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-epoch/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-epoch/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-epoch/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-epoch/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-epoch/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_epoch.frozen_root.freezes_the_judgment_contract"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-epoch/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_epoch.challenge.names_its_evidence"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_exposure_ledger.head.counts_the_entries"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_exposure_ledger.spent.never_exceeds_reserved"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_exposure_ledger.remaining.never_exceeds_budget"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_order_cutoff_receipt.edge.destination_lies_above_source"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff"),
     },
 ];
 
@@ -174287,6 +176972,501 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-governance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-agenda/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-campaign/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-epoch/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -175996,6 +179176,12 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1","title":"HypervisorMachineSnapshot","description":"RESTORE MATERIAL, AND NEVER RESTORE VALIDITY. Canon separates the two deliberately: snapshot bytes may live on local disk, object storage, CAS or provider storage, and none of that makes a restore valid — validity stays operation-backed. Both generations are recorded because a snapshot taken mid-transition is honest only if it says so.","x-ioi-schema-version":"ioi.hypervisor.machine-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_ref","workload_ref","taken_at_desired_generation","taken_at_observed_generation","boot_epoch","content_digest","storage_ref","parent_snapshot_ref","restore_material_only","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-snapshot.v1"},"snapshot_ref":{"type":"string","pattern":"^machine-snapshot://\\S+$"},"workload_ref":{"$ref":"#/$defs/ref"},"taken_at_desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991},"taken_at_observed_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Recorded beside the desired generation. A gap means the snapshot was taken while the machine was still converging, and a reader must be able to see that."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"content_digest":{"$ref":"#/$defs/hash"},"storage_ref":{"$ref":"#/$defs/ref"},"parent_snapshot_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null for a root snapshot."},"restore_material_only":{"const":true,"description":"A const rather than a boolean, because there is no admitted record where this is false. Snapshot bytes are never restore validity."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1","title":"HypervisorMachineMigrationPlan","description":"A MIGRATION PLAN FOR THE SUPPORTED SUBSET ONLY. An unsupported kind is refused, never simulated — the portable subset does not turn an unsupported operation into simulated success.","x-ioi-schema-version":"ioi.hypervisor.machine-migration-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","workload_ref","source_host_ref","target_host_ref","migration_kind","capability_declaration_ref","capability_declaration_hash","expected_head","cleanup_obligation_ref","plan_state","plan_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-migration-plan.v1"},"plan_ref":{"type":"string","pattern":"^machine-migration-plan://\\S+$"},"workload_ref":{"$ref":"#/$defs/ref"},"source_host_ref":{"$ref":"#/$defs/ref"},"target_host_ref":{"$ref":"#/$defs/ref"},"migration_kind":{"type":"string","minLength":1,"maxLength":64},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"expected_head":{"$ref":"#/$defs/hash","description":"A plan is written against a known state, or it is a wish."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed."},"plan_state":{"enum":["planned","admitted","executing","completed","refused","ambiguous"],"description":"`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."},"plan_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the plan is refused or ambiguous."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","title":"HypervisorHostMaintenancePlan","description":"A MAINTENANCE PLAN THAT NAMES ITS AFFECTED MACHINES RATHER THAN DERIVING THEM. The set that would be derived when work begins is not the set the operator approved.","x-ioi-schema-version":"ioi.hypervisor.host-maintenance-plan.v1","type":"object","additionalProperties":false,"required":["schema_version","plan_ref","host_ref","maintenance_kind","affected_workload_refs","drain_policy","window_start_ms","window_end_ms","plan_state","plan_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.host-maintenance-plan.v1"},"plan_ref":{"type":"string","pattern":"^host-maintenance-plan://\\S+$"},"host_ref":{"$ref":"#/$defs/ref"},"maintenance_kind":{"type":"string","minLength":1,"maxLength":64},"affected_workload_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"NAMED, not derived at execution time."},"drain_policy":{"type":"string","minLength":1,"maxLength":64,"description":"How running machines leave before work starts."},"window_start_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"window_end_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"plan_state":{"enum":["planned","admitted","executing","completed","refused","ambiguous"],"description":"`ambiguous` is here for the same reason it is on the operation receipt: an external step whose completion the daemon could not confirm is neither done nor undone, and a vocabulary that cannot say so forces an invented answer."},"plan_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the plan is refused or ambiguous."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
+    ("schema://ioi/foundations/objects/improvement-governance-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","title":"ImprovementGovernanceProfileEnvelope","description":"THE OWNER'S IMMUTABLE CAMPAIGN-ADMISSION POLICY. One owner-qualified revision of the policy under which the owner scope may admit ImprovementCampaign work: which targets are mutable and which protected, the target-order, nesting and unattended-generation ceilings, the ancestor reservation policies, and the admission, stop, evaluator-firewall, evaluator-independence, promotion-authority and irreversible-effect-recovery policies. It is not a campaign, an evaluator, an authority grant or a promotion decision. Identity is derived from the durable stream (bounded-improvement.md § ImprovementGovernanceProfileEnvelope); `content_hash` commits the immutable body under a domain separator and excludes the registry projections and the admission stamp, so a later status is a projection and never a rewrite. A non-null `system_id` is admitted by shape and refused by the daemon until the constitution's protected profile binding exists.","x-ioi-schema-version":"ioi.improvement-governance-profile.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","improvement_governance_profile_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","system_id","mutable_target_allowlist_refs","protected_target_refs","protected_target_change_decision_profile_refs","max_target_improvement_order","max_active_nested_campaign_depth","max_unattended_target_generations","ancestor_reservation_policy_refs","campaign_admission_policy_ref","campaign_stop_policy_ref","evaluator_firewall_policy_ref","evaluator_independence_policy_ref","promotion_authority_policy_ref","irreversible_effect_recovery_policy_ref","registry_lifecycle_ref","registry_status","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-governance-profile.v1"},"improvement_governance_profile_id":{"$ref":"#/$defs/profileFamilyRef"},"revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"version":{"$ref":"#/$defs/version"},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"system_id":{"$ref":"#/$defs/optionalSystemRef"},"mutable_target_allowlist_refs":{"$ref":"#/$defs/refList"},"protected_target_refs":{"$ref":"#/$defs/refList"},"protected_target_change_decision_profile_refs":{"$ref":"#/$defs/refList"},"max_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"max_active_nested_campaign_depth":{"$ref":"#/$defs/boundedPositive"},"max_unattended_target_generations":{"$ref":"#/$defs/boundedOrder"},"ancestor_reservation_policy_refs":{"type":"object","additionalProperties":false,"required":["resource_budget","statistical_risk_budget","evaluation_exposure_budget"],"properties":{"resource_budget":{"$ref":"#/$defs/policyRef"},"statistical_risk_budget":{"$ref":"#/$defs/policyRef"},"evaluation_exposure_budget":{"$ref":"#/$defs/policyRef"}}},"campaign_admission_policy_ref":{"$ref":"#/$defs/policyRef"},"campaign_stop_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluator_firewall_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluator_independence_policy_ref":{"$ref":"#/$defs/policyRef"},"promotion_authority_policy_ref":{"$ref":"#/$defs/policyRef"},"irreversible_effect_recovery_policy_ref":{"$ref":"#/$defs/policyRef"},"registry_lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"registry_status":{"enum":["draft","active","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/improvement-agenda/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-agenda/v1","title":"ImprovementAgendaEnvelope","description":"AN IMMUTABLE-BY-REVISION, NON-EXECUTABLE PORTFOLIO OF QUESTIONS WORTH INVESTIGATING. It requests targets and evidence; it cannot choose current-epoch truth or authorize target mutation, and only a RELEASED revision is campaign-admission eligible. `content_hash` commits the body and excludes the registry projections, the release decision and the admission stamp, so a release is a successor admission of the SAME revision carrying the identical hash (bounded-improvement.md § ImprovementAgendaEnvelope). A registered invariant requires a released revision to name its release decision.","x-ioi-schema-version":"ioi.improvement-agenda.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","improvement_agenda_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","system_id","constitution_and_policy_refs","governance_policy_refs","release_decision_ref","target_graph_ref","portfolio_allocation_policy_ref","items","registry_lifecycle_ref","registry_status","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-agenda.v1"},"improvement_agenda_id":{"$ref":"#/$defs/agendaFamilyRef"},"revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"revision":{"$ref":"#/$defs/boundedPositive"},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/agendaRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"system_id":{"$ref":"#/$defs/optionalSystemRef"},"constitution_and_policy_refs":{"$ref":"#/$defs/refList"},"governance_policy_refs":{"$ref":"#/$defs/refList"},"release_decision_ref":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"target_graph_ref":{"$ref":"#/$defs/artifactRef"},"portfolio_allocation_policy_ref":{"$ref":"#/$defs/policyRef"},"items":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["agenda_item_id","target_ref","target_class","requested_target_improvement_order","requested_target_order_path_ref","mechanism_hypothesis_ref","causal_prediction_and_falsifier_ref","minimum_decisive_test_ref","evidence_gap_and_uncertainty_ref","transfer_and_reproduction_requirement_refs","hard_constraint_and_risk_refs","protected_exclusion_refs","dependency_and_readiness_refs","requested_budget_ref","effect_recovery_policy_ref"],"properties":{"agenda_item_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"target_ref":{"type":"string","minLength":1,"maxLength":512},"target_class":{"type":"string","minLength":1,"maxLength":128},"requested_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"requested_target_order_path_ref":{"$ref":"#/$defs/artifactRef"},"mechanism_hypothesis_ref":{"$ref":"#/$defs/artifactRef"},"causal_prediction_and_falsifier_ref":{"$ref":"#/$defs/artifactRef"},"minimum_decisive_test_ref":{"type":"string","pattern":"^(?:policy|artifact)://[^\\s]{1,248}$"},"evidence_gap_and_uncertainty_ref":{"$ref":"#/$defs/artifactRef"},"transfer_and_reproduction_requirement_refs":{"$ref":"#/$defs/refList"},"hard_constraint_and_risk_refs":{"$ref":"#/$defs/refList"},"protected_exclusion_refs":{"$ref":"#/$defs/refList"},"dependency_and_readiness_refs":{"$ref":"#/$defs/refList"},"requested_budget_ref":{"$ref":"#/$defs/budgetRef"},"effect_recovery_policy_ref":{"$ref":"#/$defs/policyRef"}}}},"registry_lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"registry_status":{"enum":["draft","evaluable","released","superseded","retired"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/improvement-campaign/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-campaign/v1","title":"ImprovementCampaignEnvelope","description":"THE OPTIONAL MULTI-EPOCH DOMAIN LIFECYCLE FOR ONE MUTABLE TARGET, in three tiers with three commitments (bounded-improvement.md § ImprovementCampaignEnvelope). THE CONTRACT — every member declared at creation plus the four the daemon resolves then (the target and incumbent roots read through the target's owner, the pursuit-method order and edge, and the learning-boundary policy hash read through that plane) — is frozen by `campaign_contract_root`, and a registered invariant re-derives that root offline, so a lifecycle successor that moved a contract member is inadmissible rather than merely suspicious. ADMISSION FACTS are null while proposed and written once by admission; a registered invariant requires an admitted, active, paused, stopped or closed campaign to name its admission decision. PROJECTIONS (child work, candidate refs, the active and historical epochs, cutoffs, reservations, the operation head and `lifecycle_status`) advance by later operations, and `content_hash` commits the whole entry except itself, the chained `operation_head_root` and the admission stamp. THE CAMPAIGN OWNS NO PRODUCTION MUTATION: its only exit is an ordinary pending UpgradeProposal bound to it, evaluated by the target owner's unchanged gate. A non-null `system_id` and an atomic target bundle are admitted by shape and refused typed by the daemon until their owners build the constitution binding and the bundle activation owner.","x-ioi-schema-version":"ioi.improvement-campaign.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","improvement_campaign_id","campaign_contract_revision_ref","campaign_contract_revision","predecessor_contract_revision_ref","campaign_contract_root","owner_ref","system_id","improvement_governance_profile_revision_ref","effective_governance_snapshot_ref","campaign_admission_decision_ref","campaign_admission_receipt_ref","admission_authority_and_constitution_snapshot_refs","coordinating_work_subject_ref","child_work_subject_refs","coordinating_pursuit","improvement_assurance_profile","resolved_component_snapshot_ref","outcome_room_ref","agenda_revision_ref","agenda_item_refs","campaign_mode","target_class","mutable_target_ref","atomic_target_bundle_ref","target_base_root","protected_boundary_refs","target_improvement_order","pursuit_method_order","target_to_pursuit_method_edge_ref","target_order_path_ref","target_order_assignment_receipt_ref","base_target_generation_index","effective_target_order_ceiling","effective_target_order_ceiling_ref","max_active_nested_campaign_depth","parent_execution_campaign_ref","predecessor_target_generation_campaign_ref","source_lower_order_campaign_refs","deployment_incumbent_ref","deployment_incumbent_root","candidate_archive_ref","candidate_resolved_component_snapshot_refs","active_evaluation_epoch_ref","historical_evaluation_epoch_refs","search_and_candidate_archive_policy_refs","synchronization_policy_ref","improvement_order_cutoff_receipt_refs","ancestor_resource_budget_ledger_ref","resource_reservation_refs","ancestor_statistical_risk_budget_ledger_ref","statistical_risk_reservation_refs","inherited_evaluation_exposure_ledger_refs","evaluation_exposure_reservation_refs","learning_boundary_profile_ref","effective_learning_policy_hash","stop_policy_ref","rollback_recall_containment_compensation_and_reconciliation_policy_refs","operation_head_sequence","operation_head_root","derived_state_projection_ref","lifecycle_status","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-campaign.v1"},"improvement_campaign_id":{"$ref":"#/$defs/campaignFamilyRef"},"campaign_contract_revision_ref":{"$ref":"#/$defs/campaignRevisionRef"},"campaign_contract_revision":{"$ref":"#/$defs/boundedPositive"},"predecessor_contract_revision_ref":{"anyOf":[{"$ref":"#/$defs/campaignRevisionRef"},{"type":"null"}]},"campaign_contract_root":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"system_id":{"$ref":"#/$defs/optionalSystemRef"},"improvement_governance_profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"effective_governance_snapshot_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"campaign_admission_decision_ref":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"campaign_admission_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"admission_authority_and_constitution_snapshot_refs":{"$ref":"#/$defs/refList"},"coordinating_work_subject_ref":{"anyOf":[{"$ref":"#/$defs/workSubjectRef"},{"type":"null"}]},"child_work_subject_refs":{"$ref":"#/$defs/refList"},"coordinating_pursuit":{"type":"object","additionalProperties":false,"required":["goal_run_profile_revision_ref","goal_run_profile_resolution_receipt_ref"],"properties":{"goal_run_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/goalRunProfileRevisionRef"},{"type":"null"}]},"goal_run_profile_resolution_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]}}},"improvement_assurance_profile":{"enum":["local_lightweight","independent_review","protected_build","adversarial_control","threshold_recovery","failure_domain_independent"]},"resolved_component_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"outcome_room_ref":{"anyOf":[{"$ref":"#/$defs/outcomeRoomRef"},{"type":"null"}]},"agenda_revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"agenda_item_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}},"campaign_mode":{"enum":["optimization","recursive_seat_test","transfer_test","independent_reproduction","evaluator_campaign"]},"target_class":{"type":"string","minLength":1,"maxLength":128},"mutable_target_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}]},"atomic_target_bundle_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"target_base_root":{"$ref":"#/$defs/sha256"},"protected_boundary_refs":{"$ref":"#/$defs/refList"},"target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"pursuit_method_order":{"type":"integer","minimum":1,"maximum":1001},"target_to_pursuit_method_edge_ref":{"type":"string","pattern":"^(?:artifact|receipt)://[^\\s]{1,248}$"},"target_order_path_ref":{"$ref":"#/$defs/artifactRef"},"target_order_assignment_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"base_target_generation_index":{"$ref":"#/$defs/boundedOrder"},"effective_target_order_ceiling":{"anyOf":[{"$ref":"#/$defs/boundedOrder"},{"type":"null"}]},"effective_target_order_ceiling_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy|decision)://[^\\s]{1,248}$"},{"type":"null"}]},"max_active_nested_campaign_depth":{"anyOf":[{"$ref":"#/$defs/boundedPositive"},{"type":"null"}]},"parent_execution_campaign_ref":{"anyOf":[{"$ref":"#/$defs/campaignFamilyRef"},{"type":"null"}]},"predecessor_target_generation_campaign_ref":{"anyOf":[{"$ref":"#/$defs/campaignFamilyRef"},{"type":"null"}]},"source_lower_order_campaign_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/campaignFamilyRef"}},"deployment_incumbent_ref":{"type":"string","minLength":1,"maxLength":512},"deployment_incumbent_root":{"$ref":"#/$defs/sha256"},"candidate_archive_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"candidate_resolved_component_snapshot_refs":{"$ref":"#/$defs/refList"},"active_evaluation_epoch_ref":{"anyOf":[{"$ref":"#/$defs/epochRef"},{"type":"null"}]},"historical_evaluation_epoch_refs":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/$defs/epochRef"}},"search_and_candidate_archive_policy_refs":{"$ref":"#/$defs/policyRefList"},"synchronization_policy_ref":{"$ref":"#/$defs/policyRef"},"improvement_order_cutoff_receipt_refs":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"$ref":"#/$defs/cutoffReceiptRef"}},"ancestor_resource_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"resource_reservation_refs":{"$ref":"#/$defs/refList"},"ancestor_statistical_risk_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"statistical_risk_reservation_refs":{"$ref":"#/$defs/refList"},"inherited_evaluation_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"evaluation_exposure_reservation_refs":{"$ref":"#/$defs/refList"},"learning_boundary_profile_ref":{"$ref":"#/$defs/learningBoundaryRevisionRef"},"effective_learning_policy_hash":{"$ref":"#/$defs/sha256"},"stop_policy_ref":{"$ref":"#/$defs/policyRef"},"rollback_recall_containment_compensation_and_reconciliation_policy_refs":{"$ref":"#/$defs/policyRefList"},"operation_head_sequence":{"$ref":"#/$defs/boundedSequence"},"operation_head_root":{"$ref":"#/$defs/sha256"},"derived_state_projection_ref":{"$ref":"#/$defs/projectionRef"},"lifecycle_status":{"enum":["proposed","admitted","active","paused","stopped","closed"]},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/evaluation-epoch/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/evaluation-epoch/v1","title":"EvaluationEpochEnvelope","description":"ONE FROZEN JUDGMENT CONTRACT FOR ONE CAMPAIGN. The epoch copies its coordinates from the active campaign it is created under — campaign ref, contract revision and root, the pursuit profile and snapshot refs, both orders, the generation index, the incumbent and its root, the ledgers it inherits — and freezes with them the evaluation suites, evaluator versions, statistical policy, holdout custody and the sealed-evaluation exposure budget in units its ledger may reserve. `frozen_root` commits every member except itself, the lifecycle projections, the challenge evidence and the admission stamp, is re-derived offline by a registered invariant, and is BINDING from freeze onward, so a successor that moved a frozen member is inadmissible. Lifecycle is a projection: `draft → frozen → active → closed`, with `challenged` reachable from active and `invalidated` from frozen, active or challenged; a challenged epoch names its evidence. Search cannot redefine an epoch, and a campaign has at most one active epoch (bounded-improvement.md § EvaluationEpochEnvelope).","x-ioi-schema-version":"ioi.evaluation-epoch.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","evaluation_epoch_id","campaign_ref","campaign_contract_revision_ref","campaign_contract_root","predecessor_epoch_ref","pursuit_goal_run_profile_revision_ref","pursuit_profile_resolution_and_component_snapshot_refs","target_improvement_order","pursuit_method_order","base_target_generation_index","target_graph_and_order_path_roots","deployment_incumbent_ref","deployment_incumbent_root","synchronization_cutoff_receipt_ref","visible_eval_refs","sealed_holdout_commitment_refs","transfer_ood_and_adversarial_eval_refs","recursive_seat_and_metaproductivity_metric_refs","cross_play_and_causal_ablation_policy_ref","transfer_non_regression_and_hard_constraint_gate_refs","metric_and_selection_policy_ref","cost_normalization_ref","confirmatory_estimand_and_minimum_effect_refs","statistical_test_and_winner_adjustment_refs","risk_wealth_allocation_ref","power_and_inconclusive_stop_policy_ref","campaign_false_promotion_budget_ref","ancestor_statistical_risk_budget_ledger_ref","inherited_evaluation_exposure_ledger_refs","sealed_feedback_release_and_exposure_spend_policy_refs","evaluation_exposure_budget_policy_ref","evaluation_exposure_budget_units","evaluator_version_and_affiliation_refs","holdout_custodian_refs","external_reality_anchor_refs","operational_acceptance_owner_refs","leakage_rotation_and_challenge_policy_refs","frozen_root","lifecycle_ref","lifecycle_status","challenge_evidence_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-epoch.v1"},"evaluation_epoch_id":{"$ref":"#/$defs/epochRef"},"campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"campaign_contract_revision_ref":{"$ref":"#/$defs/campaignRevisionRef"},"campaign_contract_root":{"$ref":"#/$defs/sha256"},"predecessor_epoch_ref":{"anyOf":[{"$ref":"#/$defs/epochRef"},{"type":"null"}]},"pursuit_goal_run_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/goalRunProfileRevisionRef"},{"type":"null"}]},"pursuit_profile_resolution_and_component_snapshot_refs":{"$ref":"#/$defs/refList"},"target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"pursuit_method_order":{"type":"integer","minimum":1,"maximum":1001},"base_target_generation_index":{"$ref":"#/$defs/boundedOrder"},"target_graph_and_order_path_roots":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"deployment_incumbent_ref":{"type":"string","minLength":1,"maxLength":512},"deployment_incumbent_root":{"$ref":"#/$defs/sha256"},"synchronization_cutoff_receipt_ref":{"anyOf":[{"$ref":"#/$defs/cutoffReceiptRef"},{"type":"null"}]},"visible_eval_refs":{"$ref":"#/$defs/refList"},"sealed_holdout_commitment_refs":{"$ref":"#/$defs/refList"},"transfer_ood_and_adversarial_eval_refs":{"$ref":"#/$defs/refList"},"recursive_seat_and_metaproductivity_metric_refs":{"$ref":"#/$defs/refList"},"cross_play_and_causal_ablation_policy_ref":{"$ref":"#/$defs/policyRef"},"transfer_non_regression_and_hard_constraint_gate_refs":{"$ref":"#/$defs/refList"},"metric_and_selection_policy_ref":{"$ref":"#/$defs/policyRef"},"cost_normalization_ref":{"$ref":"#/$defs/policyRef"},"confirmatory_estimand_and_minimum_effect_refs":{"$ref":"#/$defs/refList"},"statistical_test_and_winner_adjustment_refs":{"$ref":"#/$defs/refList"},"risk_wealth_allocation_ref":{"$ref":"#/$defs/policyRef"},"power_and_inconclusive_stop_policy_ref":{"$ref":"#/$defs/policyRef"},"campaign_false_promotion_budget_ref":{"$ref":"#/$defs/policyRef"},"ancestor_statistical_risk_budget_ledger_ref":{"$ref":"#/$defs/ledgerRef"},"inherited_evaluation_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"sealed_feedback_release_and_exposure_spend_policy_refs":{"$ref":"#/$defs/policyRefList"},"evaluation_exposure_budget_policy_ref":{"$ref":"#/$defs/policyRef"},"evaluation_exposure_budget_units":{"$ref":"#/$defs/boundedUnits"},"evaluator_version_and_affiliation_refs":{"$ref":"#/$defs/refList"},"holdout_custodian_refs":{"$ref":"#/$defs/refList"},"external_reality_anchor_refs":{"$ref":"#/$defs/refList"},"operational_acceptance_owner_refs":{"$ref":"#/$defs/refList"},"leakage_rotation_and_challenge_policy_refs":{"$ref":"#/$defs/policyRefList"},"frozen_root":{"$ref":"#/$defs/sha256"},"lifecycle_ref":{"$ref":"#/$defs/lifecycleRef"},"lifecycle_status":{"enum":["draft","frozen","active","challenged","closed","invalidated"]},"challenge_evidence_refs":{"$ref":"#/$defs/refList"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","title":"EvaluationExposureLedgerEnvelope","description":"THE APPEND-ONLY ACCOUNT OF SEALED-EVALUATION EXPOSURE FOR ONE FROZEN EPOCH. Created by the epoch's freeze with the frozen budget, it accumulates reservation, spend, return, contamination, rotation and invalidation entries, each chained to the previous entry's root, and derives the remaining exposure as a SUBTRACTION — `remaining_units = exposure_budget_units − (reserved_units − returned_units)` — so a reservation beyond the budget, or a spend or return beyond the outstanding reservation, is refused rather than absorbed. Every integer here is bounded: units and budgets to 1000000000, sequences to 1000000, entries to 4096 per ledger. Registered invariants require the head sequence to equal the entry count and spent, returned and remaining never to exceed what they are drawn from; the per-entry root chain is verified by the gate against a live daemon, because it needs the predecessor entry. It is evaluation-integrity state, not currency, authority or permission to reveal sealed material (bounded-improvement.md § EvaluationExposureLedgerEnvelope).","x-ioi-schema-version":"ioi.evaluation-exposure-ledger.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","evaluation_exposure_ledger_id","evaluation_epoch_ref","ancestor_exposure_ledger_refs","steward_refs","sealed_suite_and_world_commitment_refs","exposure_budget_ref","exposure_budget_units","reserved_units","spent_units","returned_units","remaining_units","contaminated","entries","admitted_entry_refs","ledger_head_sequence","ledger_head_root","derived_exposure_and_contamination_projection_ref","lifecycle_decision_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-exposure-ledger.v1"},"evaluation_exposure_ledger_id":{"$ref":"#/$defs/exposureLedgerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"ancestor_exposure_ledger_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureLedgerRef"}},"steward_refs":{"$ref":"#/$defs/refList"},"sealed_suite_and_world_commitment_refs":{"$ref":"#/$defs/refList"},"exposure_budget_ref":{"$ref":"#/$defs/policyRef"},"exposure_budget_units":{"$ref":"#/$defs/boundedUnits"},"reserved_units":{"$ref":"#/$defs/boundedUnits"},"spent_units":{"$ref":"#/$defs/boundedUnits"},"returned_units":{"$ref":"#/$defs/boundedUnits"},"remaining_units":{"$ref":"#/$defs/boundedUnits"},"contaminated":{"type":"boolean"},"entries":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["entry_seq","entry_ref","entry_kind","units","candidate_family_commitment","selected_case_commitment","information_return_class","evaluator_version_refs","access_receipt_refs","contamination_flag","previous_entry_root","entry_root"],"properties":{"entry_seq":{"type":"integer","minimum":1,"maximum":1000000},"entry_ref":{"$ref":"#/$defs/exposureEntryRef"},"entry_kind":{"enum":["reservation","spend","return","contamination","rotation","invalidation"]},"units":{"$ref":"#/$defs/boundedUnits"},"candidate_family_commitment":{"$ref":"#/$defs/sha256"},"selected_case_commitment":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"information_return_class":{"enum":["none","aggregate","per_case","labels","internals"]},"evaluator_version_refs":{"$ref":"#/$defs/refList"},"access_receipt_refs":{"$ref":"#/$defs/refList"},"contamination_flag":{"type":"boolean"},"previous_entry_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"entry_root":{"$ref":"#/$defs/sha256"}}}},"admitted_entry_refs":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"$ref":"#/$defs/exposureEntryRef"}},"ledger_head_sequence":{"$ref":"#/$defs/boundedSequence"},"ledger_head_root":{"$ref":"#/$defs/sha256"},"derived_exposure_and_contamination_projection_ref":{"$ref":"#/$defs/projectionRef"},"lifecycle_decision_refs":{"$ref":"#/$defs/refList"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","title":"ImprovementOrderCutoffReceiptEnvelope","description":"A TYPED EVIDENCE CUTOFF BETWEEN ADJACENT TARGET ORDERS — neither a live synchronization object nor later promotion proof. It binds one closed source epoch of one active campaign, the frozen source roots, the eligible findings and the eligibility decisions that admit them (resolved through the learning-boundary plane, never copied), the egress receipt an institutional-boundary crossing requires, the denied or quarantined classes, the destination base root and the previous cutoff root. `receipt_root` commits every member except itself, `content_hash` and the admission stamp and is re-derived offline; a registered invariant requires the destination order to lie strictly above the source order (the daemon enforces exactly plus one) and an `evidence_ready` disposition to carry at least one eligible ref. `blocked` names what a refused cutoff would have been and is never written by the daemon (bounded-improvement.md § ImprovementOrderCutoffReceiptEnvelope).","x-ioi-schema-version":"ioi.improvement-order-cutoff-receipt.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","receipt_id","receipt_profile","receipt_profile_ref","source_campaign_ref","source_evaluation_epoch_ref","synchronization_wave_ref","source_campaign_epoch_and_archive_roots","source_target_improvement_order","source_target_generation_cutoff","intended_destination_target_order","per_order_source_version_and_cutoff_vector_ref","destination_base_root","agenda_revision_ref","agenda_and_task_distribution_roots","boundary_crossing","eligible_finding_and_outcome_refs","learning_evidence_eligibility_refs","learning_egress_receipt_refs","boundary_enforcement_access_and_custody_receipt_refs","effective_learning_policy_hash","denied_or_quarantined_information_class_refs","source_incumbent_resolved_component_snapshot_ref","inherited_budget_risk_and_exposure_reservation_roots","dependency_and_statistical_assumption_delta_ref","signal_bundle_ref","terminal_disposition","previous_cutoff_receipt_root","receipt_root","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-order-cutoff-receipt.v1"},"receipt_id":{"$ref":"#/$defs/cutoffReceiptRef"},"receipt_profile":{"const":"improvement_order_cutoff"},"receipt_profile_ref":{"const":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"},"source_campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"source_evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"synchronization_wave_ref":{"$ref":"#/$defs/artifactRef"},"source_campaign_epoch_and_archive_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"source_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"source_target_generation_cutoff":{"$ref":"#/$defs/boundedOrder"},"intended_destination_target_order":{"type":"integer","minimum":1,"maximum":1001},"per_order_source_version_and_cutoff_vector_ref":{"$ref":"#/$defs/artifactRef"},"destination_base_root":{"$ref":"#/$defs/sha256"},"agenda_revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"agenda_and_task_distribution_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"boundary_crossing":{"enum":["same_boundary","institutional_boundary"]},"eligible_finding_and_outcome_refs":{"$ref":"#/$defs/refList"},"learning_evidence_eligibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/eligibilityRevisionRef"}},"learning_egress_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/receiptRef"}},"boundary_enforcement_access_and_custody_receipt_refs":{"$ref":"#/$defs/refList"},"effective_learning_policy_hash":{"$ref":"#/$defs/sha256"},"denied_or_quarantined_information_class_refs":{"$ref":"#/$defs/refList"},"source_incumbent_resolved_component_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"inherited_budget_risk_and_exposure_reservation_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"dependency_and_statistical_assumption_delta_ref":{"$ref":"#/$defs/artifactRef"},"signal_bundle_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"terminal_disposition":{"enum":["evidence_ready","no_change","blocked"]},"previous_cutoff_receipt_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"receipt_root":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -176296,6 +179482,12 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1", r#"[{"rule_id":"hypervisor_machine_migration_plan.outcome_is_typed","description":"A refused or ambiguous plan MUST name its reason. Ambiguity without a reason is the failure mode that makes a three-member vocabulary worse than a two-member one.","expression":{"operator":"non_empty_when_in","path":"$.plan_reason","when_path":"$.plan_state","values":["refused","ambiguous"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", r#"[{"rule_id":"hypervisor_host_maintenance_plan.outcome_is_typed","description":"A refused or ambiguous plan MUST name its reason.","expression":{"operator":"non_empty_when_in","path":"$.plan_reason","when_path":"$.plan_state","values":["refused","ambiguous"]}}]"#),
+    ("schema://ioi/foundations/objects/improvement-governance-profile/v1", r#"[{"rule_id":"improvement_governance_profile.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.improvement_governance_profile_id","prefix":"improvement-governance-profile://","strip_prefix":"improvement-governance-profile://","suffix":"/revision/"}},{"rule_id":"improvement_governance_profile.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the immutable body — every member except the hash itself, the registry projections (`registry_lifecycle_ref`, `registry_status`) and the admission stamp, under the domain separator `ioi.improvement-governance-profile-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-governance-profile-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"improvement_governance_profile_id":{"path":"$.improvement_governance_profile_id"},"revision_ref":{"path":"$.revision_ref"},"version":{"path":"$.version"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"system_id":{"path":"$.system_id"},"mutable_target_allowlist_refs":{"path":"$.mutable_target_allowlist_refs"},"protected_target_refs":{"path":"$.protected_target_refs"},"protected_target_change_decision_profile_refs":{"path":"$.protected_target_change_decision_profile_refs"},"max_target_improvement_order":{"path":"$.max_target_improvement_order"},"max_active_nested_campaign_depth":{"path":"$.max_active_nested_campaign_depth"},"max_unattended_target_generations":{"path":"$.max_unattended_target_generations"},"ancestor_reservation_policy_refs":{"path":"$.ancestor_reservation_policy_refs"},"campaign_admission_policy_ref":{"path":"$.campaign_admission_policy_ref"},"campaign_stop_policy_ref":{"path":"$.campaign_stop_policy_ref"},"evaluator_firewall_policy_ref":{"path":"$.evaluator_firewall_policy_ref"},"evaluator_independence_policy_ref":{"path":"$.evaluator_independence_policy_ref"},"promotion_authority_policy_ref":{"path":"$.promotion_authority_policy_ref"},"irreversible_effect_recovery_policy_ref":{"path":"$.irreversible_effect_recovery_policy_ref"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/foundations/objects/improvement-agenda/v1", r#"[{"rule_id":"improvement_agenda.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.improvement_agenda_id","prefix":"improvement-agenda://","strip_prefix":"improvement-agenda://","suffix":"/revision/"}},{"rule_id":"improvement_agenda.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the immutable body — every member except the hash itself, the registry projections, the release decision and the admission stamp, so a release carries the identical hash, under the domain separator `ioi.improvement-agenda-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-agenda-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"improvement_agenda_id":{"path":"$.improvement_agenda_id"},"revision_ref":{"path":"$.revision_ref"},"revision":{"path":"$.revision"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"system_id":{"path":"$.system_id"},"constitution_and_policy_refs":{"path":"$.constitution_and_policy_refs"},"governance_policy_refs":{"path":"$.governance_policy_refs"},"target_graph_ref":{"path":"$.target_graph_ref"},"portfolio_allocation_policy_ref":{"path":"$.portfolio_allocation_policy_ref"},"items":{"path":"$.items"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"improvement_agenda.release.names_its_decision","description":"A RELEASE IS A GOVERNANCE DECISION, NOT A FLAG. A released revision names the decision that released it; a status that could be set without a decision would be a registry projection nobody made.","expression":{"operator":"non_empty_when_in","when_path":"$.registry_status","values":["released"],"path":"$.release_decision_ref"}}]"#),
+    ("schema://ioi/foundations/objects/improvement-campaign/v1", r#"[{"rule_id":"improvement_campaign.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.campaign_contract_revision_ref","expected_path":"$.improvement_campaign_id","prefix":"improvement-campaign://","strip_prefix":"improvement-campaign://","suffix":"/revision/"}},{"rule_id":"improvement_campaign.campaign_contract_root.freezes_the_contract","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.campaign_contract_root commits THE CONTRACT — every member declared at creation plus the four the daemon resolves then; a lifecycle successor that moved any of them fails this rule offline, which is what makes `campaign_binding_mismatch` a property of the bytes, under the domain separator `ioi.improvement-campaign-contract-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-campaign-contract-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"improvement_campaign_id":{"path":"$.improvement_campaign_id"},"campaign_contract_revision_ref":{"path":"$.campaign_contract_revision_ref"},"campaign_contract_revision":{"path":"$.campaign_contract_revision"},"predecessor_contract_revision_ref":{"path":"$.predecessor_contract_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"system_id":{"path":"$.system_id"},"improvement_governance_profile_revision_ref":{"path":"$.improvement_governance_profile_revision_ref"},"coordinating_work_subject_ref":{"path":"$.coordinating_work_subject_ref"},"coordinating_pursuit":{"path":"$.coordinating_pursuit"},"improvement_assurance_profile":{"path":"$.improvement_assurance_profile"},"resolved_component_snapshot_ref":{"path":"$.resolved_component_snapshot_ref"},"outcome_room_ref":{"path":"$.outcome_room_ref"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_item_refs":{"path":"$.agenda_item_refs"},"campaign_mode":{"path":"$.campaign_mode"},"target_class":{"path":"$.target_class"},"mutable_target_ref":{"path":"$.mutable_target_ref"},"atomic_target_bundle_ref":{"path":"$.atomic_target_bundle_ref"},"target_base_root":{"path":"$.target_base_root"},"protected_boundary_refs":{"path":"$.protected_boundary_refs"},"target_improvement_order":{"path":"$.target_improvement_order"},"pursuit_method_order":{"path":"$.pursuit_method_order"},"target_to_pursuit_method_edge_ref":{"path":"$.target_to_pursuit_method_edge_ref"},"target_order_path_ref":{"path":"$.target_order_path_ref"},"base_target_generation_index":{"path":"$.base_target_generation_index"},"parent_execution_campaign_ref":{"path":"$.parent_execution_campaign_ref"},"predecessor_target_generation_campaign_ref":{"path":"$.predecessor_target_generation_campaign_ref"},"source_lower_order_campaign_refs":{"path":"$.source_lower_order_campaign_refs"},"deployment_incumbent_ref":{"path":"$.deployment_incumbent_ref"},"deployment_incumbent_root":{"path":"$.deployment_incumbent_root"},"search_and_candidate_archive_policy_refs":{"path":"$.search_and_candidate_archive_policy_refs"},"synchronization_policy_ref":{"path":"$.synchronization_policy_ref"},"ancestor_resource_budget_ledger_ref":{"path":"$.ancestor_resource_budget_ledger_ref"},"ancestor_statistical_risk_budget_ledger_ref":{"path":"$.ancestor_statistical_risk_budget_ledger_ref"},"inherited_evaluation_exposure_ledger_refs":{"path":"$.inherited_evaluation_exposure_ledger_refs"},"learning_boundary_profile_ref":{"path":"$.learning_boundary_profile_ref"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"stop_policy_ref":{"path":"$.stop_policy_ref"},"rollback_recall_containment_compensation_and_reconciliation_policy_refs":{"path":"$.rollback_recall_containment_compensation_and_reconciliation_policy_refs"}},"expected_path":"$.campaign_contract_root","expected_encoding":"sha256_string"}},{"rule_id":"improvement_campaign.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself, the chained operation head root and the admission stamp — the contract, the admission facts and the projections together, under the domain separator `ioi.improvement-campaign-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-campaign-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"improvement_campaign_id":{"path":"$.improvement_campaign_id"},"campaign_contract_revision_ref":{"path":"$.campaign_contract_revision_ref"},"campaign_contract_revision":{"path":"$.campaign_contract_revision"},"predecessor_contract_revision_ref":{"path":"$.predecessor_contract_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"system_id":{"path":"$.system_id"},"improvement_governance_profile_revision_ref":{"path":"$.improvement_governance_profile_revision_ref"},"coordinating_work_subject_ref":{"path":"$.coordinating_work_subject_ref"},"coordinating_pursuit":{"path":"$.coordinating_pursuit"},"improvement_assurance_profile":{"path":"$.improvement_assurance_profile"},"resolved_component_snapshot_ref":{"path":"$.resolved_component_snapshot_ref"},"outcome_room_ref":{"path":"$.outcome_room_ref"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_item_refs":{"path":"$.agenda_item_refs"},"campaign_mode":{"path":"$.campaign_mode"},"target_class":{"path":"$.target_class"},"mutable_target_ref":{"path":"$.mutable_target_ref"},"atomic_target_bundle_ref":{"path":"$.atomic_target_bundle_ref"},"target_base_root":{"path":"$.target_base_root"},"protected_boundary_refs":{"path":"$.protected_boundary_refs"},"target_improvement_order":{"path":"$.target_improvement_order"},"pursuit_method_order":{"path":"$.pursuit_method_order"},"target_to_pursuit_method_edge_ref":{"path":"$.target_to_pursuit_method_edge_ref"},"target_order_path_ref":{"path":"$.target_order_path_ref"},"base_target_generation_index":{"path":"$.base_target_generation_index"},"parent_execution_campaign_ref":{"path":"$.parent_execution_campaign_ref"},"predecessor_target_generation_campaign_ref":{"path":"$.predecessor_target_generation_campaign_ref"},"source_lower_order_campaign_refs":{"path":"$.source_lower_order_campaign_refs"},"deployment_incumbent_ref":{"path":"$.deployment_incumbent_ref"},"deployment_incumbent_root":{"path":"$.deployment_incumbent_root"},"search_and_candidate_archive_policy_refs":{"path":"$.search_and_candidate_archive_policy_refs"},"synchronization_policy_ref":{"path":"$.synchronization_policy_ref"},"ancestor_resource_budget_ledger_ref":{"path":"$.ancestor_resource_budget_ledger_ref"},"ancestor_statistical_risk_budget_ledger_ref":{"path":"$.ancestor_statistical_risk_budget_ledger_ref"},"inherited_evaluation_exposure_ledger_refs":{"path":"$.inherited_evaluation_exposure_ledger_refs"},"learning_boundary_profile_ref":{"path":"$.learning_boundary_profile_ref"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"stop_policy_ref":{"path":"$.stop_policy_ref"},"rollback_recall_containment_compensation_and_reconciliation_policy_refs":{"path":"$.rollback_recall_containment_compensation_and_reconciliation_policy_refs"},"campaign_contract_root":{"path":"$.campaign_contract_root"},"effective_governance_snapshot_ref":{"path":"$.effective_governance_snapshot_ref"},"campaign_admission_decision_ref":{"path":"$.campaign_admission_decision_ref"},"campaign_admission_receipt_ref":{"path":"$.campaign_admission_receipt_ref"},"admission_authority_and_constitution_snapshot_refs":{"path":"$.admission_authority_and_constitution_snapshot_refs"},"target_order_assignment_receipt_ref":{"path":"$.target_order_assignment_receipt_ref"},"effective_target_order_ceiling":{"path":"$.effective_target_order_ceiling"},"effective_target_order_ceiling_ref":{"path":"$.effective_target_order_ceiling_ref"},"max_active_nested_campaign_depth":{"path":"$.max_active_nested_campaign_depth"},"child_work_subject_refs":{"path":"$.child_work_subject_refs"},"candidate_archive_ref":{"path":"$.candidate_archive_ref"},"candidate_resolved_component_snapshot_refs":{"path":"$.candidate_resolved_component_snapshot_refs"},"active_evaluation_epoch_ref":{"path":"$.active_evaluation_epoch_ref"},"historical_evaluation_epoch_refs":{"path":"$.historical_evaluation_epoch_refs"},"improvement_order_cutoff_receipt_refs":{"path":"$.improvement_order_cutoff_receipt_refs"},"resource_reservation_refs":{"path":"$.resource_reservation_refs"},"statistical_risk_reservation_refs":{"path":"$.statistical_risk_reservation_refs"},"evaluation_exposure_reservation_refs":{"path":"$.evaluation_exposure_reservation_refs"},"operation_head_sequence":{"path":"$.operation_head_sequence"},"derived_state_projection_ref":{"path":"$.derived_state_projection_ref"},"lifecycle_status":{"path":"$.lifecycle_status"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"improvement_campaign.target.names_exactly_one_shape","description":"EXACTLY ONE OF A MUTABLE TARGET OR AN ATOMIC BUNDLE. At least one is required here; the daemon refuses a bundle typed and refuses both together, so an admitted record names precisely one.","expression":{"operator":"any_non_empty","paths":["$.mutable_target_ref","$.atomic_target_bundle_ref"]}},{"rule_id":"improvement_campaign.admission.names_its_decision","description":"ADMISSION IS A DECISION SOMEBODY MADE. Every lifecycle state past `proposed` names the admission decision that reached it; a runnable campaign nobody admitted would be exactly the campaign-truth-from-a-caller-claim canon forbids.","expression":{"operator":"non_empty_when_in","when_path":"$.lifecycle_status","values":["admitted","active","paused","stopped","closed"],"path":"$.campaign_admission_decision_ref"}},{"rule_id":"improvement_campaign.order.pursuit_method_follows_target","description":"THE PURSUIT METHOD IS AT LEAST ONE ORDER ABOVE THE TARGET. Canon records `pursuit_method_order` only with the frozen target-to-method edge as the target order plus one; the strict inequality is the half the portable language can state.","expression":{"operator":"numbers_lt","paths":["$.target_improvement_order","$.pursuit_method_order"]}}]"#),
+    ("schema://ioi/foundations/objects/evaluation-epoch/v1", r#"[{"rule_id":"evaluation_epoch.frozen_root.freezes_the_judgment_contract","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.frozen_root commits THE FROZEN CONTRACT — every member except the root itself, the lifecycle projections, the challenge evidence and the admission stamp; binding from freeze onward, so a successor that moved a frozen member is inadmissible, under the domain separator `ioi.evaluation-epoch-frozen-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.evaluation-epoch-frozen-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_epoch_id":{"path":"$.evaluation_epoch_id"},"campaign_ref":{"path":"$.campaign_ref"},"campaign_contract_revision_ref":{"path":"$.campaign_contract_revision_ref"},"campaign_contract_root":{"path":"$.campaign_contract_root"},"predecessor_epoch_ref":{"path":"$.predecessor_epoch_ref"},"pursuit_goal_run_profile_revision_ref":{"path":"$.pursuit_goal_run_profile_revision_ref"},"pursuit_profile_resolution_and_component_snapshot_refs":{"path":"$.pursuit_profile_resolution_and_component_snapshot_refs"},"target_improvement_order":{"path":"$.target_improvement_order"},"pursuit_method_order":{"path":"$.pursuit_method_order"},"base_target_generation_index":{"path":"$.base_target_generation_index"},"target_graph_and_order_path_roots":{"path":"$.target_graph_and_order_path_roots"},"deployment_incumbent_ref":{"path":"$.deployment_incumbent_ref"},"deployment_incumbent_root":{"path":"$.deployment_incumbent_root"},"synchronization_cutoff_receipt_ref":{"path":"$.synchronization_cutoff_receipt_ref"},"visible_eval_refs":{"path":"$.visible_eval_refs"},"sealed_holdout_commitment_refs":{"path":"$.sealed_holdout_commitment_refs"},"transfer_ood_and_adversarial_eval_refs":{"path":"$.transfer_ood_and_adversarial_eval_refs"},"recursive_seat_and_metaproductivity_metric_refs":{"path":"$.recursive_seat_and_metaproductivity_metric_refs"},"cross_play_and_causal_ablation_policy_ref":{"path":"$.cross_play_and_causal_ablation_policy_ref"},"transfer_non_regression_and_hard_constraint_gate_refs":{"path":"$.transfer_non_regression_and_hard_constraint_gate_refs"},"metric_and_selection_policy_ref":{"path":"$.metric_and_selection_policy_ref"},"cost_normalization_ref":{"path":"$.cost_normalization_ref"},"confirmatory_estimand_and_minimum_effect_refs":{"path":"$.confirmatory_estimand_and_minimum_effect_refs"},"statistical_test_and_winner_adjustment_refs":{"path":"$.statistical_test_and_winner_adjustment_refs"},"risk_wealth_allocation_ref":{"path":"$.risk_wealth_allocation_ref"},"power_and_inconclusive_stop_policy_ref":{"path":"$.power_and_inconclusive_stop_policy_ref"},"campaign_false_promotion_budget_ref":{"path":"$.campaign_false_promotion_budget_ref"},"ancestor_statistical_risk_budget_ledger_ref":{"path":"$.ancestor_statistical_risk_budget_ledger_ref"},"inherited_evaluation_exposure_ledger_refs":{"path":"$.inherited_evaluation_exposure_ledger_refs"},"sealed_feedback_release_and_exposure_spend_policy_refs":{"path":"$.sealed_feedback_release_and_exposure_spend_policy_refs"},"evaluation_exposure_budget_policy_ref":{"path":"$.evaluation_exposure_budget_policy_ref"},"evaluation_exposure_budget_units":{"path":"$.evaluation_exposure_budget_units"},"evaluator_version_and_affiliation_refs":{"path":"$.evaluator_version_and_affiliation_refs"},"holdout_custodian_refs":{"path":"$.holdout_custodian_refs"},"external_reality_anchor_refs":{"path":"$.external_reality_anchor_refs"},"operational_acceptance_owner_refs":{"path":"$.operational_acceptance_owner_refs"},"leakage_rotation_and_challenge_policy_refs":{"path":"$.leakage_rotation_and_challenge_policy_refs"}},"expected_path":"$.frozen_root","expected_encoding":"sha256_string"}},{"rule_id":"evaluation_epoch.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.evaluation-epoch-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.evaluation-epoch-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_epoch_id":{"path":"$.evaluation_epoch_id"},"campaign_ref":{"path":"$.campaign_ref"},"campaign_contract_revision_ref":{"path":"$.campaign_contract_revision_ref"},"campaign_contract_root":{"path":"$.campaign_contract_root"},"predecessor_epoch_ref":{"path":"$.predecessor_epoch_ref"},"pursuit_goal_run_profile_revision_ref":{"path":"$.pursuit_goal_run_profile_revision_ref"},"pursuit_profile_resolution_and_component_snapshot_refs":{"path":"$.pursuit_profile_resolution_and_component_snapshot_refs"},"target_improvement_order":{"path":"$.target_improvement_order"},"pursuit_method_order":{"path":"$.pursuit_method_order"},"base_target_generation_index":{"path":"$.base_target_generation_index"},"target_graph_and_order_path_roots":{"path":"$.target_graph_and_order_path_roots"},"deployment_incumbent_ref":{"path":"$.deployment_incumbent_ref"},"deployment_incumbent_root":{"path":"$.deployment_incumbent_root"},"synchronization_cutoff_receipt_ref":{"path":"$.synchronization_cutoff_receipt_ref"},"visible_eval_refs":{"path":"$.visible_eval_refs"},"sealed_holdout_commitment_refs":{"path":"$.sealed_holdout_commitment_refs"},"transfer_ood_and_adversarial_eval_refs":{"path":"$.transfer_ood_and_adversarial_eval_refs"},"recursive_seat_and_metaproductivity_metric_refs":{"path":"$.recursive_seat_and_metaproductivity_metric_refs"},"cross_play_and_causal_ablation_policy_ref":{"path":"$.cross_play_and_causal_ablation_policy_ref"},"transfer_non_regression_and_hard_constraint_gate_refs":{"path":"$.transfer_non_regression_and_hard_constraint_gate_refs"},"metric_and_selection_policy_ref":{"path":"$.metric_and_selection_policy_ref"},"cost_normalization_ref":{"path":"$.cost_normalization_ref"},"confirmatory_estimand_and_minimum_effect_refs":{"path":"$.confirmatory_estimand_and_minimum_effect_refs"},"statistical_test_and_winner_adjustment_refs":{"path":"$.statistical_test_and_winner_adjustment_refs"},"risk_wealth_allocation_ref":{"path":"$.risk_wealth_allocation_ref"},"power_and_inconclusive_stop_policy_ref":{"path":"$.power_and_inconclusive_stop_policy_ref"},"campaign_false_promotion_budget_ref":{"path":"$.campaign_false_promotion_budget_ref"},"ancestor_statistical_risk_budget_ledger_ref":{"path":"$.ancestor_statistical_risk_budget_ledger_ref"},"inherited_evaluation_exposure_ledger_refs":{"path":"$.inherited_evaluation_exposure_ledger_refs"},"sealed_feedback_release_and_exposure_spend_policy_refs":{"path":"$.sealed_feedback_release_and_exposure_spend_policy_refs"},"evaluation_exposure_budget_policy_ref":{"path":"$.evaluation_exposure_budget_policy_ref"},"evaluation_exposure_budget_units":{"path":"$.evaluation_exposure_budget_units"},"evaluator_version_and_affiliation_refs":{"path":"$.evaluator_version_and_affiliation_refs"},"holdout_custodian_refs":{"path":"$.holdout_custodian_refs"},"external_reality_anchor_refs":{"path":"$.external_reality_anchor_refs"},"operational_acceptance_owner_refs":{"path":"$.operational_acceptance_owner_refs"},"leakage_rotation_and_challenge_policy_refs":{"path":"$.leakage_rotation_and_challenge_policy_refs"},"frozen_root":{"path":"$.frozen_root"},"lifecycle_ref":{"path":"$.lifecycle_ref"},"lifecycle_status":{"path":"$.lifecycle_status"},"challenge_evidence_refs":{"path":"$.challenge_evidence_refs"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"evaluation_epoch.challenge.names_its_evidence","description":"A CHALLENGE APPENDS LINKED EVIDENCE rather than rewriting the epoch; a challenged epoch with no evidence would be a status somebody asserted.","expression":{"operator":"non_empty_when_in","when_path":"$.lifecycle_status","values":["challenged"],"path":"$.challenge_evidence_refs"}}]"#),
+    ("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", r#"[{"rule_id":"evaluation_exposure_ledger.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp — including every ledger entry and the derived counters, so a counter edited to make an exposure fit fails offline, under the domain separator `ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_exposure_ledger_id":{"path":"$.evaluation_exposure_ledger_id"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"ancestor_exposure_ledger_refs":{"path":"$.ancestor_exposure_ledger_refs"},"steward_refs":{"path":"$.steward_refs"},"sealed_suite_and_world_commitment_refs":{"path":"$.sealed_suite_and_world_commitment_refs"},"exposure_budget_ref":{"path":"$.exposure_budget_ref"},"exposure_budget_units":{"path":"$.exposure_budget_units"},"reserved_units":{"path":"$.reserved_units"},"spent_units":{"path":"$.spent_units"},"returned_units":{"path":"$.returned_units"},"remaining_units":{"path":"$.remaining_units"},"contaminated":{"path":"$.contaminated"},"entries":{"path":"$.entries"},"admitted_entry_refs":{"path":"$.admitted_entry_refs"},"ledger_head_sequence":{"path":"$.ledger_head_sequence"},"ledger_head_root":{"path":"$.ledger_head_root"},"derived_exposure_and_contamination_projection_ref":{"path":"$.derived_exposure_and_contamination_projection_ref"},"lifecycle_decision_refs":{"path":"$.lifecycle_decision_refs"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"evaluation_exposure_ledger.head.counts_the_entries","description":"THE HEAD SEQUENCE IS THE ENTRY COUNT, and the admitted entry refs are the entries; two independent statements about the same list is the cheapest tell that one was edited.","expression":{"operator":"array_length_equals","array_path":"$.entries","count_path":"$.ledger_head_sequence"}},{"rule_id":"evaluation_exposure_ledger.refs.count_the_entries","description":"Every admitted entry is addressable, and nothing is addressable that was not admitted.","expression":{"operator":"array_length_equals","array_path":"$.admitted_entry_refs","count_path":"$.ledger_head_sequence"}},{"rule_id":"evaluation_exposure_ledger.spent.never_exceeds_reserved","description":"EXPOSURE IS SPENT FROM A RESERVATION. Spent units can never exceed reserved units; the daemon refuses the finer rule (spend beyond the outstanding reservation) live, and this is the bound the portable language can state.","expression":{"operator":"numbers_lte","paths":["$.spent_units","$.reserved_units"]}},{"rule_id":"evaluation_exposure_ledger.returned.never_exceeds_reserved","description":"Only reserved exposure can be returned.","expression":{"operator":"numbers_lte","paths":["$.returned_units","$.reserved_units"]}},{"rule_id":"evaluation_exposure_ledger.remaining.never_exceeds_budget","description":"Remaining exposure is derived from the budget by subtraction and can never exceed it; a ledger that claimed more remaining than it was given would have minted exposure.","expression":{"operator":"numbers_lte","paths":["$.remaining_units","$.exposure_budget_units"]}}]"#),
+    ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", r#"[{"rule_id":"improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.receipt_root commits THE RECEIPT — every member except the root itself, the entry commitment and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_profile":{"path":"$.receipt_profile"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"source_campaign_ref":{"path":"$.source_campaign_ref"},"source_evaluation_epoch_ref":{"path":"$.source_evaluation_epoch_ref"},"synchronization_wave_ref":{"path":"$.synchronization_wave_ref"},"source_campaign_epoch_and_archive_roots":{"path":"$.source_campaign_epoch_and_archive_roots"},"source_target_improvement_order":{"path":"$.source_target_improvement_order"},"source_target_generation_cutoff":{"path":"$.source_target_generation_cutoff"},"intended_destination_target_order":{"path":"$.intended_destination_target_order"},"per_order_source_version_and_cutoff_vector_ref":{"path":"$.per_order_source_version_and_cutoff_vector_ref"},"destination_base_root":{"path":"$.destination_base_root"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_and_task_distribution_roots":{"path":"$.agenda_and_task_distribution_roots"},"boundary_crossing":{"path":"$.boundary_crossing"},"eligible_finding_and_outcome_refs":{"path":"$.eligible_finding_and_outcome_refs"},"learning_evidence_eligibility_refs":{"path":"$.learning_evidence_eligibility_refs"},"learning_egress_receipt_refs":{"path":"$.learning_egress_receipt_refs"},"boundary_enforcement_access_and_custody_receipt_refs":{"path":"$.boundary_enforcement_access_and_custody_receipt_refs"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"denied_or_quarantined_information_class_refs":{"path":"$.denied_or_quarantined_information_class_refs"},"source_incumbent_resolved_component_snapshot_ref":{"path":"$.source_incumbent_resolved_component_snapshot_ref"},"inherited_budget_risk_and_exposure_reservation_roots":{"path":"$.inherited_budget_risk_and_exposure_reservation_roots"},"dependency_and_statistical_assumption_delta_ref":{"path":"$.dependency_and_statistical_assumption_delta_ref"},"signal_bundle_ref":{"path":"$.signal_bundle_ref"},"terminal_disposition":{"path":"$.terminal_disposition"},"previous_cutoff_receipt_root":{"path":"$.previous_cutoff_receipt_root"}},"expected_path":"$.receipt_root","expected_encoding":"sha256_string"}},{"rule_id":"improvement_order_cutoff_receipt.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_profile":{"path":"$.receipt_profile"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"source_campaign_ref":{"path":"$.source_campaign_ref"},"source_evaluation_epoch_ref":{"path":"$.source_evaluation_epoch_ref"},"synchronization_wave_ref":{"path":"$.synchronization_wave_ref"},"source_campaign_epoch_and_archive_roots":{"path":"$.source_campaign_epoch_and_archive_roots"},"source_target_improvement_order":{"path":"$.source_target_improvement_order"},"source_target_generation_cutoff":{"path":"$.source_target_generation_cutoff"},"intended_destination_target_order":{"path":"$.intended_destination_target_order"},"per_order_source_version_and_cutoff_vector_ref":{"path":"$.per_order_source_version_and_cutoff_vector_ref"},"destination_base_root":{"path":"$.destination_base_root"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_and_task_distribution_roots":{"path":"$.agenda_and_task_distribution_roots"},"boundary_crossing":{"path":"$.boundary_crossing"},"eligible_finding_and_outcome_refs":{"path":"$.eligible_finding_and_outcome_refs"},"learning_evidence_eligibility_refs":{"path":"$.learning_evidence_eligibility_refs"},"learning_egress_receipt_refs":{"path":"$.learning_egress_receipt_refs"},"boundary_enforcement_access_and_custody_receipt_refs":{"path":"$.boundary_enforcement_access_and_custody_receipt_refs"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"denied_or_quarantined_information_class_refs":{"path":"$.denied_or_quarantined_information_class_refs"},"source_incumbent_resolved_component_snapshot_ref":{"path":"$.source_incumbent_resolved_component_snapshot_ref"},"inherited_budget_risk_and_exposure_reservation_roots":{"path":"$.inherited_budget_risk_and_exposure_reservation_roots"},"dependency_and_statistical_assumption_delta_ref":{"path":"$.dependency_and_statistical_assumption_delta_ref"},"signal_bundle_ref":{"path":"$.signal_bundle_ref"},"terminal_disposition":{"path":"$.terminal_disposition"},"previous_cutoff_receipt_root":{"path":"$.previous_cutoff_receipt_root"},"receipt_root":{"path":"$.receipt_root"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"improvement_order_cutoff_receipt.edge.destination_lies_above_source","description":"EVIDENCE MOVES UPWARD ONE ADJACENT EDGE. The destination order lies strictly above the source order; the daemon refuses anything but exactly plus one, and this is the half the portable language can state.","expression":{"operator":"numbers_lt","paths":["$.source_target_improvement_order","$.intended_destination_target_order"]}},{"rule_id":"improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence","description":"An `evidence_ready` cutoff names at least one eligible finding or outcome; a cutoff that was ready with nothing to move would be a synchronization claim with no evidence in it.","expression":{"operator":"non_empty_when_in","when_path":"$.terminal_disposition","values":["evidence_ready"],"path":"$.eligible_finding_and_outcome_refs"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -176369,6 +179561,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^(?:0|[1-9][0-9]*)$"#, r#"^(?:0|[1-9][0-9]*)$"#),
     (
+        r#"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"#,
+        r#"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"#,
+    ),
+    (
         r#"^(?:[a-z][a-z0-9+._-]*://[^\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
         r#"^(?:[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
     ),
@@ -176379,6 +179575,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:action|ontology-action)://[^\s]{1,240}$"#,
         r#"^(?:action|ontology-action)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^(?:agentgres://object/|decision://)[^\s]{1,240}$"#,
+        r#"^(?:agentgres://object/|decision://)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:agentgres|decision)://[^\s]{1,500}$"#,
@@ -176447,6 +179647,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:artifact|payload)://[^\s]{1,248}$"#,
         r#"^(?:artifact|payload)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:artifact|receipt)://[^\s]{1,248}$"#,
+        r#"^(?:artifact|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:artifact|receipt|ledger|trace)://[^\s]{1,500}$"#,
@@ -176725,6 +179929,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:goal|session|work-run)://[^\s]{1,248}$"#,
+        r#"^(?:goal|session|work-run)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:goal|task|service)://[^\s]{1,500}$"#,
         r#"^(?:goal|task|service)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -176937,6 +180145,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:policy://|grant://|scope:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^(?:policy|artifact)://[^\s]{1,248}$"#,
+        r#"^(?:policy|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:policy|auth_factor)://[^\s]{1,500}$"#,
         r#"^(?:policy|auth_factor)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -176947,6 +180159,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:policy|budget)://[^\s]{1,500}$"#,
         r#"^(?:policy|budget)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:policy|decision)://[^\s]{1,248}$"#,
+        r#"^(?:policy|decision)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:policy|event)://[^\s]{1,500}$"#,
@@ -177791,6 +181007,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^agentgres://operation/event-stream/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,460}$"#,
     ),
     (
+        r#"^agentgres://projection/[^\s]{1,240}$"#,
+        r#"^agentgres://projection/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^agentgres://projection/[^\s]{1,400}$"#,
         r#"^agentgres://projection/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
@@ -177975,6 +181195,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^branch-merge://[^\s]+$"#,
         r#"^branch-merge://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^budget://[^\s]{1,248}$"#,
+        r#"^budget://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^budget://\S+$"#,
@@ -178373,6 +181597,18 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^estop://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"#,
+        r#"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"#,
+    ),
+    (
         r#"^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"#,
         r#"^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"#,
     ),
@@ -178588,8 +181824,32 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^ifc-label://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
         r#"^improvement-governance-profile://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^improvement-governance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^incident://[^\s]+$"#,
@@ -178686,6 +181946,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^lease://[^\s]{1,500}$"#,
         r#"^lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^ledger://[^\s]{1,248}$"#,
+        r#"^ledger://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^lifecycle-profile://[^\s]{1,248}$"#,
@@ -179314,6 +182578,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^receipt://hypervisor/principal-tenant-membership/[0-9a-f]{64}$"#,
         r#"^receipt://hypervisor/principal-tenant-membership/[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"#,
+        r#"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^receipt://ltr_[0-9a-f]{64}$"#,
@@ -182600,6 +185868,51 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -184088,6 +187401,36 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1" => {
             serde_json::from_value::<HypervisorHostMaintenancePlanV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-governance-profile/v1" => {
+            serde_json::from_value::<ImprovementGovernanceProfileEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-agenda/v1" => {
+            serde_json::from_value::<ImprovementAgendaEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-campaign/v1" => {
+            serde_json::from_value::<ImprovementCampaignEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/evaluation-epoch/v1" => {
+            serde_json::from_value::<EvaluationEpochEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1" => {
+            serde_json::from_value::<EvaluationExposureLedgerEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1" => {
+            serde_json::from_value::<ImprovementOrderCutoffReceiptEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -185582,6 +188925,36 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/improvement-governance-profile/v1" => {
+            let projection = serde_json::from_value::<ImprovementGovernanceProfileEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-agenda/v1" => {
+            let projection = serde_json::from_value::<ImprovementAgendaEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-campaign/v1" => {
+            let projection = serde_json::from_value::<ImprovementCampaignEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/evaluation-epoch/v1" => {
+            let projection = serde_json::from_value::<EvaluationEpochEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1" => {
+            let projection = serde_json::from_value::<EvaluationExposureLedgerEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1" => {
+            let projection = serde_json::from_value::<ImprovementOrderCutoffReceiptEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -185718,8 +189091,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1459,
-            "the registered golden corpus must remain the explicit 1459-fixture bar",
+            1504,
+            "the registered golden corpus must remain the explicit 1504-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -185961,7 +189334,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 966,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 985,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

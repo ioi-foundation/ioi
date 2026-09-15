@@ -12825,6 +12825,261 @@ export type HypervisorHostMaintenancePlanV1 = {
   receipt_refs: Array<string>;
 };
 
+export type ImprovementGovernanceProfileEnvelopeV1 = {
+  schema_version: "ioi.improvement-governance-profile.v1";
+  improvement_governance_profile_id: string;
+  revision_ref: string;
+  version: string;
+  predecessor_revision_ref: string | null;
+  content_hash: string;
+  owner_ref: string;
+  system_id: string | null;
+  mutable_target_allowlist_refs: Array<string>;
+  protected_target_refs: Array<string>;
+  protected_target_change_decision_profile_refs: Array<string>;
+  max_target_improvement_order: number;
+  max_active_nested_campaign_depth: number;
+  max_unattended_target_generations: number;
+  ancestor_reservation_policy_refs: {
+      resource_budget: string;
+      statistical_risk_budget: string;
+      evaluation_exposure_budget: string;
+    };
+  campaign_admission_policy_ref: string;
+  campaign_stop_policy_ref: string;
+  evaluator_firewall_policy_ref: string;
+  evaluator_independence_policy_ref: string;
+  promotion_authority_policy_ref: string;
+  irreversible_effect_recovery_policy_ref: string;
+  registry_lifecycle_ref: string | null;
+  registry_status: "draft" | "active" | "superseded" | "revoked";
+  admitted_at: string;
+};
+
+export type ImprovementAgendaEnvelopeV1 = {
+  schema_version: "ioi.improvement-agenda.v1";
+  improvement_agenda_id: string;
+  revision_ref: string;
+  revision: number;
+  predecessor_revision_ref: string | null;
+  content_hash: string;
+  owner_ref: string;
+  system_id: string | null;
+  constitution_and_policy_refs: Array<string>;
+  governance_policy_refs: Array<string>;
+  release_decision_ref: string | null;
+  target_graph_ref: string;
+  portfolio_allocation_policy_ref: string;
+  items: Array<{
+        agenda_item_id: string;
+        target_ref: string;
+        target_class: string;
+        requested_target_improvement_order: number;
+        requested_target_order_path_ref: string;
+        mechanism_hypothesis_ref: string;
+        causal_prediction_and_falsifier_ref: string;
+        minimum_decisive_test_ref: string;
+        evidence_gap_and_uncertainty_ref: string;
+        transfer_and_reproduction_requirement_refs: Array<string>;
+        hard_constraint_and_risk_refs: Array<string>;
+        protected_exclusion_refs: Array<string>;
+        dependency_and_readiness_refs: Array<string>;
+        requested_budget_ref: string;
+        effect_recovery_policy_ref: string;
+      }>;
+  registry_lifecycle_ref: string | null;
+  registry_status: "draft" | "evaluable" | "released" | "superseded" | "retired";
+  admitted_at: string;
+};
+
+export type ImprovementCampaignEnvelopeV1 = {
+  schema_version: "ioi.improvement-campaign.v1";
+  improvement_campaign_id: string;
+  campaign_contract_revision_ref: string;
+  campaign_contract_revision: number;
+  predecessor_contract_revision_ref: string | null;
+  campaign_contract_root: string;
+  owner_ref: string;
+  system_id: string | null;
+  improvement_governance_profile_revision_ref: string;
+  effective_governance_snapshot_ref: string | null;
+  campaign_admission_decision_ref: string | null;
+  campaign_admission_receipt_ref: string | null;
+  admission_authority_and_constitution_snapshot_refs: Array<string>;
+  coordinating_work_subject_ref: string | null;
+  child_work_subject_refs: Array<string>;
+  coordinating_pursuit: {
+      goal_run_profile_revision_ref: string | null;
+      goal_run_profile_resolution_receipt_ref: string | null;
+    };
+  improvement_assurance_profile: "local_lightweight" | "independent_review" | "protected_build" | "adversarial_control" | "threshold_recovery" | "failure_domain_independent";
+  resolved_component_snapshot_ref: string;
+  outcome_room_ref: string | null;
+  agenda_revision_ref: string;
+  agenda_item_refs: Array<string>;
+  campaign_mode: "optimization" | "recursive_seat_test" | "transfer_test" | "independent_reproduction" | "evaluator_campaign";
+  target_class: string;
+  mutable_target_ref: string | null;
+  atomic_target_bundle_ref: string | null;
+  target_base_root: string;
+  protected_boundary_refs: Array<string>;
+  target_improvement_order: number;
+  pursuit_method_order: number;
+  target_to_pursuit_method_edge_ref: string;
+  target_order_path_ref: string;
+  target_order_assignment_receipt_ref: string | null;
+  base_target_generation_index: number;
+  effective_target_order_ceiling: number | null;
+  effective_target_order_ceiling_ref: string | null;
+  max_active_nested_campaign_depth: number | null;
+  parent_execution_campaign_ref: string | null;
+  predecessor_target_generation_campaign_ref: string | null;
+  source_lower_order_campaign_refs: Array<string>;
+  deployment_incumbent_ref: string;
+  deployment_incumbent_root: string;
+  candidate_archive_ref: string | null;
+  candidate_resolved_component_snapshot_refs: Array<string>;
+  active_evaluation_epoch_ref: string | null;
+  historical_evaluation_epoch_refs: Array<string>;
+  search_and_candidate_archive_policy_refs: Array<string>;
+  synchronization_policy_ref: string;
+  improvement_order_cutoff_receipt_refs: Array<string>;
+  ancestor_resource_budget_ledger_ref: string;
+  resource_reservation_refs: Array<string>;
+  ancestor_statistical_risk_budget_ledger_ref: string;
+  statistical_risk_reservation_refs: Array<string>;
+  inherited_evaluation_exposure_ledger_refs: Array<string>;
+  evaluation_exposure_reservation_refs: Array<string>;
+  learning_boundary_profile_ref: string;
+  effective_learning_policy_hash: string;
+  stop_policy_ref: string;
+  rollback_recall_containment_compensation_and_reconciliation_policy_refs: Array<string>;
+  operation_head_sequence: number;
+  operation_head_root: string;
+  derived_state_projection_ref: string;
+  lifecycle_status: "proposed" | "admitted" | "active" | "paused" | "stopped" | "closed";
+  content_hash: string;
+  admitted_at: string;
+};
+
+export type EvaluationEpochEnvelopeV1 = {
+  schema_version: "ioi.evaluation-epoch.v1";
+  evaluation_epoch_id: string;
+  campaign_ref: string;
+  campaign_contract_revision_ref: string;
+  campaign_contract_root: string;
+  predecessor_epoch_ref: string | null;
+  pursuit_goal_run_profile_revision_ref: string | null;
+  pursuit_profile_resolution_and_component_snapshot_refs: Array<string>;
+  target_improvement_order: number;
+  pursuit_method_order: number;
+  base_target_generation_index: number;
+  target_graph_and_order_path_roots: Array<string>;
+  deployment_incumbent_ref: string;
+  deployment_incumbent_root: string;
+  synchronization_cutoff_receipt_ref: string | null;
+  visible_eval_refs: Array<string>;
+  sealed_holdout_commitment_refs: Array<string>;
+  transfer_ood_and_adversarial_eval_refs: Array<string>;
+  recursive_seat_and_metaproductivity_metric_refs: Array<string>;
+  cross_play_and_causal_ablation_policy_ref: string;
+  transfer_non_regression_and_hard_constraint_gate_refs: Array<string>;
+  metric_and_selection_policy_ref: string;
+  cost_normalization_ref: string;
+  confirmatory_estimand_and_minimum_effect_refs: Array<string>;
+  statistical_test_and_winner_adjustment_refs: Array<string>;
+  risk_wealth_allocation_ref: string;
+  power_and_inconclusive_stop_policy_ref: string;
+  campaign_false_promotion_budget_ref: string;
+  ancestor_statistical_risk_budget_ledger_ref: string;
+  inherited_evaluation_exposure_ledger_refs: Array<string>;
+  sealed_feedback_release_and_exposure_spend_policy_refs: Array<string>;
+  evaluation_exposure_budget_policy_ref: string;
+  evaluation_exposure_budget_units: number;
+  evaluator_version_and_affiliation_refs: Array<string>;
+  holdout_custodian_refs: Array<string>;
+  external_reality_anchor_refs: Array<string>;
+  operational_acceptance_owner_refs: Array<string>;
+  leakage_rotation_and_challenge_policy_refs: Array<string>;
+  frozen_root: string;
+  lifecycle_ref: string | null;
+  lifecycle_status: "draft" | "frozen" | "active" | "challenged" | "closed" | "invalidated";
+  challenge_evidence_refs: Array<string>;
+  content_hash: string;
+  admitted_at: string;
+};
+
+export type EvaluationExposureLedgerEnvelopeV1 = {
+  schema_version: "ioi.evaluation-exposure-ledger.v1";
+  evaluation_exposure_ledger_id: string;
+  evaluation_epoch_ref: string;
+  ancestor_exposure_ledger_refs: Array<string>;
+  steward_refs: Array<string>;
+  sealed_suite_and_world_commitment_refs: Array<string>;
+  exposure_budget_ref: string;
+  exposure_budget_units: number;
+  reserved_units: number;
+  spent_units: number;
+  returned_units: number;
+  remaining_units: number;
+  contaminated: boolean;
+  entries: Array<{
+        entry_seq: number;
+        entry_ref: string;
+        entry_kind: "reservation" | "spend" | "return" | "contamination" | "rotation" | "invalidation";
+        units: number;
+        candidate_family_commitment: string;
+        selected_case_commitment: string | null;
+        information_return_class: "none" | "aggregate" | "per_case" | "labels" | "internals";
+        evaluator_version_refs: Array<string>;
+        access_receipt_refs: Array<string>;
+        contamination_flag: boolean;
+        previous_entry_root: string | null;
+        entry_root: string;
+      }>;
+  admitted_entry_refs: Array<string>;
+  ledger_head_sequence: number;
+  ledger_head_root: string;
+  derived_exposure_and_contamination_projection_ref: string;
+  lifecycle_decision_refs: Array<string>;
+  content_hash: string;
+  admitted_at: string;
+};
+
+export type ImprovementOrderCutoffReceiptEnvelopeV1 = {
+  schema_version: "ioi.improvement-order-cutoff-receipt.v1";
+  receipt_id: string;
+  receipt_profile: "improvement_order_cutoff";
+  receipt_profile_ref: "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1";
+  source_campaign_ref: string;
+  source_evaluation_epoch_ref: string;
+  synchronization_wave_ref: string;
+  source_campaign_epoch_and_archive_roots: Array<string>;
+  source_target_improvement_order: number;
+  source_target_generation_cutoff: number;
+  intended_destination_target_order: number;
+  per_order_source_version_and_cutoff_vector_ref: string;
+  destination_base_root: string;
+  agenda_revision_ref: string;
+  agenda_and_task_distribution_roots: Array<string>;
+  boundary_crossing: "same_boundary" | "institutional_boundary";
+  eligible_finding_and_outcome_refs: Array<string>;
+  learning_evidence_eligibility_refs: Array<string>;
+  learning_egress_receipt_refs: Array<string>;
+  boundary_enforcement_access_and_custody_receipt_refs: Array<string>;
+  effective_learning_policy_hash: string;
+  denied_or_quarantined_information_class_refs: Array<string>;
+  source_incumbent_resolved_component_snapshot_ref: string;
+  inherited_budget_risk_and_exposure_reservation_roots: Array<string>;
+  dependency_and_statistical_assumption_delta_ref: string;
+  signal_bundle_ref: string | null;
+  terminal_disposition: "evidence_ready" | "no_change" | "blocked";
+  previous_cutoff_receipt_root: string | null;
+  receipt_root: string;
+  content_hash: string;
+  admitted_at: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -24506,6 +24761,366 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_governance_profile.content_hash.commits_the_immutable_body"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_governance_profile.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_agenda.release.names_its_decision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_agenda.content_hash.commits_the_immutable_body"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_campaign.campaign_contract_root.freezes_the_contract"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_campaign.admission.names_its_decision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_campaign.target.names_exactly_one_shape"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_epoch.frozen_root.freezes_the_judgment_contract"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_epoch.challenge.names_its_evidence"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_exposure_ledger.head.counts_the_entries"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_exposure_ledger.spent.never_exceeds_reserved"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_exposure_ledger.remaining.never_exceeds_budget"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_order_cutoff_receipt.edge.destination_lies_above_source"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff"
   }
 ] as const;
 
@@ -28618,6 +29233,51 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/positive-outcome-is-typed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-host-maintenance-plan-v1/negative-untyped-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-genesis-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/positive-successor-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/improvement-governance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-draft-one-item.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/positive-released-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-no-items.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-released-without-a-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/improvement-agenda/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-agenda-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-proposed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/positive-active-with-epoch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-profile-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-contract-root-moved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json","contract_id":"schema://ioi/foundations/objects/improvement-campaign/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-campaign-v1/negative-no-target-shape.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json","contract_id":"schema://ioi/foundations/objects/evaluation-epoch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-draft.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json","contract_id":"schema://ioi/foundations/objects/evaluation-epoch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/evaluation-epoch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json","contract_id":"schema://ioi/foundations/objects/evaluation-epoch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json","contract_id":"schema://ioi/foundations/objects/evaluation-epoch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json","contract_id":"schema://ioi/foundations/objects/evaluation-epoch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json","contract_id":"schema://ioi/foundations/objects/evaluation-exposure-ledger/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -28800,9 +29460,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:/sessions|/missions|/__ioi\\S*)$",
   "^(?:0|[1-9][0-9]*)$",
+  "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$",
   "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$",
   "^(?:action|ontology-action)://[^\\s]{1,240}$",
+  "^(?:agentgres://object/|decision://)[^\\s]{1,240}$",
   "^(?:agentgres|decision)://[^\\s]{1,500}$",
   "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$",
   "^(?:agentgres|event)://[^\\s]{1,248}$",
@@ -28820,6 +29482,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:artifact|mapping)://[^\\s]{1,240}$",
   "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$",
   "^(?:artifact|payload)://[^\\s]{1,248}$",
+  "^(?:artifact|receipt)://[^\\s]{1,248}$",
   "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$",
   "^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$",
   "^(?:artifact|restricted_view|redacted_summary|evidence|replay)://[^\\s]{1,500}$",
@@ -28889,6 +29552,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
   "^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$",
   "^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$",
+  "^(?:goal|session|work-run)://[^\\s]{1,248}$",
   "^(?:goal|task|service)://[^\\s]{1,500}$",
   "^(?:grant|approval)://[^\\s]{1,500}$",
   "^(?:grant|lease)://[^\\s]{1,248}$",
@@ -28942,9 +29606,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:participation-request|proposal)://[^\\s]{1,500}$",
   "^(?:policy://|grant://|scope:)[^\\s]{1,240}$",
+  "^(?:policy|artifact)://[^\\s]{1,248}$",
   "^(?:policy|auth_factor)://[^\\s]{1,500}$",
   "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$",
   "^(?:policy|budget)://[^\\s]{1,500}$",
+  "^(?:policy|decision)://[^\\s]{1,248}$",
   "^(?:policy|event)://[^\\s]{1,500}$",
   "^(?:policy|event)://\\S+$",
   "^(?:policy|finding|evidence)://[^\\s]{1,240}$",
@@ -29172,6 +29838,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://operation/[^\\s]{1,248}$",
   "^agentgres://operation/\\S+$",
   "^agentgres://operation/event-stream/[^\\s]{1,460}$",
+  "^agentgres://projection/[^\\s]{1,240}$",
   "^agentgres://projection/[^\\s]{1,400}$",
   "^agentgres://state-root/[^\\s]{1,240}$",
   "^agentgres://state-root/\\S*$",
@@ -29220,6 +29887,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^boot-profile://[^\\s]{1,248}$",
   "^branch-checkpoint://[^\\s]+$",
   "^branch-merge://[^\\s]+$",
+  "^budget://[^\\s]{1,248}$",
   "^budget://\\S+$",
   "^build://[^\\s]+$",
   "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
@@ -29322,6 +29990,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^episode://[a-z0-9][a-z0-9._-]{0,127}$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^estop://[^\\s]+$",
+  "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$",
   "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
   "^evidence://[^\\s]{1,240}$",
   "^evidence://[^\\s]{1,248}$",
@@ -29378,7 +30049,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ifc-label://[^\\s]{1,500}$",
   "^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$",
   "^ifc-label://\\S+$",
+  "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^incident://[^\\s]+$",
   "^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^install://\\S*$",
@@ -29403,6 +30080,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^lease://[^\\s]{1,248}$",
   "^lease://[^\\s]{1,500}$",
+  "^ledger://[^\\s]{1,248}$",
   "^lifecycle-profile://[^\\s]{1,248}$",
   "^lifecycle-profile://[^\\s]{1,500}$",
   "^lifecycle-transition://[A-Za-z0-9._:/-]+$",
@@ -29566,6 +30244,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://aszmr_[0-9a-f]{64}$",
   "^receipt://automation-run-resolution/[0-9a-f]{64}$",
   "^receipt://hypervisor/principal-tenant-membership/[0-9a-f]{64}$",
+  "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$",
   "^receipt://ltr_[0-9a-f]{64}$",
   "^receipt[^\\s]{1,260}$",
   "^recipe://recipe_[0-9a-f]{16}$",
@@ -30047,7 +30726,13 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/hypervisor-machine-console-session/v1": "sha256:07abd258377f800381c7c6ec3ff089b18fcbde43a8ba77aab17af022805b2edd",
   "schema://ioi/components/hypervisor/hypervisor-machine-snapshot/v1": "sha256:18a988066a820224a25f662ce0922845bcb88e116233dd03d7e651cf228e871b",
   "schema://ioi/components/hypervisor/hypervisor-machine-migration-plan/v1": "sha256:70d9cd9e9c62679f2b4d6d019585316fa86c8a1c225da5dfb076e90579df5881",
-  "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1": "sha256:4146f6f5f1cf11f275a2eada7cbc8285c1cbc1bc4d96a928178ffb7981656c5a"
+  "schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1": "sha256:4146f6f5f1cf11f275a2eada7cbc8285c1cbc1bc4d96a928178ffb7981656c5a",
+  "schema://ioi/foundations/objects/improvement-governance-profile/v1": "sha256:7fb6fe67351d2ead0633bf3a32f2e58100da62ee2ce56762e4059762d83df297",
+  "schema://ioi/foundations/objects/improvement-agenda/v1": "sha256:02824eb43257a82049ae4f4879f025df3e5131258e96c420ace732a4fbf20c71",
+  "schema://ioi/foundations/objects/improvement-campaign/v1": "sha256:248984be8835493361b89337332682d46d324f2986aa197f0e23f64239fc80f2",
+  "schema://ioi/foundations/objects/evaluation-epoch/v1": "sha256:062741b0dadebdba1090c1fa2196e82100e545e08c5e2ebd579b9ed001d85f89",
+  "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1": "sha256:f6e321cab5d88abcc6e1f5c729af4842c7cc6942e706d38a2a891a65c68f1f20",
+  "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1": "sha256:51cd5599e3e05db1e1e3c6766c0a611410b9595c45801db23a14f4f66e098d8b"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -128524,6 +129209,2417 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[a-z][a-z0-9_]*$"
       }
     }
+  },
+  "schema://ioi/foundations/objects/improvement-governance-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+    "title": "ImprovementGovernanceProfileEnvelope",
+    "description": "THE OWNER'S IMMUTABLE CAMPAIGN-ADMISSION POLICY. One owner-qualified revision of the policy under which the owner scope may admit ImprovementCampaign work: which targets are mutable and which protected, the target-order, nesting and unattended-generation ceilings, the ancestor reservation policies, and the admission, stop, evaluator-firewall, evaluator-independence, promotion-authority and irreversible-effect-recovery policies. It is not a campaign, an evaluator, an authority grant or a promotion decision. Identity is derived from the durable stream (bounded-improvement.md § ImprovementGovernanceProfileEnvelope); `content_hash` commits the immutable body under a domain separator and excludes the registry projections and the admission stamp, so a later status is a projection and never a rewrite. A non-null `system_id` is admitted by shape and refused by the daemon until the constitution's protected profile binding exists.",
+    "x-ioi-schema-version": "ioi.improvement-governance-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "optionalSystemRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "ledgerRef": {
+        "type": "string",
+        "pattern": "^ledger://[^\\s]{1,248}$"
+      },
+      "budgetRef": {
+        "type": "string",
+        "pattern": "^budget://[^\\s]{1,248}$"
+      },
+      "projectionRef": {
+        "type": "string",
+        "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+      },
+      "lifecycleRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profileFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "profileRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "agendaFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "agendaRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "campaignRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureLedgerRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "cutoffReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+      },
+      "learningBoundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "goalRunProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+      },
+      "workSubjectRef": {
+        "type": "string",
+        "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+      },
+      "outcomeRoomRef": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "policyRefList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "boundedOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedPositive": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "boundedSequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "boundedUnits": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "improvement_governance_profile_id",
+      "revision_ref",
+      "version",
+      "predecessor_revision_ref",
+      "content_hash",
+      "owner_ref",
+      "system_id",
+      "mutable_target_allowlist_refs",
+      "protected_target_refs",
+      "protected_target_change_decision_profile_refs",
+      "max_target_improvement_order",
+      "max_active_nested_campaign_depth",
+      "max_unattended_target_generations",
+      "ancestor_reservation_policy_refs",
+      "campaign_admission_policy_ref",
+      "campaign_stop_policy_ref",
+      "evaluator_firewall_policy_ref",
+      "evaluator_independence_policy_ref",
+      "promotion_authority_policy_ref",
+      "irreversible_effect_recovery_policy_ref",
+      "registry_lifecycle_ref",
+      "registry_status",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.improvement-governance-profile.v1"
+      },
+      "improvement_governance_profile_id": {
+        "$ref": "#/$defs/profileFamilyRef"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/profileRevisionRef"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/profileRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/optionalSystemRef"
+      },
+      "mutable_target_allowlist_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "protected_target_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "protected_target_change_decision_profile_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "max_target_improvement_order": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "max_active_nested_campaign_depth": {
+        "$ref": "#/$defs/boundedPositive"
+      },
+      "max_unattended_target_generations": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "ancestor_reservation_policy_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource_budget",
+          "statistical_risk_budget",
+          "evaluation_exposure_budget"
+        ],
+        "properties": {
+          "resource_budget": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "statistical_risk_budget": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "evaluation_exposure_budget": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "campaign_admission_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "campaign_stop_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "evaluator_firewall_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "evaluator_independence_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "promotion_authority_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "irreversible_effect_recovery_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "registry_lifecycle_ref": {
+        "$ref": "#/$defs/lifecycleRef"
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "active",
+          "superseded",
+          "revoked"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/improvement-agenda/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+    "title": "ImprovementAgendaEnvelope",
+    "description": "AN IMMUTABLE-BY-REVISION, NON-EXECUTABLE PORTFOLIO OF QUESTIONS WORTH INVESTIGATING. It requests targets and evidence; it cannot choose current-epoch truth or authorize target mutation, and only a RELEASED revision is campaign-admission eligible. `content_hash` commits the body and excludes the registry projections, the release decision and the admission stamp, so a release is a successor admission of the SAME revision carrying the identical hash (bounded-improvement.md § ImprovementAgendaEnvelope). A registered invariant requires a released revision to name its release decision.",
+    "x-ioi-schema-version": "ioi.improvement-agenda.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "optionalSystemRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "ledgerRef": {
+        "type": "string",
+        "pattern": "^ledger://[^\\s]{1,248}$"
+      },
+      "budgetRef": {
+        "type": "string",
+        "pattern": "^budget://[^\\s]{1,248}$"
+      },
+      "projectionRef": {
+        "type": "string",
+        "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+      },
+      "lifecycleRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profileFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "profileRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "agendaFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "agendaRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "campaignRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureLedgerRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "cutoffReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+      },
+      "learningBoundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "goalRunProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+      },
+      "workSubjectRef": {
+        "type": "string",
+        "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+      },
+      "outcomeRoomRef": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "policyRefList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "boundedOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedPositive": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "boundedSequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "boundedUnits": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "improvement_agenda_id",
+      "revision_ref",
+      "revision",
+      "predecessor_revision_ref",
+      "content_hash",
+      "owner_ref",
+      "system_id",
+      "constitution_and_policy_refs",
+      "governance_policy_refs",
+      "release_decision_ref",
+      "target_graph_ref",
+      "portfolio_allocation_policy_ref",
+      "items",
+      "registry_lifecycle_ref",
+      "registry_status",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.improvement-agenda.v1"
+      },
+      "improvement_agenda_id": {
+        "$ref": "#/$defs/agendaFamilyRef"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/agendaRevisionRef"
+      },
+      "revision": {
+        "$ref": "#/$defs/boundedPositive"
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/agendaRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/optionalSystemRef"
+      },
+      "constitution_and_policy_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "governance_policy_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "release_decision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/decisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "target_graph_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "portfolio_allocation_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agenda_item_id",
+            "target_ref",
+            "target_class",
+            "requested_target_improvement_order",
+            "requested_target_order_path_ref",
+            "mechanism_hypothesis_ref",
+            "causal_prediction_and_falsifier_ref",
+            "minimum_decisive_test_ref",
+            "evidence_gap_and_uncertainty_ref",
+            "transfer_and_reproduction_requirement_refs",
+            "hard_constraint_and_risk_refs",
+            "protected_exclusion_refs",
+            "dependency_and_readiness_refs",
+            "requested_budget_ref",
+            "effect_recovery_policy_ref"
+          ],
+          "properties": {
+            "agenda_item_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "target_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "target_class": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "requested_target_improvement_order": {
+              "$ref": "#/$defs/boundedOrder"
+            },
+            "requested_target_order_path_ref": {
+              "$ref": "#/$defs/artifactRef"
+            },
+            "mechanism_hypothesis_ref": {
+              "$ref": "#/$defs/artifactRef"
+            },
+            "causal_prediction_and_falsifier_ref": {
+              "$ref": "#/$defs/artifactRef"
+            },
+            "minimum_decisive_test_ref": {
+              "type": "string",
+              "pattern": "^(?:policy|artifact)://[^\\s]{1,248}$"
+            },
+            "evidence_gap_and_uncertainty_ref": {
+              "$ref": "#/$defs/artifactRef"
+            },
+            "transfer_and_reproduction_requirement_refs": {
+              "$ref": "#/$defs/refList"
+            },
+            "hard_constraint_and_risk_refs": {
+              "$ref": "#/$defs/refList"
+            },
+            "protected_exclusion_refs": {
+              "$ref": "#/$defs/refList"
+            },
+            "dependency_and_readiness_refs": {
+              "$ref": "#/$defs/refList"
+            },
+            "requested_budget_ref": {
+              "$ref": "#/$defs/budgetRef"
+            },
+            "effect_recovery_policy_ref": {
+              "$ref": "#/$defs/policyRef"
+            }
+          }
+        }
+      },
+      "registry_lifecycle_ref": {
+        "$ref": "#/$defs/lifecycleRef"
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "evaluable",
+          "released",
+          "superseded",
+          "retired"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/improvement-campaign/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+    "title": "ImprovementCampaignEnvelope",
+    "description": "THE OPTIONAL MULTI-EPOCH DOMAIN LIFECYCLE FOR ONE MUTABLE TARGET, in three tiers with three commitments (bounded-improvement.md § ImprovementCampaignEnvelope). THE CONTRACT — every member declared at creation plus the four the daemon resolves then (the target and incumbent roots read through the target's owner, the pursuit-method order and edge, and the learning-boundary policy hash read through that plane) — is frozen by `campaign_contract_root`, and a registered invariant re-derives that root offline, so a lifecycle successor that moved a contract member is inadmissible rather than merely suspicious. ADMISSION FACTS are null while proposed and written once by admission; a registered invariant requires an admitted, active, paused, stopped or closed campaign to name its admission decision. PROJECTIONS (child work, candidate refs, the active and historical epochs, cutoffs, reservations, the operation head and `lifecycle_status`) advance by later operations, and `content_hash` commits the whole entry except itself, the chained `operation_head_root` and the admission stamp. THE CAMPAIGN OWNS NO PRODUCTION MUTATION: its only exit is an ordinary pending UpgradeProposal bound to it, evaluated by the target owner's unchanged gate. A non-null `system_id` and an atomic target bundle are admitted by shape and refused typed by the daemon until their owners build the constitution binding and the bundle activation owner.",
+    "x-ioi-schema-version": "ioi.improvement-campaign.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "optionalSystemRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "ledgerRef": {
+        "type": "string",
+        "pattern": "^ledger://[^\\s]{1,248}$"
+      },
+      "budgetRef": {
+        "type": "string",
+        "pattern": "^budget://[^\\s]{1,248}$"
+      },
+      "projectionRef": {
+        "type": "string",
+        "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+      },
+      "lifecycleRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profileFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "profileRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "agendaFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "agendaRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "campaignRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureLedgerRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "cutoffReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+      },
+      "learningBoundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "goalRunProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+      },
+      "workSubjectRef": {
+        "type": "string",
+        "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+      },
+      "outcomeRoomRef": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "policyRefList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "boundedOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedPositive": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "boundedSequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "boundedUnits": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "improvement_campaign_id",
+      "campaign_contract_revision_ref",
+      "campaign_contract_revision",
+      "predecessor_contract_revision_ref",
+      "campaign_contract_root",
+      "owner_ref",
+      "system_id",
+      "improvement_governance_profile_revision_ref",
+      "effective_governance_snapshot_ref",
+      "campaign_admission_decision_ref",
+      "campaign_admission_receipt_ref",
+      "admission_authority_and_constitution_snapshot_refs",
+      "coordinating_work_subject_ref",
+      "child_work_subject_refs",
+      "coordinating_pursuit",
+      "improvement_assurance_profile",
+      "resolved_component_snapshot_ref",
+      "outcome_room_ref",
+      "agenda_revision_ref",
+      "agenda_item_refs",
+      "campaign_mode",
+      "target_class",
+      "mutable_target_ref",
+      "atomic_target_bundle_ref",
+      "target_base_root",
+      "protected_boundary_refs",
+      "target_improvement_order",
+      "pursuit_method_order",
+      "target_to_pursuit_method_edge_ref",
+      "target_order_path_ref",
+      "target_order_assignment_receipt_ref",
+      "base_target_generation_index",
+      "effective_target_order_ceiling",
+      "effective_target_order_ceiling_ref",
+      "max_active_nested_campaign_depth",
+      "parent_execution_campaign_ref",
+      "predecessor_target_generation_campaign_ref",
+      "source_lower_order_campaign_refs",
+      "deployment_incumbent_ref",
+      "deployment_incumbent_root",
+      "candidate_archive_ref",
+      "candidate_resolved_component_snapshot_refs",
+      "active_evaluation_epoch_ref",
+      "historical_evaluation_epoch_refs",
+      "search_and_candidate_archive_policy_refs",
+      "synchronization_policy_ref",
+      "improvement_order_cutoff_receipt_refs",
+      "ancestor_resource_budget_ledger_ref",
+      "resource_reservation_refs",
+      "ancestor_statistical_risk_budget_ledger_ref",
+      "statistical_risk_reservation_refs",
+      "inherited_evaluation_exposure_ledger_refs",
+      "evaluation_exposure_reservation_refs",
+      "learning_boundary_profile_ref",
+      "effective_learning_policy_hash",
+      "stop_policy_ref",
+      "rollback_recall_containment_compensation_and_reconciliation_policy_refs",
+      "operation_head_sequence",
+      "operation_head_root",
+      "derived_state_projection_ref",
+      "lifecycle_status",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.improvement-campaign.v1"
+      },
+      "improvement_campaign_id": {
+        "$ref": "#/$defs/campaignFamilyRef"
+      },
+      "campaign_contract_revision_ref": {
+        "$ref": "#/$defs/campaignRevisionRef"
+      },
+      "campaign_contract_revision": {
+        "$ref": "#/$defs/boundedPositive"
+      },
+      "predecessor_contract_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/campaignRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "campaign_contract_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/optionalSystemRef"
+      },
+      "improvement_governance_profile_revision_ref": {
+        "$ref": "#/$defs/profileRevisionRef"
+      },
+      "effective_governance_snapshot_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/artifactRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "campaign_admission_decision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/decisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "campaign_admission_receipt_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admission_authority_and_constitution_snapshot_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "coordinating_work_subject_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/workSubjectRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "child_work_subject_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "coordinating_pursuit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "goal_run_profile_revision_ref",
+          "goal_run_profile_resolution_receipt_ref"
+        ],
+        "properties": {
+          "goal_run_profile_revision_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/goalRunProfileRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal_run_profile_resolution_receipt_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/receiptRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "improvement_assurance_profile": {
+        "enum": [
+          "local_lightweight",
+          "independent_review",
+          "protected_build",
+          "adversarial_control",
+          "threshold_recovery",
+          "failure_domain_independent"
+        ]
+      },
+      "resolved_component_snapshot_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "outcome_room_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/outcomeRoomRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "agenda_revision_ref": {
+        "$ref": "#/$defs/agendaRevisionRef"
+      },
+      "agenda_item_refs": {
+        "type": "array",
+        "maxItems": 256,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "campaign_mode": {
+        "enum": [
+          "optimization",
+          "recursive_seat_test",
+          "transfer_test",
+          "independent_reproduction",
+          "evaluator_campaign"
+        ]
+      },
+      "target_class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "mutable_target_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "atomic_target_bundle_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/artifactRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "target_base_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "protected_boundary_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "target_improvement_order": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "pursuit_method_order": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1001
+      },
+      "target_to_pursuit_method_edge_ref": {
+        "type": "string",
+        "pattern": "^(?:artifact|receipt)://[^\\s]{1,248}$"
+      },
+      "target_order_path_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "target_order_assignment_receipt_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "base_target_generation_index": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "effective_target_order_ceiling": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/boundedOrder"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "effective_target_order_ceiling_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:policy|decision)://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "max_active_nested_campaign_depth": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/boundedPositive"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "parent_execution_campaign_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/campaignFamilyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_target_generation_campaign_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/campaignFamilyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "source_lower_order_campaign_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/campaignFamilyRef"
+        }
+      },
+      "deployment_incumbent_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "deployment_incumbent_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "candidate_archive_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/artifactRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "candidate_resolved_component_snapshot_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "active_evaluation_epoch_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/epochRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "historical_evaluation_epoch_refs": {
+        "type": "array",
+        "maxItems": 1000,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/epochRef"
+        }
+      },
+      "search_and_candidate_archive_policy_refs": {
+        "$ref": "#/$defs/policyRefList"
+      },
+      "synchronization_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "improvement_order_cutoff_receipt_refs": {
+        "type": "array",
+        "maxItems": 1000,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/cutoffReceiptRef"
+        }
+      },
+      "ancestor_resource_budget_ledger_ref": {
+        "$ref": "#/$defs/ledgerRef"
+      },
+      "resource_reservation_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "ancestor_statistical_risk_budget_ledger_ref": {
+        "$ref": "#/$defs/ledgerRef"
+      },
+      "statistical_risk_reservation_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "inherited_evaluation_exposure_ledger_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/exposureLedgerRef"
+        }
+      },
+      "evaluation_exposure_reservation_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "learning_boundary_profile_ref": {
+        "$ref": "#/$defs/learningBoundaryRevisionRef"
+      },
+      "effective_learning_policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "stop_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "rollback_recall_containment_compensation_and_reconciliation_policy_refs": {
+        "$ref": "#/$defs/policyRefList"
+      },
+      "operation_head_sequence": {
+        "$ref": "#/$defs/boundedSequence"
+      },
+      "operation_head_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "derived_state_projection_ref": {
+        "$ref": "#/$defs/projectionRef"
+      },
+      "lifecycle_status": {
+        "enum": [
+          "proposed",
+          "admitted",
+          "active",
+          "paused",
+          "stopped",
+          "closed"
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/evaluation-epoch/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+    "title": "EvaluationEpochEnvelope",
+    "description": "ONE FROZEN JUDGMENT CONTRACT FOR ONE CAMPAIGN. The epoch copies its coordinates from the active campaign it is created under — campaign ref, contract revision and root, the pursuit profile and snapshot refs, both orders, the generation index, the incumbent and its root, the ledgers it inherits — and freezes with them the evaluation suites, evaluator versions, statistical policy, holdout custody and the sealed-evaluation exposure budget in units its ledger may reserve. `frozen_root` commits every member except itself, the lifecycle projections, the challenge evidence and the admission stamp, is re-derived offline by a registered invariant, and is BINDING from freeze onward, so a successor that moved a frozen member is inadmissible. Lifecycle is a projection: `draft → frozen → active → closed`, with `challenged` reachable from active and `invalidated` from frozen, active or challenged; a challenged epoch names its evidence. Search cannot redefine an epoch, and a campaign has at most one active epoch (bounded-improvement.md § EvaluationEpochEnvelope).",
+    "x-ioi-schema-version": "ioi.evaluation-epoch.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "optionalSystemRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "ledgerRef": {
+        "type": "string",
+        "pattern": "^ledger://[^\\s]{1,248}$"
+      },
+      "budgetRef": {
+        "type": "string",
+        "pattern": "^budget://[^\\s]{1,248}$"
+      },
+      "projectionRef": {
+        "type": "string",
+        "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+      },
+      "lifecycleRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profileFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "profileRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "agendaFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "agendaRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "campaignRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureLedgerRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "cutoffReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+      },
+      "learningBoundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "goalRunProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+      },
+      "workSubjectRef": {
+        "type": "string",
+        "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+      },
+      "outcomeRoomRef": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "policyRefList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "boundedOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedPositive": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "boundedSequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "boundedUnits": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "evaluation_epoch_id",
+      "campaign_ref",
+      "campaign_contract_revision_ref",
+      "campaign_contract_root",
+      "predecessor_epoch_ref",
+      "pursuit_goal_run_profile_revision_ref",
+      "pursuit_profile_resolution_and_component_snapshot_refs",
+      "target_improvement_order",
+      "pursuit_method_order",
+      "base_target_generation_index",
+      "target_graph_and_order_path_roots",
+      "deployment_incumbent_ref",
+      "deployment_incumbent_root",
+      "synchronization_cutoff_receipt_ref",
+      "visible_eval_refs",
+      "sealed_holdout_commitment_refs",
+      "transfer_ood_and_adversarial_eval_refs",
+      "recursive_seat_and_metaproductivity_metric_refs",
+      "cross_play_and_causal_ablation_policy_ref",
+      "transfer_non_regression_and_hard_constraint_gate_refs",
+      "metric_and_selection_policy_ref",
+      "cost_normalization_ref",
+      "confirmatory_estimand_and_minimum_effect_refs",
+      "statistical_test_and_winner_adjustment_refs",
+      "risk_wealth_allocation_ref",
+      "power_and_inconclusive_stop_policy_ref",
+      "campaign_false_promotion_budget_ref",
+      "ancestor_statistical_risk_budget_ledger_ref",
+      "inherited_evaluation_exposure_ledger_refs",
+      "sealed_feedback_release_and_exposure_spend_policy_refs",
+      "evaluation_exposure_budget_policy_ref",
+      "evaluation_exposure_budget_units",
+      "evaluator_version_and_affiliation_refs",
+      "holdout_custodian_refs",
+      "external_reality_anchor_refs",
+      "operational_acceptance_owner_refs",
+      "leakage_rotation_and_challenge_policy_refs",
+      "frozen_root",
+      "lifecycle_ref",
+      "lifecycle_status",
+      "challenge_evidence_refs",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.evaluation-epoch.v1"
+      },
+      "evaluation_epoch_id": {
+        "$ref": "#/$defs/epochRef"
+      },
+      "campaign_ref": {
+        "$ref": "#/$defs/campaignFamilyRef"
+      },
+      "campaign_contract_revision_ref": {
+        "$ref": "#/$defs/campaignRevisionRef"
+      },
+      "campaign_contract_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "predecessor_epoch_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/epochRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pursuit_goal_run_profile_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/goalRunProfileRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pursuit_profile_resolution_and_component_snapshot_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "target_improvement_order": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "pursuit_method_order": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1001
+      },
+      "base_target_generation_index": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "target_graph_and_order_path_roots": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "deployment_incumbent_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "deployment_incumbent_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "synchronization_cutoff_receipt_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/cutoffReceiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "visible_eval_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "sealed_holdout_commitment_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "transfer_ood_and_adversarial_eval_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "recursive_seat_and_metaproductivity_metric_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "cross_play_and_causal_ablation_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "transfer_non_regression_and_hard_constraint_gate_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "metric_and_selection_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "cost_normalization_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "confirmatory_estimand_and_minimum_effect_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "statistical_test_and_winner_adjustment_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "risk_wealth_allocation_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "power_and_inconclusive_stop_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "campaign_false_promotion_budget_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "ancestor_statistical_risk_budget_ledger_ref": {
+        "$ref": "#/$defs/ledgerRef"
+      },
+      "inherited_evaluation_exposure_ledger_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/exposureLedgerRef"
+        }
+      },
+      "sealed_feedback_release_and_exposure_spend_policy_refs": {
+        "$ref": "#/$defs/policyRefList"
+      },
+      "evaluation_exposure_budget_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "evaluation_exposure_budget_units": {
+        "$ref": "#/$defs/boundedUnits"
+      },
+      "evaluator_version_and_affiliation_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "holdout_custodian_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "external_reality_anchor_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "operational_acceptance_owner_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "leakage_rotation_and_challenge_policy_refs": {
+        "$ref": "#/$defs/policyRefList"
+      },
+      "frozen_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "lifecycle_ref": {
+        "$ref": "#/$defs/lifecycleRef"
+      },
+      "lifecycle_status": {
+        "enum": [
+          "draft",
+          "frozen",
+          "active",
+          "challenged",
+          "closed",
+          "invalidated"
+        ]
+      },
+      "challenge_evidence_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+    "title": "EvaluationExposureLedgerEnvelope",
+    "description": "THE APPEND-ONLY ACCOUNT OF SEALED-EVALUATION EXPOSURE FOR ONE FROZEN EPOCH. Created by the epoch's freeze with the frozen budget, it accumulates reservation, spend, return, contamination, rotation and invalidation entries, each chained to the previous entry's root, and derives the remaining exposure as a SUBTRACTION — `remaining_units = exposure_budget_units − (reserved_units − returned_units)` — so a reservation beyond the budget, or a spend or return beyond the outstanding reservation, is refused rather than absorbed. Every integer here is bounded: units and budgets to 1000000000, sequences to 1000000, entries to 4096 per ledger. Registered invariants require the head sequence to equal the entry count and spent, returned and remaining never to exceed what they are drawn from; the per-entry root chain is verified by the gate against a live daemon, because it needs the predecessor entry. It is evaluation-integrity state, not currency, authority or permission to reveal sealed material (bounded-improvement.md § EvaluationExposureLedgerEnvelope).",
+    "x-ioi-schema-version": "ioi.evaluation-exposure-ledger.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "optionalSystemRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "ledgerRef": {
+        "type": "string",
+        "pattern": "^ledger://[^\\s]{1,248}$"
+      },
+      "budgetRef": {
+        "type": "string",
+        "pattern": "^budget://[^\\s]{1,248}$"
+      },
+      "projectionRef": {
+        "type": "string",
+        "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+      },
+      "lifecycleRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profileFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "profileRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "agendaFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "agendaRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "campaignRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureLedgerRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "cutoffReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+      },
+      "learningBoundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "goalRunProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+      },
+      "workSubjectRef": {
+        "type": "string",
+        "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+      },
+      "outcomeRoomRef": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "policyRefList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "boundedOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedPositive": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "boundedSequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "boundedUnits": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "evaluation_exposure_ledger_id",
+      "evaluation_epoch_ref",
+      "ancestor_exposure_ledger_refs",
+      "steward_refs",
+      "sealed_suite_and_world_commitment_refs",
+      "exposure_budget_ref",
+      "exposure_budget_units",
+      "reserved_units",
+      "spent_units",
+      "returned_units",
+      "remaining_units",
+      "contaminated",
+      "entries",
+      "admitted_entry_refs",
+      "ledger_head_sequence",
+      "ledger_head_root",
+      "derived_exposure_and_contamination_projection_ref",
+      "lifecycle_decision_refs",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.evaluation-exposure-ledger.v1"
+      },
+      "evaluation_exposure_ledger_id": {
+        "$ref": "#/$defs/exposureLedgerRef"
+      },
+      "evaluation_epoch_ref": {
+        "$ref": "#/$defs/epochRef"
+      },
+      "ancestor_exposure_ledger_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/exposureLedgerRef"
+        }
+      },
+      "steward_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "sealed_suite_and_world_commitment_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "exposure_budget_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "exposure_budget_units": {
+        "$ref": "#/$defs/boundedUnits"
+      },
+      "reserved_units": {
+        "$ref": "#/$defs/boundedUnits"
+      },
+      "spent_units": {
+        "$ref": "#/$defs/boundedUnits"
+      },
+      "returned_units": {
+        "$ref": "#/$defs/boundedUnits"
+      },
+      "remaining_units": {
+        "$ref": "#/$defs/boundedUnits"
+      },
+      "contaminated": {
+        "type": "boolean"
+      },
+      "entries": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entry_seq",
+            "entry_ref",
+            "entry_kind",
+            "units",
+            "candidate_family_commitment",
+            "selected_case_commitment",
+            "information_return_class",
+            "evaluator_version_refs",
+            "access_receipt_refs",
+            "contamination_flag",
+            "previous_entry_root",
+            "entry_root"
+          ],
+          "properties": {
+            "entry_seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "entry_ref": {
+              "$ref": "#/$defs/exposureEntryRef"
+            },
+            "entry_kind": {
+              "enum": [
+                "reservation",
+                "spend",
+                "return",
+                "contamination",
+                "rotation",
+                "invalidation"
+              ]
+            },
+            "units": {
+              "$ref": "#/$defs/boundedUnits"
+            },
+            "candidate_family_commitment": {
+              "$ref": "#/$defs/sha256"
+            },
+            "selected_case_commitment": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "information_return_class": {
+              "enum": [
+                "none",
+                "aggregate",
+                "per_case",
+                "labels",
+                "internals"
+              ]
+            },
+            "evaluator_version_refs": {
+              "$ref": "#/$defs/refList"
+            },
+            "access_receipt_refs": {
+              "$ref": "#/$defs/refList"
+            },
+            "contamination_flag": {
+              "type": "boolean"
+            },
+            "previous_entry_root": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "entry_root": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      },
+      "admitted_entry_refs": {
+        "type": "array",
+        "maxItems": 4096,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/exposureEntryRef"
+        }
+      },
+      "ledger_head_sequence": {
+        "$ref": "#/$defs/boundedSequence"
+      },
+      "ledger_head_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "derived_exposure_and_contamination_projection_ref": {
+        "$ref": "#/$defs/projectionRef"
+      },
+      "lifecycle_decision_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+    "title": "ImprovementOrderCutoffReceiptEnvelope",
+    "description": "A TYPED EVIDENCE CUTOFF BETWEEN ADJACENT TARGET ORDERS — neither a live synchronization object nor later promotion proof. It binds one closed source epoch of one active campaign, the frozen source roots, the eligible findings and the eligibility decisions that admit them (resolved through the learning-boundary plane, never copied), the egress receipt an institutional-boundary crossing requires, the denied or quarantined classes, the destination base root and the previous cutoff root. `receipt_root` commits every member except itself, `content_hash` and the admission stamp and is re-derived offline; a registered invariant requires the destination order to lie strictly above the source order (the daemon enforces exactly plus one) and an `evidence_ready` disposition to carry at least one eligible ref. `blocked` names what a refused cutoff would have been and is never written by the daemon (bounded-improvement.md § ImprovementOrderCutoffReceiptEnvelope).",
+    "x-ioi-schema-version": "ioi.improvement-order-cutoff-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "optionalSystemRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "ledgerRef": {
+        "type": "string",
+        "pattern": "^ledger://[^\\s]{1,248}$"
+      },
+      "budgetRef": {
+        "type": "string",
+        "pattern": "^budget://[^\\s]{1,248}$"
+      },
+      "projectionRef": {
+        "type": "string",
+        "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+      },
+      "lifecycleRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profileFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "profileRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "agendaFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "agendaRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "campaignRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureLedgerRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "cutoffReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+      },
+      "learningBoundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "goalRunProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+      },
+      "workSubjectRef": {
+        "type": "string",
+        "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+      },
+      "outcomeRoomRef": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "policyRefList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "boundedOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedPositive": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "boundedSequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "boundedUnits": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_profile",
+      "receipt_profile_ref",
+      "source_campaign_ref",
+      "source_evaluation_epoch_ref",
+      "synchronization_wave_ref",
+      "source_campaign_epoch_and_archive_roots",
+      "source_target_improvement_order",
+      "source_target_generation_cutoff",
+      "intended_destination_target_order",
+      "per_order_source_version_and_cutoff_vector_ref",
+      "destination_base_root",
+      "agenda_revision_ref",
+      "agenda_and_task_distribution_roots",
+      "boundary_crossing",
+      "eligible_finding_and_outcome_refs",
+      "learning_evidence_eligibility_refs",
+      "learning_egress_receipt_refs",
+      "boundary_enforcement_access_and_custody_receipt_refs",
+      "effective_learning_policy_hash",
+      "denied_or_quarantined_information_class_refs",
+      "source_incumbent_resolved_component_snapshot_ref",
+      "inherited_budget_risk_and_exposure_reservation_roots",
+      "dependency_and_statistical_assumption_delta_ref",
+      "signal_bundle_ref",
+      "terminal_disposition",
+      "previous_cutoff_receipt_root",
+      "receipt_root",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.improvement-order-cutoff-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/cutoffReceiptRef"
+      },
+      "receipt_profile": {
+        "const": "improvement_order_cutoff"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"
+      },
+      "source_campaign_ref": {
+        "$ref": "#/$defs/campaignFamilyRef"
+      },
+      "source_evaluation_epoch_ref": {
+        "$ref": "#/$defs/epochRef"
+      },
+      "synchronization_wave_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "source_campaign_epoch_and_archive_roots": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "source_target_improvement_order": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "source_target_generation_cutoff": {
+        "$ref": "#/$defs/boundedOrder"
+      },
+      "intended_destination_target_order": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1001
+      },
+      "per_order_source_version_and_cutoff_vector_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "destination_base_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "agenda_revision_ref": {
+        "$ref": "#/$defs/agendaRevisionRef"
+      },
+      "agenda_and_task_distribution_roots": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "boundary_crossing": {
+        "enum": [
+          "same_boundary",
+          "institutional_boundary"
+        ]
+      },
+      "eligible_finding_and_outcome_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "learning_evidence_eligibility_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/eligibilityRevisionRef"
+        }
+      },
+      "learning_egress_receipt_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/receiptRef"
+        }
+      },
+      "boundary_enforcement_access_and_custody_receipt_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "effective_learning_policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "denied_or_quarantined_information_class_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "source_incumbent_resolved_component_snapshot_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "inherited_budget_risk_and_exposure_reservation_roots": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "dependency_and_statistical_assumption_delta_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "signal_bundle_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/artifactRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "terminal_disposition": {
+        "enum": [
+          "evidence_ready",
+          "no_change",
+          "blocked"
+        ]
+      },
+      "previous_cutoff_receipt_root": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receipt_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -145165,6 +148261,1192 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/foundations/objects/improvement-governance-profile/v1": [
+    {
+      "rule_id": "improvement_governance_profile.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.improvement_governance_profile_id",
+        "prefix": "improvement-governance-profile://",
+        "strip_prefix": "improvement-governance-profile://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_governance_profile.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the immutable body — every member except the hash itself, the registry projections (`registry_lifecycle_ref`, `registry_status`) and the admission stamp, under the domain separator `ioi.improvement-governance-profile-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-governance-profile-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_governance_profile_id": {
+            "path": "$.improvement_governance_profile_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "mutable_target_allowlist_refs": {
+            "path": "$.mutable_target_allowlist_refs"
+          },
+          "protected_target_refs": {
+            "path": "$.protected_target_refs"
+          },
+          "protected_target_change_decision_profile_refs": {
+            "path": "$.protected_target_change_decision_profile_refs"
+          },
+          "max_target_improvement_order": {
+            "path": "$.max_target_improvement_order"
+          },
+          "max_active_nested_campaign_depth": {
+            "path": "$.max_active_nested_campaign_depth"
+          },
+          "max_unattended_target_generations": {
+            "path": "$.max_unattended_target_generations"
+          },
+          "ancestor_reservation_policy_refs": {
+            "path": "$.ancestor_reservation_policy_refs"
+          },
+          "campaign_admission_policy_ref": {
+            "path": "$.campaign_admission_policy_ref"
+          },
+          "campaign_stop_policy_ref": {
+            "path": "$.campaign_stop_policy_ref"
+          },
+          "evaluator_firewall_policy_ref": {
+            "path": "$.evaluator_firewall_policy_ref"
+          },
+          "evaluator_independence_policy_ref": {
+            "path": "$.evaluator_independence_policy_ref"
+          },
+          "promotion_authority_policy_ref": {
+            "path": "$.promotion_authority_policy_ref"
+          },
+          "irreversible_effect_recovery_policy_ref": {
+            "path": "$.irreversible_effect_recovery_policy_ref"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/improvement-agenda/v1": [
+    {
+      "rule_id": "improvement_agenda.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.improvement_agenda_id",
+        "prefix": "improvement-agenda://",
+        "strip_prefix": "improvement-agenda://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_agenda.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the immutable body — every member except the hash itself, the registry projections, the release decision and the admission stamp, so a release carries the identical hash, under the domain separator `ioi.improvement-agenda-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-agenda-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_agenda_id": {
+            "path": "$.improvement_agenda_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "constitution_and_policy_refs": {
+            "path": "$.constitution_and_policy_refs"
+          },
+          "governance_policy_refs": {
+            "path": "$.governance_policy_refs"
+          },
+          "target_graph_ref": {
+            "path": "$.target_graph_ref"
+          },
+          "portfolio_allocation_policy_ref": {
+            "path": "$.portfolio_allocation_policy_ref"
+          },
+          "items": {
+            "path": "$.items"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_agenda.release.names_its_decision",
+      "description": "A RELEASE IS A GOVERNANCE DECISION, NOT A FLAG. A released revision names the decision that released it; a status that could be set without a decision would be a registry projection nobody made.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.registry_status",
+        "values": [
+          "released"
+        ],
+        "path": "$.release_decision_ref"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/improvement-campaign/v1": [
+    {
+      "rule_id": "improvement_campaign.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.campaign_contract_revision_ref",
+        "expected_path": "$.improvement_campaign_id",
+        "prefix": "improvement-campaign://",
+        "strip_prefix": "improvement-campaign://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.campaign_contract_root.freezes_the_contract",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.campaign_contract_root commits THE CONTRACT — every member declared at creation plus the four the daemon resolves then; a lifecycle successor that moved any of them fails this rule offline, which is what makes `campaign_binding_mismatch` a property of the bytes, under the domain separator `ioi.improvement-campaign-contract-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-campaign-contract-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_campaign_id": {
+            "path": "$.improvement_campaign_id"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_revision": {
+            "path": "$.campaign_contract_revision"
+          },
+          "predecessor_contract_revision_ref": {
+            "path": "$.predecessor_contract_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "improvement_governance_profile_revision_ref": {
+            "path": "$.improvement_governance_profile_revision_ref"
+          },
+          "coordinating_work_subject_ref": {
+            "path": "$.coordinating_work_subject_ref"
+          },
+          "coordinating_pursuit": {
+            "path": "$.coordinating_pursuit"
+          },
+          "improvement_assurance_profile": {
+            "path": "$.improvement_assurance_profile"
+          },
+          "resolved_component_snapshot_ref": {
+            "path": "$.resolved_component_snapshot_ref"
+          },
+          "outcome_room_ref": {
+            "path": "$.outcome_room_ref"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_item_refs": {
+            "path": "$.agenda_item_refs"
+          },
+          "campaign_mode": {
+            "path": "$.campaign_mode"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "mutable_target_ref": {
+            "path": "$.mutable_target_ref"
+          },
+          "atomic_target_bundle_ref": {
+            "path": "$.atomic_target_bundle_ref"
+          },
+          "target_base_root": {
+            "path": "$.target_base_root"
+          },
+          "protected_boundary_refs": {
+            "path": "$.protected_boundary_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "target_to_pursuit_method_edge_ref": {
+            "path": "$.target_to_pursuit_method_edge_ref"
+          },
+          "target_order_path_ref": {
+            "path": "$.target_order_path_ref"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "parent_execution_campaign_ref": {
+            "path": "$.parent_execution_campaign_ref"
+          },
+          "predecessor_target_generation_campaign_ref": {
+            "path": "$.predecessor_target_generation_campaign_ref"
+          },
+          "source_lower_order_campaign_refs": {
+            "path": "$.source_lower_order_campaign_refs"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "search_and_candidate_archive_policy_refs": {
+            "path": "$.search_and_candidate_archive_policy_refs"
+          },
+          "synchronization_policy_ref": {
+            "path": "$.synchronization_policy_ref"
+          },
+          "ancestor_resource_budget_ledger_ref": {
+            "path": "$.ancestor_resource_budget_ledger_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "learning_boundary_profile_ref": {
+            "path": "$.learning_boundary_profile_ref"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "rollback_recall_containment_compensation_and_reconciliation_policy_refs": {
+            "path": "$.rollback_recall_containment_compensation_and_reconciliation_policy_refs"
+          }
+        },
+        "expected_path": "$.campaign_contract_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself, the chained operation head root and the admission stamp — the contract, the admission facts and the projections together, under the domain separator `ioi.improvement-campaign-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-campaign-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_campaign_id": {
+            "path": "$.improvement_campaign_id"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_revision": {
+            "path": "$.campaign_contract_revision"
+          },
+          "predecessor_contract_revision_ref": {
+            "path": "$.predecessor_contract_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "improvement_governance_profile_revision_ref": {
+            "path": "$.improvement_governance_profile_revision_ref"
+          },
+          "coordinating_work_subject_ref": {
+            "path": "$.coordinating_work_subject_ref"
+          },
+          "coordinating_pursuit": {
+            "path": "$.coordinating_pursuit"
+          },
+          "improvement_assurance_profile": {
+            "path": "$.improvement_assurance_profile"
+          },
+          "resolved_component_snapshot_ref": {
+            "path": "$.resolved_component_snapshot_ref"
+          },
+          "outcome_room_ref": {
+            "path": "$.outcome_room_ref"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_item_refs": {
+            "path": "$.agenda_item_refs"
+          },
+          "campaign_mode": {
+            "path": "$.campaign_mode"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "mutable_target_ref": {
+            "path": "$.mutable_target_ref"
+          },
+          "atomic_target_bundle_ref": {
+            "path": "$.atomic_target_bundle_ref"
+          },
+          "target_base_root": {
+            "path": "$.target_base_root"
+          },
+          "protected_boundary_refs": {
+            "path": "$.protected_boundary_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "target_to_pursuit_method_edge_ref": {
+            "path": "$.target_to_pursuit_method_edge_ref"
+          },
+          "target_order_path_ref": {
+            "path": "$.target_order_path_ref"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "parent_execution_campaign_ref": {
+            "path": "$.parent_execution_campaign_ref"
+          },
+          "predecessor_target_generation_campaign_ref": {
+            "path": "$.predecessor_target_generation_campaign_ref"
+          },
+          "source_lower_order_campaign_refs": {
+            "path": "$.source_lower_order_campaign_refs"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "search_and_candidate_archive_policy_refs": {
+            "path": "$.search_and_candidate_archive_policy_refs"
+          },
+          "synchronization_policy_ref": {
+            "path": "$.synchronization_policy_ref"
+          },
+          "ancestor_resource_budget_ledger_ref": {
+            "path": "$.ancestor_resource_budget_ledger_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "learning_boundary_profile_ref": {
+            "path": "$.learning_boundary_profile_ref"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "rollback_recall_containment_compensation_and_reconciliation_policy_refs": {
+            "path": "$.rollback_recall_containment_compensation_and_reconciliation_policy_refs"
+          },
+          "campaign_contract_root": {
+            "path": "$.campaign_contract_root"
+          },
+          "effective_governance_snapshot_ref": {
+            "path": "$.effective_governance_snapshot_ref"
+          },
+          "campaign_admission_decision_ref": {
+            "path": "$.campaign_admission_decision_ref"
+          },
+          "campaign_admission_receipt_ref": {
+            "path": "$.campaign_admission_receipt_ref"
+          },
+          "admission_authority_and_constitution_snapshot_refs": {
+            "path": "$.admission_authority_and_constitution_snapshot_refs"
+          },
+          "target_order_assignment_receipt_ref": {
+            "path": "$.target_order_assignment_receipt_ref"
+          },
+          "effective_target_order_ceiling": {
+            "path": "$.effective_target_order_ceiling"
+          },
+          "effective_target_order_ceiling_ref": {
+            "path": "$.effective_target_order_ceiling_ref"
+          },
+          "max_active_nested_campaign_depth": {
+            "path": "$.max_active_nested_campaign_depth"
+          },
+          "child_work_subject_refs": {
+            "path": "$.child_work_subject_refs"
+          },
+          "candidate_archive_ref": {
+            "path": "$.candidate_archive_ref"
+          },
+          "candidate_resolved_component_snapshot_refs": {
+            "path": "$.candidate_resolved_component_snapshot_refs"
+          },
+          "active_evaluation_epoch_ref": {
+            "path": "$.active_evaluation_epoch_ref"
+          },
+          "historical_evaluation_epoch_refs": {
+            "path": "$.historical_evaluation_epoch_refs"
+          },
+          "improvement_order_cutoff_receipt_refs": {
+            "path": "$.improvement_order_cutoff_receipt_refs"
+          },
+          "resource_reservation_refs": {
+            "path": "$.resource_reservation_refs"
+          },
+          "statistical_risk_reservation_refs": {
+            "path": "$.statistical_risk_reservation_refs"
+          },
+          "evaluation_exposure_reservation_refs": {
+            "path": "$.evaluation_exposure_reservation_refs"
+          },
+          "operation_head_sequence": {
+            "path": "$.operation_head_sequence"
+          },
+          "derived_state_projection_ref": {
+            "path": "$.derived_state_projection_ref"
+          },
+          "lifecycle_status": {
+            "path": "$.lifecycle_status"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.target.names_exactly_one_shape",
+      "description": "EXACTLY ONE OF A MUTABLE TARGET OR AN ATOMIC BUNDLE. At least one is required here; the daemon refuses a bundle typed and refuses both together, so an admitted record names precisely one.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.mutable_target_ref",
+          "$.atomic_target_bundle_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.admission.names_its_decision",
+      "description": "ADMISSION IS A DECISION SOMEBODY MADE. Every lifecycle state past `proposed` names the admission decision that reached it; a runnable campaign nobody admitted would be exactly the campaign-truth-from-a-caller-claim canon forbids.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.lifecycle_status",
+        "values": [
+          "admitted",
+          "active",
+          "paused",
+          "stopped",
+          "closed"
+        ],
+        "path": "$.campaign_admission_decision_ref"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.order.pursuit_method_follows_target",
+      "description": "THE PURSUIT METHOD IS AT LEAST ONE ORDER ABOVE THE TARGET. Canon records `pursuit_method_order` only with the frozen target-to-method edge as the target order plus one; the strict inequality is the half the portable language can state.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.target_improvement_order",
+          "$.pursuit_method_order"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/evaluation-epoch/v1": [
+    {
+      "rule_id": "evaluation_epoch.frozen_root.freezes_the_judgment_contract",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.frozen_root commits THE FROZEN CONTRACT — every member except the root itself, the lifecycle projections, the challenge evidence and the admission stamp; binding from freeze onward, so a successor that moved a frozen member is inadmissible, under the domain separator `ioi.evaluation-epoch-frozen-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-epoch-frozen-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_epoch_id": {
+            "path": "$.evaluation_epoch_id"
+          },
+          "campaign_ref": {
+            "path": "$.campaign_ref"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_root": {
+            "path": "$.campaign_contract_root"
+          },
+          "predecessor_epoch_ref": {
+            "path": "$.predecessor_epoch_ref"
+          },
+          "pursuit_goal_run_profile_revision_ref": {
+            "path": "$.pursuit_goal_run_profile_revision_ref"
+          },
+          "pursuit_profile_resolution_and_component_snapshot_refs": {
+            "path": "$.pursuit_profile_resolution_and_component_snapshot_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "target_graph_and_order_path_roots": {
+            "path": "$.target_graph_and_order_path_roots"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "synchronization_cutoff_receipt_ref": {
+            "path": "$.synchronization_cutoff_receipt_ref"
+          },
+          "visible_eval_refs": {
+            "path": "$.visible_eval_refs"
+          },
+          "sealed_holdout_commitment_refs": {
+            "path": "$.sealed_holdout_commitment_refs"
+          },
+          "transfer_ood_and_adversarial_eval_refs": {
+            "path": "$.transfer_ood_and_adversarial_eval_refs"
+          },
+          "recursive_seat_and_metaproductivity_metric_refs": {
+            "path": "$.recursive_seat_and_metaproductivity_metric_refs"
+          },
+          "cross_play_and_causal_ablation_policy_ref": {
+            "path": "$.cross_play_and_causal_ablation_policy_ref"
+          },
+          "transfer_non_regression_and_hard_constraint_gate_refs": {
+            "path": "$.transfer_non_regression_and_hard_constraint_gate_refs"
+          },
+          "metric_and_selection_policy_ref": {
+            "path": "$.metric_and_selection_policy_ref"
+          },
+          "cost_normalization_ref": {
+            "path": "$.cost_normalization_ref"
+          },
+          "confirmatory_estimand_and_minimum_effect_refs": {
+            "path": "$.confirmatory_estimand_and_minimum_effect_refs"
+          },
+          "statistical_test_and_winner_adjustment_refs": {
+            "path": "$.statistical_test_and_winner_adjustment_refs"
+          },
+          "risk_wealth_allocation_ref": {
+            "path": "$.risk_wealth_allocation_ref"
+          },
+          "power_and_inconclusive_stop_policy_ref": {
+            "path": "$.power_and_inconclusive_stop_policy_ref"
+          },
+          "campaign_false_promotion_budget_ref": {
+            "path": "$.campaign_false_promotion_budget_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "sealed_feedback_release_and_exposure_spend_policy_refs": {
+            "path": "$.sealed_feedback_release_and_exposure_spend_policy_refs"
+          },
+          "evaluation_exposure_budget_policy_ref": {
+            "path": "$.evaluation_exposure_budget_policy_ref"
+          },
+          "evaluation_exposure_budget_units": {
+            "path": "$.evaluation_exposure_budget_units"
+          },
+          "evaluator_version_and_affiliation_refs": {
+            "path": "$.evaluator_version_and_affiliation_refs"
+          },
+          "holdout_custodian_refs": {
+            "path": "$.holdout_custodian_refs"
+          },
+          "external_reality_anchor_refs": {
+            "path": "$.external_reality_anchor_refs"
+          },
+          "operational_acceptance_owner_refs": {
+            "path": "$.operational_acceptance_owner_refs"
+          },
+          "leakage_rotation_and_challenge_policy_refs": {
+            "path": "$.leakage_rotation_and_challenge_policy_refs"
+          }
+        },
+        "expected_path": "$.frozen_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "evaluation_epoch.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.evaluation-epoch-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-epoch-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_epoch_id": {
+            "path": "$.evaluation_epoch_id"
+          },
+          "campaign_ref": {
+            "path": "$.campaign_ref"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_root": {
+            "path": "$.campaign_contract_root"
+          },
+          "predecessor_epoch_ref": {
+            "path": "$.predecessor_epoch_ref"
+          },
+          "pursuit_goal_run_profile_revision_ref": {
+            "path": "$.pursuit_goal_run_profile_revision_ref"
+          },
+          "pursuit_profile_resolution_and_component_snapshot_refs": {
+            "path": "$.pursuit_profile_resolution_and_component_snapshot_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "target_graph_and_order_path_roots": {
+            "path": "$.target_graph_and_order_path_roots"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "synchronization_cutoff_receipt_ref": {
+            "path": "$.synchronization_cutoff_receipt_ref"
+          },
+          "visible_eval_refs": {
+            "path": "$.visible_eval_refs"
+          },
+          "sealed_holdout_commitment_refs": {
+            "path": "$.sealed_holdout_commitment_refs"
+          },
+          "transfer_ood_and_adversarial_eval_refs": {
+            "path": "$.transfer_ood_and_adversarial_eval_refs"
+          },
+          "recursive_seat_and_metaproductivity_metric_refs": {
+            "path": "$.recursive_seat_and_metaproductivity_metric_refs"
+          },
+          "cross_play_and_causal_ablation_policy_ref": {
+            "path": "$.cross_play_and_causal_ablation_policy_ref"
+          },
+          "transfer_non_regression_and_hard_constraint_gate_refs": {
+            "path": "$.transfer_non_regression_and_hard_constraint_gate_refs"
+          },
+          "metric_and_selection_policy_ref": {
+            "path": "$.metric_and_selection_policy_ref"
+          },
+          "cost_normalization_ref": {
+            "path": "$.cost_normalization_ref"
+          },
+          "confirmatory_estimand_and_minimum_effect_refs": {
+            "path": "$.confirmatory_estimand_and_minimum_effect_refs"
+          },
+          "statistical_test_and_winner_adjustment_refs": {
+            "path": "$.statistical_test_and_winner_adjustment_refs"
+          },
+          "risk_wealth_allocation_ref": {
+            "path": "$.risk_wealth_allocation_ref"
+          },
+          "power_and_inconclusive_stop_policy_ref": {
+            "path": "$.power_and_inconclusive_stop_policy_ref"
+          },
+          "campaign_false_promotion_budget_ref": {
+            "path": "$.campaign_false_promotion_budget_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "sealed_feedback_release_and_exposure_spend_policy_refs": {
+            "path": "$.sealed_feedback_release_and_exposure_spend_policy_refs"
+          },
+          "evaluation_exposure_budget_policy_ref": {
+            "path": "$.evaluation_exposure_budget_policy_ref"
+          },
+          "evaluation_exposure_budget_units": {
+            "path": "$.evaluation_exposure_budget_units"
+          },
+          "evaluator_version_and_affiliation_refs": {
+            "path": "$.evaluator_version_and_affiliation_refs"
+          },
+          "holdout_custodian_refs": {
+            "path": "$.holdout_custodian_refs"
+          },
+          "external_reality_anchor_refs": {
+            "path": "$.external_reality_anchor_refs"
+          },
+          "operational_acceptance_owner_refs": {
+            "path": "$.operational_acceptance_owner_refs"
+          },
+          "leakage_rotation_and_challenge_policy_refs": {
+            "path": "$.leakage_rotation_and_challenge_policy_refs"
+          },
+          "frozen_root": {
+            "path": "$.frozen_root"
+          },
+          "lifecycle_ref": {
+            "path": "$.lifecycle_ref"
+          },
+          "lifecycle_status": {
+            "path": "$.lifecycle_status"
+          },
+          "challenge_evidence_refs": {
+            "path": "$.challenge_evidence_refs"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "evaluation_epoch.challenge.names_its_evidence",
+      "description": "A CHALLENGE APPENDS LINKED EVIDENCE rather than rewriting the epoch; a challenged epoch with no evidence would be a status somebody asserted.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.lifecycle_status",
+        "values": [
+          "challenged"
+        ],
+        "path": "$.challenge_evidence_refs"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1": [
+    {
+      "rule_id": "evaluation_exposure_ledger.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp — including every ledger entry and the derived counters, so a counter edited to make an exposure fit fails offline, under the domain separator `ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_exposure_ledger_id": {
+            "path": "$.evaluation_exposure_ledger_id"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "ancestor_exposure_ledger_refs": {
+            "path": "$.ancestor_exposure_ledger_refs"
+          },
+          "steward_refs": {
+            "path": "$.steward_refs"
+          },
+          "sealed_suite_and_world_commitment_refs": {
+            "path": "$.sealed_suite_and_world_commitment_refs"
+          },
+          "exposure_budget_ref": {
+            "path": "$.exposure_budget_ref"
+          },
+          "exposure_budget_units": {
+            "path": "$.exposure_budget_units"
+          },
+          "reserved_units": {
+            "path": "$.reserved_units"
+          },
+          "spent_units": {
+            "path": "$.spent_units"
+          },
+          "returned_units": {
+            "path": "$.returned_units"
+          },
+          "remaining_units": {
+            "path": "$.remaining_units"
+          },
+          "contaminated": {
+            "path": "$.contaminated"
+          },
+          "entries": {
+            "path": "$.entries"
+          },
+          "admitted_entry_refs": {
+            "path": "$.admitted_entry_refs"
+          },
+          "ledger_head_sequence": {
+            "path": "$.ledger_head_sequence"
+          },
+          "ledger_head_root": {
+            "path": "$.ledger_head_root"
+          },
+          "derived_exposure_and_contamination_projection_ref": {
+            "path": "$.derived_exposure_and_contamination_projection_ref"
+          },
+          "lifecycle_decision_refs": {
+            "path": "$.lifecycle_decision_refs"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.head.counts_the_entries",
+      "description": "THE HEAD SEQUENCE IS THE ENTRY COUNT, and the admitted entry refs are the entries; two independent statements about the same list is the cheapest tell that one was edited.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.entries",
+        "count_path": "$.ledger_head_sequence"
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.refs.count_the_entries",
+      "description": "Every admitted entry is addressable, and nothing is addressable that was not admitted.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.admitted_entry_refs",
+        "count_path": "$.ledger_head_sequence"
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.spent.never_exceeds_reserved",
+      "description": "EXPOSURE IS SPENT FROM A RESERVATION. Spent units can never exceed reserved units; the daemon refuses the finer rule (spend beyond the outstanding reservation) live, and this is the bound the portable language can state.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.spent_units",
+          "$.reserved_units"
+        ]
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.returned.never_exceeds_reserved",
+      "description": "Only reserved exposure can be returned.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.returned_units",
+          "$.reserved_units"
+        ]
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.remaining.never_exceeds_budget",
+      "description": "Remaining exposure is derived from the budget by subtraction and can never exceed it; a ledger that claimed more remaining than it was given would have minted exposure.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.remaining_units",
+          "$.exposure_budget_units"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1": [
+    {
+      "rule_id": "improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.receipt_root commits THE RECEIPT — every member except the root itself, the entry commitment and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_profile": {
+            "path": "$.receipt_profile"
+          },
+          "receipt_profile_ref": {
+            "path": "$.receipt_profile_ref"
+          },
+          "source_campaign_ref": {
+            "path": "$.source_campaign_ref"
+          },
+          "source_evaluation_epoch_ref": {
+            "path": "$.source_evaluation_epoch_ref"
+          },
+          "synchronization_wave_ref": {
+            "path": "$.synchronization_wave_ref"
+          },
+          "source_campaign_epoch_and_archive_roots": {
+            "path": "$.source_campaign_epoch_and_archive_roots"
+          },
+          "source_target_improvement_order": {
+            "path": "$.source_target_improvement_order"
+          },
+          "source_target_generation_cutoff": {
+            "path": "$.source_target_generation_cutoff"
+          },
+          "intended_destination_target_order": {
+            "path": "$.intended_destination_target_order"
+          },
+          "per_order_source_version_and_cutoff_vector_ref": {
+            "path": "$.per_order_source_version_and_cutoff_vector_ref"
+          },
+          "destination_base_root": {
+            "path": "$.destination_base_root"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_and_task_distribution_roots": {
+            "path": "$.agenda_and_task_distribution_roots"
+          },
+          "boundary_crossing": {
+            "path": "$.boundary_crossing"
+          },
+          "eligible_finding_and_outcome_refs": {
+            "path": "$.eligible_finding_and_outcome_refs"
+          },
+          "learning_evidence_eligibility_refs": {
+            "path": "$.learning_evidence_eligibility_refs"
+          },
+          "learning_egress_receipt_refs": {
+            "path": "$.learning_egress_receipt_refs"
+          },
+          "boundary_enforcement_access_and_custody_receipt_refs": {
+            "path": "$.boundary_enforcement_access_and_custody_receipt_refs"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "denied_or_quarantined_information_class_refs": {
+            "path": "$.denied_or_quarantined_information_class_refs"
+          },
+          "source_incumbent_resolved_component_snapshot_ref": {
+            "path": "$.source_incumbent_resolved_component_snapshot_ref"
+          },
+          "inherited_budget_risk_and_exposure_reservation_roots": {
+            "path": "$.inherited_budget_risk_and_exposure_reservation_roots"
+          },
+          "dependency_and_statistical_assumption_delta_ref": {
+            "path": "$.dependency_and_statistical_assumption_delta_ref"
+          },
+          "signal_bundle_ref": {
+            "path": "$.signal_bundle_ref"
+          },
+          "terminal_disposition": {
+            "path": "$.terminal_disposition"
+          },
+          "previous_cutoff_receipt_root": {
+            "path": "$.previous_cutoff_receipt_root"
+          }
+        },
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_order_cutoff_receipt.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_profile": {
+            "path": "$.receipt_profile"
+          },
+          "receipt_profile_ref": {
+            "path": "$.receipt_profile_ref"
+          },
+          "source_campaign_ref": {
+            "path": "$.source_campaign_ref"
+          },
+          "source_evaluation_epoch_ref": {
+            "path": "$.source_evaluation_epoch_ref"
+          },
+          "synchronization_wave_ref": {
+            "path": "$.synchronization_wave_ref"
+          },
+          "source_campaign_epoch_and_archive_roots": {
+            "path": "$.source_campaign_epoch_and_archive_roots"
+          },
+          "source_target_improvement_order": {
+            "path": "$.source_target_improvement_order"
+          },
+          "source_target_generation_cutoff": {
+            "path": "$.source_target_generation_cutoff"
+          },
+          "intended_destination_target_order": {
+            "path": "$.intended_destination_target_order"
+          },
+          "per_order_source_version_and_cutoff_vector_ref": {
+            "path": "$.per_order_source_version_and_cutoff_vector_ref"
+          },
+          "destination_base_root": {
+            "path": "$.destination_base_root"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_and_task_distribution_roots": {
+            "path": "$.agenda_and_task_distribution_roots"
+          },
+          "boundary_crossing": {
+            "path": "$.boundary_crossing"
+          },
+          "eligible_finding_and_outcome_refs": {
+            "path": "$.eligible_finding_and_outcome_refs"
+          },
+          "learning_evidence_eligibility_refs": {
+            "path": "$.learning_evidence_eligibility_refs"
+          },
+          "learning_egress_receipt_refs": {
+            "path": "$.learning_egress_receipt_refs"
+          },
+          "boundary_enforcement_access_and_custody_receipt_refs": {
+            "path": "$.boundary_enforcement_access_and_custody_receipt_refs"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "denied_or_quarantined_information_class_refs": {
+            "path": "$.denied_or_quarantined_information_class_refs"
+          },
+          "source_incumbent_resolved_component_snapshot_ref": {
+            "path": "$.source_incumbent_resolved_component_snapshot_ref"
+          },
+          "inherited_budget_risk_and_exposure_reservation_roots": {
+            "path": "$.inherited_budget_risk_and_exposure_reservation_roots"
+          },
+          "dependency_and_statistical_assumption_delta_ref": {
+            "path": "$.dependency_and_statistical_assumption_delta_ref"
+          },
+          "signal_bundle_ref": {
+            "path": "$.signal_bundle_ref"
+          },
+          "terminal_disposition": {
+            "path": "$.terminal_disposition"
+          },
+          "previous_cutoff_receipt_root": {
+            "path": "$.previous_cutoff_receipt_root"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_order_cutoff_receipt.edge.destination_lies_above_source",
+      "description": "EVIDENCE MOVES UPWARD ONE ADJACENT EDGE. The destination order lies strictly above the source order; the daemon refuses anything but exactly plus one, and this is the half the portable language can state.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.source_target_improvement_order",
+          "$.intended_destination_target_order"
+        ]
+      }
+    },
+    {
+      "rule_id": "improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence",
+      "description": "An `evidence_ready` cutoff names at least one eligible finding or outcome; a cutoff that was ready with nothing to move would be a synchronization claim with no evidence in it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.terminal_disposition",
+        "values": [
+          "evidence_ready"
+        ],
+        "path": "$.eligible_finding_and_outcome_refs"
+      }
+    }
   ]
 };
 
@@ -147818,4 +152100,40 @@ export function validateHypervisorHostMaintenancePlanV1(
   value: unknown,
 ): value is HypervisorHostMaintenancePlanV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-host-maintenance-plan/v1", value).ok;
+}
+
+export function validateImprovementGovernanceProfileEnvelopeV1(
+  value: unknown,
+): value is ImprovementGovernanceProfileEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/improvement-governance-profile/v1", value).ok;
+}
+
+export function validateImprovementAgendaEnvelopeV1(
+  value: unknown,
+): value is ImprovementAgendaEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/improvement-agenda/v1", value).ok;
+}
+
+export function validateImprovementCampaignEnvelopeV1(
+  value: unknown,
+): value is ImprovementCampaignEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/improvement-campaign/v1", value).ok;
+}
+
+export function validateEvaluationEpochEnvelopeV1(
+  value: unknown,
+): value is EvaluationEpochEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/evaluation-epoch/v1", value).ok;
+}
+
+export function validateEvaluationExposureLedgerEnvelopeV1(
+  value: unknown,
+): value is EvaluationExposureLedgerEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/evaluation-exposure-ledger/v1", value).ok;
+}
+
+export function validateImprovementOrderCutoffReceiptEnvelopeV1(
+  value: unknown,
+): value is ImprovementOrderCutoffReceiptEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", value).ok;
 }

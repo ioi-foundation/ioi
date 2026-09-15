@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.improvement-agenda.v1",
+  "improvement_agenda_id": "improvement-agenda://acme.intake-2026q3",
+  "revision_ref": "improvement-agenda://acme.intake-2026q3/revision/1",
+  "revision": 1,
+  "predecessor_revision_ref": null,
+  "content_hash": "sha256:94134082b3a85cf9049796d38d0773c077ac6ac0dc9a7d884201582ceae21d2f",
+  "owner_ref": "org://acme-clinic",
+  "system_id": null,
+  "constitution_and_policy_refs": [],
+  "governance_policy_refs": [
+    "policy://acme/governance/improvement/v1"
+  ],
+  "release_decision_ref": null,
+  "target_graph_ref": "artifact://acme/improvement/target-graph/v1",
+  "portfolio_allocation_policy_ref": "policy://acme/improvement/portfolio-allocation/v1",
+  "items": [],
+  "registry_lifecycle_ref": null,
+  "registry_status": "draft",
+  "admitted_at": "2026-09-15T10:00:00Z"
+}

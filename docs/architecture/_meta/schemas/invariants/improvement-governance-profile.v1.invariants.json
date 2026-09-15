@@ -1,0 +1,94 @@
+{
+  "$id": "invariant://ioi/foundations/objects/improvement-governance-profile/immutable-owner-scoped-revision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+  "rules": [
+    {
+      "rule_id": "improvement_governance_profile.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.improvement_governance_profile_id",
+        "prefix": "improvement-governance-profile://",
+        "strip_prefix": "improvement-governance-profile://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_governance_profile.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the immutable body — every member except the hash itself, the registry projections (`registry_lifecycle_ref`, `registry_status`) and the admission stamp, under the domain separator `ioi.improvement-governance-profile-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-governance-profile-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_governance_profile_id": {
+            "path": "$.improvement_governance_profile_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "mutable_target_allowlist_refs": {
+            "path": "$.mutable_target_allowlist_refs"
+          },
+          "protected_target_refs": {
+            "path": "$.protected_target_refs"
+          },
+          "protected_target_change_decision_profile_refs": {
+            "path": "$.protected_target_change_decision_profile_refs"
+          },
+          "max_target_improvement_order": {
+            "path": "$.max_target_improvement_order"
+          },
+          "max_active_nested_campaign_depth": {
+            "path": "$.max_active_nested_campaign_depth"
+          },
+          "max_unattended_target_generations": {
+            "path": "$.max_unattended_target_generations"
+          },
+          "ancestor_reservation_policy_refs": {
+            "path": "$.ancestor_reservation_policy_refs"
+          },
+          "campaign_admission_policy_ref": {
+            "path": "$.campaign_admission_policy_ref"
+          },
+          "campaign_stop_policy_ref": {
+            "path": "$.campaign_stop_policy_ref"
+          },
+          "evaluator_firewall_policy_ref": {
+            "path": "$.evaluator_firewall_policy_ref"
+          },
+          "evaluator_independence_policy_ref": {
+            "path": "$.evaluator_independence_policy_ref"
+          },
+          "promotion_authority_policy_ref": {
+            "path": "$.promotion_authority_policy_ref"
+          },
+          "irreversible_effect_recovery_policy_ref": {
+            "path": "$.irreversible_effect_recovery_policy_ref"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": "ioi.improvement-order-cutoff-receipt.v1",
+  "receipt_id": "receipt://acme.cutoff-1",
+  "receipt_profile": "improvement_order_cutoff",
+  "receipt_profile_ref": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+  "source_campaign_ref": "improvement-campaign://acme.intake-harness-selection",
+  "source_evaluation_epoch_ref": "evaluation-epoch://acme.intake-harness-selection.epoch-1",
+  "synchronization_wave_ref": "artifact://acme/improvement/sync-wave/2026-09-15",
+  "source_campaign_epoch_and_archive_roots": [
+    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+  ],
+  "source_target_improvement_order": 0,
+  "source_target_generation_cutoff": 1,
+  "intended_destination_target_order": 1,
+  "per_order_source_version_and_cutoff_vector_ref": "artifact://acme/improvement/cutoff-vector/2026-09-15",
+  "destination_base_root": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "agenda_revision_ref": "improvement-agenda://acme.intake-2026q3/revision/1",
+  "agenda_and_task_distribution_roots": [
+    "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  ],
+  "boundary_crossing": "same_boundary",
+  "eligible_finding_and_outcome_refs": [
+    "finding://acme/intake-correction/0431"
+  ],
+  "learning_evidence_eligibility_refs": [
+    "eligibility://acme.intake-corrections/revision/1"
+  ],
+  "learning_egress_receipt_refs": [],
+  "boundary_enforcement_access_and_custody_receipt_refs": [
+    "receipt://acme.holdout-access-0912-0003"
+  ],
+  "effective_learning_policy_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "denied_or_quarantined_information_class_refs": [
+    "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  ],
+  "source_incumbent_resolved_component_snapshot_ref": "artifact://acme/improvement/component-snapshot/launch-policy/v1",
+  "inherited_budget_risk_and_exposure_reservation_roots": [
+    "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  ],
+  "dependency_and_statistical_assumption_delta_ref": "artifact://acme/improvement/assumption-delta/2026-09-15",
+  "signal_bundle_ref": null,
+  "terminal_disposition": "evidence_ready",
+  "previous_cutoff_receipt_root": null,
+  "receipt_root": "sha256:83a7ed01b04b922ef74e04292f0b825558e0e20d6610a77d27510a4a919bf3be",
+  "content_hash": "sha256:70dded0d874b94d1c2893af63d128dd7f140f94b18aaebbba89ba7a64e5b9135",
+  "admitted_at": "2026-09-15T10:00:00Z"
+}

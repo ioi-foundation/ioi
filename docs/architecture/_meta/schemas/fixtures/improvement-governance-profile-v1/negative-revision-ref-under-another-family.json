@@ -1,0 +1,36 @@
+{
+  "schema_version": "ioi.improvement-governance-profile.v1",
+  "improvement_governance_profile_id": "improvement-governance-profile://acme.intake-improvement",
+  "revision_ref": "improvement-governance-profile://acme.other/revision/1",
+  "version": "1.0.0",
+  "predecessor_revision_ref": null,
+  "content_hash": "sha256:9b96ef4f97ada6951097f6d0e8a98c188f3379787a96cf7f35af2aee0b27b601",
+  "owner_ref": "org://acme-clinic",
+  "system_id": null,
+  "mutable_target_allowlist_refs": [
+    "ioi-agent-policy://pol_auto_default"
+  ],
+  "protected_target_refs": [
+    "ioi-agent-policy://pol_private_only"
+  ],
+  "protected_target_change_decision_profile_refs": [
+    "decision://acme/protected-target-change/v1"
+  ],
+  "max_target_improvement_order": 2,
+  "max_active_nested_campaign_depth": 2,
+  "max_unattended_target_generations": 0,
+  "ancestor_reservation_policy_refs": {
+    "resource_budget": "policy://acme/improvement/resource-budget/v1",
+    "statistical_risk_budget": "policy://acme/improvement/statistical-risk/v1",
+    "evaluation_exposure_budget": "policy://acme/improvement/exposure-budget/v1"
+  },
+  "campaign_admission_policy_ref": "policy://acme/improvement/admission/v1",
+  "campaign_stop_policy_ref": "policy://acme/improvement/stop/v1",
+  "evaluator_firewall_policy_ref": "policy://acme/improvement/evaluator-firewall/v1",
+  "evaluator_independence_policy_ref": "policy://acme/improvement/evaluator-independence/v1",
+  "promotion_authority_policy_ref": "policy://acme/improvement/promotion-authority/v1",
+  "irreversible_effect_recovery_policy_ref": "policy://acme/improvement/effect-recovery/v1",
+  "registry_lifecycle_ref": null,
+  "registry_status": "active",
+  "admitted_at": "2026-09-15T10:00:00Z"
+}

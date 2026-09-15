@@ -1,0 +1,130 @@
+{
+  "$id": "invariant://ioi/foundations/objects/evaluation-exposure-ledger/immutable-owner-scoped-revision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+  "rules": [
+    {
+      "rule_id": "evaluation_exposure_ledger.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp — including every ledger entry and the derived counters, so a counter edited to make an exposure fit fails offline, under the domain separator `ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-exposure-ledger-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_exposure_ledger_id": {
+            "path": "$.evaluation_exposure_ledger_id"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "ancestor_exposure_ledger_refs": {
+            "path": "$.ancestor_exposure_ledger_refs"
+          },
+          "steward_refs": {
+            "path": "$.steward_refs"
+          },
+          "sealed_suite_and_world_commitment_refs": {
+            "path": "$.sealed_suite_and_world_commitment_refs"
+          },
+          "exposure_budget_ref": {
+            "path": "$.exposure_budget_ref"
+          },
+          "exposure_budget_units": {
+            "path": "$.exposure_budget_units"
+          },
+          "reserved_units": {
+            "path": "$.reserved_units"
+          },
+          "spent_units": {
+            "path": "$.spent_units"
+          },
+          "returned_units": {
+            "path": "$.returned_units"
+          },
+          "remaining_units": {
+            "path": "$.remaining_units"
+          },
+          "contaminated": {
+            "path": "$.contaminated"
+          },
+          "entries": {
+            "path": "$.entries"
+          },
+          "admitted_entry_refs": {
+            "path": "$.admitted_entry_refs"
+          },
+          "ledger_head_sequence": {
+            "path": "$.ledger_head_sequence"
+          },
+          "ledger_head_root": {
+            "path": "$.ledger_head_root"
+          },
+          "derived_exposure_and_contamination_projection_ref": {
+            "path": "$.derived_exposure_and_contamination_projection_ref"
+          },
+          "lifecycle_decision_refs": {
+            "path": "$.lifecycle_decision_refs"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.head.counts_the_entries",
+      "description": "THE HEAD SEQUENCE IS THE ENTRY COUNT, and the admitted entry refs are the entries; two independent statements about the same list is the cheapest tell that one was edited.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.entries",
+        "count_path": "$.ledger_head_sequence"
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.refs.count_the_entries",
+      "description": "Every admitted entry is addressable, and nothing is addressable that was not admitted.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.admitted_entry_refs",
+        "count_path": "$.ledger_head_sequence"
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.spent.never_exceeds_reserved",
+      "description": "EXPOSURE IS SPENT FROM A RESERVATION. Spent units can never exceed reserved units; the daemon refuses the finer rule (spend beyond the outstanding reservation) live, and this is the bound the portable language can state.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.spent_units",
+          "$.reserved_units"
+        ]
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.returned.never_exceeds_reserved",
+      "description": "Only reserved exposure can be returned.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.returned_units",
+          "$.reserved_units"
+        ]
+      }
+    },
+    {
+      "rule_id": "evaluation_exposure_ledger.remaining.never_exceeds_budget",
+      "description": "Remaining exposure is derived from the budget by subtraction and can never exceed it; a ledger that claimed more remaining than it was given would have minted exposure.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.remaining_units",
+          "$.exposure_budget_units"
+        ]
+      }
+    }
+  ]
+}

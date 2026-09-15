@@ -1,0 +1,390 @@
+{
+  "$id": "invariant://ioi/foundations/objects/improvement-campaign/immutable-owner-scoped-revision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+  "rules": [
+    {
+      "rule_id": "improvement_campaign.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.campaign_contract_revision_ref",
+        "expected_path": "$.improvement_campaign_id",
+        "prefix": "improvement-campaign://",
+        "strip_prefix": "improvement-campaign://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.campaign_contract_root.freezes_the_contract",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.campaign_contract_root commits THE CONTRACT — every member declared at creation plus the four the daemon resolves then; a lifecycle successor that moved any of them fails this rule offline, which is what makes `campaign_binding_mismatch` a property of the bytes, under the domain separator `ioi.improvement-campaign-contract-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-campaign-contract-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_campaign_id": {
+            "path": "$.improvement_campaign_id"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_revision": {
+            "path": "$.campaign_contract_revision"
+          },
+          "predecessor_contract_revision_ref": {
+            "path": "$.predecessor_contract_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "improvement_governance_profile_revision_ref": {
+            "path": "$.improvement_governance_profile_revision_ref"
+          },
+          "coordinating_work_subject_ref": {
+            "path": "$.coordinating_work_subject_ref"
+          },
+          "coordinating_pursuit": {
+            "path": "$.coordinating_pursuit"
+          },
+          "improvement_assurance_profile": {
+            "path": "$.improvement_assurance_profile"
+          },
+          "resolved_component_snapshot_ref": {
+            "path": "$.resolved_component_snapshot_ref"
+          },
+          "outcome_room_ref": {
+            "path": "$.outcome_room_ref"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_item_refs": {
+            "path": "$.agenda_item_refs"
+          },
+          "campaign_mode": {
+            "path": "$.campaign_mode"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "mutable_target_ref": {
+            "path": "$.mutable_target_ref"
+          },
+          "atomic_target_bundle_ref": {
+            "path": "$.atomic_target_bundle_ref"
+          },
+          "target_base_root": {
+            "path": "$.target_base_root"
+          },
+          "protected_boundary_refs": {
+            "path": "$.protected_boundary_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "target_to_pursuit_method_edge_ref": {
+            "path": "$.target_to_pursuit_method_edge_ref"
+          },
+          "target_order_path_ref": {
+            "path": "$.target_order_path_ref"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "parent_execution_campaign_ref": {
+            "path": "$.parent_execution_campaign_ref"
+          },
+          "predecessor_target_generation_campaign_ref": {
+            "path": "$.predecessor_target_generation_campaign_ref"
+          },
+          "source_lower_order_campaign_refs": {
+            "path": "$.source_lower_order_campaign_refs"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "search_and_candidate_archive_policy_refs": {
+            "path": "$.search_and_candidate_archive_policy_refs"
+          },
+          "synchronization_policy_ref": {
+            "path": "$.synchronization_policy_ref"
+          },
+          "ancestor_resource_budget_ledger_ref": {
+            "path": "$.ancestor_resource_budget_ledger_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "learning_boundary_profile_ref": {
+            "path": "$.learning_boundary_profile_ref"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "rollback_recall_containment_compensation_and_reconciliation_policy_refs": {
+            "path": "$.rollback_recall_containment_compensation_and_reconciliation_policy_refs"
+          }
+        },
+        "expected_path": "$.campaign_contract_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself, the chained operation head root and the admission stamp — the contract, the admission facts and the projections together, under the domain separator `ioi.improvement-campaign-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-campaign-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_campaign_id": {
+            "path": "$.improvement_campaign_id"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_revision": {
+            "path": "$.campaign_contract_revision"
+          },
+          "predecessor_contract_revision_ref": {
+            "path": "$.predecessor_contract_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "improvement_governance_profile_revision_ref": {
+            "path": "$.improvement_governance_profile_revision_ref"
+          },
+          "coordinating_work_subject_ref": {
+            "path": "$.coordinating_work_subject_ref"
+          },
+          "coordinating_pursuit": {
+            "path": "$.coordinating_pursuit"
+          },
+          "improvement_assurance_profile": {
+            "path": "$.improvement_assurance_profile"
+          },
+          "resolved_component_snapshot_ref": {
+            "path": "$.resolved_component_snapshot_ref"
+          },
+          "outcome_room_ref": {
+            "path": "$.outcome_room_ref"
+          },
+          "agenda_revision_ref": {
+            "path": "$.agenda_revision_ref"
+          },
+          "agenda_item_refs": {
+            "path": "$.agenda_item_refs"
+          },
+          "campaign_mode": {
+            "path": "$.campaign_mode"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "mutable_target_ref": {
+            "path": "$.mutable_target_ref"
+          },
+          "atomic_target_bundle_ref": {
+            "path": "$.atomic_target_bundle_ref"
+          },
+          "target_base_root": {
+            "path": "$.target_base_root"
+          },
+          "protected_boundary_refs": {
+            "path": "$.protected_boundary_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "target_to_pursuit_method_edge_ref": {
+            "path": "$.target_to_pursuit_method_edge_ref"
+          },
+          "target_order_path_ref": {
+            "path": "$.target_order_path_ref"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "parent_execution_campaign_ref": {
+            "path": "$.parent_execution_campaign_ref"
+          },
+          "predecessor_target_generation_campaign_ref": {
+            "path": "$.predecessor_target_generation_campaign_ref"
+          },
+          "source_lower_order_campaign_refs": {
+            "path": "$.source_lower_order_campaign_refs"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "search_and_candidate_archive_policy_refs": {
+            "path": "$.search_and_candidate_archive_policy_refs"
+          },
+          "synchronization_policy_ref": {
+            "path": "$.synchronization_policy_ref"
+          },
+          "ancestor_resource_budget_ledger_ref": {
+            "path": "$.ancestor_resource_budget_ledger_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "learning_boundary_profile_ref": {
+            "path": "$.learning_boundary_profile_ref"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "rollback_recall_containment_compensation_and_reconciliation_policy_refs": {
+            "path": "$.rollback_recall_containment_compensation_and_reconciliation_policy_refs"
+          },
+          "campaign_contract_root": {
+            "path": "$.campaign_contract_root"
+          },
+          "effective_governance_snapshot_ref": {
+            "path": "$.effective_governance_snapshot_ref"
+          },
+          "campaign_admission_decision_ref": {
+            "path": "$.campaign_admission_decision_ref"
+          },
+          "campaign_admission_receipt_ref": {
+            "path": "$.campaign_admission_receipt_ref"
+          },
+          "admission_authority_and_constitution_snapshot_refs": {
+            "path": "$.admission_authority_and_constitution_snapshot_refs"
+          },
+          "target_order_assignment_receipt_ref": {
+            "path": "$.target_order_assignment_receipt_ref"
+          },
+          "effective_target_order_ceiling": {
+            "path": "$.effective_target_order_ceiling"
+          },
+          "effective_target_order_ceiling_ref": {
+            "path": "$.effective_target_order_ceiling_ref"
+          },
+          "max_active_nested_campaign_depth": {
+            "path": "$.max_active_nested_campaign_depth"
+          },
+          "child_work_subject_refs": {
+            "path": "$.child_work_subject_refs"
+          },
+          "candidate_archive_ref": {
+            "path": "$.candidate_archive_ref"
+          },
+          "candidate_resolved_component_snapshot_refs": {
+            "path": "$.candidate_resolved_component_snapshot_refs"
+          },
+          "active_evaluation_epoch_ref": {
+            "path": "$.active_evaluation_epoch_ref"
+          },
+          "historical_evaluation_epoch_refs": {
+            "path": "$.historical_evaluation_epoch_refs"
+          },
+          "improvement_order_cutoff_receipt_refs": {
+            "path": "$.improvement_order_cutoff_receipt_refs"
+          },
+          "resource_reservation_refs": {
+            "path": "$.resource_reservation_refs"
+          },
+          "statistical_risk_reservation_refs": {
+            "path": "$.statistical_risk_reservation_refs"
+          },
+          "evaluation_exposure_reservation_refs": {
+            "path": "$.evaluation_exposure_reservation_refs"
+          },
+          "operation_head_sequence": {
+            "path": "$.operation_head_sequence"
+          },
+          "derived_state_projection_ref": {
+            "path": "$.derived_state_projection_ref"
+          },
+          "lifecycle_status": {
+            "path": "$.lifecycle_status"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.target.names_exactly_one_shape",
+      "description": "EXACTLY ONE OF A MUTABLE TARGET OR AN ATOMIC BUNDLE. At least one is required here; the daemon refuses a bundle typed and refuses both together, so an admitted record names precisely one.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.mutable_target_ref",
+          "$.atomic_target_bundle_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.admission.names_its_decision",
+      "description": "ADMISSION IS A DECISION SOMEBODY MADE. Every lifecycle state past `proposed` names the admission decision that reached it; a runnable campaign nobody admitted would be exactly the campaign-truth-from-a-caller-claim canon forbids.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.lifecycle_status",
+        "values": [
+          "admitted",
+          "active",
+          "paused",
+          "stopped",
+          "closed"
+        ],
+        "path": "$.campaign_admission_decision_ref"
+      }
+    },
+    {
+      "rule_id": "improvement_campaign.order.pursuit_method_follows_target",
+      "description": "THE PURSUIT METHOD IS AT LEAST ONE ORDER ABOVE THE TARGET. Canon records `pursuit_method_order` only with the frozen target-to-method edge as the target order plus one; the strict inequality is the half the portable language can state.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.target_improvement_order",
+          "$.pursuit_method_order"
+        ]
+      }
+    }
+  ]
+}

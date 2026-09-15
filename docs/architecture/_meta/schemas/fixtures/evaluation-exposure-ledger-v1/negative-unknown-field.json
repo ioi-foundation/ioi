@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.evaluation-exposure-ledger.v1",
+  "evaluation_exposure_ledger_id": "evaluation-exposure://acme.intake-harness-selection.epoch-1",
+  "evaluation_epoch_ref": "evaluation-epoch://acme.intake-harness-selection.epoch-1",
+  "ancestor_exposure_ledger_refs": [],
+  "steward_refs": [
+    "principal://acme/holdout-custodian"
+  ],
+  "sealed_suite_and_world_commitment_refs": [
+    "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  ],
+  "exposure_budget_ref": "policy://acme/improvement/exposure-budget/v1",
+  "exposure_budget_units": 5,
+  "reserved_units": 0,
+  "spent_units": 0,
+  "returned_units": 0,
+  "remaining_units": 5,
+  "contaminated": false,
+  "entries": [],
+  "admitted_entry_refs": [],
+  "ledger_head_sequence": 0,
+  "ledger_head_root": "sha256:0253a26d4fcb1a47d04becd805724b6deedb81c25879e9d64f0e6c58706c544a",
+  "derived_exposure_and_contamination_projection_ref": "agentgres://projection/evaluation-exposure/acme.intake-harness-selection.epoch-1",
+  "lifecycle_decision_refs": [],
+  "content_hash": "sha256:42e3682ea5ae45c6b60d823da4b0f2b004b050506dcd22acdc7a6c0739ae476b",
+  "admitted_at": "2026-09-15T10:00:00Z",
+  "balance": 5
+}

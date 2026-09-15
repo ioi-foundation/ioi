@@ -1,0 +1,82 @@
+{
+  "$id": "invariant://ioi/foundations/objects/improvement-agenda/immutable-owner-scoped-revision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+  "rules": [
+    {
+      "rule_id": "improvement_agenda.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. This rule requires the revision ref to begin with the family id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.improvement_agenda_id",
+        "prefix": "improvement-agenda://",
+        "strip_prefix": "improvement-agenda://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_agenda.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the immutable body — every member except the hash itself, the registry projections, the release decision and the admission stamp, so a release carries the identical hash, under the domain separator `ioi.improvement-agenda-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-agenda-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_agenda_id": {
+            "path": "$.improvement_agenda_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "constitution_and_policy_refs": {
+            "path": "$.constitution_and_policy_refs"
+          },
+          "governance_policy_refs": {
+            "path": "$.governance_policy_refs"
+          },
+          "target_graph_ref": {
+            "path": "$.target_graph_ref"
+          },
+          "portfolio_allocation_policy_ref": {
+            "path": "$.portfolio_allocation_policy_ref"
+          },
+          "items": {
+            "path": "$.items"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "improvement_agenda.release.names_its_decision",
+      "description": "A RELEASE IS A GOVERNANCE DECISION, NOT A FLAG. A released revision names the decision that released it; a status that could be set without a decision would be a registry projection nobody made.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.registry_status",
+        "values": [
+          "released"
+        ],
+        "path": "$.release_decision_ref"
+      }
+    }
+  ]
+}

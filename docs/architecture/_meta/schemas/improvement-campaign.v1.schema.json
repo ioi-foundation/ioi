@@ -1,0 +1,634 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+  "title": "ImprovementCampaignEnvelope",
+  "description": "THE OPTIONAL MULTI-EPOCH DOMAIN LIFECYCLE FOR ONE MUTABLE TARGET, in three tiers with three commitments (bounded-improvement.md § ImprovementCampaignEnvelope). THE CONTRACT — every member declared at creation plus the four the daemon resolves then (the target and incumbent roots read through the target's owner, the pursuit-method order and edge, and the learning-boundary policy hash read through that plane) — is frozen by `campaign_contract_root`, and a registered invariant re-derives that root offline, so a lifecycle successor that moved a contract member is inadmissible rather than merely suspicious. ADMISSION FACTS are null while proposed and written once by admission; a registered invariant requires an admitted, active, paused, stopped or closed campaign to name its admission decision. PROJECTIONS (child work, candidate refs, the active and historical epochs, cutoffs, reservations, the operation head and `lifecycle_status`) advance by later operations, and `content_hash` commits the whole entry except itself, the chained `operation_head_root` and the admission stamp. THE CAMPAIGN OWNS NO PRODUCTION MUTATION: its only exit is an ordinary pending UpgradeProposal bound to it, evaluated by the target owner's unchanged gate. A non-null `system_id` and an atomic target bundle are admitted by shape and refused typed by the daemon until their owners build the constitution binding and the bundle activation owner.",
+  "x-ioi-schema-version": "ioi.improvement-campaign.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "optionalSystemRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/systemRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "ledgerRef": {
+      "type": "string",
+      "pattern": "^ledger://[^\\s]{1,248}$"
+    },
+    "budgetRef": {
+      "type": "string",
+      "pattern": "^budget://[^\\s]{1,248}$"
+    },
+    "projectionRef": {
+      "type": "string",
+      "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+    },
+    "lifecycleRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profileFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "profileRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "agendaFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "agendaRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "campaignFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "campaignRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "epochRef": {
+      "type": "string",
+      "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureLedgerRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureEntryRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+    },
+    "cutoffReceiptRef": {
+      "type": "string",
+      "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+    },
+    "learningBoundaryRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "eligibilityRevisionRef": {
+      "type": "string",
+      "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "goalRunProfileRevisionRef": {
+      "type": "string",
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+    },
+    "workSubjectRef": {
+      "type": "string",
+      "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+    },
+    "outcomeRoomRef": {
+      "type": "string",
+      "pattern": "^outcome-room://[^\\s]{1,500}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "policyRefList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/policyRef"
+      }
+    },
+    "boundedOrder": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "boundedPositive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "boundedSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "boundedUnits": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "improvement_campaign_id",
+    "campaign_contract_revision_ref",
+    "campaign_contract_revision",
+    "predecessor_contract_revision_ref",
+    "campaign_contract_root",
+    "owner_ref",
+    "system_id",
+    "improvement_governance_profile_revision_ref",
+    "effective_governance_snapshot_ref",
+    "campaign_admission_decision_ref",
+    "campaign_admission_receipt_ref",
+    "admission_authority_and_constitution_snapshot_refs",
+    "coordinating_work_subject_ref",
+    "child_work_subject_refs",
+    "coordinating_pursuit",
+    "improvement_assurance_profile",
+    "resolved_component_snapshot_ref",
+    "outcome_room_ref",
+    "agenda_revision_ref",
+    "agenda_item_refs",
+    "campaign_mode",
+    "target_class",
+    "mutable_target_ref",
+    "atomic_target_bundle_ref",
+    "target_base_root",
+    "protected_boundary_refs",
+    "target_improvement_order",
+    "pursuit_method_order",
+    "target_to_pursuit_method_edge_ref",
+    "target_order_path_ref",
+    "target_order_assignment_receipt_ref",
+    "base_target_generation_index",
+    "effective_target_order_ceiling",
+    "effective_target_order_ceiling_ref",
+    "max_active_nested_campaign_depth",
+    "parent_execution_campaign_ref",
+    "predecessor_target_generation_campaign_ref",
+    "source_lower_order_campaign_refs",
+    "deployment_incumbent_ref",
+    "deployment_incumbent_root",
+    "candidate_archive_ref",
+    "candidate_resolved_component_snapshot_refs",
+    "active_evaluation_epoch_ref",
+    "historical_evaluation_epoch_refs",
+    "search_and_candidate_archive_policy_refs",
+    "synchronization_policy_ref",
+    "improvement_order_cutoff_receipt_refs",
+    "ancestor_resource_budget_ledger_ref",
+    "resource_reservation_refs",
+    "ancestor_statistical_risk_budget_ledger_ref",
+    "statistical_risk_reservation_refs",
+    "inherited_evaluation_exposure_ledger_refs",
+    "evaluation_exposure_reservation_refs",
+    "learning_boundary_profile_ref",
+    "effective_learning_policy_hash",
+    "stop_policy_ref",
+    "rollback_recall_containment_compensation_and_reconciliation_policy_refs",
+    "operation_head_sequence",
+    "operation_head_root",
+    "derived_state_projection_ref",
+    "lifecycle_status",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.improvement-campaign.v1"
+    },
+    "improvement_campaign_id": {
+      "$ref": "#/$defs/campaignFamilyRef"
+    },
+    "campaign_contract_revision_ref": {
+      "$ref": "#/$defs/campaignRevisionRef"
+    },
+    "campaign_contract_revision": {
+      "$ref": "#/$defs/boundedPositive"
+    },
+    "predecessor_contract_revision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/campaignRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "campaign_contract_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef"
+    },
+    "system_id": {
+      "$ref": "#/$defs/optionalSystemRef"
+    },
+    "improvement_governance_profile_revision_ref": {
+      "$ref": "#/$defs/profileRevisionRef"
+    },
+    "effective_governance_snapshot_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/artifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "campaign_admission_decision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/decisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "campaign_admission_receipt_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/receiptRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "admission_authority_and_constitution_snapshot_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "coordinating_work_subject_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/workSubjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "child_work_subject_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "coordinating_pursuit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "goal_run_profile_revision_ref",
+        "goal_run_profile_resolution_receipt_ref"
+      ],
+      "properties": {
+        "goal_run_profile_revision_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/goalRunProfileRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "goal_run_profile_resolution_receipt_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/receiptRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "improvement_assurance_profile": {
+      "enum": [
+        "local_lightweight",
+        "independent_review",
+        "protected_build",
+        "adversarial_control",
+        "threshold_recovery",
+        "failure_domain_independent"
+      ]
+    },
+    "resolved_component_snapshot_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "outcome_room_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/outcomeRoomRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "agenda_revision_ref": {
+      "$ref": "#/$defs/agendaRevisionRef"
+    },
+    "agenda_item_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      }
+    },
+    "campaign_mode": {
+      "enum": [
+        "optimization",
+        "recursive_seat_test",
+        "transfer_test",
+        "independent_reproduction",
+        "evaluator_campaign"
+      ]
+    },
+    "target_class": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "mutable_target_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "atomic_target_bundle_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/artifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "target_base_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "protected_boundary_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "target_improvement_order": {
+      "$ref": "#/$defs/boundedOrder"
+    },
+    "pursuit_method_order": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1001
+    },
+    "target_to_pursuit_method_edge_ref": {
+      "type": "string",
+      "pattern": "^(?:artifact|receipt)://[^\\s]{1,248}$"
+    },
+    "target_order_path_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "target_order_assignment_receipt_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/receiptRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "base_target_generation_index": {
+      "$ref": "#/$defs/boundedOrder"
+    },
+    "effective_target_order_ceiling": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/boundedOrder"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective_target_order_ceiling_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:policy|decision)://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "max_active_nested_campaign_depth": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/boundedPositive"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "parent_execution_campaign_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/campaignFamilyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "predecessor_target_generation_campaign_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/campaignFamilyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_lower_order_campaign_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/campaignFamilyRef"
+      }
+    },
+    "deployment_incumbent_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "deployment_incumbent_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "candidate_archive_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/artifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "candidate_resolved_component_snapshot_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "active_evaluation_epoch_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/epochRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "historical_evaluation_epoch_refs": {
+      "type": "array",
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/epochRef"
+      }
+    },
+    "search_and_candidate_archive_policy_refs": {
+      "$ref": "#/$defs/policyRefList"
+    },
+    "synchronization_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "improvement_order_cutoff_receipt_refs": {
+      "type": "array",
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/cutoffReceiptRef"
+      }
+    },
+    "ancestor_resource_budget_ledger_ref": {
+      "$ref": "#/$defs/ledgerRef"
+    },
+    "resource_reservation_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "ancestor_statistical_risk_budget_ledger_ref": {
+      "$ref": "#/$defs/ledgerRef"
+    },
+    "statistical_risk_reservation_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "inherited_evaluation_exposure_ledger_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/exposureLedgerRef"
+      }
+    },
+    "evaluation_exposure_reservation_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "learning_boundary_profile_ref": {
+      "$ref": "#/$defs/learningBoundaryRevisionRef"
+    },
+    "effective_learning_policy_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "stop_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "rollback_recall_containment_compensation_and_reconciliation_policy_refs": {
+      "$ref": "#/$defs/policyRefList"
+    },
+    "operation_head_sequence": {
+      "$ref": "#/$defs/boundedSequence"
+    },
+    "operation_head_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "derived_state_projection_ref": {
+      "$ref": "#/$defs/projectionRef"
+    },
+    "lifecycle_status": {
+      "enum": [
+        "proposed",
+        "admitted",
+        "active",
+        "paused",
+        "stopped",
+        "closed"
+      ]
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

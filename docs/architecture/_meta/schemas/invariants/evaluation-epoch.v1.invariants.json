@@ -1,0 +1,289 @@
+{
+  "$id": "invariant://ioi/foundations/objects/evaluation-epoch/immutable-owner-scoped-revision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+  "rules": [
+    {
+      "rule_id": "evaluation_epoch.frozen_root.freezes_the_judgment_contract",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.frozen_root commits THE FROZEN CONTRACT — every member except the root itself, the lifecycle projections, the challenge evidence and the admission stamp; binding from freeze onward, so a successor that moved a frozen member is inadmissible, under the domain separator `ioi.evaluation-epoch-frozen-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-epoch-frozen-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_epoch_id": {
+            "path": "$.evaluation_epoch_id"
+          },
+          "campaign_ref": {
+            "path": "$.campaign_ref"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_root": {
+            "path": "$.campaign_contract_root"
+          },
+          "predecessor_epoch_ref": {
+            "path": "$.predecessor_epoch_ref"
+          },
+          "pursuit_goal_run_profile_revision_ref": {
+            "path": "$.pursuit_goal_run_profile_revision_ref"
+          },
+          "pursuit_profile_resolution_and_component_snapshot_refs": {
+            "path": "$.pursuit_profile_resolution_and_component_snapshot_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "target_graph_and_order_path_roots": {
+            "path": "$.target_graph_and_order_path_roots"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "synchronization_cutoff_receipt_ref": {
+            "path": "$.synchronization_cutoff_receipt_ref"
+          },
+          "visible_eval_refs": {
+            "path": "$.visible_eval_refs"
+          },
+          "sealed_holdout_commitment_refs": {
+            "path": "$.sealed_holdout_commitment_refs"
+          },
+          "transfer_ood_and_adversarial_eval_refs": {
+            "path": "$.transfer_ood_and_adversarial_eval_refs"
+          },
+          "recursive_seat_and_metaproductivity_metric_refs": {
+            "path": "$.recursive_seat_and_metaproductivity_metric_refs"
+          },
+          "cross_play_and_causal_ablation_policy_ref": {
+            "path": "$.cross_play_and_causal_ablation_policy_ref"
+          },
+          "transfer_non_regression_and_hard_constraint_gate_refs": {
+            "path": "$.transfer_non_regression_and_hard_constraint_gate_refs"
+          },
+          "metric_and_selection_policy_ref": {
+            "path": "$.metric_and_selection_policy_ref"
+          },
+          "cost_normalization_ref": {
+            "path": "$.cost_normalization_ref"
+          },
+          "confirmatory_estimand_and_minimum_effect_refs": {
+            "path": "$.confirmatory_estimand_and_minimum_effect_refs"
+          },
+          "statistical_test_and_winner_adjustment_refs": {
+            "path": "$.statistical_test_and_winner_adjustment_refs"
+          },
+          "risk_wealth_allocation_ref": {
+            "path": "$.risk_wealth_allocation_ref"
+          },
+          "power_and_inconclusive_stop_policy_ref": {
+            "path": "$.power_and_inconclusive_stop_policy_ref"
+          },
+          "campaign_false_promotion_budget_ref": {
+            "path": "$.campaign_false_promotion_budget_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "sealed_feedback_release_and_exposure_spend_policy_refs": {
+            "path": "$.sealed_feedback_release_and_exposure_spend_policy_refs"
+          },
+          "evaluation_exposure_budget_policy_ref": {
+            "path": "$.evaluation_exposure_budget_policy_ref"
+          },
+          "evaluation_exposure_budget_units": {
+            "path": "$.evaluation_exposure_budget_units"
+          },
+          "evaluator_version_and_affiliation_refs": {
+            "path": "$.evaluator_version_and_affiliation_refs"
+          },
+          "holdout_custodian_refs": {
+            "path": "$.holdout_custodian_refs"
+          },
+          "external_reality_anchor_refs": {
+            "path": "$.external_reality_anchor_refs"
+          },
+          "operational_acceptance_owner_refs": {
+            "path": "$.operational_acceptance_owner_refs"
+          },
+          "leakage_rotation_and_challenge_policy_refs": {
+            "path": "$.leakage_rotation_and_challenge_policy_refs"
+          }
+        },
+        "expected_path": "$.frozen_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "evaluation_epoch.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.evaluation-epoch-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-epoch-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_epoch_id": {
+            "path": "$.evaluation_epoch_id"
+          },
+          "campaign_ref": {
+            "path": "$.campaign_ref"
+          },
+          "campaign_contract_revision_ref": {
+            "path": "$.campaign_contract_revision_ref"
+          },
+          "campaign_contract_root": {
+            "path": "$.campaign_contract_root"
+          },
+          "predecessor_epoch_ref": {
+            "path": "$.predecessor_epoch_ref"
+          },
+          "pursuit_goal_run_profile_revision_ref": {
+            "path": "$.pursuit_goal_run_profile_revision_ref"
+          },
+          "pursuit_profile_resolution_and_component_snapshot_refs": {
+            "path": "$.pursuit_profile_resolution_and_component_snapshot_refs"
+          },
+          "target_improvement_order": {
+            "path": "$.target_improvement_order"
+          },
+          "pursuit_method_order": {
+            "path": "$.pursuit_method_order"
+          },
+          "base_target_generation_index": {
+            "path": "$.base_target_generation_index"
+          },
+          "target_graph_and_order_path_roots": {
+            "path": "$.target_graph_and_order_path_roots"
+          },
+          "deployment_incumbent_ref": {
+            "path": "$.deployment_incumbent_ref"
+          },
+          "deployment_incumbent_root": {
+            "path": "$.deployment_incumbent_root"
+          },
+          "synchronization_cutoff_receipt_ref": {
+            "path": "$.synchronization_cutoff_receipt_ref"
+          },
+          "visible_eval_refs": {
+            "path": "$.visible_eval_refs"
+          },
+          "sealed_holdout_commitment_refs": {
+            "path": "$.sealed_holdout_commitment_refs"
+          },
+          "transfer_ood_and_adversarial_eval_refs": {
+            "path": "$.transfer_ood_and_adversarial_eval_refs"
+          },
+          "recursive_seat_and_metaproductivity_metric_refs": {
+            "path": "$.recursive_seat_and_metaproductivity_metric_refs"
+          },
+          "cross_play_and_causal_ablation_policy_ref": {
+            "path": "$.cross_play_and_causal_ablation_policy_ref"
+          },
+          "transfer_non_regression_and_hard_constraint_gate_refs": {
+            "path": "$.transfer_non_regression_and_hard_constraint_gate_refs"
+          },
+          "metric_and_selection_policy_ref": {
+            "path": "$.metric_and_selection_policy_ref"
+          },
+          "cost_normalization_ref": {
+            "path": "$.cost_normalization_ref"
+          },
+          "confirmatory_estimand_and_minimum_effect_refs": {
+            "path": "$.confirmatory_estimand_and_minimum_effect_refs"
+          },
+          "statistical_test_and_winner_adjustment_refs": {
+            "path": "$.statistical_test_and_winner_adjustment_refs"
+          },
+          "risk_wealth_allocation_ref": {
+            "path": "$.risk_wealth_allocation_ref"
+          },
+          "power_and_inconclusive_stop_policy_ref": {
+            "path": "$.power_and_inconclusive_stop_policy_ref"
+          },
+          "campaign_false_promotion_budget_ref": {
+            "path": "$.campaign_false_promotion_budget_ref"
+          },
+          "ancestor_statistical_risk_budget_ledger_ref": {
+            "path": "$.ancestor_statistical_risk_budget_ledger_ref"
+          },
+          "inherited_evaluation_exposure_ledger_refs": {
+            "path": "$.inherited_evaluation_exposure_ledger_refs"
+          },
+          "sealed_feedback_release_and_exposure_spend_policy_refs": {
+            "path": "$.sealed_feedback_release_and_exposure_spend_policy_refs"
+          },
+          "evaluation_exposure_budget_policy_ref": {
+            "path": "$.evaluation_exposure_budget_policy_ref"
+          },
+          "evaluation_exposure_budget_units": {
+            "path": "$.evaluation_exposure_budget_units"
+          },
+          "evaluator_version_and_affiliation_refs": {
+            "path": "$.evaluator_version_and_affiliation_refs"
+          },
+          "holdout_custodian_refs": {
+            "path": "$.holdout_custodian_refs"
+          },
+          "external_reality_anchor_refs": {
+            "path": "$.external_reality_anchor_refs"
+          },
+          "operational_acceptance_owner_refs": {
+            "path": "$.operational_acceptance_owner_refs"
+          },
+          "leakage_rotation_and_challenge_policy_refs": {
+            "path": "$.leakage_rotation_and_challenge_policy_refs"
+          },
+          "frozen_root": {
+            "path": "$.frozen_root"
+          },
+          "lifecycle_ref": {
+            "path": "$.lifecycle_ref"
+          },
+          "lifecycle_status": {
+            "path": "$.lifecycle_status"
+          },
+          "challenge_evidence_refs": {
+            "path": "$.challenge_evidence_refs"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "evaluation_epoch.challenge.names_its_evidence",
+      "description": "A CHALLENGE APPENDS LINKED EVIDENCE rather than rewriting the epoch; a challenged epoch with no evidence would be a status somebody asserted.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.lifecycle_status",
+        "values": [
+          "challenged"
+        ],
+        "path": "$.challenge_evidence_refs"
+      }
+    }
+  ]
+}

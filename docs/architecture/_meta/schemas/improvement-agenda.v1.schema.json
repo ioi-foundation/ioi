@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+  "title": "ImprovementAgendaEnvelope",
+  "description": "AN IMMUTABLE-BY-REVISION, NON-EXECUTABLE PORTFOLIO OF QUESTIONS WORTH INVESTIGATING. It requests targets and evidence; it cannot choose current-epoch truth or authorize target mutation, and only a RELEASED revision is campaign-admission eligible. `content_hash` commits the body and excludes the registry projections, the release decision and the admission stamp, so a release is a successor admission of the SAME revision carrying the identical hash (bounded-improvement.md § ImprovementAgendaEnvelope). A registered invariant requires a released revision to name its release decision.",
+  "x-ioi-schema-version": "ioi.improvement-agenda.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "optionalSystemRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/systemRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "ledgerRef": {
+      "type": "string",
+      "pattern": "^ledger://[^\\s]{1,248}$"
+    },
+    "budgetRef": {
+      "type": "string",
+      "pattern": "^budget://[^\\s]{1,248}$"
+    },
+    "projectionRef": {
+      "type": "string",
+      "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+    },
+    "lifecycleRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profileFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "profileRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "agendaFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "agendaRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "campaignFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "campaignRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "epochRef": {
+      "type": "string",
+      "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureLedgerRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureEntryRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+    },
+    "cutoffReceiptRef": {
+      "type": "string",
+      "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+    },
+    "learningBoundaryRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "eligibilityRevisionRef": {
+      "type": "string",
+      "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "goalRunProfileRevisionRef": {
+      "type": "string",
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+    },
+    "workSubjectRef": {
+      "type": "string",
+      "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+    },
+    "outcomeRoomRef": {
+      "type": "string",
+      "pattern": "^outcome-room://[^\\s]{1,500}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "policyRefList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/policyRef"
+      }
+    },
+    "boundedOrder": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "boundedPositive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "boundedSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "boundedUnits": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "improvement_agenda_id",
+    "revision_ref",
+    "revision",
+    "predecessor_revision_ref",
+    "content_hash",
+    "owner_ref",
+    "system_id",
+    "constitution_and_policy_refs",
+    "governance_policy_refs",
+    "release_decision_ref",
+    "target_graph_ref",
+    "portfolio_allocation_policy_ref",
+    "items",
+    "registry_lifecycle_ref",
+    "registry_status",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.improvement-agenda.v1"
+    },
+    "improvement_agenda_id": {
+      "$ref": "#/$defs/agendaFamilyRef"
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/agendaRevisionRef"
+    },
+    "revision": {
+      "$ref": "#/$defs/boundedPositive"
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/agendaRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef"
+    },
+    "system_id": {
+      "$ref": "#/$defs/optionalSystemRef"
+    },
+    "constitution_and_policy_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "governance_policy_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "release_decision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/decisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "target_graph_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "portfolio_allocation_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agenda_item_id",
+          "target_ref",
+          "target_class",
+          "requested_target_improvement_order",
+          "requested_target_order_path_ref",
+          "mechanism_hypothesis_ref",
+          "causal_prediction_and_falsifier_ref",
+          "minimum_decisive_test_ref",
+          "evidence_gap_and_uncertainty_ref",
+          "transfer_and_reproduction_requirement_refs",
+          "hard_constraint_and_risk_refs",
+          "protected_exclusion_refs",
+          "dependency_and_readiness_refs",
+          "requested_budget_ref",
+          "effect_recovery_policy_ref"
+        ],
+        "properties": {
+          "agenda_item_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "target_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "target_class": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "requested_target_improvement_order": {
+            "$ref": "#/$defs/boundedOrder"
+          },
+          "requested_target_order_path_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "mechanism_hypothesis_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "causal_prediction_and_falsifier_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "minimum_decisive_test_ref": {
+            "type": "string",
+            "pattern": "^(?:policy|artifact)://[^\\s]{1,248}$"
+          },
+          "evidence_gap_and_uncertainty_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "transfer_and_reproduction_requirement_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "hard_constraint_and_risk_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "protected_exclusion_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "dependency_and_readiness_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "requested_budget_ref": {
+            "$ref": "#/$defs/budgetRef"
+          },
+          "effect_recovery_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      }
+    },
+    "registry_lifecycle_ref": {
+      "$ref": "#/$defs/lifecycleRef"
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "evaluable",
+        "released",
+        "superseded",
+        "retired"
+      ]
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

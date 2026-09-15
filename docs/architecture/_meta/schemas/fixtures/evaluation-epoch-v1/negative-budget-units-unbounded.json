@@ -1,0 +1,72 @@
+{
+  "schema_version": "ioi.evaluation-epoch.v1",
+  "evaluation_epoch_id": "evaluation-epoch://acme.intake-harness-selection.epoch-1",
+  "campaign_ref": "improvement-campaign://acme.intake-harness-selection",
+  "campaign_contract_revision_ref": "improvement-campaign://acme.intake-harness-selection/revision/1",
+  "campaign_contract_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "predecessor_epoch_ref": null,
+  "pursuit_goal_run_profile_revision_ref": null,
+  "pursuit_profile_resolution_and_component_snapshot_refs": [
+    "artifact://acme/improvement/component-snapshot/launch-policy/v1"
+  ],
+  "target_improvement_order": 0,
+  "pursuit_method_order": 1,
+  "base_target_generation_index": 0,
+  "target_graph_and_order_path_roots": [
+    "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  ],
+  "deployment_incumbent_ref": "ioi-agent-policy://pol_auto_default",
+  "deployment_incumbent_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "synchronization_cutoff_receipt_ref": null,
+  "visible_eval_refs": [
+    "evaluation-suite://acme/intake-visible/revision/4"
+  ],
+  "sealed_holdout_commitment_refs": [
+    "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  ],
+  "transfer_ood_and_adversarial_eval_refs": [
+    "evaluation-suite://acme/intake-adversarial/revision/2"
+  ],
+  "recursive_seat_and_metaproductivity_metric_refs": [],
+  "cross_play_and_causal_ablation_policy_ref": "policy://acme/evaluation/cross-play/v1",
+  "transfer_non_regression_and_hard_constraint_gate_refs": [
+    "policy://acme/evaluation/hard-constraints/v1"
+  ],
+  "metric_and_selection_policy_ref": "policy://acme/evaluation/metric-selection/v1",
+  "cost_normalization_ref": "policy://acme/evaluation/cost-normalization/v1",
+  "confirmatory_estimand_and_minimum_effect_refs": [
+    "policy://acme/evaluation/estimand/latency-p95/v1"
+  ],
+  "statistical_test_and_winner_adjustment_refs": [
+    "policy://acme/evaluation/statistics/sequential/v1"
+  ],
+  "risk_wealth_allocation_ref": "policy://acme/evaluation/risk-wealth/v1",
+  "power_and_inconclusive_stop_policy_ref": "policy://acme/evaluation/power-stop/v1",
+  "campaign_false_promotion_budget_ref": "policy://acme/evaluation/false-promotion-budget/v1",
+  "ancestor_statistical_risk_budget_ledger_ref": "ledger://acme/improvement/statistical-risk/2026q3",
+  "inherited_evaluation_exposure_ledger_refs": [],
+  "sealed_feedback_release_and_exposure_spend_policy_refs": [
+    "policy://acme/evaluation/sealed-feedback/v1"
+  ],
+  "evaluation_exposure_budget_policy_ref": "policy://acme/improvement/exposure-budget/v1",
+  "evaluation_exposure_budget_units": 1000000001,
+  "evaluator_version_and_affiliation_refs": [
+    "evaluator://acme/intake-judge/revision/7"
+  ],
+  "holdout_custodian_refs": [
+    "principal://acme/holdout-custodian"
+  ],
+  "external_reality_anchor_refs": [],
+  "operational_acceptance_owner_refs": [
+    "org://acme-clinic"
+  ],
+  "leakage_rotation_and_challenge_policy_refs": [
+    "policy://acme/evaluation/leakage-rotation/v1"
+  ],
+  "frozen_root": "sha256:72d523ebe7b24de968ed9c962eb3b8aeb266042a258ef17551d5421bf2b3d1a1",
+  "lifecycle_ref": null,
+  "lifecycle_status": "draft",
+  "challenge_evidence_refs": [],
+  "content_hash": "sha256:2a26dcbb6fee5e8e01b1c4288ca90cee8c2c2edea07b19ed3b57a94eb6c1dd91",
+  "admitted_at": "2026-09-15T10:00:00Z"
+}

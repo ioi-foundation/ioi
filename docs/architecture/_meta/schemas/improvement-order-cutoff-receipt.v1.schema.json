@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+  "title": "ImprovementOrderCutoffReceiptEnvelope",
+  "description": "A TYPED EVIDENCE CUTOFF BETWEEN ADJACENT TARGET ORDERS — neither a live synchronization object nor later promotion proof. It binds one closed source epoch of one active campaign, the frozen source roots, the eligible findings and the eligibility decisions that admit them (resolved through the learning-boundary plane, never copied), the egress receipt an institutional-boundary crossing requires, the denied or quarantined classes, the destination base root and the previous cutoff root. `receipt_root` commits every member except itself, `content_hash` and the admission stamp and is re-derived offline; a registered invariant requires the destination order to lie strictly above the source order (the daemon enforces exactly plus one) and an `evidence_ready` disposition to carry at least one eligible ref. `blocked` names what a refused cutoff would have been and is never written by the daemon (bounded-improvement.md § ImprovementOrderCutoffReceiptEnvelope).",
+  "x-ioi-schema-version": "ioi.improvement-order-cutoff-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "optionalSystemRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/systemRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "ledgerRef": {
+      "type": "string",
+      "pattern": "^ledger://[^\\s]{1,248}$"
+    },
+    "budgetRef": {
+      "type": "string",
+      "pattern": "^budget://[^\\s]{1,248}$"
+    },
+    "projectionRef": {
+      "type": "string",
+      "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+    },
+    "lifecycleRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profileFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "profileRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "agendaFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "agendaRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "campaignFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "campaignRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "epochRef": {
+      "type": "string",
+      "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureLedgerRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureEntryRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+    },
+    "cutoffReceiptRef": {
+      "type": "string",
+      "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+    },
+    "learningBoundaryRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "eligibilityRevisionRef": {
+      "type": "string",
+      "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "goalRunProfileRevisionRef": {
+      "type": "string",
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+    },
+    "workSubjectRef": {
+      "type": "string",
+      "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+    },
+    "outcomeRoomRef": {
+      "type": "string",
+      "pattern": "^outcome-room://[^\\s]{1,500}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "policyRefList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/policyRef"
+      }
+    },
+    "boundedOrder": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "boundedPositive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "boundedSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "boundedUnits": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_profile",
+    "receipt_profile_ref",
+    "source_campaign_ref",
+    "source_evaluation_epoch_ref",
+    "synchronization_wave_ref",
+    "source_campaign_epoch_and_archive_roots",
+    "source_target_improvement_order",
+    "source_target_generation_cutoff",
+    "intended_destination_target_order",
+    "per_order_source_version_and_cutoff_vector_ref",
+    "destination_base_root",
+    "agenda_revision_ref",
+    "agenda_and_task_distribution_roots",
+    "boundary_crossing",
+    "eligible_finding_and_outcome_refs",
+    "learning_evidence_eligibility_refs",
+    "learning_egress_receipt_refs",
+    "boundary_enforcement_access_and_custody_receipt_refs",
+    "effective_learning_policy_hash",
+    "denied_or_quarantined_information_class_refs",
+    "source_incumbent_resolved_component_snapshot_ref",
+    "inherited_budget_risk_and_exposure_reservation_roots",
+    "dependency_and_statistical_assumption_delta_ref",
+    "signal_bundle_ref",
+    "terminal_disposition",
+    "previous_cutoff_receipt_root",
+    "receipt_root",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.improvement-order-cutoff-receipt.v1"
+    },
+    "receipt_id": {
+      "$ref": "#/$defs/cutoffReceiptRef"
+    },
+    "receipt_profile": {
+      "const": "improvement_order_cutoff"
+    },
+    "receipt_profile_ref": {
+      "const": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"
+    },
+    "source_campaign_ref": {
+      "$ref": "#/$defs/campaignFamilyRef"
+    },
+    "source_evaluation_epoch_ref": {
+      "$ref": "#/$defs/epochRef"
+    },
+    "synchronization_wave_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "source_campaign_epoch_and_archive_roots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "source_target_improvement_order": {
+      "$ref": "#/$defs/boundedOrder"
+    },
+    "source_target_generation_cutoff": {
+      "$ref": "#/$defs/boundedOrder"
+    },
+    "intended_destination_target_order": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1001
+    },
+    "per_order_source_version_and_cutoff_vector_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "destination_base_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "agenda_revision_ref": {
+      "$ref": "#/$defs/agendaRevisionRef"
+    },
+    "agenda_and_task_distribution_roots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "boundary_crossing": {
+      "enum": [
+        "same_boundary",
+        "institutional_boundary"
+      ]
+    },
+    "eligible_finding_and_outcome_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "learning_evidence_eligibility_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/eligibilityRevisionRef"
+      }
+    },
+    "learning_egress_receipt_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/receiptRef"
+      }
+    },
+    "boundary_enforcement_access_and_custody_receipt_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "effective_learning_policy_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "denied_or_quarantined_information_class_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "source_incumbent_resolved_component_snapshot_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "inherited_budget_risk_and_exposure_reservation_roots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "dependency_and_statistical_assumption_delta_ref": {
+      "$ref": "#/$defs/artifactRef"
+    },
+    "signal_bundle_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/artifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "terminal_disposition": {
+      "enum": [
+        "evidence_ready",
+        "no_change",
+        "blocked"
+      ]
+    },
+    "previous_cutoff_receipt_root": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

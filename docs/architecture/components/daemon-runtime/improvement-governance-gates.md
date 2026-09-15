@@ -2,11 +2,12 @@
 
 Status: canonical architecture authority with an implemented initial contract (`ioi_intelligence_routes.rs` + `governance_routes.rs`)
 Doctrine status: canonical
-Implementation status: mixed (the older direct proposal, simulation, approval, and release-control path is an implementation precursor. Deployment-aware waiver admission, exact target-base freshness, versioned impact assessment, repeated-proposal campaign decomposition pressure, application-chain receipts, full campaign/epoch/exposure, OutcomeRoom finding/evaluator-challenge promotion, and derived-artifact recall extensions remain target contracts.)
+Implementation status: mixed (the older direct proposal, simulation, approval, and release-control path is an implementation precursor. The bounded improvement campaign SPINE — governance profile, agenda, campaign, evaluation epoch, exposure ledger and order-cutoff receipt — is implemented as registered contracts with lifecycle routes and a campaign → `UpgradeProposal` handoff (`improvement_campaign_routes.rs`, M10.1, 2026-09-15; § Bounded improvement campaign spine below). Deployment-aware waiver admission, exact target-base freshness on the direct path, versioned impact assessment, repeated-proposal campaign decomposition pressure, application-chain receipts, candidate/attempt/finding objects, evidence claims, OutcomeRoom finding/evaluator-challenge promotion, and derived-artifact recall extensions remain target contracts.)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
-Last alignment pass: 2026-07-16.
-Last implementation audit: 2026-07-16 (scoped audit of `ioi_intelligence_routes.rs` direct-proposal gate)
+  - `crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs`
+Last alignment pass: 2026-09-15.
+Last implementation audit: 2026-09-15 (M10.1 campaign spine; the direct-proposal gate audit of 2026-07-16 stands)
 Canonical owner: this file for direct-proposal and campaign apply-time gate rules, freshness and exact-base rules, deterministic reason codes, epistemic promotion ladder, evaluator-rule change/reverification gate, and no-automatic-promotion boundary.
 Object authority remains `docs/architecture/foundations/common-objects-and-envelopes.md`
 (improvement proposals, simulation reports) and the governance control objects
@@ -32,9 +33,13 @@ bypass. The exact receipted waiver remains the only exception to either rule.
 
 The direct proposal path and campaign path are both canonical. A bounded
 one-shot change may use the existing proposal/simulation gate directly. The
-target decomposition guard refuses a fourth or later non-rejected proposal
-against the same normalized target family within 24 hours unless its
-`improvement_campaign_ref` resolves to an `ImprovementCampaign` record. This is
+target decomposition guard — a fourth or later non-rejected proposal against
+the same normalized target family within 24 hours is refused unless its
+`improvement_campaign_ref` resolves to an `ImprovementCampaign` record — is a
+PLANNED direct-path gate extension (measured 2026-09-15: no proposal route
+reads that field from a caller, and a caller-supplied binding on the public
+create is refused `improvement_campaign_binding_not_caller_authored`; the only
+writer of the binding is the campaign spine's upgrade-proposal handoff). This is
 an initial anti-decomposition boundary, not campaign conformance: adaptive
 repeated search, sealed evaluation, multi-epoch work, or a recursive claim still
 additionally binds the active `EvaluationEpoch`, evaluation-exposure posture,
@@ -109,12 +114,13 @@ verdicts state the replacement version.
    adversarial-holdout, regression, rollback, and recall posture appropriate to
    risk. Authority widening is never an improvement side effect.
 
-The current master implements only the older direct-proposal precursor for a
-subset of Rules 1–6. Deployment-aware waiver, target-base freshness, versioned
-impact, application-chain receipt, repeated-proposal decomposition, and
-campaign bindings are target admission contracts, as are Rules 7–9; their
-route/schema and reason-code implementation remains planned and must not be
-described as built.
+The current master implements the older direct-proposal precursor for a
+subset of Rules 1–6, and — since M10.1 — the campaign bindings a
+campaign-bound proposal carries (§ Bounded improvement campaign spine below).
+Deployment-aware waiver, target-base freshness on the direct path, versioned
+impact, application-chain receipt and repeated-proposal decomposition are
+target admission contracts, as are Rules 7–9; their route/schema and
+reason-code implementation remains planned and must not be described as built.
 
 ## Campaign-grade gate extension (planned)
 
@@ -170,9 +176,133 @@ recursive_claim_unsupported
 effect_recovery_posture_missing
 ```
 
-These reason codes are target contract only until implemented and tested. The
-daemon must not synthesize campaign truth from a caller-supplied claim or from
-copied receipt fields.
+The daemon must not synthesize campaign truth from a caller-supplied claim or
+from copied receipt fields. The family is entailed in BOTH directions at the
+level this document declares: the members the spine EMITS (each one driven live
+by `check:improvement-governance-spine`) and the members that remain target
+with a named owner, and a code that appears in neither set may not be emitted
+under this family's name.
+
+Implemented on this basis (M10.1, `improvement_campaign_routes.rs` and the
+apply-time bindings in `ioi_intelligence_routes.rs`):
+
+```text
+campaign_binding_mismatch          the cited profile revision is not the owner's current
+                                   governance, a lifecycle successor moved its contract
+                                   root or a frozen epoch's root, or a campaign-bound
+                                   proposal's campaign is no longer active at apply
+evaluation_epoch_not_frozen        exposure, nomination or a campaign-bound apply against
+                                   a draft epoch, or with no active frozen epoch
+evaluation_epoch_invalid           the same against a challenged, closed or invalidated epoch
+target_base_stale                  the mutable target's current root no longer equals the
+                                   root frozen at creation — at admission, at nomination
+                                   and at a campaign-bound apply
+evaluation_exposure_exhausted      a reservation beyond the frozen budget, or a spend or
+                                   return beyond the outstanding reservation
+learning_evidence_ineligible       a cutoff naming a finding that no cited eligibility
+                                   revision admits as eligible under the owner
+learning_egress_denied             a cutoff declaring an institutional-boundary crossing
+                                   without a resolvable admitted egress receipt
+same_cutoff_mutual_validation      a cutoff naming a released successor of the campaign's
+                                   admitted agenda revision — the agenda successor would be
+                                   selected on the evidence it is about to govern
+improvement_order_cutoff_invalid   a destination order other than source plus one, a source
+                                   epoch that is not closed, or a stale previous cutoff root
+effect_recovery_posture_missing    admission with no rollback/recall/containment/
+                                   compensation/reconciliation policy bound
+```
+
+Target contract on this basis, with the unit that owns each:
+
+```text
+candidate_conflict_unresolved      M10.2 / M10.8 — candidate objects and conflict sets
+resource_reservation_exhausted     M10.8 — the ancestor resource ledger
+statistical_risk_budget_exhausted  M10.8 — the ancestor statistical-risk ledger
+hard_constraint_regression         M10.2 — promotion-bundle judgment
+monitorability_regression          M10.2 — promotion-bundle judgment
+reproduction_required              M10.2 — promotion-bundle judgment
+recursive_claim_unsupported        M12.5 — the evidence-claim object
+```
+
+## Bounded improvement campaign spine (implemented, M10.1)
+
+The six objects of
+[`bounded-improvement.md`](../../foundations/objects/bounded-improvement.md)
+are registered contracts admitted on the shared owner-scoped mutation chain by
+`improvement_campaign_routes.rs`, one revision family per object, on the
+routes [`api.md` § Bounded Improvement Campaign APIs](./api.md#bounded-improvement-campaign-apis)
+marks served. What the spine guarantees, and what the gate proves:
+
+- **Immutable and owner-scoped.** Identity is derived from the durable stream;
+  a successor names the exact current head; every record is validated against
+  its registered contract before it becomes durable; `content_hash` and the
+  canon root (`campaign_contract_root`, `frozen_root`, `ledger_head_root`,
+  `receipt_root`) are re-derived on read, so a lifecycle successor cannot move
+  a contract or a frozen epoch (`campaign_binding_mismatch`). A caller cannot
+  author a server-resolved member; it asserts one through its `expected_*` twin
+  and is refused by name.
+- **Admission resolves, it does not copy.** `admit` resolves the owner's
+  CURRENT governance-profile revision (`improvement_governance_profile_required`
+  when none exists, `campaign_binding_mismatch` when a superseded one is cited),
+  the RELEASED agenda revision and its items
+  (`improvement_agenda_revision_not_released`, `improvement_agenda_item_unknown`),
+  the mutable target through its owner's reader (`mutable_target_unresolvable`;
+  `target_base_stale` when it moved since creation;
+  `improvement_campaign_target_protected` when the profile protects it or its
+  allowlist excludes it), the profile's ceilings
+  (`improvement_campaign_order_ceiling_exceeded`,
+  `improvement_campaign_nesting_depth_exceeded`), the learning-boundary
+  profile revision through that plane's published reader (its own refusals),
+  and a non-empty recovery posture (`effect_recovery_posture_missing`). The
+  coordinating pursuit is RECORDED, never resolved: a `GoalRunProfile`
+  revision and its resolution receipt are the ioi.ai orchestration
+  application's own declaration (term-boundaries.md § Which layer owns which;
+  the Work-subject registry ruling), core publishes no reader for that family,
+  and the two refs arrive together or not at all
+  (`improvement_campaign_pursuit_binding_incomplete`); core's own coordinating
+  subjects are `session://` and `work-run://`, and the resolvable mutable
+  targets are core-owned families only. A System-scoped campaign and an
+  atomic target bundle are refused typed
+  (`improvement_campaign_system_scope_not_admitted`,
+  `improvement_campaign_atomic_bundle_not_admitted`).
+- **Lifecycle is a projection.** `proposed → admitted → active ⇄ paused →
+  stopped`; a transition from the wrong state is
+  `improvement_campaign_lifecycle_invalid`. Epochs are created only under an
+  active campaign (`improvement_campaign_not_active`), at most one is active
+  (`evaluation_epoch_already_active`), and `freeze` creates the epoch's
+  exposure ledger.
+- **The campaign owns no production mutation.** Its only route toward
+  production is `POST …/improvement-campaigns/{campaign_ref}/upgrade-proposals`,
+  which nominates a candidate under the active frozen epoch by writing an
+  ordinary PENDING improvement proposal through the direct path's own create
+  function, bound by `improvement_campaign_ref`, `evaluation_epoch_ref` and
+  the frozen `campaign_contract_root`. That proposal is subject to the
+  unchanged gate above; at apply time the daemon additionally requires the
+  campaign to be active and its root unmoved (`campaign_binding_mismatch`),
+  the bound epoch to be active and frozen (`evaluation_epoch_invalid`) and the
+  target unmoved (`target_base_stale`). No other campaign operation writes
+  outside the six families — measured by the gate as byte identity of every
+  other observable family across every operation.
+- **Campaign-less direct proposals are unchanged.** The public create refuses
+  a caller-supplied binding (`improvement_campaign_binding_not_caller_authored`)
+  and otherwise behaves exactly as before; the gate proves the direct path
+  green before any campaign object exists and again after all six do.
+- **Refusal vocabulary beyond the family above.** Each revision family emits
+  the shared chain vocabulary under its own prefix
+  (`<family>_expected_head_conflict`, `<family>_expected_head_not_canonical`,
+  `<family>_caller_authored_evidence_refused`, `<family>_family_not_canonical`,
+  `<family>_not_registered_valid`, `<family>_revision_absent`,
+  `<family>_revision_ref_not_canonical`, `<family>_request_unknown_field`,
+  `<family>_owner_scheme_unsupported`), plus `improvement_agenda_already_released`,
+  `evaluation_epoch_absent`, `evaluation_epoch_lifecycle_invalid`,
+  `evaluation_exposure_units_invalid`, `evaluation_exposure_ledger_full` and
+  `improvement_campaign_absent`.
+
+Not built and named as such: candidate, attempt and finding routes (M10.2 /
+M10.8), evidence claims (M12.5), governed successor contract revisions, profile
+revocation, System-scoped admission under a constitution, atomic target
+bundles, epoch adjudication, the ancestor resource and statistical-risk
+ledgers, and the direct path's decomposition guard.
 
 ## Binding
 

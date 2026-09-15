@@ -1923,6 +1923,41 @@ pub(crate) fn resolve_admitted_evidence_eligibility(
     })
 }
 
+/// Resolve the LATEST receipt of one egress crossing family under the caller's own owner binding,
+/// published so a consumer (the improvement order cutoff, M10.1) reads a crossing DECISION rather
+/// than remaking it. The receipt's `decision` member says whether the crossing was admitted or
+/// blocked before egress; the consumer decides what that means for its own gate.
+pub(crate) fn resolve_admitted_learning_egress_receipt(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    expected_owner_ref: Option<&str>,
+    receipt_ref: &str,
+) -> Result<Value, Reply> {
+    let family = receipt_ref.strip_prefix(EGRESS.ref_scheme).unwrap_or_default();
+    if !family_token(family) {
+        return Err(refuse(
+            &EGRESS.code("receipt_ref_not_canonical"),
+            "an egress binding names receipt://<family>, the crossing lineage token",
+        ));
+    }
+    let scope = authorize_request_resource_scope(
+        data_dir,
+        identity,
+        EGRESS.resource_kind,
+        receipt_ref,
+        expected_owner_ref,
+    )
+    .map_err(scope_refusal_reply)?;
+    let stream = read_stream(&EGRESS, data_dir, identity, &scope, receipt_ref)?;
+    stream.last().map(|entry| entry.record.clone()).ok_or_else(|| {
+        bad(
+            StatusCode::NOT_FOUND,
+            &EGRESS.code("receipt_absent"),
+            "this crossing family has no emitted receipt",
+        )
+    })
+}
+
 pub(crate) async fn handle_evidence_eligibility_admit(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,

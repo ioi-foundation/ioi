@@ -242,7 +242,17 @@ try {
   // the unannotated population by being implemented. This is the closure test this gate states
   // about itself, exercised for the first time: the number goes down and the pin moves with it in
   // the same commit.
-  const ENDPOINT_RATCHET = 167;
+  // 167 -> 135 (2026-09-15, M10.1): the ratchet moved DOWN by thirty-two in one commit, the largest
+  // closure yet, for two reasons the split names. TWENTY-SIX documented endpoints of api.md
+  // § Bounded Improvement Campaign APIs are now SERVED — the agenda, campaign, evaluation-epoch,
+  // exposure, order-cutoff and upgrade-proposal routes of the M10.1 spine registered by
+  // `improvement_campaign_routes.rs` — so they leave the population by being implemented. SIX are
+  // ANNOTATED as planned with their owners named (the candidate, attempt and finding routes, M10.2
+  // and M10.8; the evidence-claim routes, M12.5), because the objects behind them do not exist on
+  // this basis and an annotation that names the owner is what the gate's own unit did for its nine.
+  // THREE profile routes were added to the document AND registered in the same commit, so they
+  // enter and leave the population at once (net zero). 26 + 6 = 32.
+  const ENDPOINT_RATCHET = 135;
   const byFile = {};
   for (const entry of undocumented) {
     const file = entry.split(":")[0];

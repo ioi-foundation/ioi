@@ -1,0 +1,45 @@
+{
+  "schema_version": "ioi.improvement-agenda.v1",
+  "improvement_agenda_id": "improvement-agenda://acme.intake-2026q3",
+  "revision_ref": "improvement-agenda://acme.intake-2026q3/revision/1",
+  "revision": 2,
+  "predecessor_revision_ref": null,
+  "content_hash": "sha256:94134082b3a85cf9049796d38d0773c077ac6ac0dc9a7d884201582ceae21d2f",
+  "owner_ref": "org://acme-clinic",
+  "system_id": null,
+  "constitution_and_policy_refs": [],
+  "governance_policy_refs": [
+    "policy://acme/governance/improvement/v1"
+  ],
+  "release_decision_ref": null,
+  "target_graph_ref": "artifact://acme/improvement/target-graph/v1",
+  "portfolio_allocation_policy_ref": "policy://acme/improvement/portfolio-allocation/v1",
+  "items": [
+    {
+      "agenda_item_id": "harness-selection-latency",
+      "target_ref": "ioi-agent-policy://pol_auto_default",
+      "target_class": "launch_policy",
+      "requested_target_improvement_order": 0,
+      "requested_target_order_path_ref": "artifact://acme/improvement/order-path/launch-policy/v1",
+      "mechanism_hypothesis_ref": "artifact://acme/improvement/hypotheses/harness-selection/v1",
+      "causal_prediction_and_falsifier_ref": "artifact://acme/improvement/falsifiers/harness-selection/v1",
+      "minimum_decisive_test_ref": "policy://acme/improvement/decisive-test/harness-selection/v1",
+      "evidence_gap_and_uncertainty_ref": "artifact://acme/improvement/evidence-gaps/harness-selection/v1",
+      "transfer_and_reproduction_requirement_refs": [
+        "policy://acme/improvement/reproduction/v1"
+      ],
+      "hard_constraint_and_risk_refs": [
+        "policy://acme/improvement/hard-constraints/v1"
+      ],
+      "protected_exclusion_refs": [
+        "ioi-agent-policy://pol_private_only"
+      ],
+      "dependency_and_readiness_refs": [],
+      "requested_budget_ref": "budget://acme/improvement/harness-selection/2026-q3",
+      "effect_recovery_policy_ref": "policy://acme/improvement/effect-recovery/v1"
+    }
+  ],
+  "registry_lifecycle_ref": null,
+  "registry_status": "draft",
+  "admitted_at": "2026-09-15T10:00:00Z"
+}

@@ -16987,6 +16987,423 @@
           "expected_failure": "invariant"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/improvement-governance-profile/v1",
+      "canonical_name": "ImprovementGovernanceProfileEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#improvementgovernanceprofileenvelope",
+      "schema_version": "ioi.improvement-governance-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "improvement-governance-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/improvement-governance-profile/immutable-owner-scoped-revision/v1",
+          "path": "invariants/improvement-governance-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ImprovementGovernanceProfileEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ImprovementGovernanceProfileEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/improvement-governance-profile-v1/positive-genesis-active.json",
+        "fixtures/improvement-governance-profile-v1/positive-successor-revision.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/improvement-governance-profile-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-governance-profile-v1/negative-legacy-underscore-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-governance-profile-v1/negative-revision-ref-is-a-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-governance-profile-v1/negative-order-ceiling-unbounded.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-governance-profile-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_governance_profile.content_hash.commits_the_immutable_body"
+        },
+        {
+          "path": "fixtures/improvement-governance-profile-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_governance_profile.revision_ref.extends_its_own_family"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/improvement-agenda/v1",
+      "canonical_name": "ImprovementAgendaEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#improvementagendaenvelope",
+      "schema_version": "ioi.improvement-agenda.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "improvement-agenda.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/improvement-agenda/immutable-owner-scoped-revision/v1",
+          "path": "invariants/improvement-agenda.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ImprovementAgendaEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ImprovementAgendaEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/improvement-agenda-v1/positive-draft-one-item.json",
+        "fixtures/improvement-agenda-v1/positive-released-revision.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/improvement-agenda-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-agenda-v1/negative-no-items.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-agenda-v1/negative-status-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-agenda-v1/negative-released-without-a-decision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_agenda.release.names_its_decision"
+        },
+        {
+          "path": "fixtures/improvement-agenda-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_agenda.content_hash.commits_the_immutable_body"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/improvement-campaign/v1",
+      "canonical_name": "ImprovementCampaignEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#improvementcampaignenvelope",
+      "schema_version": "ioi.improvement-campaign.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "improvement-campaign.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/improvement-campaign/immutable-owner-scoped-revision/v1",
+          "path": "invariants/improvement-campaign.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ImprovementCampaignEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ImprovementCampaignEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/improvement-campaign-v1/positive-proposed.json",
+        "fixtures/improvement-campaign-v1/positive-active-with-epoch.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-legacy-work-run-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-profile-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-lifecycle-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-contract-root-moved.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_campaign.campaign_contract_root.freezes_the_contract"
+        },
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-active-without-an-admission-decision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_campaign.admission.names_its_decision"
+        },
+        {
+          "path": "fixtures/improvement-campaign-v1/negative-no-target-shape.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_campaign.target.names_exactly_one_shape"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/evaluation-epoch/v1",
+      "canonical_name": "EvaluationEpochEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#evaluationepochenvelope",
+      "schema_version": "ioi.evaluation-epoch.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-epoch.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/evaluation-epoch/immutable-owner-scoped-revision/v1",
+          "path": "invariants/evaluation-epoch.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationEpochEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationEpochEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-epoch-v1/positive-draft.json",
+        "fixtures/evaluation-epoch-v1/positive-challenged-with-evidence.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-epoch-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-epoch-v1/negative-budget-units-unbounded.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-epoch-v1/negative-frozen-root-moved.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_epoch.frozen_root.freezes_the_judgment_contract"
+        },
+        {
+          "path": "fixtures/evaluation-epoch-v1/negative-challenged-without-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_epoch.challenge.names_its_evidence"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+      "canonical_name": "EvaluationExposureLedgerEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#evaluationexposureledgerenvelope",
+      "schema_version": "ioi.evaluation-exposure-ledger.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-exposure-ledger.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/evaluation-exposure-ledger/immutable-owner-scoped-revision/v1",
+          "path": "invariants/evaluation-exposure-ledger.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationExposureLedgerEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationExposureLedgerEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-exposure-ledger-v1/positive-genesis-empty.json",
+        "fixtures/evaluation-exposure-ledger-v1/positive-reserved-spent-returned.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-exposure-ledger-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-exposure-ledger-v1/negative-entry-kind-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-exposure-ledger-v1/negative-head-sequence-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_exposure_ledger.head.counts_the_entries"
+        },
+        {
+          "path": "fixtures/evaluation-exposure-ledger-v1/negative-spent-beyond-reserved.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_exposure_ledger.spent.never_exceeds_reserved"
+        },
+        {
+          "path": "fixtures/evaluation-exposure-ledger-v1/negative-remaining-beyond-budget.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_exposure_ledger.remaining.never_exceeds_budget"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1",
+      "canonical_name": "ImprovementOrderCutoffReceiptEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#improvementordercutoffreceiptenvelope",
+      "schema_version": "ioi.improvement-order-cutoff-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "improvement-order-cutoff-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/improvement-order-cutoff-receipt/immutable-owner-scoped-revision/v1",
+          "path": "invariants/improvement-order-cutoff-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ImprovementOrderCutoffReceiptEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ImprovementOrderCutoffReceiptEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/improvement-order-cutoff-receipt-v1/positive-same-boundary-evidence-ready.json",
+        "fixtures/improvement-order-cutoff-receipt-v1/positive-no-change.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/improvement-order-cutoff-receipt-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-order-cutoff-receipt-v1/negative-receipt-id-outside-the-cutoff-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-order-cutoff-receipt-v1/negative-eligibility-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-order-cutoff-receipt-v1/negative-destination-not-above-source.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_order_cutoff_receipt.edge.destination_lies_above_source"
+        },
+        {
+          "path": "fixtures/improvement-order-cutoff-receipt-v1/negative-evidence-ready-without-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence"
+        },
+        {
+          "path": "fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff"
+        }
+      ]
     }
   ]
 }

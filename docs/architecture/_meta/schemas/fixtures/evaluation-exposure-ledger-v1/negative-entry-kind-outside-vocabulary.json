@@ -1,0 +1,46 @@
+{
+  "schema_version": "ioi.evaluation-exposure-ledger.v1",
+  "evaluation_exposure_ledger_id": "evaluation-exposure://acme.intake-harness-selection.epoch-1",
+  "evaluation_epoch_ref": "evaluation-epoch://acme.intake-harness-selection.epoch-1",
+  "ancestor_exposure_ledger_refs": [],
+  "steward_refs": [
+    "principal://acme/holdout-custodian"
+  ],
+  "sealed_suite_and_world_commitment_refs": [
+    "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  ],
+  "exposure_budget_ref": "policy://acme/improvement/exposure-budget/v1",
+  "exposure_budget_units": 5,
+  "reserved_units": 0,
+  "spent_units": 0,
+  "returned_units": 0,
+  "remaining_units": 5,
+  "contaminated": false,
+  "entries": [
+    {
+      "entry_seq": 1,
+      "entry_ref": "evaluation-exposure://acme.intake-harness-selection.epoch-1/entry/1",
+      "entry_kind": "refund",
+      "units": 1,
+      "candidate_family_commitment": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "selected_case_commitment": null,
+      "information_return_class": "aggregate",
+      "evaluator_version_refs": [
+        "evaluator://acme/intake-judge/revision/7"
+      ],
+      "access_receipt_refs": [],
+      "contamination_flag": false,
+      "previous_entry_root": null,
+      "entry_root": "sha256:95c0b79dac48488378afd1cd11d6e0f42fb435e2fec422dd749873ba47eb6e05"
+    }
+  ],
+  "admitted_entry_refs": [
+    "evaluation-exposure://acme.intake-harness-selection.epoch-1/entry/1"
+  ],
+  "ledger_head_sequence": 1,
+  "ledger_head_root": "sha256:95c0b79dac48488378afd1cd11d6e0f42fb435e2fec422dd749873ba47eb6e05",
+  "derived_exposure_and_contamination_projection_ref": "agentgres://projection/evaluation-exposure/acme.intake-harness-selection.epoch-1",
+  "lifecycle_decision_refs": [],
+  "content_hash": "sha256:90e78d6deee26f03c4ea03b17488029b5dcda8c7371daa6b48440209d965c1cb",
+  "admitted_at": "2026-09-15T10:00:00Z"
+}

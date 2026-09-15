@@ -88,14 +88,20 @@ search, spends sealed evaluation exposure over repeated trials, preserves a
 candidate archive, coordinates multiple improvement orders, or supports a
 qualified recursive-improvement claim.
 
-The current daemon makes this distinction enforceable at one narrow seam:
-after three non-rejected Improvement Proposals against the same normalized
-target family within a 24-hour window, a fourth or later proposal must cite a
-resolvable `ImprovementCampaign`. The guard prevents indefinite decomposition
-into nominal one-shots; it does not prove Campaign admission, freeze an epoch,
-reserve exposure, or satisfy any claim gate. Those campaign-grade obligations
-remain planned and are evaluated separately from the direct proposal's
-simulation, approval, release, and receipt chain.
+Canon makes this distinction enforceable at one narrow seam, which is PLANNED
+rather than built (measured 2026-09-15: no proposal route reads
+`improvement_campaign_ref` from a caller): after three non-rejected Improvement
+Proposals against the same normalized target family within a 24-hour window, a
+fourth or later proposal must cite a resolvable `ImprovementCampaign`. The
+guard prevents indefinite decomposition into nominal one-shots; it does not
+prove Campaign admission, freeze an epoch, reserve exposure, or satisfy any
+claim gate. What IS built is the other direction of the same seam: the
+campaign spine's only exit is `POST …/improvement-campaigns/{campaign_ref}/upgrade-proposals`,
+which writes an ordinary pending `UpgradeProposal` bound to the campaign and
+its active frozen epoch, and that proposal is evaluated by the direct
+proposal's unchanged simulation, approval, release, and receipt chain plus the
+campaign-grade bindings at apply time
+([`improvement-governance-gates.md`](../components/daemon-runtime/improvement-governance-gates.md)).
 
 The Campaign is not:
 

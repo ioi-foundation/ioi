@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/evaluation-exposure-ledger/v1",
+  "title": "EvaluationExposureLedgerEnvelope",
+  "description": "THE APPEND-ONLY ACCOUNT OF SEALED-EVALUATION EXPOSURE FOR ONE FROZEN EPOCH. Created by the epoch's freeze with the frozen budget, it accumulates reservation, spend, return, contamination, rotation and invalidation entries, each chained to the previous entry's root, and derives the remaining exposure as a SUBTRACTION — `remaining_units = exposure_budget_units − (reserved_units − returned_units)` — so a reservation beyond the budget, or a spend or return beyond the outstanding reservation, is refused rather than absorbed. Every integer here is bounded: units and budgets to 1000000000, sequences to 1000000, entries to 4096 per ledger. Registered invariants require the head sequence to equal the entry count and spent, returned and remaining never to exceed what they are drawn from; the per-entry root chain is verified by the gate against a live daemon, because it needs the predecessor entry. It is evaluation-integrity state, not currency, authority or permission to reveal sealed material (bounded-improvement.md § EvaluationExposureLedgerEnvelope).",
+  "x-ioi-schema-version": "ioi.evaluation-exposure-ledger.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "optionalSystemRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/systemRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "ledgerRef": {
+      "type": "string",
+      "pattern": "^ledger://[^\\s]{1,248}$"
+    },
+    "budgetRef": {
+      "type": "string",
+      "pattern": "^budget://[^\\s]{1,248}$"
+    },
+    "projectionRef": {
+      "type": "string",
+      "pattern": "^agentgres://projection/[^\\s]{1,240}$"
+    },
+    "lifecycleRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:agentgres://object/|decision://)[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profileFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "profileRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "agendaFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "agendaRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "campaignFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "campaignRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "epochRef": {
+      "type": "string",
+      "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureLedgerRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "exposureEntryRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+    },
+    "cutoffReceiptRef": {
+      "type": "string",
+      "pattern": "^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"
+    },
+    "learningBoundaryRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "eligibilityRevisionRef": {
+      "type": "string",
+      "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "goalRunProfileRevisionRef": {
+      "type": "string",
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+    },
+    "workSubjectRef": {
+      "type": "string",
+      "pattern": "^(?:goal|session|work-run)://[^\\s]{1,248}$"
+    },
+    "outcomeRoomRef": {
+      "type": "string",
+      "pattern": "^outcome-room://[^\\s]{1,500}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "policyRefList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/policyRef"
+      }
+    },
+    "boundedOrder": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "boundedPositive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "boundedSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "boundedUnits": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "evaluation_exposure_ledger_id",
+    "evaluation_epoch_ref",
+    "ancestor_exposure_ledger_refs",
+    "steward_refs",
+    "sealed_suite_and_world_commitment_refs",
+    "exposure_budget_ref",
+    "exposure_budget_units",
+    "reserved_units",
+    "spent_units",
+    "returned_units",
+    "remaining_units",
+    "contaminated",
+    "entries",
+    "admitted_entry_refs",
+    "ledger_head_sequence",
+    "ledger_head_root",
+    "derived_exposure_and_contamination_projection_ref",
+    "lifecycle_decision_refs",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.evaluation-exposure-ledger.v1"
+    },
+    "evaluation_exposure_ledger_id": {
+      "$ref": "#/$defs/exposureLedgerRef"
+    },
+    "evaluation_epoch_ref": {
+      "$ref": "#/$defs/epochRef"
+    },
+    "ancestor_exposure_ledger_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/exposureLedgerRef"
+      }
+    },
+    "steward_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "sealed_suite_and_world_commitment_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "exposure_budget_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "exposure_budget_units": {
+      "$ref": "#/$defs/boundedUnits"
+    },
+    "reserved_units": {
+      "$ref": "#/$defs/boundedUnits"
+    },
+    "spent_units": {
+      "$ref": "#/$defs/boundedUnits"
+    },
+    "returned_units": {
+      "$ref": "#/$defs/boundedUnits"
+    },
+    "remaining_units": {
+      "$ref": "#/$defs/boundedUnits"
+    },
+    "contaminated": {
+      "type": "boolean"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_seq",
+          "entry_ref",
+          "entry_kind",
+          "units",
+          "candidate_family_commitment",
+          "selected_case_commitment",
+          "information_return_class",
+          "evaluator_version_refs",
+          "access_receipt_refs",
+          "contamination_flag",
+          "previous_entry_root",
+          "entry_root"
+        ],
+        "properties": {
+          "entry_seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "entry_ref": {
+            "$ref": "#/$defs/exposureEntryRef"
+          },
+          "entry_kind": {
+            "enum": [
+              "reservation",
+              "spend",
+              "return",
+              "contamination",
+              "rotation",
+              "invalidation"
+            ]
+          },
+          "units": {
+            "$ref": "#/$defs/boundedUnits"
+          },
+          "candidate_family_commitment": {
+            "$ref": "#/$defs/sha256"
+          },
+          "selected_case_commitment": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "information_return_class": {
+            "enum": [
+              "none",
+              "aggregate",
+              "per_case",
+              "labels",
+              "internals"
+            ]
+          },
+          "evaluator_version_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "access_receipt_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "contamination_flag": {
+            "type": "boolean"
+          },
+          "previous_entry_root": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entry_root": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "admitted_entry_refs": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/exposureEntryRef"
+      }
+    },
+    "ledger_head_sequence": {
+      "$ref": "#/$defs/boundedSequence"
+    },
+    "ledger_head_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "derived_exposure_and_contamination_projection_ref": {
+      "$ref": "#/$defs/projectionRef"
+    },
+    "lifecycle_decision_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

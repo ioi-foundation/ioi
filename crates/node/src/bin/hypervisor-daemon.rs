@@ -116,6 +116,8 @@ mod harness_routes;
 mod hypervisor_environment_routes;
 #[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]
 mod hypervisoros_node_routes;
+#[path = "hypervisor_daemon_routes/improvement_campaign_routes.rs"]
+mod improvement_campaign_routes;
 #[path = "hypervisor_daemon_routes/institutional_learning_boundary_routes.rs"]
 mod institutional_learning_boundary_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -2711,6 +2713,114 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/intelligence/improvement-proposals/:id/apply",
             post(ioi_intelligence_routes::handle_improvement_apply),
+        )
+        // M10.1 — the bounded improvement campaign spine: six registered families on the shared
+        // owner-scoped mutation chain (improvement-governance-gates.md § Bounded improvement
+        // campaign spine). The campaign's only exit toward production is the upgrade-proposal
+        // handoff, which writes an ordinary pending proposal through the direct path's own creator.
+        .route(
+            "/v1/hypervisor/improvement-governance-profiles",
+            get(improvement_campaign_routes::handle_governance_profile_query)
+                .post(improvement_campaign_routes::handle_governance_profile_admit),
+        )
+        .route(
+            "/v1/hypervisor/improvement-governance-profiles/:profile_ref/revisions/:revision_ref",
+            get(improvement_campaign_routes::handle_governance_profile_revision_get),
+        )
+        .route(
+            "/v1/hypervisor/improvement-agendas",
+            get(improvement_campaign_routes::handle_agenda_query)
+                .post(improvement_campaign_routes::handle_agenda_admit),
+        )
+        .route(
+            "/v1/hypervisor/improvement-agendas/:agenda_ref/revisions/:revision_ref",
+            get(improvement_campaign_routes::handle_agenda_revision_get),
+        )
+        .route(
+            "/v1/hypervisor/improvement-agendas/:agenda_ref/revisions/:revision_ref/release",
+            post(improvement_campaign_routes::handle_agenda_release),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns",
+            get(improvement_campaign_routes::handle_campaign_query)
+                .post(improvement_campaign_routes::handle_campaign_create),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref",
+            get(improvement_campaign_routes::handle_campaign_get),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/admit",
+            post(improvement_campaign_routes::handle_campaign_admit),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/start",
+            post(improvement_campaign_routes::handle_campaign_start),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/pause",
+            post(improvement_campaign_routes::handle_campaign_pause),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/stop",
+            post(improvement_campaign_routes::handle_campaign_stop),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/evaluation-epochs",
+            post(improvement_campaign_routes::handle_epoch_create),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/order-cutoffs",
+            get(improvement_campaign_routes::handle_cutoff_list)
+                .post(improvement_campaign_routes::handle_cutoff_emit),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/upgrade-proposals",
+            post(improvement_campaign_routes::handle_campaign_upgrade_proposal),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref",
+            get(improvement_campaign_routes::handle_epoch_get),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/freeze",
+            post(improvement_campaign_routes::handle_epoch_freeze),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/activate",
+            post(improvement_campaign_routes::handle_epoch_activate),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/challenge",
+            post(improvement_campaign_routes::handle_epoch_challenge),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/close",
+            post(improvement_campaign_routes::handle_epoch_close),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/invalidate",
+            post(improvement_campaign_routes::handle_epoch_invalidate),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/exposure",
+            get(improvement_campaign_routes::handle_exposure_get),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/exposure/reserve",
+            post(improvement_campaign_routes::handle_exposure_reserve),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/exposure/spend",
+            post(improvement_campaign_routes::handle_exposure_spend),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/exposure/release",
+            post(improvement_campaign_routes::handle_exposure_release),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-epochs/:epoch_ref/rotate",
+            post(improvement_campaign_routes::handle_exposure_rotate),
         )
         .route(
             "/v1/hypervisor/intelligence/review-queue",

@@ -240,7 +240,16 @@ const RECORD_READ =
 // persist_*/save_*/*_write whose body calls persist_record[_durable]. Longest names are
 // listed before their prefixes so the alternation cannot short-match (the trailing `\(`
 // already guards this, but ordering keeps it obvious).
+//
+// `create_improvement_proposal` (2026-09-15, M10.1): the ONE writer of the improvement-proposal
+// family, extracted from `handle_improvements_create` so the campaign spine's upgrade-proposal
+// handoff writes through the same function rather than a second persist. Without this entry the
+// handler's persist would have moved one call out of the census's sight and its baseline entry
+// would have read as "vanished" — the gate's blind spot, not a shrink of the legacy surface. Naming
+// the seam keeps the handler where it was; the handoff handler resolves its caller first and is
+// therefore not flagged, which is the reading the sibling comparison expects.
 const WRITE_SEAMS = [
+  "create_improvement_proposal",
   "persist_and_complete_intent_locked",
   "persist_and_complete_locked",
   "persist_embedded_intent_locked",

@@ -2718,7 +2718,32 @@ pub(crate) async fn handle_improvements_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let kind = text(&body, "proposal_kind");
+    // THE DAEMON MUST NOT SYNTHESIZE CAMPAIGN TRUTH FROM A CALLER-SUPPLIED CLAIM. The binding a
+    // campaign-bound proposal carries is written by the campaign spine's own handoff
+    // (`improvement_campaign_routes::handle_campaign_upgrade_proposal`) after it resolved the
+    // campaign, its active frozen epoch and the target root; a caller naming one here is refused.
+    if body.get("improvement_campaign_ref").is_some()
+        || body.get("evaluation_epoch_ref").is_some()
+        || body.get("campaign_contract_root").is_some()
+    {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "improvement_campaign_binding_not_caller_authored",
+            "a campaign binding is written only by the campaign's own upgrade-proposal handoff after the daemon resolved the campaign, its active frozen epoch and the target root; it is never a request field",
+        );
+    }
+    create_improvement_proposal(&st, &body, None)
+}
+
+/// Create one PENDING improvement proposal — the ONE writer of the family. The direct path calls
+/// it with no binding; the campaign spine's handoff calls it with the binding it resolved, so a
+/// campaign-bound proposal is an ordinary proposal and not a second record family.
+pub(crate) fn create_improvement_proposal(
+    st: &DaemonState,
+    body: &Value,
+    campaign_binding: Option<Value>,
+) -> (StatusCode, Json<Value>) {
+    let kind = text(body, "proposal_kind");
     if !IMPROVEMENT_KINDS.contains(&kind) {
         return bad(
             StatusCode::BAD_REQUEST,
@@ -2734,26 +2759,33 @@ pub(crate) async fn handle_improvements_create(
             "An improvement proposal binds to evidence refs (runs, projections, receipts, memory).",
         );
     }
-    if record_has_credential_material(&body) {
+    if record_has_credential_material(body) {
         return bad(
             StatusCode::FORBIDDEN,
             "memory_entry_credential_material_forbidden",
             "Proposals must not contain credential material.",
         );
     }
+    let binding = campaign_binding.unwrap_or(Value::Null);
+    let bound = |key: &str| binding.get(key).cloned().unwrap_or(Value::Null);
     let id = format!("imp_{:x}", nanos());
     let record = json!({
         "schema_version": "ioi.hypervisor.improvement-proposal.v1",
         "improvement_id": id,
         "proposal_ref": format!("improvement-proposal://{id}"),
         "proposal_kind": kind,
-        "signal": text(&body, "signal"),
+        "signal": text(body, "signal"),
         "target_ref": body.get("target_ref").cloned().unwrap_or(Value::Null),
         "suggested": body.get("suggested").cloned().unwrap_or(json!({})),
         "evidence_refs": evidence,
         "confidence": body.get("confidence").and_then(Value::as_f64).map(|c| c.clamp(0.0, 1.0)).unwrap_or(0.5),
-        "reason": text(&body, "reason"),
+        "reason": text(body, "reason"),
         "state": "pending",
+        "improvement_campaign_ref": bound("improvement_campaign_ref"),
+        "evaluation_epoch_ref": bound("evaluation_epoch_ref"),
+        "campaign_contract_root": bound("campaign_contract_root"),
+        "campaign_owner_ref": bound("campaign_owner_ref"),
+        "candidate_ref": bound("candidate_ref"),
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
@@ -3198,6 +3230,14 @@ pub(crate) async fn handle_improvement_apply(
     };
     if text(&proposal, "state") != "approved" {
         return bad(StatusCode::CONFLICT, "improvement_not_approved", "Apply requires an APPROVED proposal (creation changes nothing; approval is the review).");
+    }
+    // A campaign-bound proposal satisfies the campaign-grade bindings BESIDE the direct gate: the
+    // campaign active and unmoved, the bound epoch active and frozen, the target unmoved. A
+    // campaign-less proposal carries no binding and reaches the direct gate unchanged.
+    if let Err((code, message)) =
+        super::improvement_campaign_routes::campaign_grade_bindings(&st, &proposal)
+    {
+        return bad(StatusCode::CONFLICT, code, &message);
     }
     let (report, approval, release) = gate_inputs(&st, &proposal);
     let decision = evaluate_improvement_gate(
@@ -3929,6 +3969,35 @@ fn load_policy_record(st: &DaemonState, id: &str) -> Option<Value> {
     read_record_dir(&st.data_dir, "ioi-agent-launch-policies")
         .into_iter()
         .find(|p| text(p, "policy_id") == id)
+}
+
+/// The current root of a CORE-owned mutable improvement target, read through this module's own
+/// record families and committed under a domain separator. The campaign spine freezes this at
+/// creation and compares it at admission, nomination and apply (`target_base_stale`). Only the
+/// families this module owns resolve here: a launch policy lives under the goal-orchestration
+/// application's namespace and is deliberately NOT a campaign target (register R-155).
+pub(crate) fn resolve_core_mutable_target_root(st: &DaemonState, target_ref: &str) -> Option<String> {
+    let (family, id) = if let Some(id) = target_ref.strip_prefix(SKILL_FAMILY.ref_scheme) {
+        (&SKILL_FAMILY, id)
+    } else if let Some(id) = target_ref.strip_prefix(AFFINITY_FAMILY.ref_scheme) {
+        (&AFFINITY_FAMILY, id)
+    } else {
+        return None;
+    };
+    if id.is_empty() {
+        return None;
+    }
+    let record = read_record_dir(&st.data_dir, family.kind)
+        .into_iter()
+        .find(|record| text(record, family.id_key) == id)?;
+    let material = json!({
+        "domain": "ioi.improvement-mutable-target-root-jcs-sha256.v1",
+        "target_ref": target_ref,
+        "record": record,
+    });
+    serde_jcs::to_vec(&material)
+        .ok()
+        .map(|bytes| super::model_route_rights_routes::sha256_of(&bytes))
 }
 
 pub(crate) async fn handle_simulation_get(

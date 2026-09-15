@@ -80,7 +80,7 @@ No identifier that ships in code was renamed. `git diff --name-only a894b2505..H
 | `TaskEnvelope` | work request (public: RFW) | `Task` carried four meanings; RFW already shipped publicly | `canonical_rename` | [`objects/work-execution.md`](../foundations/objects/work-execution.md) | **None at the wire.** `task://`, `task_id` retained and registered |
 | `### Terminology Boundary Table` | [`term-boundaries.md`](../foundations/term-boundaries.md) | An independently owned subject hidden inside an unrelated one | `ownership_move` | itself | none; zero inbound references to the lost anchor |
 | `WorkflowTemplate`/`Skill*` envelopes, formerly H3s under package genesis | [`objects/reusable-work-definitions.md`](../foundations/objects/reusable-work-definitions.md) | Reusable work definitions are meaningful with no System, package, or release | `module_extraction` | itself | headings promoted H3 → H2; **anchor slugs unchanged** |
-| `ImprovementGovernanceProfileEnvelope` | [`objects/bounded-improvement.md`](../foundations/objects/bounded-improvement.md) | **Caught in review**: declared in `bounded-system-genesis.md` while three registries claimed it for `bounded-improvement.md` | `ownership_move` | itself | none |
+| `ImprovementGovernanceProfileEnvelope` | [`objects/bounded-improvement.md`](../foundations/objects/bounded-improvement.md) | **Caught in review**: declared in `bounded-system-genesis.md` while three registries claimed it for `bounded-improvement.md`; **moved 2026-09-15 (M10.1)** — the shape now lives in bounded-improvement.md and bounded-system-genesis.md keeps a pointer plus the System-side binding prose | `ownership_move` | itself | none |
 
 ### Term rows reworded during the promotion (`semantic_correction`)
 
