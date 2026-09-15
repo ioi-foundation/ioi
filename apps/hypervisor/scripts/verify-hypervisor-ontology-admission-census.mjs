@@ -633,6 +633,22 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-15 (M10.4): modules 123 -> 124, tokens 155607 -> 157545 (+1938),
+  // opaque-initialiser 3108 -> 3403 (+295), foreign-qualified 4857 -> 4995 (+138); bare-undeclared
+  // 541 and EVERY writer bucket HELD (family 57 / non-ODK 254 / runtime 311) — the governed
+  // evaluation plane writes only through the shared owner-scoped mutation chain's
+  // `finish_admission`, so it adds no writer of its own. The split is MEASURED by reverting each
+  // edited file to HEAD in turn and re-running the census: with `hypervisor-daemon.rs` at HEAD (the
+  // `mod evaluation_routes` declaration and its sixteen route blocks gone, so the new module is not
+  // reached) it read 123 modules / 155675 tokens / 3124 / 4865, so the module and its routes are
+  // +1870 tokens (seven of them the module's own `#[cfg(test)]` literals, measured separately:
+  // 157538 before the tests were appended, 157545 after), +279 opaque, +130 foreign; with
+  // `substrate_store.rs` ALSO at HEAD it read 155673,
+  // so `engine_domain_roots` is +2 tokens; the remaining +66 tokens / +16 / +8 are the three
+  // published readers added to `improvement_campaign_routes.rs` (`resolve_admitted_epoch_binding`,
+  // `resolve_exposure_entry`, `epochs_naming_evaluator`) — `model_routes.rs` changed one visibility
+  // keyword and moved nothing. Both files restored by copy and digest-verified. Moved in the SAME
+  // COMMIT as the daemon change.
   // Re-pinned 2026-09-15 (M12.1): tokens 155513 -> 155607 (+94); modules 123, opaque-initialiser
   // 3108, foreign-qualified 4857, bare-undeclared 541 and EVERY writer bucket HELD (family 57 /
   // non-ODK 254 / runtime 311). The typed-availability read model (canon's nine connected-capability
@@ -944,7 +960,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 123,
+  modules: 124,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -962,7 +978,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 155607,
+  tokenMentions: 157545,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -983,8 +999,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4857,
-    "opaque-initialiser": 3108,
+    "foreign-qualified": 4995,
+    "opaque-initialiser": 3403,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

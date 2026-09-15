@@ -222,6 +222,13 @@ check("R1_DERIVED_CLOSED_WORLD",
   // lane carries both a GET and a POST, and the standalone resolution lane a POST. This census
   // counts HANDLERS where `check:named-gap-truth` counts distinct PATHS, which is why the two move
   // by different amounts on the same change and why moving one gives no hint the other needs it.
+  // 1174 -> 1194 (2026-09-15, M10.4): TWENTY handlers, the governed evaluation plane — suite
+  // create/query/get/revise/release, evaluator create/query/get/revise/transition/impact, run
+  // admit/query/get, result admit/query/get, continuity run/query/get. Sixteen distinct paths
+  // (`check:named-gap-truth` 911 -> 927 in this same commit) because four collection paths carry
+  // both GET and POST. `workspace` (40) and `candidates` (47) are unchanged: these routes own no
+  // environment route and serve no workspace lane, so only the registered bucket moved. Every
+  // handler resolves its caller through the shared write path or the request-identity resolver.
   // 1145 -> 1174 (2026-09-15, M10.1): TWENTY-NINE handlers, the bounded improvement campaign spine
   // — governance-profile admit/query/revision, agenda admit/query/revision/release, campaign
   // create/query/get/admit/start/pause/stop, epoch create/get/freeze/activate/challenge/close/
@@ -246,7 +253,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // evidence that only the registered-handler bucket moved. The Systems projection route already
   // existed and gained identity policy in place, so it adds no handler. Moved in the SAME commit as
   // the route, together with `check:named-gap-truth` (878 -> 879 distinct paths).
-  census.registered_route_handlers === 1174 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1194 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

@@ -1,0 +1,83 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-4-governed-evaluation-plane",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.4"
+  ],
+  "status": "evidence_ready",
+  "objective": "Make Evaluations a governed plane rather than a declaration-only library: immutable released evaluation-suite revisions, evaluator revisions with canon's validity lifecycle around a frozen root and a derived downstream-impact projection, runs admitted only against a frozen and active EvaluationEpoch, immutable results whose verdict carries a DERIVED floor (a missing required lane is at most inconclusive; an inactive evaluator or undeclared nondeterminism is invalid; exhausted exposure is blocked), sealed-lane results naming the exposure entry M10.1's ledger appended, and a model-swap continuity report DERIVED from real model invocations with the incumbent route disabled in registry truth — proving continuity only for the declared envelope and granting no authority.",
+  "falsifiable_claim": "Five contracts are registered — schema://ioi/components/hypervisor/evaluation-suite-revision/v1, evaluator-revision/v1, evaluation-run/v1, evaluation-result/v1 (owner evaluations.md § Registered Shapes) and model-swap-continuity-report/v1 (owner foundry.md § Model-Swap Continuity) — each with a registered invariant that re-derives its content_hash under its own domain separator, and the daemon validates every record against its contract before the write. Twenty handlers on sixteen paths under /v1/hypervisor/evaluation-suites, /evaluators, /evaluation-runs, /evaluation-results and /model-swap-continuity-runs compose the estate's FamilySpec machinery on the shared owner-scoped mutation chain: identity derived from the stream, exact-head successors, replay by key, a genesis on an existing family refused by the family fact before the head compare-and-swap, an inventory that lists only resources holding an admission. A suite revision freezes the declaration-only library suite (eval-suite://) with every task bound to its exact source commitment (a task without one is mutable_latest_refused) and is released as a same-hash successor; only a released revision is run- or report-eligible (a family head or unreleased revision is mutable_latest_refused). An evaluator's evaluator_root freezes what judges and every validity verb (validate, release, activate, challenge, degrade, invalidate, reverify, supersede, retire) is an exact-head successor of the same revision that may not move the root; a challenge, degradation or invalidation appends linked receipt:// or decision:// evidence; the impact projection lists every dependent run, result and epoch under the evaluator's CURRENT standing while each result's bytes stay what they were. A run binds a FROZEN AND ACTIVE epoch through M10.1's readers (draft or frozen-not-active refused evaluation_epoch_not_frozen), copies and re-derives the epoch's frozen root (an asserted root refused epoch_binding_mismatch), a released suite revision, an ACTIVE evaluator (evaluator_not_active), the current policy-bound data-view revision through M05.8's resolver (view_revision_required), and execution evidence resolved through its owner (model-invocation:// receipts and session:// records; an unadmitted ref refused execution_evidence_unresolvable, receipt:// and foundry-recipe-run:// typed unsupported); Search is refused role_separation_violated; seeds and cost are bounded. A result is admitted once under its run with observations bound to the suite's case commitments (an unknown case is input_substitution_refused), preserves uncertainty, guardrails, applicability, cost, failures and evaluator versions, and carries the derived floor with its basis; a sealed-lane result names the SPEND entry its protected access appended (no entry, a reservation entry, an unheld entry or another epoch's entry refused) and, with the frozen budget exhausted, is admitted blocked/exposure_exhausted bound to the ledger head entry at which none remained. A continuity report is refused incumbent_route_not_disabled while the incumbent is active in the model-route registry and is otherwise DERIVED: per-dimension deltas from the two result sets' observations and receipts under the declared equivalence envelope, the incumbent's disabled evidence and both route record hashes, the institutional state root, the threshold verdict continuity_proven_for_declared_envelope | not_proven, unsupported dependencies from candidate evidence that still names the incumbent, a baseline citing candidate evidence refused baseline_evidence_route_mismatch, a result under another epoch refused report_epoch_mismatch. No record of the plane admits a promotion, nomination, activation, upgrade, rollback or recall member (self_promotion_refused, by name, before the closed fence). A restart reproduces every projection byte for byte. The module imports nothing from the goal-orchestration application.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/evaluations.md",
+    "docs/architecture/components/hypervisor/foundry.md",
+    "docs/architecture/components/daemon-runtime/api.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs",
+      "literal": "pub(crate) async fn handle_run_admit",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs",
+      "literal": "pub(crate) async fn handle_continuity_run",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs",
+      "literal": "fn refuse_self_promotion",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs",
+      "literal": "fn validity_edge",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs",
+      "literal": "incumbent_route_not_disabled",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) fn resolve_exposure_entry",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "literal": "schema://ioi/components/hypervisor/evaluation-run/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/evaluations.md",
+      "literal": "## Registered Shapes",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-governed-evaluation-plane.mjs",
+      "literal": "deriveFloor",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "literal": "governed-evaluation-plane",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:governed-evaluation-plane 153/153 against an ISOLATED daemon, drilled 6/6 by mutate:governed-evaluation-plane, floor-pinned at 153 and CI-bound in the Rust-backed verifier job beside its drill. THE EVIDENCE IS REAL: two deterministic ollama-dialect stub model servers on loopback are registered as routes A and B in the daemon's own registry, probed against their live /api/tags catalogs, enabled, and invoked through POST /model-routes/:id/invoke, so every execution evidence ref a run cites is a receipt the daemon admitted for a call the stub counted — and the drill proves the counter reads zero before and one after. THE ORACLES ARE INDEPENDENT: every content_hash, the evaluator_root, both route record hashes and the verdict floor are re-derived in JavaScript from the records' own members under canon's domain separators; the drill proves each oracle rejects a changed member and accepts a moved projection, the floor oracle never raises, and the layer-law check goes red on a planted application import. The candidate route deviates from the incumbent on exactly one case and answers 40 ms slower, so the derived deltas (semantic −334 milli under exact_match, cost 1500 milli, latency above parity, one new failure class) are predicted numbers rather than read back. Writing the verifier found six daemon defects the module's own tests could not: the transition and release routes rejected their own decision, evidence and disposition members as caller-authored (the same defect class M10.1 found on the agenda release); a genesis on an existing family and a run re-admission answered with a bare head conflict instead of the family fact; the per-ordinal revision reader returned the FIRST record of an ordinal so a release could repeat and a released revision read as draft; the inventory listed scopes pinned by refused genesis attempts as if they were records; the epoch carries no owner of its own (its campaign does) so every run was refused 403; and the required-lane floor made pass unreachable because earlier lane results had already been lowered. The registered invariant then refused the first blocked-without-entry result, which is how the blocked verdict became a receipted fact bound to the ledger head entry. Ten unit tests pin the edges a caller cannot reach: the diagram's closed edge set, the frozen-root guard on a transition, the floor's order, the self-promotion members, the closed fence, the domain checks, per-ordinal resolution and the active-epoch requirement.",
+  "remaining_nonclaims": [
+    "Execution evidence resolves model-invocation:// receipts and session:// records only. Foundry recipe runs and receipt:// evidence are refused execution_evidence_unresolvable with a message naming them typed unsupported on this basis; R-161 named a Foundry recipe run as a second evidence kind and it was not built here (owner: the Foundry execution plane, M10.5 / M10.8).",
+    "No improvement-path consumer of a continuity report exists yet, so R-161's continuity_report_is_not_authority refusal has no seam to live on; the report carries canon's authority note and refuses every promotion, nomination, activation, upgrade, rollback or recall member by name. The refusal is owed by the first consumer (M10.2 / M10.8).",
+    "The verdict-basis vocabulary registers mutable_input_refused and protected_input_unavailable; the daemon refuses a mutable input at run admission (mutable_latest_refused) rather than admitting a result lowered under those bases, and no result carries them on this basis.",
+    "The candidate archive (candidates, attempts, findings) is M10.2's; collective and persistent-controller qualification is M10.9's; embodied evaluation is outside the MVP; Data-owned dataset, time-series and media-set families are consumed by exact ref only and no route of this plane creates or mutates them.",
+    "The continuity report's institutional_state_root is the substrate engine's per-domain roots digested under ioi.institutional-state-root-jcs-sha256.v1; the verifier asserts its shape and its replay across a restart, not its re-derivation, because the engine's domain roots are not served on any route (owner: M09.x substrate status projection).",
+    "The ACC-12 composed journey has not been re-run on this basis at the time of authoring; clauses 6 and 9 now compose this gate and clause 6 keeps M10.2's candidate-archive absence."
+  ],
+  "source_provenance": "Authored on the main tree 2026-09-15 under rulings R-161 (five registered shapes on canon's own rules; one core module; the continuity contract as a derived report over ordinary results with the incumbent disabled in registry truth) and R-162 (the build rulings: the blocked verdict bound to the exhausting ledger entry; the stubs speaking the ollama transport's own wire; the two R-161 members not built, recorded as nonclaims). MVP finish-line program, the 33 → 0 leg.",
+  "last_status_transaction": "2026-09-15"
+}

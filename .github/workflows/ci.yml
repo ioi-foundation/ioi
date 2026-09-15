@@ -851,6 +851,24 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:standalone-conformance --workspace=@ioi/hypervisor-app
 
+      # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
+      # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
+      # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,
+      # results with a derived verdict floor, exposure through M10.1's ledger, evaluator validity
+      # with impact lineage, and the model-swap continuity report derived with the incumbent route
+      # disabled in registry truth. The drill runs beside the gate because every commitment oracle,
+      # the floor re-derivation and the "a real invocation happened" counter would pass vacuously
+      # if they broke.
+      - name: Verify the governed evaluation plane (M10.4)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:governed-evaluation-plane --workspace=@ioi/hypervisor-app
+
+      - name: Drill the governed evaluation plane's own oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:governed-evaluation-plane --workspace=@ioi/hypervisor-app
+
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         uses: actions/upload-artifact@v4
