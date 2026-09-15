@@ -174,6 +174,7 @@ let daemonPort = 0;
 let DAEMON = "";
 let SESSION = "";
 let OWNER = "";
+let PRINCIPAL = "";
 let daemonLog = "";
 const stubs = [];
 async function startDaemon() {
@@ -249,7 +250,7 @@ const agendaBody = (key, targetRef, over = {}) => ({
 const campaignBody = (key, family, targetRef, profileRef, agendaRef, boundaryRef, over = {}) => ({
   owner_ref: OWNER, idempotency_key: key, family, system_id: null, improvement_governance_profile_revision_ref: profileRef,
   coordinating_work_subject_ref: "session://acme-improvement-2026q3", coordinating_pursuit: { goal_run_profile_revision_ref: null, goal_run_profile_resolution_receipt_ref: null },
-  improvement_assurance_profile: "independent_review", resolved_component_snapshot_ref: "artifact://acme/improvement/component-snapshot/affinity/v1", outcome_room_ref: null,
+  improvement_assurance_profile: "local_lightweight", resolved_component_snapshot_ref: "artifact://acme/improvement/component-snapshot/affinity/v1", outcome_room_ref: null,
   agenda_revision_ref: agendaRef, agenda_item_refs: ["affinity-goal-pattern"], campaign_mode: "optimization", target_class: "automation_affinity",
   mutable_target_ref: targetRef, atomic_target_bundle_ref: null, protected_boundary_refs: [], target_improvement_order: 0,
   target_order_path_ref: "artifact://acme/improvement/order-path/affinity/v1", base_target_generation_index: 0, parent_execution_campaign_ref: null,
@@ -375,7 +376,11 @@ async function identity(password) {
   }
   const who = (await jd("/v1/hypervisor/auth/whoami")).body || {};
   OWNER = (who.principal?.tenant_refs || []).find((t) => typeof t === "string" && (t.startsWith("org://") || t.startsWith("project://"))) || "";
+  PRINCIPAL = who.principal?.principal_ref ?? "";
 }
+// M10.2: a campaign runs only once its trust functions are bound; at local_lightweight this one
+// session holds all three, which is the tier a single-principal verifier declares.
+const roleBindingBody = (key) => ({ owner_ref: OWNER, idempotency_key: key, bindings: { search: [PRINCIPAL], judgment: [PRINCIPAL], authority: [PRINCIPAL] }, binding_decision_ref: "decision://acme/improvement/roles/v1" });
 
 /** Register, probe and enable one stub as a route; return its record and ref. */
 async function registerRoute(stub, key) {
@@ -558,13 +563,14 @@ async function run() {
   let cHead = campaign.body?.expected_head_for_successor;
   const admit = await post(`${CAMPAIGNS}/${CAMPAIGN}/admit`, { owner_ref: OWNER, idempotency_key: "gep-admit-1", expected_head: cHead, campaign_admission_decision_ref: "decision://acme/improvement/admit/live" });
   cHead = admit.body?.expected_head_for_successor;
+  const roles = await post(`${CAMPAIGNS}/${CAMPAIGN}/role-bindings`, roleBindingBody("gep-roles-1"));
   const start = await post(`${CAMPAIGNS}/${CAMPAIGN}/start`, { owner_ref: OWNER, idempotency_key: "gep-start-1", expected_head: cHead });
   const E1 = `${CAMPAIGN}.epoch-1`;
   const epoch1 = await post(`${CAMPAIGNS}/${CAMPAIGN}/evaluation-epochs`, epochBody("gep-epoch-1", E1, SUITE_REF, EVALUATOR_REF));
   const e1Draft = epoch1.body?.evaluation_epoch ?? {};
   let epochHead = epoch1.body?.expected_head_for_successor;
   const EPOCH_REF = `evaluation-epoch://${E1}`;
-  ok("PRECONDITION: M10.1's spine — profile, released agenda, campaign admitted and started — yields a DRAFT epoch binding this unit's real suite revision and evaluator revision", campaign.status === 201 && admit.status === 201 && start.status === 201 && epoch1.status === 201 && e1Draft.lifecycle_status === "draft" && e1Draft.evaluation_epoch_id === EPOCH_REF && (e1Draft.visible_eval_refs || [])[0] === SUITE_REF && (e1Draft.evaluator_version_and_affiliation_refs || [])[0] === EVALUATOR_REF, `${campaign.status}/${admit.status} ${code(admit.body)}/${start.status}/${epoch1.status} ${code(epoch1.body)}`);
+  ok("PRECONDITION: M10.1's spine — profile, released agenda, campaign admitted and started — yields a DRAFT epoch binding this unit's real suite revision and evaluator revision", campaign.status === 201 && admit.status === 201 && roles.status === 201 && start.status === 201 && epoch1.status === 201 && e1Draft.lifecycle_status === "draft" && e1Draft.evaluation_epoch_id === EPOCH_REF && (e1Draft.visible_eval_refs || [])[0] === SUITE_REF && (e1Draft.evaluator_version_and_affiliation_refs || [])[0] === EVALUATOR_REF, `${campaign.status}/${admit.status} ${code(admit.body)}/${start.status}/${epoch1.status} ${code(epoch1.body)}`);
   const runBody = (key, family, over = {}) => ({ owner_ref: OWNER, idempotency_key: key, family, evaluation_epoch_ref: EPOCH_REF, suite_revision_ref: SUITE_REF, evaluator_revision_ref: EVALUATOR_REF, lane: "visible", execution_evidence_refs: evidenceA.map((e) => e.ref), policy_bound_data_view_revision_ref: VIEW_REF, nondeterminism_class: "deterministic", submitter_role: "evaluator", cost_units: 42, cost_unit: "tokens", ...over });
   const runOnDraft = await post(RUNS, runBody("gep-run-draft", "acme.run-draft"));
   ok("[P2 frozen epochs] a run against a DRAFT epoch is refused: freeze commits the judgment contract before any evidence (evaluation_epoch_not_frozen)", runOnDraft.status === 409 && code(runOnDraft.body) === "evaluation_epoch_not_frozen", `${runOnDraft.status} ${code(runOnDraft.body)}`);
@@ -800,6 +806,7 @@ async function run() {
   const campaign2 = await post(CAMPAIGNS, campaignBody("gep-campaign-2", CAMPAIGN2, String(skill.skill_ref || ""), profileRef, agendaRef, boundaryRef, { target_class: "skill" }));
   let c2Head = campaign2.body?.expected_head_for_successor;
   c2Head = (await post(`${CAMPAIGNS}/${CAMPAIGN2}/admit`, { owner_ref: OWNER, idempotency_key: "gep-admit-2", expected_head: c2Head, campaign_admission_decision_ref: "decision://acme/improvement/admit/skill" })).body?.expected_head_for_successor;
+  await post(`${CAMPAIGNS}/${CAMPAIGN2}/role-bindings`, roleBindingBody("gep-roles-2"));
   await post(`${CAMPAIGNS}/${CAMPAIGN2}/start`, { owner_ref: OWNER, idempotency_key: "gep-start-2", expected_head: c2Head });
   const E2 = `${CAMPAIGN2}.epoch-1`;
   const epoch2 = await post(`${CAMPAIGNS}/${CAMPAIGN2}/evaluation-epochs`, epochBody("gep-epoch-2", E2, SUITE_REF, EVALUATOR_REF));

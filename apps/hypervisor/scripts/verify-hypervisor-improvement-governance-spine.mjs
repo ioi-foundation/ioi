@@ -80,7 +80,9 @@ const DOMAINS = {
   entry: "ioi.evaluation-exposure-entry-root-jcs-sha256.v1",
   cutoffReceipt: "ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1",
   cutoff: "ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1",
+  roleBinding: "ioi.improvement-role-binding-content-commitment-jcs-sha256.v1",
 };
+const ROLE_BINDING_MATERIAL = ["schema_version", "improvement_role_binding_id", "revision_ref", "revision", "predecessor_revision_ref", "owner_ref", "campaign_ref", "improvement_assurance_profile", "bindings", "independence", "binding_decision_ref"];
 const PROFILE_MATERIAL = ["schema_version", "improvement_governance_profile_id", "revision_ref", "version", "predecessor_revision_ref", "owner_ref", "system_id", "mutable_target_allowlist_refs", "protected_target_refs", "protected_target_change_decision_profile_refs", "max_target_improvement_order", "max_active_nested_campaign_depth", "max_unattended_target_generations", "ancestor_reservation_policy_refs", "campaign_admission_policy_ref", "campaign_stop_policy_ref", "evaluator_firewall_policy_ref", "evaluator_independence_policy_ref", "promotion_authority_policy_ref", "irreversible_effect_recovery_policy_ref"];
 const AGENDA_MATERIAL = ["schema_version", "improvement_agenda_id", "revision_ref", "revision", "predecessor_revision_ref", "owner_ref", "system_id", "constitution_and_policy_refs", "governance_policy_refs", "target_graph_ref", "portfolio_allocation_policy_ref", "items"];
 const CAMPAIGN_CONTRACT = ["schema_version", "improvement_campaign_id", "campaign_contract_revision_ref", "campaign_contract_revision", "predecessor_contract_revision_ref", "owner_ref", "system_id", "improvement_governance_profile_revision_ref", "coordinating_work_subject_ref", "coordinating_pursuit", "improvement_assurance_profile", "resolved_component_snapshot_ref", "outcome_room_ref", "agenda_revision_ref", "agenda_item_refs", "campaign_mode", "target_class", "mutable_target_ref", "atomic_target_bundle_ref", "target_base_root", "protected_boundary_refs", "target_improvement_order", "pursuit_method_order", "target_to_pursuit_method_edge_ref", "target_order_path_ref", "base_target_generation_index", "parent_execution_campaign_ref", "predecessor_target_generation_campaign_ref", "source_lower_order_campaign_refs", "deployment_incumbent_ref", "deployment_incumbent_root", "search_and_candidate_archive_policy_refs", "synchronization_policy_ref", "ancestor_resource_budget_ledger_ref", "ancestor_statistical_risk_budget_ledger_ref", "inherited_evaluation_exposure_ledger_refs", "learning_boundary_profile_ref", "effective_learning_policy_hash", "stop_policy_ref", "rollback_recall_containment_compensation_and_reconciliation_policy_refs"];
@@ -104,6 +106,7 @@ const deriveEntryRoot = (e) => digestOver(e, DOMAINS.entry, ENTRY_ROOT);
 const deriveGenesisLedgerRoot = (id) => digestOver({ evaluation_exposure_ledger_id: id }, DOMAINS.entry, ["evaluation_exposure_ledger_id"]);
 const deriveReceiptRoot = (r) => digestOver(r, DOMAINS.cutoffReceipt, CUTOFF_RECEIPT);
 const deriveCutoffHash = (r) => digestOver(r, DOMAINS.cutoff, CUTOFF_CONTENT);
+const deriveRoleBindingHash = (r) => digestOver(r, DOMAINS.roleBinding, ROLE_BINDING_MATERIAL);
 const deriveTargetRoot = (targetRef, record) => sha(jcs({ domain: "ioi.improvement-mutable-target-root-jcs-sha256.v1", target_ref: targetRef, record }));
 
 // ----------------------------------------------------------------------------- the daemon
@@ -131,6 +134,7 @@ let daemonPort = 0;
 let DAEMON = "";
 let SESSION = "";
 let OWNER = "";
+let PRINCIPAL = "";
 let daemonLog = "";
 async function startDaemon() {
   daemon = spawn(daemonBinary, [], {
@@ -195,7 +199,7 @@ const agendaBody = (key, targetRef, over = {}) => ({
 const campaignBody = (key, family, targetRef, profileRef, agendaRef, boundaryRef, over = {}) => ({
   owner_ref: OWNER, idempotency_key: key, family, system_id: null, improvement_governance_profile_revision_ref: profileRef,
   coordinating_work_subject_ref: "session://acme-improvement-2026q3", coordinating_pursuit: { goal_run_profile_revision_ref: null, goal_run_profile_resolution_receipt_ref: null },
-  improvement_assurance_profile: "independent_review", resolved_component_snapshot_ref: "artifact://acme/improvement/component-snapshot/affinity/v1", outcome_room_ref: null,
+  improvement_assurance_profile: "local_lightweight", resolved_component_snapshot_ref: "artifact://acme/improvement/component-snapshot/affinity/v1", outcome_room_ref: null,
   agenda_revision_ref: agendaRef, agenda_item_refs: ["affinity-goal-pattern"], campaign_mode: "optimization", target_class: "automation_affinity",
   mutable_target_ref: targetRef, atomic_target_bundle_ref: null, protected_boundary_refs: [], target_improvement_order: 0,
   target_order_path_ref: "artifact://acme/improvement/order-path/affinity/v1", base_target_generation_index: 0, parent_execution_campaign_ref: null,
@@ -217,6 +221,11 @@ const epochBody = (key, family, over = {}) => ({
   evaluator_version_and_affiliation_refs: ["evaluator://acme/intake-judge/revision/7"], holdout_custodian_refs: ["principal://acme/holdout-custodian"],
   external_reality_anchor_refs: [], operational_acceptance_owner_refs: [OWNER], leakage_rotation_and_challenge_policy_refs: ["policy://acme/evaluation/leakage-rotation/v1"], ...over,
 });
+// M10.2: a campaign runs only once its three trust functions are bound to accountable principals.
+// This gate's campaigns declare `local_lightweight`, the tier at which ONE accountable principal
+// may hold Search, Judgment and Authority — which is what a single-session verifier is.
+const roleBindingBody = (key) => ({ owner_ref: OWNER, idempotency_key: key, bindings: { search: [PRINCIPAL], judgment: [PRINCIPAL], authority: [PRINCIPAL] }, binding_decision_ref: "decision://acme/improvement/roles/v1" });
+const SELECTION_POLICY = "policy://acme/improvement/search-archive/v1";
 const exposureBody = (key, head, units, over = {}) => ({ owner_ref: OWNER, idempotency_key: key, expected_head: head, units, candidate_family_commitment: H("6"), information_return_class: "aggregate", evaluator_version_refs: ["evaluator://acme/intake-judge/revision/7"], ...over });
 const claimBody = (key) => ({
   owner_ref: OWNER, idempotency_key: key, family: "acme.intake-records", effective_at: "2026-06-01T09:14:03Z", asserted_by_ref: OWNER, asserted_rights_holder_refs: [OWNER], source_class: "customer",
@@ -299,7 +308,8 @@ async function run() {
   ok("operator bootstrap yields an authenticated session", SESSION.startsWith("ioi_sess_"), SESSION.slice(0, 12));
   const who = (await jd("/v1/hypervisor/auth/whoami")).body || {};
   OWNER = (who.principal?.tenant_refs || []).find((t) => typeof t === "string" && (t.startsWith("org://") || t.startsWith("project://"))) || "";
-  ok("the session authenticates a principal with an owner tenant to admit under", !!OWNER, OWNER || "no owner tenant");
+  PRINCIPAL = who.principal?.principal_ref ?? "";
+  ok("the session authenticates a principal with an owner tenant to admit under", !!OWNER && PRINCIPAL.startsWith("user://"), OWNER || "no owner tenant");
 
   // -- the direct path BEFORE any campaign object exists (ACC-12 clause 1) ---------------------------
   const affinity = (await post("/v1/hypervisor/automation-affinities", { title: "Intake triage affinity", goal_pattern: "triage intake queue", failure_policy: "stop" })).body?.record ?? {};
@@ -420,6 +430,11 @@ async function run() {
   head = admit.body?.expected_head_for_successor;
   ok("ADMISSION resolves and freezes the admission facts: the decision, a derived admission receipt, the profile/agenda/boundary snapshot refs, the profile's ceilings — and the contract root is UNMOVED", admit.status === 201 && admitted.lifecycle_status === "admitted" && admitted.campaign_contract_root === c1b.campaign_contract_root && admitted.effective_target_order_ceiling === 1 && admitted.campaign_admission_decision_ref === "decision://acme/improvement/admit/live" && String(admitted.campaign_admission_receipt_ref).startsWith("receipt://improvement-campaign/acme.intake-affinity-live/admission/") && (admitted.admission_authority_and_constitution_snapshot_refs || []).length === 3, `${admit.status} ${code(admit.body)}`);
   ok("the admission entry re-hashes here: contract root over the contract subset, content_hash over the entry, and the operation head chained from the genesis head", admitted.campaign_contract_root === deriveContractRoot(admitted) && admitted.content_hash === deriveCampaignHash(admitted) && admitted.operation_head_root === deriveHeadRoot(c1b.operation_head_root, admitted.content_hash) && admitted.operation_head_sequence === 2);
+  const startUnbound = await post(`${CAMPAIGNS}/acme.intake-affinity-live/start`, { owner_ref: OWNER, idempotency_key: "spine-start-unbound", expected_head: head });
+  ok("a campaign does not START until its three trust functions are bound to accountable principals (role_bindings_required, M10.2)", startUnbound.status === 409 && code(startUnbound.body) === "role_bindings_required", `${startUnbound.status} ${code(startUnbound.body)}`);
+  const rolesLive = await post(`${CAMPAIGNS}/acme.intake-affinity-live/role-bindings`, roleBindingBody("spine-roles-live"));
+  const rb = rolesLive.body?.improvement_role_binding ?? {};
+  ok("at local_lightweight ONE accountable principal may hold Search, Judgment and Authority: the binding admits as separately_identifiable with the campaign's declared profile COPIED and its content_hash re-derived here", rolesLive.status === 201 && rb.independence === "separately_identifiable" && rb.improvement_assurance_profile === "local_lightweight" && rb.revision === 1 && rb.content_hash === deriveRoleBindingHash(rb), `${rolesLive.status} ${code(rolesLive.body)}`);
   const start = await post(`${CAMPAIGNS}/acme.intake-affinity-live/start`, { owner_ref: OWNER, idempotency_key: "spine-start-1b", expected_head: head });
   head = start.body?.expected_head_for_successor;
   ok("start makes an admitted campaign active", start.status === 201 && start.body?.improvement_campaign?.lifecycle_status === "active", `${start.status} ${code(start.body)}`);
@@ -477,6 +492,7 @@ async function run() {
   const s1 = await post(`${EPOCHS}/${E1}/exposure/spend`, exposureBody("spine-spend-1", ledgerHead, 2, { selected_case_commitment: H("7"), information_return_class: "per_case" }));
   ledgerHead = s1.body?.expected_head_for_successor;
   const l2 = s1.body?.evaluation_exposure_ledger ?? {};
+  const SPEND_LIVE = l2.entries?.[1]?.entry_ref ?? "";
   ok("a spend draws from the outstanding reservation and chains its entry root from the previous entry", s1.status === 201 && l2.spent_units === 2 && l2.remaining_units === 2 && l2.entries?.[1]?.previous_entry_root === l1.entries[0].entry_root && l2.entries?.[1]?.entry_root === deriveEntryRoot(l2.entries[1]) && l2.ledger_head_root === l2.entries[1].entry_root, `${s1.status} ${code(s1.body)}`);
   const overReturn = await post(`${EPOCHS}/${E1}/exposure/release`, exposureBody("spine-return-over", ledgerHead, 2));
   ok("returning more than the outstanding reservation is refused the same way", overReturn.status === 409 && code(overReturn.body) === "evaluation_exposure_exhausted", `${overReturn.status} ${code(overReturn.body)}`);
@@ -495,7 +511,7 @@ async function run() {
 
   // -- the handoff: the campaign's ONLY exit is an ordinary pending proposal (ACC-12 clause 5) --------------
   const beforeHandoff = await snapshot();
-  const nominate = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/affinity/gen-3", suggested: { goal_pattern: "triage intake queue faster" }, evidence_refs: ["attempt://acme/campaign/attempt-12"], reason: "candidate gen-3 beat the incumbent under the frozen epoch" });
+  const nominate = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/affinity/gen-3", suggested: { goal_pattern: "triage intake queue faster" }, evidence_refs: ["attempt://acme/campaign/attempt-12", SPEND_LIVE], selection_policy_ref: SELECTION_POLICY, reason: "candidate gen-3 beat the incumbent under the frozen epoch" });
   const nominated = nominate.body?.proposal ?? {};
   const afterHandoff = await snapshot();
   ok("NOMINATION writes an ordinary PENDING improvement proposal bound to the campaign, its active frozen epoch and the frozen contract root — through the direct path's own creator", nominate.status === 201 && nominated.state === "pending" && nominated.improvement_campaign_ref === `improvement-campaign://${CAMPAIGN_LIVE}` && nominated.evaluation_epoch_ref === e1.evaluation_epoch_id && nominated.campaign_contract_root === c1b.campaign_contract_root && nominated.proposal_kind === "automation_readiness" && nominated.target_ref === targetRef, `${nominate.status} ${code(nominate.body)}`);
@@ -503,7 +519,7 @@ async function run() {
   const proposalsBefore = JSON.parse(beforeHandoff[PROPOSALS].slice(4)).proposals?.length ?? -1;
   const proposalsAfter = JSON.parse(afterHandoff[PROPOSALS].slice(4)).proposals?.length ?? -2;
   ok("the handoff's ONLY effect outside the six families is exactly one pending proposal: no target, session, route or profile moved", handoffDrift.length === 1 && handoffDrift[0] === PROPOSALS && proposalsAfter === proposalsBefore + 1, `${handoffDrift.join(",")} · ${proposalsBefore} → ${proposalsAfter}`);
-  const nominateAgain = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/affinity/gen-4", suggested: { goal_pattern: "triage intake queue gently" }, evidence_refs: [] });
+  const nominateAgain = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/affinity/gen-4", suggested: { goal_pattern: "triage intake queue gently" }, evidence_refs: [SPEND_LIVE], selection_policy_ref: SELECTION_POLICY });
   const nominated2 = nominateAgain.body?.proposal ?? {};
   const applyPending = await post(`${PROPOSALS}/${nominated.improvement_id}/apply`, {});
   ok("a nominated proposal is NOT applied by the campaign: apply requires the target owner's ordinary review first (improvement_not_approved)", applyPending.status === 409 && code(applyPending.body) === "improvement_not_approved", `${applyPending.status} ${code(applyPending.body)}`);
@@ -515,7 +531,7 @@ async function run() {
   await post(`${PROPOSALS}/${nominated2.improvement_id}/approve`, {});
   const staleApply = await post(`${PROPOSALS}/${nominated2.improvement_id}/apply`, {});
   ok("APPLY-TIME BINDING: a second campaign-bound proposal now finds the target moved since the contract froze its root and is refused (target_base_stale), beside the unchanged direct gate", staleApply.status === 409 && code(staleApply.body) === "target_base_stale", `${staleApply.status} ${code(staleApply.body)}`);
-  const staleNominate = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/affinity/gen-5", suggested: {}, evidence_refs: [] });
+  const staleNominate = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/affinity/gen-5", suggested: {}, evidence_refs: [SPEND_LIVE], selection_policy_ref: SELECTION_POLICY });
   ok("and a NEW nomination against the moved target is refused at the handoff (target_base_stale)", staleNominate.status === 409 && code(staleNominate.body) === "target_base_stale", `${staleNominate.status} ${code(staleNominate.body)}`);
 
   // -- a second campaign on a skill entry: epoch invalidity and campaign stop at apply time ------------------
@@ -525,6 +541,7 @@ async function run() {
   let headS = campaignS.body?.expected_head_for_successor;
   const admitS = await post(`${CAMPAIGNS}/acme.intake-skill/admit`, { owner_ref: OWNER, idempotency_key: "spine-admit-skill", expected_head: headS, campaign_admission_decision_ref: "decision://acme/improvement/admit/skill" });
   headS = admitS.body?.expected_head_for_successor;
+  await post(`${CAMPAIGNS}/acme.intake-skill/role-bindings`, roleBindingBody("spine-roles-skill"));
   const startS = await post(`${CAMPAIGNS}/acme.intake-skill/start`, { owner_ref: OWNER, idempotency_key: "spine-start-skill", expected_head: headS });
   headS = startS.body?.expected_head_for_successor;
   const epochS = await post(`${CAMPAIGNS}/acme.intake-skill/evaluation-epochs`, epochBody("spine-epoch-skill", "acme.intake-skill.epoch-1"));
@@ -534,9 +551,13 @@ async function run() {
   headES = freezeS.body?.expected_head_for_successor;
   const activateS = await post(`${EPOCHS}/${ES}/activate`, { owner_ref: OWNER, idempotency_key: "spine-activate-skill", expected_head: headES });
   headES = activateS.body?.expected_head_for_successor;
+  let ledgerHeadS = (await jd(`${EPOCHS}/${ES}/exposure`)).body?.head;
+  ledgerHeadS = (await post(`${EPOCHS}/${ES}/exposure/reserve`, exposureBody("spine-reserve-skill", ledgerHeadS, 1))).body?.expected_head_for_successor;
+  const spendS = await post(`${EPOCHS}/${ES}/exposure/spend`, exposureBody("spine-spend-skill", ledgerHeadS, 1, { selected_case_commitment: H("8"), information_return_class: "per_case" }));
+  const SPEND_S = spendS.body?.evaluation_exposure_ledger?.entries?.at(-1)?.entry_ref ?? "";
   ok("a second campaign on a SKILL ENTRY target admits, starts and activates its epoch (the second core-owned target family)", skillRef.startsWith("skill-entry://") && startS.body?.improvement_campaign?.lifecycle_status === "active" && activateS.body?.evaluation_epoch?.lifecycle_status === "active", `${admitS.status}/${startS.status}/${activateS.status} ${code(admitS.body)}${code(startS.body)}${code(activateS.body)}`);
-  const nomS1 = (await post(`${CAMPAIGNS}/acme.intake-skill/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/skill/gen-1", suggested: { title: "Intake triage skill", description: "how to triage, better", body: "step one; step two" }, evidence_refs: [] })).body?.proposal ?? {};
-  const nomS2 = (await post(`${CAMPAIGNS}/acme.intake-skill/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/skill/gen-2", suggested: { title: "Intake triage skill", description: "how to triage, again", body: "step one; step three" }, evidence_refs: [] })).body?.proposal ?? {};
+  const nomS1 = (await post(`${CAMPAIGNS}/acme.intake-skill/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/skill/gen-1", suggested: { title: "Intake triage skill", description: "how to triage, better", body: "step one; step two" }, selection_policy_ref: SELECTION_POLICY, evidence_refs: [SPEND_S] })).body?.proposal ?? {};
+  const nomS2 = (await post(`${CAMPAIGNS}/acme.intake-skill/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/skill/gen-2", suggested: { title: "Intake triage skill", description: "how to triage, again", body: "step one; step three" }, selection_policy_ref: SELECTION_POLICY, evidence_refs: [SPEND_S] })).body?.proposal ?? {};
   ok("two nominations are pending under the skill campaign's active epoch", nomS1.state === "pending" && nomS2.state === "pending" && nomS1.proposal_kind === "skill_improvement");
   const challengeS = await post(`${EPOCHS}/${ES}/challenge`, { owner_ref: OWNER, idempotency_key: "spine-challenge-skill", expected_head: headES, challenge_evidence_refs: ["finding://acme/evaluator-leak/0912"] });
   headES = challengeS.body?.expected_head_for_successor;
@@ -554,7 +575,7 @@ async function run() {
   ok("APPLY-TIME BINDING: once the campaign is STOPPED, its bound proposal is refused (campaign_binding_mismatch) — a stopped campaign revokes future promotion, never past evidence", stopS.body?.improvement_campaign?.lifecycle_status === "stopped" && applyStopped.status === 409 && code(applyStopped.body) === "campaign_binding_mismatch", `${stopS.status} · ${applyStopped.status} ${code(applyStopped.body)}`);
   const skillAfter = ((await jd("/v1/hypervisor/skill-entries")).body?.skills ?? []).find((r) => r.skill_ref === skillRef);
   ok("and the skill entry is untouched: two nominations, two approvals, zero mutation — the campaign owns no production mutation", skillAfter?.description === "how to triage" && skillAfter?.body === "step one", JSON.stringify({ description: skillAfter?.description }));
-  const nominateStopped = await post(`${CAMPAIGNS}/acme.intake-skill/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/skill/gen-3", suggested: {}, evidence_refs: [] });
+  const nominateStopped = await post(`${CAMPAIGNS}/acme.intake-skill/upgrade-proposals`, { owner_ref: OWNER, candidate_ref: "artifact://acme/candidates/skill/gen-3", suggested: {}, selection_policy_ref: SELECTION_POLICY, evidence_refs: [SPEND_S] });
   ok("a stopped campaign nominates nothing", nominateStopped.status === 409 && code(nominateStopped.body) === "improvement_campaign_not_active", `${nominateStopped.status} ${code(nominateStopped.body)}`);
 
   // -- the cutoff: at epoch close, one adjacent edge, resolved eligibility ------------------------------------
@@ -629,14 +650,17 @@ async function run() {
   ok("EVERY implemented member was observed LIVE on this run — a declared code the daemon never emits would be a finding", unobserved.length === 0, unobserved.join(",") || "all ten observed");
   const leakedTarget = canon.target.filter((c) => moduleSource.includes(`"${c}"`));
   ok("NO target member appears in the module's source — an emitted code the contract does not declare as implemented would be a finding", leakedTarget.length === 0, leakedTarget.join(",") || "none");
-  const familyPrefixes = ["improvement_governance_profile_", "improvement_agenda_", "improvement_campaign_", "evaluation_epoch_", "evaluation_exposure_ledger_", "improvement_order_cutoff_", "mutation_", "learning_", "model_route_", "institutional_learning_", "intelligence_", "improvement_", "automation_affinity_", "memory_", "skill_", "simulation_", "request_"];
+  // "role_", "nomination_", "selection_policy_" and "assurance_profile_" are M10.2's role-separation codes (register R-163), keyed on the resolved principal.
+  const familyPrefixes = ["improvement_governance_profile_", "improvement_agenda_", "improvement_campaign_", "evaluation_epoch_", "evaluation_exposure_ledger_", "improvement_order_cutoff_", "mutation_", "learning_", "model_route_", "institutional_learning_", "intelligence_", "improvement_", "automation_affinity_", "memory_", "skill_", "simulation_", "request_", "role_", "nomination_", "selection_policy_", "assurance_profile_"];
   const strayCodes = [...observedCodes].filter((c) => !canon.family.includes(c) && !familyPrefixes.some((prefix) => c.startsWith(prefix)) && c !== "mutable_target_unresolvable");
   ok("every refusal code observed on this run is a canon family member, a spine family code under its own prefix, or the target-resolver's own — no code was invented at the seam", strayCodes.length === 0, strayCodes.join(",") || "none");
 
   // -- typed absences, named rather than omitted -----------------------------------------------------------
   const candidates = await jd(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/candidates`);
   const claims = await post(`${CAMPAIGNS}/${CAMPAIGN_LIVE}/evidence-claims`, {});
-  ok("there is no registered route for candidates, attempts, findings or evidence claims on this basis — the candidate objects are M10.2's and M10.8's, the claim object is M12.5's, and api.md annotates each as planned", candidates.status === 404 && claims.status === 404, `${candidates.status}/${claims.status}`);
+  const archive = candidates.body ?? {};
+  const archiveStates = (archive.candidates || []).map((c) => c.state).sort();
+  ok("THE CANDIDATE ARCHIVE is served DERIVED (M10.2): both nominations on the live campaign in the states they reached — the applied one and the approved-then-stale one — each retained with its accountable selector, declared selection policy and the spend entry that selected it, with no rank, order or promote member anywhere; attempts, findings and evidence claims stay planned with their owners (M10.8, M12.5)", candidates.status === 200 && archive.count === 2 && JSON.stringify(archiveStates) === JSON.stringify(["applied", "approved"]) && (archive.candidates || []).every((c) => c.retained === true && c.accountable_selector_ref === PRINCIPAL && c.selection_policy_ref === SELECTION_POLICY && c.evidence.some((e) => e.kind === "exposure_entry" && e.entry_kind === "spend") && !("rank" in c) && !("order" in c) && !("promote" in c)) && !("rank" in archive) && claims.status === 404, `${candidates.status} count=${archive.count} ${archiveStates.join(",")} claims=${claims.status}`);
   const appImports = /super::(?:goalrun_routes|goal_profile_contract_routes|goal_run_context_routes|outcome_room_routes|ioi_agent_routes)\b/u.test(fs.readFileSync(MODULE, "utf8"));
   ok("the campaign module imports nothing from the goal-orchestration application's modules: the coordinating pursuit is recorded, never resolved, because core publishes no reader for that application's families (register R-155)", !appImports);
 }
@@ -653,6 +677,7 @@ async function drill() {
   }
   const who = (await jd("/v1/hypervisor/auth/whoami")).body || {};
   OWNER = (who.principal?.tenant_refs || []).find((t) => typeof t === "string" && (t.startsWith("org://") || t.startsWith("project://"))) || "";
+  PRINCIPAL = who.principal?.principal_ref ?? "";
   const profile = (await post(PROFILES, profileBody("drill-profile-1"))).body?.improvement_governance_profile ?? {};
 
   // D1 — the content-hash oracle must NOTICE a changed member. An oracle that cannot fail is not one.

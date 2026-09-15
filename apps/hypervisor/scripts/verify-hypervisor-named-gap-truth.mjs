@@ -161,6 +161,11 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 927 -> 929 (2026-09-15, M10.2): the improvement role binding and the candidate archive — TWO
+  // distinct paths under `/v1/hypervisor/improvement-campaigns/:campaign_ref/` (`role-bindings`,
+  // carrying GET and POST, and `candidates`, GET only), which is why
+  // `verify-hypervisor-environment-owner-source.mjs` moved 1194 -> 1197 in this same commit while
+  // this pin moved by two. 930 `.route(` occurrences, 930 with a path literal, 929 distinct paths.
   // 911 -> 927 (2026-09-15, M10.4): the governed evaluation plane — SIXTEEN distinct paths under
   // `/v1/hypervisor/evaluation-suites`, `/evaluators`, `/evaluation-runs`, `/evaluation-results` and
   // `/model-swap-continuity-runs`, carrying twenty handlers (four collection paths carry both GET
@@ -251,7 +256,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 927,
+  registeredRoutes: 929,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
@@ -266,6 +271,9 @@ const PINNED = {
   // standing-lease consumer loop and the standing-lease population drills among them — and two of
   // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
   // coverage count that lags its population stops being a closed world.
+  // 114 -> 115 (2026-09-15, M10.2): ONE absence-worded assertion joined, in the new
+  // `check:improvement-role-separation` — a binding on a campaign that does not exist is refused —
+  // an honest typed absence resolving no probe URL (17/17 held).
   // 111 -> 114 (2026-09-15, M10.4): THREE absence-worded assertions joined, all in the new
   // `check:governed-evaluation-plane` — a suite family or evaluator family that does not exist
   // refused on revise, and an epoch this deployment does not hold refused on a run — each an
@@ -301,7 +309,7 @@ const PINNED = {
   // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
   // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
   // second stage holds at 17 while the first moves.
-  verifierAbsenceLabels: 114,
+  verifierAbsenceLabels: 115,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

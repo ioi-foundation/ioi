@@ -633,6 +633,19 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-15 (M10.2): tokens 157545 -> 158010 (+465), opaque-initialiser 3403 -> 3467
+  // (+64), foreign-qualified 4995 -> 5023 (+28); modules 124, bare-undeclared 541 and EVERY writer
+  // bucket HELD — the role binding is a `FamilySpec` family on the shared chain and the substrate's
+  // read delegation is a successor on the scope's own stream, so no writer joined. Split by
+  // reverting files to HEAD in a build-safe order and re-running the census each time: with
+  // `hypervisor-daemon.rs`, `evaluation_routes.rs` and `ioi_intelligence_routes.rs` at HEAD it read
+  // 157952 / 3461 / 5020 (those three: +58 tokens, +6 opaque, +3 foreign — the two routes, the
+  // judgment checks and the reviewer seam); with `improvement_campaign_routes.rs` also at HEAD,
+  // 157595 / 3403 / 4996 (the campaign module: +357 / +58 / +24 — the binding family, its codes and
+  // the archive); with `mutation_event_foundation.rs` also at HEAD, 157569 / 3403 / 4996 (the
+  // read-side validation: +26 / 0 / 0); `substrate_store.rs` alone is the remaining +24 / 0 / +1
+  // (`delegate_request_resource_scope` and the delegated op kind). All six files restored by copy
+  // and digest-verified. Moved in the SAME COMMIT as the daemon change.
   // Re-pinned 2026-09-15 (M10.4): modules 123 -> 124, tokens 155607 -> 157545 (+1938),
   // opaque-initialiser 3108 -> 3403 (+295), foreign-qualified 4857 -> 4995 (+138); bare-undeclared
   // 541 and EVERY writer bucket HELD (family 57 / non-ODK 254 / runtime 311) — the governed
@@ -978,7 +991,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 157545,
+  tokenMentions: 158010,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -999,8 +1012,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4995,
-    "opaque-initialiser": 3403,
+    "foreign-qualified": 5023,
+    "opaque-initialiser": 3467,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

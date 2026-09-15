@@ -1,0 +1,94 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-2-improvement-role-separation",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.2"
+  ],
+  "status": "evidence_ready",
+  "objective": "Make Search, Judgment and Authority independently controlled by PRINCIPALS rather than by labels: a registered ImprovementRoleBinding names, per campaign, which admitted deployment principals hold each trust function; the independence obligation follows the campaign's declared improvement_assurance_profile checkably; every role-separated seam refuses a caller the binding does not name for that function; a nomination discloses its accountable selector and selection policy and cites evidence the daemon resolves under the active epoch; negative and inconclusive evidence is retained; and the candidate archive is a derived record, not a promotion queue.",
+  "falsifiable_claim": "schema://ioi/foundations/objects/improvement-role-binding/v1 is registered (owner bounded-improvement.md § ImprovementRoleBindingEnvelope; doctrine bounded-recursive-improvement.md § Search, Judgment, And Authority) with an invariant that re-derives its content_hash, and the daemon admits it as a revision family on the shared owner-scoped mutation chain at POST/GET /v1/hypervisor/improvement-campaigns/{family}/role-bindings: each function binds 1..=64 admitted principals (user://{principal_id}; a label or an unadmitted principal is refused principal_unresolvable), the campaign's profile is COPIED, and independence is DERIVED — local_lightweight permits one accountable principal to hold all three (separately_identifiable); independent_review requires judgment ∩ authority = ∅ and search ∩ judgment = ∅ (distinct_principals; a violation is role_independence_violated); every tier above fails closed (assurance_profile_not_evidenced). A campaign starts, pauses or stops only once bound (role_bindings_required) and only by Authority; the epoch is created, frozen, activated, challenged, closed, invalidated and its ledger moved only by Judgment; evaluation runs and results are admitted only by Judgment (a target_owner submitter must also hold Authority); a nomination is Search's, discloses selection_policy_ref (one of the contract's search_and_candidate_archive_policy_refs, else selection_policy_undeclared) and its accountable selector as the RESOLVED caller (a body naming one is refused by name), and cites at least one evaluation result or exposure SPEND resolved under the active epoch (nomination_evidence_required / nomination_evidence_unresolvable); approve, reject and apply of a campaign-bound proposal require an authenticated caller the binding names as Authority. Every such refusal is role_separation_violated on the RESOLVED principal, keyed on the binding and never on a role a body declares; the same operation by the principal the binding names succeeds. Because the substrate's request scopes are principal-bound (M05.8's isolation), the binding DELEGATES reads: delegate_request_resource_scope is a successor operation on the scope's own stream admitted only by the scope's principal, honoured by authorize_request_resource_scope, authorized_request_resource_refs and the read-side validation, and never by the write path; the binding delegates the campaign and itself, and every epoch, ledger, run and result created under a bound campaign is delegated at creation. The role check runs BEFORE any genesis bind at the epoch, run, result and binding seams so a refused principal cannot squat a family name. GET …/candidates is a DERIVED archive of every nomination in every state with its selector, policy and evidence resolved to what the daemon holds, and carries no rank, order or promote member. A restart reproduces the binding, the archive and the delegation.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/bounded-improvement.md",
+    "docs/architecture/foundations/bounded-recursive-improvement.md",
+    "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+    "docs/architecture/components/daemon-runtime/api.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) async fn handle_role_binding_admit",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) fn require_function",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) fn delegate_to_binding",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) async fn handle_campaign_candidates",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "role_independence_violated",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs",
+      "literal": "pub(crate) fn delegate_request_resource_scope",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mutation_event_foundation.rs",
+      "literal": "fn validate_scope_fields_for_read",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+      "literal": "fn require_reviewer",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "literal": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "literal": "### ImprovementRoleBindingEnvelope",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-improvement-role-separation.mjs",
+      "literal": "deriveIndependence",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "literal": "improvement-role-separation",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:improvement-role-separation 69/69 against an ISOLATED daemon, drilled 4/4 by mutate:improvement-role-separation, floor-pinned and CI-bound in the Rust-backed verifier job beside its drill. THE ACTORS ARE REAL: three principals minted through the daemon's own principal routes and logged in separately share one organization, so every refusal is about WHO called. THE THREE PLANTED MUTATIONS are each refused role_separation_violated and then DONE by the principal the binding names — Search creating, freezing, activating or challenging the epoch or moving its ledger (Judgment does it); Judgment nominating, approving, rejecting or applying the candidate it judged (Search nominates, Authority decides); Authority admitting an evaluation run or moving the ledger (Judgment does it) — so the refusal is keyed on the binding, not on the operation. The same overlapping binding is refused at independent_review and accepted at local_lightweight, and protected_build fails closed. Before the binding, Search cannot even read the campaign; after it, Search and Judgment read the campaign, the binding, the epoch and the ledger identically to Authority, and still cannot move them after a restart. THE ORACLES ARE INDEPENDENT: the binding's content_hash and its independence verdict are re-derived in JavaScript; the archive's structural absence is asserted over every key of every entry; the drill proves each oracle and the refusal predicate can go red. Writing the gate found that the substrate's request scopes are principal-bound with no delegation (a Judgment principal could not read the campaign its Authority created — the M05.8 isolation working as designed), that a REFUSED genesis pinned the epoch family's scope to the refused principal before the role check ran (a squat), that the proposal record dropped the binding's new members, and that the campaign's lifecycle refusal must answer before the function refusal. Three Rust tests pin the read-only nature of delegation (a delegate reads, never writes, never across a tenant) and the closed function and ladder sets.",
+  "remaining_nonclaims": [
+    "Delegation is READ-only and forward-looking: resources created before a successor binding added a principal keep their delegation set; the new principal reads what is created after it was bound. A re-delegation of existing epochs on a successor binding is owed (owner M10.8, with the ancestor ledgers).",
+    "The tiers above independent_review (protected_build, adversarial_control, threshold_recovery, failure_domain_independent) fail closed at binding admission: build provenance, control evaluation, threshold recovery roots and failure-domain declarations are not evidenced by this build (owners M10.8, M12.5).",
+    "The promotion-bundle judgment codes canon's table assigns to M10.2 (hard_constraint_regression, monitorability_regression, reproduction_required) need the promotion bundle M10.8 builds and are not emitted here; candidate_conflict_unresolved stays with the candidate objects (M10.8).",
+    "The application's Attempt/Finding DAG stays the goal-orchestration application's (register R-155); the archive cites attempt:// refs opaquely and resolves only evaluation results and exposure entries.",
+    "A campaign is created and transitioned by its Authority principal; a campaign whose creator is not bound as Authority cannot start — the binding must be admitted by the principal holding the campaign's scope, which is the creator.",
+    "Approve, reject and apply of a campaign-LESS (direct-path) proposal now require an authenticated caller but no role; the direct path's own gate is unchanged."
+  ],
+  "source_provenance": "Authored on the main tree 2026-09-15 under rulings R-163 (the binding, the resolved-principal seams, the accountable nomination, the derived archive) and R-164 (read delegation on the request scope as the binding's delegating act; the epoch lifecycle and ledger as Judgment's; campaign transitions as Authority's; the role check before any genesis bind). MVP finish-line program, the 33 → 0 leg.",
+  "last_status_transaction": "2026-09-15"
+}

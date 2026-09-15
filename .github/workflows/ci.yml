@@ -869,6 +869,23 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:governed-evaluation-plane --workspace=@ioi/hypervisor-app
 
+      # M10.2 — Search, Judgment and Authority as PRINCIPALS: three real principals in one
+      # organization, a registered role binding per campaign whose independence obligation follows
+      # the declared assurance profile, the substrate's read delegation admitted by the binding,
+      # and the three planted mutations (Search redefines the epoch, Judgment activates, Authority
+      # fabricates evidence) each refused by the resolved principal and then done by the principal
+      # the binding names. The drill proves the commitment, independence and structural-absence
+      # oracles can go red.
+      - name: Verify the improvement role separation (M10.2)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:improvement-role-separation --workspace=@ioi/hypervisor-app
+
+      - name: Drill the improvement role separation's own oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:improvement-role-separation --workspace=@ioi/hypervisor-app
+
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         uses: actions/upload-artifact@v4
