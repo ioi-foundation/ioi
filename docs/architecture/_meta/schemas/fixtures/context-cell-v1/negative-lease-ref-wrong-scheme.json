@@ -1,0 +1,25 @@
+{
+  "schema_version": "ioi.context-cell.v1",
+  "context_cell_id": "context-cell://cc_gr_9f3a2b_implementer",
+  "work_subject_ref": "goal://gr_9f3a2b",
+  "outcome_room_ref": null,
+  "participant_lease_ref": null,
+  "role_topology_revision_ref": null,
+  "role_binding_id": "implementer",
+  "accountable_actor_ref": "service://ioi-ai/goal-run",
+  "role": "implementer",
+  "resolver_revision_ref": null,
+  "resolver_content_hash": null,
+  "model_route_ref": null,
+  "memory_projection_refs": [],
+  "context_lease_refs": [
+    "lease://cl_gr_9f3a2b_implementer"
+  ],
+  "information_flow_label_refs": [],
+  "active_runtime_assignment_ref": null,
+  "authority_scope_refs": [],
+  "compression_policy_ref": null,
+  "current_claim_ref": null,
+  "next_wake_condition_ref": null,
+  "status": "open"
+}

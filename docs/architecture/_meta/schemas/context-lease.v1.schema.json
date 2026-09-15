@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+  "title": "ContextLeaseEnvelope",
+  "x-ioi-schema-version": "ioi.context-lease.v1",
+  "description": "A scoped lease letting one ContextCell or HarnessInvocation use only the context its bounded role requires, owned by the ioi.ai orchestration application. It RESTATES no privacy dimension: purpose, data classes, privacy class, redaction, retention and destination/egress belong to the bound PolicyBoundDataView revision and to the InformationFlowLabel it references, and they are folded by subtraction at resolution — a lease that declared its own data class could claim one wider than the view it leases, which is the hole this object exists to close (goal-run-execution.md § ContextLeaseEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). leased_refs names EXACT admitted revisions; a view:// entry must name a revision because a lease resolving through a moving head cannot reproduce the same least-context result after a restart.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "context_lease_id",
+    "work_subject_ref",
+    "context_cell_ref",
+    "issued_to_ref",
+    "lease_kind",
+    "allowed_ref_patterns",
+    "denied_ref_patterns",
+    "authority_scope_refs",
+    "budget_ref",
+    "ttl_seconds",
+    "receipt_required",
+    "leased_refs",
+    "information_flow_label_refs",
+    "permitted_recipient_roles",
+    "successor_of",
+    "predecessor_remains_valid",
+    "receipt_root",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.context-lease.v1"
+    },
+    "context_lease_id": {
+      "type": "string",
+      "pattern": "^context-lease://\\S+$",
+      "maxLength": 500
+    },
+    "work_subject_ref": {
+      "type": "string",
+      "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+      "maxLength": 500
+    },
+    "context_cell_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^context-cell://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "issued_to_ref": {
+      "type": "string",
+      "pattern": "^(?:context-cell|harness-invocation)://\\S+$",
+      "maxLength": 500
+    },
+    "lease_kind": {
+      "type": "string",
+      "enum": [
+        "canon",
+        "repo_slice",
+        "worktree",
+        "memory_projection",
+        "tool",
+        "connector",
+        "runtime",
+        "authority",
+        "budget",
+        "surface",
+        "receipt_view",
+        "mixed"
+      ]
+    },
+    "allowed_ref_patterns": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "denied_ref_patterns": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "authority_scope_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:authority|policy)://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "budget_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^budget://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ttl_seconds": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2592000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt_required": {
+      "type": "boolean"
+    },
+    "leased_refs": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:view://\\S+/revision/\\S+|(?:artifact|memory-projection|crate|receipt|workspace)://\\S+)$",
+        "maxLength": 500
+      }
+    },
+    "information_flow_label_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^ifc-label://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "permitted_recipient_roles": {
+      "type": "array",
+      "maxItems": 11,
+      "items": {
+        "type": "string",
+        "enum": [
+          "conductor",
+          "implementer",
+          "reviewer",
+          "verifier",
+          "operator",
+          "researcher",
+          "specialist",
+          "synthesizer",
+          "resource_provider",
+          "integrity_challenger",
+          "memory_curator"
+        ]
+      }
+    },
+    "successor_of": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^context-lease://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "predecessor_remains_valid": {
+      "type": "boolean"
+    },
+    "receipt_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "expired",
+        "revoked",
+        "consumed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+  "title": "ContextHandoffEnvelope",
+  "x-ioi-schema-version": "ioi.context-handoff.v1",
+  "description": "A typed packet between ContextCells, owned by the ioi.ai orchestration application. It moves a payload REF and lease refs, never authority and never executable state: the non_grants block says so on the record in the same idiom the GoalRun activation receipt already uses, so the claim is inspectable rather than implied by absence. Acceptance creates a CANDIDATE re-evaluated under the receiving cell's current policy — a lease reaching it through a handoff is narrowed by the receiver, never widened by the sender — and a handoff whose acceptance would require declassification is refused unless a DeclassificationApproval already authorises that exact reviewed representation, because the handoff cannot mint one (goal-run-execution.md § ContextHandoffEnvelope).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "work_subject_ref",
+    "from_context_cell_ref",
+    "to_context_cell_ref",
+    "handoff_kind",
+    "payload_ref",
+    "context_lease_refs",
+    "acceptance_refs",
+    "receipt_refs",
+    "non_grants",
+    "successor_of",
+    "receipt_root",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.context-handoff.v1"
+    },
+    "handoff_id": {
+      "type": "string",
+      "pattern": "^handoff://\\S+$",
+      "maxLength": 500
+    },
+    "work_subject_ref": {
+      "type": "string",
+      "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+      "maxLength": 500
+    },
+    "from_context_cell_ref": {
+      "type": "string",
+      "pattern": "^context-cell://\\S+$",
+      "maxLength": 500
+    },
+    "to_context_cell_ref": {
+      "type": "string",
+      "pattern": "^context-cell://\\S+$",
+      "maxLength": 500
+    },
+    "handoff_kind": {
+      "type": "string",
+      "enum": [
+        "task_brief",
+        "implementation_result",
+        "blocker",
+        "diff_summary",
+        "test_result",
+        "review_request",
+        "verification_result",
+        "attempt_result",
+        "finding",
+        "resource_request",
+        "capability_offer",
+        "frontier_update",
+        "verifier_challenge",
+        "decision_request",
+        "continuation_summary"
+      ]
+    },
+    "payload_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context_lease_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^context-lease://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "acceptance_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:rubric|gate|test)://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:receipt|ledger)://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "non_grants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_widening",
+        "context_declassification",
+        "executable_state_transfer",
+        "budget_creation",
+        "receiver_policy_bypass"
+      ],
+      "properties": {
+        "authority_widening": {
+          "const": "none"
+        },
+        "context_declassification": {
+          "const": "none"
+        },
+        "executable_state_transfer": {
+          "const": "none"
+        },
+        "budget_creation": {
+          "const": "none"
+        },
+        "receiver_policy_bypass": {
+          "const": "none"
+        }
+      }
+    },
+    "successor_of": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^handoff://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "sent",
+        "accepted",
+        "rejected",
+        "superseded"
+      ]
+    }
+  }
+}

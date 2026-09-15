@@ -546,6 +546,18 @@ ContextLeaseEnvelope:
   budget_ref: budget://... | null
   ttl_seconds: integer | null
   receipt_required: boolean
+  leased_refs:
+    - view://<family>/revision/<n> | artifact://... | memory-projection://... |
+      crate://... | receipt://... | workspace://...
+  information_flow_label_refs:
+    - ifc-label://...
+  permitted_recipient_roles:
+    - conductor | implementer | reviewer | verifier | operator |
+      researcher | specialist | synthesizer | resource_provider |
+      integrity_challenger | memory_curator
+  successor_of: context-lease://... | null
+  predecessor_remains_valid: boolean
+  receipt_root: sha256:...
   status: draft | active | expired | revoked | consumed
 ```
 
@@ -554,6 +566,38 @@ reusable HarnessProfile, AgentHarnessAdapter, Worker definition, or service
 definition is never a lease subject. The lease and its subject must bind the
 same `work_subject_ref`; when a cell ref is present it must be that subject or
 the cell that owns the invocation.
+
+`leased_refs` names EXACT admitted revisions, and it is the lease's binding
+truth; `allowed_ref_patterns` remains a pattern fence, which is not a ref. A
+`view://` entry must name a revision: a family head, a mutable-latest reference,
+and the predecessor's `policy-bound-data-view://` spelling are each refused,
+because a lease that resolves through a moving head cannot reproduce the same
+least-context view after a restart.
+
+**The lease restates no privacy dimension, and that is deliberate.** Purpose,
+data classes, privacy class, redaction, retention and destination/egress belong
+to the bound `PolicyBoundDataView` revision and to the `InformationFlowLabel`
+carried in `information_flow_label_refs`, and they are folded by SUBTRACTION at
+resolution: anything the bound purpose does not support is denied by the purpose
+itself, and every resolved input contributes its denials. A lease that declared
+its own data class or purpose could claim a class WIDER than the view it leases,
+which is the hole this object exists to close. `receipt_root` is SHA-256 over
+JCS of every field above except `receipt_root`.
+
+`permitted_recipient_roles` is the one dimension the lease owns rather than
+inherits: it constrains which cell ROLE may hold the lease, whereas the view's
+`destination_and_egress` governs where the DATA may go. Narrowing a lease mints
+a successor with `predecessor_remains_valid`; widening one is a new binding on
+record, never an edit.
+
+Scheme spelling in this section: the estate's canonical identity for these
+objects is hyphenated (`context-cell://`, `context-lease://`,
+`memory-projection://`, `task-brief://`, `harness-invocation://`), which is what
+the daemon writes. The underscore spellings that appear in the YAML above are the
+legacy aliases recorded in
+[`legacy-ref-scheme-aliases.json`](../../_meta/schemas/legacy-ref-scheme-aliases.json),
+whose write policy forbids emitting them. A full spelling pass over this document
+is not claimed here.
 
 ## ContextHandoffEnvelope
 
@@ -585,8 +629,29 @@ ContextHandoffEnvelope:
     - rubric://... | gate://... | test://...
   receipt_refs:
     - receipt://... | ledger://...
+  non_grants:
+    authority_widening: none
+    context_declassification: none
+    executable_state_transfer: none
+    budget_creation: none
+    receiver_policy_bypass: none
+  successor_of: handoff://... | null
+  receipt_root: sha256:...
   status: draft | sent | accepted | rejected | superseded
 ```
+
+A handoff moves a typed packet, never authority and never executable state. The
+`non_grants` block says so on the record in the same idiom the GoalRun activation
+receipt already uses (`context_declassification: none` is already an admitted
+non-grant there), so the claim is inspectable rather than implied by absence.
+
+Acceptance creates a CANDIDATE re-evaluated under the RECEIVER's current policy:
+the receiving cell's own leases, labels and authority decide what it may read, and
+a lease reaching it through a handoff is narrowed by the receiver's policy rather
+than widened by the sender's. A handoff whose acceptance would require
+declassification is refused unless a `DeclassificationApproval` already authorises
+that exact reviewed representation — the handoff cannot mint one. `receipt_root`
+is SHA-256 over JCS of every field above except `receipt_root`.
 
 ## Orchestration Decision Receipt Registration
 

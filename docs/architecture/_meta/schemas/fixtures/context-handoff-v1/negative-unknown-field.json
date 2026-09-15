@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.context-handoff.v1",
+  "handoff_id": "handoff://ho_gr_9f3a2b_implementer_a",
+  "work_subject_ref": "goal://gr_9f3a2b",
+  "from_context_cell_ref": "context-cell://cc_gr_9f3a2b_conductor",
+  "to_context_cell_ref": "context-cell://cc_gr_9f3a2b_implementer",
+  "handoff_kind": "task_brief",
+  "payload_ref": "task-brief://tb_gr_9f3a2b_implementer_a",
+  "context_lease_refs": [
+    "context-lease://cl_gr_9f3a2b_implementer"
+  ],
+  "acceptance_refs": [
+    "rubric://acme/implementation/2"
+  ],
+  "receipt_refs": [],
+  "non_grants": {
+    "authority_widening": "none",
+    "context_declassification": "none",
+    "executable_state_transfer": "none",
+    "budget_creation": "none",
+    "receiver_policy_bypass": "none"
+  },
+  "successor_of": null,
+  "receipt_root": "sha256:9a1c0d3e5f7b2a4c6d8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e",
+  "status": "sent",
+  "copies_payload_bytes": false
+}

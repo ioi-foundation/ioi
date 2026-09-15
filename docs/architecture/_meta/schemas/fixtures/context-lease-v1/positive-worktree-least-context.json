@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.context-lease.v1",
+  "context_lease_id": "context-lease://cl_gr_9f3a2b_implementer",
+  "work_subject_ref": "goal://gr_9f3a2b",
+  "context_cell_ref": "context-cell://cc_gr_9f3a2b_implementer",
+  "issued_to_ref": "context-cell://cc_gr_9f3a2b_implementer",
+  "lease_kind": "worktree",
+  "allowed_ref_patterns": [
+    "workspace://goal-run/gr_9f3a2b/implementer_a"
+  ],
+  "denied_ref_patterns": [
+    "secret://",
+    "unsafe_plaintext://",
+    "workspace://session/s_77"
+  ],
+  "authority_scope_refs": [
+    "policy://acme/least-context/2"
+  ],
+  "budget_ref": "budget://goal-run/gr_9f3a2b/invocation",
+  "ttl_seconds": 3600,
+  "receipt_required": true,
+  "leased_refs": [
+    "workspace://goal-run/gr_9f3a2b/implementer_a"
+  ],
+  "information_flow_label_refs": [
+    "ifc-label://acme/internal-untrusted/4"
+  ],
+  "permitted_recipient_roles": [
+    "implementer"
+  ],
+  "successor_of": null,
+  "predecessor_remains_valid": false,
+  "receipt_root": "sha256:9a1c0d3e5f7b2a4c6d8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e",
+  "status": "active"
+}

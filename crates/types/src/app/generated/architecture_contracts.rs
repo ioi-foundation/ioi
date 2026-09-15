@@ -46,6 +46,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/attempt/v3", "sha256:75afea38507e624bcd2833433691eb91f2036bdd0f11dcfa7cff2a2ba3fba03f"),
     ("schema://ioi/applications/ioi-ai/capability-offer/v3", "sha256:add2a12e4fe9e8285568e2f5d7e6e175a2aacf39a21165cfb76323e9b14bda4f"),
     ("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632"),
+    ("schema://ioi/applications/ioi-ai/context-cell/v1", "sha256:0eca9869c48e1186799ca5371d7173ad95b5f642a2e33e7ba541fc54708c2e28"),
+    ("schema://ioi/applications/ioi-ai/context-handoff/v1", "sha256:5083fcda55a9f6b103bbb961699d67f4ab28b00afb173846c00af2b68aa144e5"),
+    ("schema://ioi/applications/ioi-ai/context-lease/v1", "sha256:cd77670feff9c31f2cff2e34bb98f9906eaa0018d69944c31de4a3e58f26de25"),
     ("schema://ioi/applications/ioi-ai/finding/v3", "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253"),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", "sha256:b9ee6a68b49ece6ba66a51e69e0df922f8f22a1c7f3f22ed3b193371a21d8650"),
     ("schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1", "sha256:59fc95ab0db7dea0fa7ea5310d53e9a112bcb52d57e318bc71d02f21a8ac68f0"),
@@ -1560,6 +1563,759 @@ impl<'de> serde::Deserialize<'de> for CollaborativeWorkGraphV1ClientWritable {
             ))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ContextCellEnvelopeV1 {
+    pub schema_version: ContextCellEnvelopeV1SchemaVersion,
+    pub context_cell_id: String,
+    pub work_subject_ref: String,
+    pub outcome_room_ref: Option<String>,
+    pub participant_lease_ref: Option<String>,
+    pub role_topology_revision_ref: Option<String>,
+    pub role_binding_id: String,
+    pub accountable_actor_ref: String,
+    pub role: ContextCellEnvelopeV1Role,
+    pub resolver_revision_ref: Option<String>,
+    pub resolver_content_hash: Option<String>,
+    pub model_route_ref: Option<String>,
+    pub memory_projection_refs: Vec<String>,
+    pub context_lease_refs: Vec<String>,
+    pub information_flow_label_refs: Vec<String>,
+    pub active_runtime_assignment_ref: Option<String>,
+    pub authority_scope_refs: Vec<String>,
+    pub compression_policy_ref: Option<String>,
+    pub current_claim_ref: Option<String>,
+    pub next_wake_condition_ref: Option<String>,
+    pub status: ContextCellEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ContextCellEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-cell/v1","title":"ContextCellEnvelope","x-ioi-schema-version":"ioi.context-cell.v1","description":"Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them.","type":"object","additionalProperties":false,"required":["schema_version","context_cell_id","work_subject_ref","outcome_room_ref","participant_lease_ref","role_topology_revision_ref","role_binding_id","accountable_actor_ref","role","resolver_revision_ref","resolver_content_hash","model_route_ref","memory_projection_refs","context_lease_refs","information_flow_label_refs","active_runtime_assignment_ref","authority_scope_refs","compression_policy_ref","current_claim_ref","next_wake_condition_ref","status"],"properties":{"schema_version":{"const":"ioi.context-cell.v1"},"context_cell_id":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://\\S+$","maxLength":500},{"type":"null"}]},"participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://\\S+$","maxLength":500},{"type":"null"}]},"role_topology_revision_ref":{"anyOf":[{"type":"string","pattern":"^role-topology://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"role_binding_id":{"type":"string","minLength":1,"maxLength":200},"accountable_actor_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$","maxLength":500},"role":{"type":"string","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","pattern":"^model-route://\\S+$","maxLength":500},{"type":"null"}]},"memory_projection_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:memory-projection|wiki)://\\S+$","maxLength":500}},"context_lease_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500}},"information_flow_label_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^ifc-label://\\S+$","maxLength":500}},"active_runtime_assignment_ref":{"anyOf":[{"type":"string","pattern":"^runtime-assignment://\\S+$","maxLength":500},{"type":"null"}]},"authority_scope_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:authority|policy)://\\S+$","maxLength":500}},"compression_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://\\S+$","maxLength":500},{"type":"null"}]},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://\\S+$","maxLength":500},{"type":"null"}]},"next_wake_condition_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy|event)://\\S+$","maxLength":500},{"type":"null"}]},"status":{"type":"string","enum":["open","active","sleeping","waiting","handed_off","summarized","quarantined","closed","revoked"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ContextCellEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_cell_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"context_cell_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context_cell_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"participant_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_topology_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"role_topology_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"role_topology_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_binding_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"role_binding_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_binding_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accountable_actor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accountable_actor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accountable_actor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role: serde_json::from_value::<ContextCellEnvelopeV1Role>(
+                object
+                    .remove(r#"role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolver_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolver_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_route_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"model_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            memory_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"memory_projection_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_projection_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"context_lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context_lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            information_flow_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"information_flow_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"information_flow_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_runtime_assignment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_runtime_assignment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"active_runtime_assignment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compression_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"compression_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compression_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_claim_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"current_claim_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_claim_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            next_wake_condition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"next_wake_condition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"next_wake_condition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ContextCellEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextCellEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.context-cell.v1"#)]
+    IoiContextCellV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextCellEnvelopeV1Role {
+    #[serde(rename = r#"conductor"#)]
+    Conductor,
+    #[serde(rename = r#"implementer"#)]
+    Implementer,
+    #[serde(rename = r#"reviewer"#)]
+    Reviewer,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"operator"#)]
+    Operator,
+    #[serde(rename = r#"researcher"#)]
+    Researcher,
+    #[serde(rename = r#"specialist"#)]
+    Specialist,
+    #[serde(rename = r#"synthesizer"#)]
+    Synthesizer,
+    #[serde(rename = r#"resource_provider"#)]
+    ResourceProvider,
+    #[serde(rename = r#"integrity_challenger"#)]
+    IntegrityChallenger,
+    #[serde(rename = r#"memory_curator"#)]
+    MemoryCurator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextCellEnvelopeV1Status {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"sleeping"#)]
+    Sleeping,
+    #[serde(rename = r#"waiting"#)]
+    Waiting,
+    #[serde(rename = r#"handed_off"#)]
+    HandedOff,
+    #[serde(rename = r#"summarized"#)]
+    Summarized,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ContextHandoffEnvelopeV1 {
+    pub schema_version: ContextHandoffEnvelopeV1SchemaVersion,
+    pub handoff_id: String,
+    pub work_subject_ref: String,
+    pub from_context_cell_ref: String,
+    pub to_context_cell_ref: String,
+    pub handoff_kind: ContextHandoffEnvelopeV1HandoffKind,
+    pub payload_ref: Option<String>,
+    pub context_lease_refs: Vec<String>,
+    pub acceptance_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub non_grants: ContextHandoffEnvelopeV1NonGrants,
+    pub successor_of: Option<String>,
+    pub receipt_root: String,
+    pub status: ContextHandoffEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ContextHandoffEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-handoff/v1","title":"ContextHandoffEnvelope","x-ioi-schema-version":"ioi.context-handoff.v1","description":"A typed packet between ContextCells, owned by the ioi.ai orchestration application. It moves a payload REF and lease refs, never authority and never executable state: the non_grants block says so on the record in the same idiom the GoalRun activation receipt already uses, so the claim is inspectable rather than implied by absence. Acceptance creates a CANDIDATE re-evaluated under the receiving cell's current policy — a lease reaching it through a handoff is narrowed by the receiver, never widened by the sender — and a handoff whose acceptance would require declassification is refused unless a DeclassificationApproval already authorises that exact reviewed representation, because the handoff cannot mint one (goal-run-execution.md § ContextHandoffEnvelope).","type":"object","additionalProperties":false,"required":["schema_version","handoff_id","work_subject_ref","from_context_cell_ref","to_context_cell_ref","handoff_kind","payload_ref","context_lease_refs","acceptance_refs","receipt_refs","non_grants","successor_of","receipt_root","status"],"properties":{"schema_version":{"const":"ioi.context-handoff.v1"},"handoff_id":{"type":"string","pattern":"^handoff://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"from_context_cell_ref":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"to_context_cell_ref":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"handoff_kind":{"type":"string","enum":["task_brief","implementation_result","blocker","diff_summary","test_result","review_request","verification_result","attempt_result","finding","resource_request","capability_offer","frontier_update","verifier_challenge","decision_request","continuation_summary"]},"payload_ref":{"anyOf":[{"type":"string","pattern":"^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://\\S+$","maxLength":500},{"type":"null"}]},"context_lease_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500}},"acceptance_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:rubric|gate|test)://\\S+$","maxLength":500}},"receipt_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$","maxLength":500}},"non_grants":{"type":"object","additionalProperties":false,"required":["authority_widening","context_declassification","executable_state_transfer","budget_creation","receiver_policy_bypass"],"properties":{"authority_widening":{"const":"none"},"context_declassification":{"const":"none"},"executable_state_transfer":{"const":"none"},"budget_creation":{"const":"none"},"receiver_policy_bypass":{"const":"none"}}},"successor_of":{"anyOf":[{"type":"string","pattern":"^handoff://\\S+$","maxLength":500},{"type":"null"}]},"receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"type":"string","enum":["draft","sent","accepted","rejected","superseded"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ContextHandoffEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            handoff_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"handoff_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"handoff_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_context_cell_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"from_context_cell_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_context_cell_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            to_context_cell_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"to_context_cell_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"to_context_cell_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            handoff_kind: serde_json::from_value::<ContextHandoffEnvelopeV1HandoffKind>(
+                object
+                    .remove(r#"handoff_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"handoff_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"payload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"context_lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context_lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"acceptance_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            non_grants: serde_json::from_value::<ContextHandoffEnvelopeV1NonGrants>(
+                object
+                    .remove(r#"non_grants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"non_grants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_of: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"successor_of"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_of"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ContextHandoffEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.context-handoff.v1"#)]
+    IoiContextHandoffV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1HandoffKind {
+    #[serde(rename = r#"task_brief"#)]
+    TaskBrief,
+    #[serde(rename = r#"implementation_result"#)]
+    ImplementationResult,
+    #[serde(rename = r#"blocker"#)]
+    Blocker,
+    #[serde(rename = r#"diff_summary"#)]
+    DiffSummary,
+    #[serde(rename = r#"test_result"#)]
+    TestResult,
+    #[serde(rename = r#"review_request"#)]
+    ReviewRequest,
+    #[serde(rename = r#"verification_result"#)]
+    VerificationResult,
+    #[serde(rename = r#"attempt_result"#)]
+    AttemptResult,
+    #[serde(rename = r#"finding"#)]
+    Finding,
+    #[serde(rename = r#"resource_request"#)]
+    ResourceRequest,
+    #[serde(rename = r#"capability_offer"#)]
+    CapabilityOffer,
+    #[serde(rename = r#"frontier_update"#)]
+    FrontierUpdate,
+    #[serde(rename = r#"verifier_challenge"#)]
+    VerifierChallenge,
+    #[serde(rename = r#"decision_request"#)]
+    DecisionRequest,
+    #[serde(rename = r#"continuation_summary"#)]
+    ContinuationSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ContextHandoffEnvelopeV1NonGrants {
+    pub authority_widening: ContextHandoffEnvelopeV1NonGrantsAuthorityWidening,
+    pub context_declassification: ContextHandoffEnvelopeV1NonGrantsContextDeclassification,
+    pub executable_state_transfer: ContextHandoffEnvelopeV1NonGrantsExecutableStateTransfer,
+    pub budget_creation: ContextHandoffEnvelopeV1NonGrantsBudgetCreation,
+    pub receiver_policy_bypass: ContextHandoffEnvelopeV1NonGrantsReceiverPolicyBypass,
+}
+
+impl<'de> serde::Deserialize<'de> for ContextHandoffEnvelopeV1NonGrants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["authority_widening","context_declassification","executable_state_transfer","budget_creation","receiver_policy_bypass"],"properties":{"authority_widening":{"const":"none"},"context_declassification":{"const":"none"},"executable_state_transfer":{"const":"none"},"budget_creation":{"const":"none"},"receiver_policy_bypass":{"const":"none"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_widening: serde_json::from_value::<
+                ContextHandoffEnvelopeV1NonGrantsAuthorityWidening,
+            >(
+                object
+                    .remove(r#"authority_widening"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_widening"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_declassification: serde_json::from_value::<
+                ContextHandoffEnvelopeV1NonGrantsContextDeclassification,
+            >(
+                object
+                    .remove(r#"context_declassification"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"context_declassification"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            executable_state_transfer: serde_json::from_value::<
+                ContextHandoffEnvelopeV1NonGrantsExecutableStateTransfer,
+            >(
+                object
+                    .remove(r#"executable_state_transfer"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"executable_state_transfer"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_creation: serde_json::from_value::<
+                ContextHandoffEnvelopeV1NonGrantsBudgetCreation,
+            >(
+                object
+                    .remove(r#"budget_creation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_creation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receiver_policy_bypass: serde_json::from_value::<
+                ContextHandoffEnvelopeV1NonGrantsReceiverPolicyBypass,
+            >(
+                object
+                    .remove(r#"receiver_policy_bypass"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receiver_policy_bypass"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1NonGrantsAuthorityWidening {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1NonGrantsContextDeclassification {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1NonGrantsExecutableStateTransfer {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1NonGrantsBudgetCreation {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1NonGrantsReceiverPolicyBypass {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextHandoffEnvelopeV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"sent"#)]
+    Sent,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ContextLeaseEnvelopeV1 {
+    pub schema_version: ContextLeaseEnvelopeV1SchemaVersion,
+    pub context_lease_id: String,
+    pub work_subject_ref: String,
+    pub context_cell_ref: Option<String>,
+    pub issued_to_ref: String,
+    pub lease_kind: ContextLeaseEnvelopeV1LeaseKind,
+    pub allowed_ref_patterns: Vec<String>,
+    pub denied_ref_patterns: Vec<String>,
+    pub authority_scope_refs: Vec<String>,
+    pub budget_ref: Option<String>,
+    pub ttl_seconds: Option<ArchitectureContractInteger>,
+    pub receipt_required: bool,
+    pub leased_refs: Vec<String>,
+    pub information_flow_label_refs: Vec<String>,
+    pub permitted_recipient_roles: Vec<ContextLeaseEnvelopeV1PermittedRecipientRolesItem>,
+    pub successor_of: Option<String>,
+    pub predecessor_remains_valid: bool,
+    pub receipt_root: String,
+    pub status: ContextLeaseEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ContextLeaseEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-lease/v1","title":"ContextLeaseEnvelope","x-ioi-schema-version":"ioi.context-lease.v1","description":"A scoped lease letting one ContextCell or HarnessInvocation use only the context its bounded role requires, owned by the ioi.ai orchestration application. It RESTATES no privacy dimension: purpose, data classes, privacy class, redaction, retention and destination/egress belong to the bound PolicyBoundDataView revision and to the InformationFlowLabel it references, and they are folded by subtraction at resolution — a lease that declared its own data class could claim one wider than the view it leases, which is the hole this object exists to close (goal-run-execution.md § ContextLeaseEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). leased_refs names EXACT admitted revisions; a view:// entry must name a revision because a lease resolving through a moving head cannot reproduce the same least-context result after a restart.","type":"object","additionalProperties":false,"required":["schema_version","context_lease_id","work_subject_ref","context_cell_ref","issued_to_ref","lease_kind","allowed_ref_patterns","denied_ref_patterns","authority_scope_refs","budget_ref","ttl_seconds","receipt_required","leased_refs","information_flow_label_refs","permitted_recipient_roles","successor_of","predecessor_remains_valid","receipt_root","status"],"properties":{"schema_version":{"const":"ioi.context-lease.v1"},"context_lease_id":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"context_cell_ref":{"anyOf":[{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},{"type":"null"}]},"issued_to_ref":{"type":"string","pattern":"^(?:context-cell|harness-invocation)://\\S+$","maxLength":500},"lease_kind":{"type":"string","enum":["canon","repo_slice","worktree","memory_projection","tool","connector","runtime","authority","budget","surface","receipt_view","mixed"]},"allowed_ref_patterns":{"type":"array","maxItems":512,"items":{"type":"string","minLength":1,"maxLength":500}},"denied_ref_patterns":{"type":"array","maxItems":512,"items":{"type":"string","minLength":1,"maxLength":500}},"authority_scope_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:authority|policy)://\\S+$","maxLength":500}},"budget_ref":{"anyOf":[{"type":"string","pattern":"^budget://\\S+$","maxLength":500},{"type":"null"}]},"ttl_seconds":{"anyOf":[{"type":"integer","minimum":1,"maximum":2592000},{"type":"null"}]},"receipt_required":{"type":"boolean"},"leased_refs":{"type":"array","maxItems":4096,"items":{"type":"string","pattern":"^(?:view://\\S+/revision/\\S+|(?:artifact|memory-projection|crate|receipt|workspace)://\\S+)$","maxLength":500}},"information_flow_label_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^ifc-label://\\S+$","maxLength":500}},"permitted_recipient_roles":{"type":"array","maxItems":11,"items":{"type":"string","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]}},"successor_of":{"anyOf":[{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500},{"type":"null"}]},"predecessor_remains_valid":{"type":"boolean"},"receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"type":"string","enum":["draft","active","expired","revoked","consumed"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ContextLeaseEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_lease_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"context_lease_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context_lease_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_cell_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"context_cell_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context_cell_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_to_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_to_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_to_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lease_kind: serde_json::from_value::<ContextLeaseEnvelopeV1LeaseKind>(
+                object
+                    .remove(r#"lease_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lease_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allowed_ref_patterns: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"allowed_ref_patterns"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allowed_ref_patterns"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            denied_ref_patterns: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"denied_ref_patterns"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"denied_ref_patterns"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"budget_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ttl_seconds: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"ttl_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ttl_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"receipt_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            leased_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"leased_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"leased_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            information_flow_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"information_flow_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"information_flow_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_recipient_roles: serde_json::from_value::<
+                Vec<ContextLeaseEnvelopeV1PermittedRecipientRolesItem>,
+            >(
+                object
+                    .remove(r#"permitted_recipient_roles"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"permitted_recipient_roles"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_of: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"successor_of"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_of"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_remains_valid: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"predecessor_remains_valid"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_remains_valid"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ContextLeaseEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextLeaseEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.context-lease.v1"#)]
+    IoiContextLeaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextLeaseEnvelopeV1LeaseKind {
+    #[serde(rename = r#"canon"#)]
+    Canon,
+    #[serde(rename = r#"repo_slice"#)]
+    RepoSlice,
+    #[serde(rename = r#"worktree"#)]
+    Worktree,
+    #[serde(rename = r#"memory_projection"#)]
+    MemoryProjection,
+    #[serde(rename = r#"tool"#)]
+    Tool,
+    #[serde(rename = r#"connector"#)]
+    Connector,
+    #[serde(rename = r#"runtime"#)]
+    Runtime,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"budget"#)]
+    Budget,
+    #[serde(rename = r#"surface"#)]
+    Surface,
+    #[serde(rename = r#"receipt_view"#)]
+    ReceiptView,
+    #[serde(rename = r#"mixed"#)]
+    Mixed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextLeaseEnvelopeV1PermittedRecipientRolesItem {
+    #[serde(rename = r#"conductor"#)]
+    Conductor,
+    #[serde(rename = r#"implementer"#)]
+    Implementer,
+    #[serde(rename = r#"reviewer"#)]
+    Reviewer,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"operator"#)]
+    Operator,
+    #[serde(rename = r#"researcher"#)]
+    Researcher,
+    #[serde(rename = r#"specialist"#)]
+    Specialist,
+    #[serde(rename = r#"synthesizer"#)]
+    Synthesizer,
+    #[serde(rename = r#"resource_provider"#)]
+    ResourceProvider,
+    #[serde(rename = r#"integrity_challenger"#)]
+    IntegrityChallenger,
+    #[serde(rename = r#"memory_curator"#)]
+    MemoryCurator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContextLeaseEnvelopeV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"consumed"#)]
+    Consumed,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -144309,6 +145065,182 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-cell/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-cell/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-cell/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-cell/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-cell/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-cell/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-handoff/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/context-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/finding/v3",
         path: "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
         expected_accept: true,
@@ -157464,6 +158396,248 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-cell/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-handoff/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/context-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -174528,6 +175702,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/attempt/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/attempt/v3","title":"Attempt","x-ioi-schema-version":"ioi.applications.ioi-ai.attempt.v3","type":"object","additionalProperties":false,"required":["schema_version","attempt_id","outcome_room_ref","system_binding","work_subject_ref","goal_run_ref","frontier_item_ref","work_claim_ref","participant_ref","bound_coordinates","declared_method_and_hypothesis_refs","parent_and_derivation_refs","input_state_and_environment_refs","worker_model_resolver_tool_and_runtime_version_refs","authority_and_policy_refs","resource_and_cost_refs","outcome_class","work_result_ref","outcome_delta_refs","artifact_evidence_and_receipt_refs","verifier_refs","reproduction_state","artifact_license_ip_retention_and_export_refs","contribution_refs","status"],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"boundCoordinates":{"type":"object","additionalProperties":false,"required":["outcome_room","frontier_item","work_claim","participant_lease","goal_run"],"properties":{"outcome_room":{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$"},"control_hash":{"$ref":"#/$defs/hash"}}},"frontier_item":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"work_claim":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"goal_run":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]},"record_hash":{"$ref":"#/$defs/hash"}}}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.attempt.v3"},"attempt_id":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$"},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"},"bound_coordinates":{"anyOf":[{"$ref":"#/$defs/boundCoordinates"},{"type":"null"}]},"declared_method_and_hypothesis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|finding|artifact)://[^\\s]{1,500}$"}},"parent_and_derivation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|artifact|finding)://[^\\s]{1,500}$"}},"input_state_and_environment_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"}},"worker_model_resolver_tool_and_runtime_version_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:worker|model-route|runtime)://[^\\s]{1,500}|(?:harness-profile|agent-harness-adapter|tool)://[^\\s]{1,500}/revision/[^\\s]{1,500})$"}},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|policy)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"anyOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$"}},"reproduction_state":{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},"artifact_license_ip_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"bound_coordinates":{"$ref":"#/$defs/boundCoordinates"}}},"else":{"properties":{"system_binding":{"type":"null"},"bound_coordinates":{"type":"null"}}}}]}"##),
     ("schema://ioi/applications/ioi-ai/capability-offer/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/capability-offer/v3","title":"CapabilityOffer","description":"A room-scoped typed profile over existing worker manifests and capability discovery. An offer advertises; it neither allocates work nor grants execution authority. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","x-ioi-schema-version":"ioi.applications.ioi-ai.capability-offer.v3","type":"object","additionalProperties":false,"required":["schema_version","capability_offer_id","system_binding","participant_lease_ref","backing_worker_or_service_ref","capability_descriptor_refs","eligible_frontier_classes","model_harness_tool_and_connector_refs","authority_and_context_requirements","privacy_cost_quality_and_latency_refs","availability_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.capability-offer.v3"},"capability_offer_id":{"type":"string","pattern":"^capability-offer://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"backing_worker_or_service_ref":{"type":"string","pattern":"^(?:worker|service|system)://[^\\s]{1,500}$"},"capability_descriptor_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ai|package|capability)://[^\\s]{1,500}$"}},"eligible_frontier_classes":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"model_harness_tool_and_connector_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$"}},"authority_and_context_requirements":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:policy|context-profile)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"privacy_cost_quality_and_latency_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|quote|benchmark|sla)://[^\\s]{1,500}$"}},"availability_ref":{"anyOf":[{"type":"string","pattern":"^schedule://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["offered","eligible","allocated","suspended","withdrawn","revoked"]}}}"##),
     ("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","title":"CollaborativeWorkGraph","x-ioi-schema-version":"ioi.applications.ioi-ai.collaborative-work-graph.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","member_goal_run_refs","participant_refs","frontier_item_refs","work_claim_refs","attempt_refs","finding_refs","verifier_challenge_refs","work_result_refs","outcome_delta_refs","source_admission_receipt_refs","information_flow_label_refs","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collaborative-work-graph.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"member_goal_run_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"participant_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_claim_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_result_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"outcome_delta_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"source_admission_receipt_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#),
+    ("schema://ioi/applications/ioi-ai/context-cell/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-cell/v1","title":"ContextCellEnvelope","x-ioi-schema-version":"ioi.context-cell.v1","description":"Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them.","type":"object","additionalProperties":false,"required":["schema_version","context_cell_id","work_subject_ref","outcome_room_ref","participant_lease_ref","role_topology_revision_ref","role_binding_id","accountable_actor_ref","role","resolver_revision_ref","resolver_content_hash","model_route_ref","memory_projection_refs","context_lease_refs","information_flow_label_refs","active_runtime_assignment_ref","authority_scope_refs","compression_policy_ref","current_claim_ref","next_wake_condition_ref","status"],"properties":{"schema_version":{"const":"ioi.context-cell.v1"},"context_cell_id":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://\\S+$","maxLength":500},{"type":"null"}]},"participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://\\S+$","maxLength":500},{"type":"null"}]},"role_topology_revision_ref":{"anyOf":[{"type":"string","pattern":"^role-topology://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"role_binding_id":{"type":"string","minLength":1,"maxLength":200},"accountable_actor_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$","maxLength":500},"role":{"type":"string","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","pattern":"^model-route://\\S+$","maxLength":500},{"type":"null"}]},"memory_projection_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:memory-projection|wiki)://\\S+$","maxLength":500}},"context_lease_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500}},"information_flow_label_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^ifc-label://\\S+$","maxLength":500}},"active_runtime_assignment_ref":{"anyOf":[{"type":"string","pattern":"^runtime-assignment://\\S+$","maxLength":500},{"type":"null"}]},"authority_scope_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:authority|policy)://\\S+$","maxLength":500}},"compression_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://\\S+$","maxLength":500},{"type":"null"}]},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://\\S+$","maxLength":500},{"type":"null"}]},"next_wake_condition_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy|event)://\\S+$","maxLength":500},{"type":"null"}]},"status":{"type":"string","enum":["open","active","sleeping","waiting","handed_off","summarized","quarantined","closed","revoked"]}}}"#),
+    ("schema://ioi/applications/ioi-ai/context-handoff/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-handoff/v1","title":"ContextHandoffEnvelope","x-ioi-schema-version":"ioi.context-handoff.v1","description":"A typed packet between ContextCells, owned by the ioi.ai orchestration application. It moves a payload REF and lease refs, never authority and never executable state: the non_grants block says so on the record in the same idiom the GoalRun activation receipt already uses, so the claim is inspectable rather than implied by absence. Acceptance creates a CANDIDATE re-evaluated under the receiving cell's current policy — a lease reaching it through a handoff is narrowed by the receiver, never widened by the sender — and a handoff whose acceptance would require declassification is refused unless a DeclassificationApproval already authorises that exact reviewed representation, because the handoff cannot mint one (goal-run-execution.md § ContextHandoffEnvelope).","type":"object","additionalProperties":false,"required":["schema_version","handoff_id","work_subject_ref","from_context_cell_ref","to_context_cell_ref","handoff_kind","payload_ref","context_lease_refs","acceptance_refs","receipt_refs","non_grants","successor_of","receipt_root","status"],"properties":{"schema_version":{"const":"ioi.context-handoff.v1"},"handoff_id":{"type":"string","pattern":"^handoff://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"from_context_cell_ref":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"to_context_cell_ref":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"handoff_kind":{"type":"string","enum":["task_brief","implementation_result","blocker","diff_summary","test_result","review_request","verification_result","attempt_result","finding","resource_request","capability_offer","frontier_update","verifier_challenge","decision_request","continuation_summary"]},"payload_ref":{"anyOf":[{"type":"string","pattern":"^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://\\S+$","maxLength":500},{"type":"null"}]},"context_lease_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500}},"acceptance_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:rubric|gate|test)://\\S+$","maxLength":500}},"receipt_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$","maxLength":500}},"non_grants":{"type":"object","additionalProperties":false,"required":["authority_widening","context_declassification","executable_state_transfer","budget_creation","receiver_policy_bypass"],"properties":{"authority_widening":{"const":"none"},"context_declassification":{"const":"none"},"executable_state_transfer":{"const":"none"},"budget_creation":{"const":"none"},"receiver_policy_bypass":{"const":"none"}}},"successor_of":{"anyOf":[{"type":"string","pattern":"^handoff://\\S+$","maxLength":500},{"type":"null"}]},"receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"type":"string","enum":["draft","sent","accepted","rejected","superseded"]}}}"#),
+    ("schema://ioi/applications/ioi-ai/context-lease/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-lease/v1","title":"ContextLeaseEnvelope","x-ioi-schema-version":"ioi.context-lease.v1","description":"A scoped lease letting one ContextCell or HarnessInvocation use only the context its bounded role requires, owned by the ioi.ai orchestration application. It RESTATES no privacy dimension: purpose, data classes, privacy class, redaction, retention and destination/egress belong to the bound PolicyBoundDataView revision and to the InformationFlowLabel it references, and they are folded by subtraction at resolution — a lease that declared its own data class could claim one wider than the view it leases, which is the hole this object exists to close (goal-run-execution.md § ContextLeaseEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). leased_refs names EXACT admitted revisions; a view:// entry must name a revision because a lease resolving through a moving head cannot reproduce the same least-context result after a restart.","type":"object","additionalProperties":false,"required":["schema_version","context_lease_id","work_subject_ref","context_cell_ref","issued_to_ref","lease_kind","allowed_ref_patterns","denied_ref_patterns","authority_scope_refs","budget_ref","ttl_seconds","receipt_required","leased_refs","information_flow_label_refs","permitted_recipient_roles","successor_of","predecessor_remains_valid","receipt_root","status"],"properties":{"schema_version":{"const":"ioi.context-lease.v1"},"context_lease_id":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"context_cell_ref":{"anyOf":[{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},{"type":"null"}]},"issued_to_ref":{"type":"string","pattern":"^(?:context-cell|harness-invocation)://\\S+$","maxLength":500},"lease_kind":{"type":"string","enum":["canon","repo_slice","worktree","memory_projection","tool","connector","runtime","authority","budget","surface","receipt_view","mixed"]},"allowed_ref_patterns":{"type":"array","maxItems":512,"items":{"type":"string","minLength":1,"maxLength":500}},"denied_ref_patterns":{"type":"array","maxItems":512,"items":{"type":"string","minLength":1,"maxLength":500}},"authority_scope_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:authority|policy)://\\S+$","maxLength":500}},"budget_ref":{"anyOf":[{"type":"string","pattern":"^budget://\\S+$","maxLength":500},{"type":"null"}]},"ttl_seconds":{"anyOf":[{"type":"integer","minimum":1,"maximum":2592000},{"type":"null"}]},"receipt_required":{"type":"boolean"},"leased_refs":{"type":"array","maxItems":4096,"items":{"type":"string","pattern":"^(?:view://\\S+/revision/\\S+|(?:artifact|memory-projection|crate|receipt|workspace)://\\S+)$","maxLength":500}},"information_flow_label_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^ifc-label://\\S+$","maxLength":500}},"permitted_recipient_roles":{"type":"array","maxItems":11,"items":{"type":"string","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]}},"successor_of":{"anyOf":[{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500},{"type":"null"}]},"predecessor_remains_valid":{"type":"boolean"},"receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"type":"string","enum":["draft","active","expired","revoked","consumed"]}}}"#),
     ("schema://ioi/applications/ioi-ai/finding/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/finding/v3","title":"Finding","x-ioi-schema-version":"ioi.applications.ioi-ai.finding.v3","type":"object","additionalProperties":false,"required":["schema_version","finding_id","outcome_room_ref","system_binding","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","bound_coordinates","proposition","finding_kind","confidence_or_uncertainty","valid_time","transaction_time","source_and_observation_context_refs","supporting_evidence_refs","proof_refs","contradicting_evidence_refs","applicability_and_counterexample_refs","provenance_ontology_and_mapping_refs","proposed_effect_refs","supersedes_ref","dispute_ref","status"],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"recordCoordinate":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"boundCoordinates":{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]},"record_hash":{"$ref":"#/$defs/hash"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"supersedes_finding":{"anyOf":[{"$ref":"#/$defs/recordCoordinate"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.finding.v3"},"finding_id":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"},"bound_coordinates":{"anyOf":[{"$ref":"#/$defs/boundCoordinates"},{"type":"null"}]},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"confidence_or_uncertainty":{"anyOf":[{"type":"number"},{"type":"null"}]},"valid_time":{"anyOf":[{"type":"object"},{"type":"null"}]},"transaction_time":{"$ref":"#/$defs/timestamp"},"source_and_observation_context_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"}},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|finding)://[^\\s]{1,500}$"}},"applicability_and_counterexample_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|ontology)://[^\\s]{1,500}$"}},"provenance_ontology_and_mapping_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"}},"proposed_effect_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"}},"supersedes_ref":{"anyOf":[{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},{"type":"null"}]},"dispute_ref":{"anyOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"bound_coordinates":{"$ref":"#/$defs/boundCoordinates"}}},"else":{"properties":{"system_binding":{"type":"null"},"bound_coordinates":{"type":"null"}}}}]}"##),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v1","title":"GoalGroundingLoop","x-ioi-schema-version":"ioi.goal-grounding-loop.v1","type":"object","additionalProperties":false,"required":["schema_version","goal_loop_id","goal_ref","conductor_context_cell_ref","loop_iteration","phase","escalation_state","exit_condition","status"],"properties":{"schema_version":{"const":"ioi.goal-grounding-loop.v1"},"goal_loop_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"conductor_context_cell_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"loop_iteration":{"type":"integer","minimum":0,"maximum":9007199254740991},"phase":{"enum":["receive_intent","classify_goal","gather_grounding","inspect_state","derive_constraints","observe_frontier","form_hypotheses","select_or_adapt_topology","claim_allocate_or_delegate","lease_context","open_context_cells","execute_attempt","monitor_progress","publish_result","verify_compare_or_challenge","repair_or_escalate","reconcile","update_frontier_and_memory","continue_or_close"]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_and_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"grounding_source_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"state_inspection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_cell_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"handoff_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"attempt_result_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"verifier_path_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"productivity_budget_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"topology_participant_and_verifier_change_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"marginal_value_stop_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"escalation_state":{"enum":["none","ask_user","open_implementer_cell","open_reviewer_cell","require_independent_verifier","require_governance_control","stop_blocked"]},"exit_condition":{"enum":["continue","delegated","waiting_on_frontier","verified_complete","accepted","risk_stop","budget_stop","deadline_stop","marginal_value_stop","blocked","superseded","user_input_required","governance_required"]},"status":{"enum":["active","waiting","satisfied","blocked","superseded","revoked"]}}}"#),
     ("schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1","title":"GoalRunActivationReceipt","description":"Portable receipt for one admitted GoalRunActivation crossing. It binds the exact activation draft, typed source context and source payload commitment, requesting principal, authority and review decisions, admission decision and receipt, admitted GoalRun identity and state root, and the exact profile resolution for create mode without widening authority, declassifying context, granting room membership, or creating budget.","x-ioi-schema-version":"ioi.goal-run-activation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","receipt_profile_ref","activation_ref","activation_mode","source_context","draft_activation_hash","source_context_hash","requesting_principal_ref","authority_decision_ref","review_decision_ref","admission_decision_ref","admission_receipt_ref","admitted_goal_ref","existing_goal_ref","goal_run_profile_revision_ref","goal_run_profile_content_hash","resolved_component_set_snapshot_ref","resolved_component_set_hash","profile_resolution_receipt_ref","receipt_obligations_hash","attested_boundary_fact_refs","admitted_state_root_ref","admitted_at","non_grants","receipt_root"],"properties":{"schema_version":{"const":"ioi.goal-run-activation-receipt.v1"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"goal_run_activation"},"receipt_profile_ref":{"const":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1"},"activation_ref":{"$ref":"#/$defs/activationRef"},"activation_mode":{"enum":["create","join_existing"]},"source_context":{"$ref":"#/$defs/sourceContext"},"draft_activation_hash":{"$ref":"#/$defs/hash"},"source_context_hash":{"$ref":"#/$defs/hash"},"requesting_principal_ref":{"type":"string","pattern":"^(?:wallet|user|agent|system)://[^\\s]{1,500}$"},"authority_decision_ref":{"type":"string","pattern":"^(?:grant|approval)://[^\\s]{1,500}$"},"review_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:receipt|approval)://[^\\s]{1,500}$"},{"type":"null"}]},"admission_decision_ref":{"type":"string","pattern":"^(?:agentgres|decision)://[^\\s]{1,500}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"admitted_goal_ref":{"$ref":"#/$defs/goalRef"},"existing_goal_ref":{"anyOf":[{"$ref":"#/$defs/goalRef"},{"type":"null"}]},"goal_run_profile_revision_ref":{"anyOf":[{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},{"type":"null"}]},"goal_run_profile_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resolved_component_set_snapshot_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"resolved_component_set_hash":{"$ref":"#/$defs/hash"},"profile_resolution_receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_obligations_hash":{"$ref":"#/$defs/hash"},"attested_boundary_fact_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_state_root_ref":{"type":"string","pattern":"^agentgres://state-root/goal-run/[^/\\s]{1,160}/sha256:[0-9a-f]{64}$"},"admitted_at":{"$ref":"#/$defs/canonicalDateTime"},"non_grants":{"$ref":"#/$defs/nonGrants"},"receipt_root":{"$ref":"#/$defs/hash"}},"allOf":[{"if":{"properties":{"activation_mode":{"const":"create"}}},"then":{"properties":{"goal_run_profile_revision_ref":{"type":"string"},"goal_run_profile_content_hash":{"type":"string"},"existing_goal_ref":{"type":"null"}}}},{"if":{"properties":{"activation_mode":{"const":"join_existing"}}},"then":{"properties":{"goal_run_profile_revision_ref":{"type":"null"},"goal_run_profile_content_hash":{"type":"null"},"existing_goal_ref":{"type":"string"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"activationRef":{"type":"string","pattern":"^goal-run-activation://[^\\s]{1,500}$"},"goalRef":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sourceContext":{"type":"object","additionalProperties":false,"required":["source_kind","source_ref","source_owner_ref"],"properties":{"source_kind":{"enum":["ioi_goal_draft","hypervisor_session","work_run","work_item","outcome_room_claim","automation_workflow_step","gateway_adapter_context"]},"source_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"source_owner_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"}},"allOf":[{"if":{"properties":{"source_kind":{"const":"ioi_goal_draft"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^(?:intent|prompt)://[^\\s]{1,500}$"}}}},{"if":{"properties":{"source_kind":{"const":"hypervisor_session"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^session://[^\\s]{1,500}$"}}}},{"if":{"properties":{"source_kind":{"const":"work_run"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^(?:work-run|run)://[^\\s]{1,500}$"}}}},{"if":{"properties":{"source_kind":{"const":"work_item"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^work-item://[^\\s]{1,500}$"}}}},{"if":{"properties":{"source_kind":{"const":"outcome_room_claim"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"}}}},{"if":{"properties":{"source_kind":{"const":"automation_workflow_step"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^action://goal-run/activate/[^\\s]{1,500}$"}}}},{"if":{"properties":{"source_kind":{"const":"gateway_adapter_context"}}},"then":{"properties":{"source_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"}}}}]},"nonGrants":{"type":"object","additionalProperties":false,"required":["authority_widening","context_declassification","room_membership","budget_creation"],"properties":{"authority_widening":{"const":"none"},"context_declassification":{"const":"none"},"room_membership":{"const":"none"},"budget_creation":{"const":"none"}}}}}"##),
@@ -174825,6 +176002,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/attempt/v3", r#"[{"rule_id":"attempt.room.matches_admission","description":"Attempt and admission bind the same room; both are null for direct work.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"attempt.room.matches_bound_room","description":"A hosted Attempt freezes its OutcomeRoom coordinate; a non-room Attempt has no bound coordinate object.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.outcome_room.record_ref"]}},{"rule_id":"attempt.goal.matches_bound_goal","description":"A hosted Attempt freezes its GoalRun coordinate.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.goal_run_ref","$.bound_coordinates.goal_run.record_ref"]}},{"rule_id":"attempt.frontier.matches_bound_frontier","description":"A hosted Attempt freezes its frontier coordinate.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.frontier_item_ref","$.bound_coordinates.frontier_item.record_ref"]}},{"rule_id":"attempt.claim.matches_bound_claim","description":"A hosted Attempt freezes its claim coordinate.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.work_claim_ref","$.bound_coordinates.work_claim.record_ref"]}},{"rule_id":"attempt.frontier_room.matches_room","description":"The hosted bound frontier belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.frontier_item.outcome_room_ref"]}},{"rule_id":"attempt.claim_room.matches_room","description":"The hosted bound claim belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.work_claim.outcome_room_ref"]}},{"rule_id":"attempt.participant_room.matches_room","description":"The hosted bound participant lease belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.participant_lease.outcome_room_ref"]}},{"rule_id":"attempt.goal_room.matches_room","description":"The hosted bound GoalRun belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.goal_run.outcome_room_ref"]}},{"rule_id":"attempt.claim_frontier.matches_frontier","description":"The hosted bound claim names the exact frozen frontier item.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.frontier_item_ref","$.bound_coordinates.work_claim.frontier_item_ref"]}},{"rule_id":"attempt.admission_issuer.matches_bound_lease_or_room_system","description":"Participant-authored admission binds the frozen participant lease; a system-authored transition binds the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}},{"rule_id":"attempt.participant.resolves_through_bound_lease","description":"The participant field retains the frozen lease, its principal, or the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.participant_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.participant_ref","$.bound_coordinates.participant_lease.principal_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.participant_ref","$.system_binding.system_id"]}]}},{"rule_id":"attempt.claimant.resolves_through_bound_lease","description":"The hosted frozen claim claimant is the participant lease or the principal resolved by that lease.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.bound_coordinates.work_claim.claimant_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.bound_coordinates.work_claim.claimant_ref","$.bound_coordinates.participant_lease.principal_ref"]}]}}]"#),
     ("schema://ioi/applications/ioi-ai/capability-offer/v3", r#"[{"rule_id":"capability_offer.issuer.resolves_through_participant_lease_or_room_system","description":"A participant advertises in a room only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.participant_lease_ref"]},{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}}]"#),
     ("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", r#"[]"#),
+    ("schema://ioi/applications/ioi-ai/context-cell/v1", r#"[]"#),
+    ("schema://ioi/applications/ioi-ai/context-handoff/v1", r#"[]"#),
+    ("schema://ioi/applications/ioi-ai/context-lease/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/finding/v3", r#"[{"rule_id":"finding.room.matches_admission","description":"Finding and admission bind the same room; both are null for direct work.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"finding.attempt.matches_bound_attempt","description":"A hosted Finding freezes its exact Attempt; a non-room Finding has no bound coordinate object.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.attempt_ref","$.bound_coordinates.attempt.record_ref"]}},{"rule_id":"finding.result.matches_bound_result","description":"A hosted Finding freezes its exact WorkResult.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.work_result_ref","$.bound_coordinates.work_result.record_ref"]}},{"rule_id":"finding.participant.matches_bound_lease","description":"A hosted Finding freezes its historical participant lease.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.participant_ref","$.bound_coordinates.participant_lease.record_ref"]}},{"rule_id":"finding.admission_issuer.matches_participant_or_room_system","description":"Participant-authored admission binds the frozen participant lease; a host-governed transition binds the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.participant_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}},{"rule_id":"finding.proposer.resolves_through_bound_lease_or_room_system","description":"The proposer is the historical lease, its frozen principal, or the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.proposed_by_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.proposed_by_ref","$.bound_coordinates.participant_lease.principal_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.proposed_by_ref","$.system_binding.system_id"]}]}}]"#),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1", r#"[{"rule_id":"goal_run_activation_receipt.identity.matches","description":"The activation admission has one portable receipt identity.","expression":{"operator":"fields_equal","paths":["$.receipt_id","$.receipt_ref"]}},{"rule_id":"goal_run_activation_receipt.root.recomputes","description":"The receipt root commits every typed activation, source, authority, admission, GoalRun, profile, state, time, and non-grant field carried by the receipt.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"activation_ref":{"path":"$.activation_ref"},"activation_mode":{"path":"$.activation_mode"},"source_context":{"path":"$.source_context"},"draft_activation_hash":{"path":"$.draft_activation_hash"},"source_context_hash":{"path":"$.source_context_hash"},"requesting_principal_ref":{"path":"$.requesting_principal_ref"},"authority_decision_ref":{"path":"$.authority_decision_ref"},"review_decision_ref":{"path":"$.review_decision_ref"},"admission_decision_ref":{"path":"$.admission_decision_ref"},"admission_receipt_ref":{"path":"$.admission_receipt_ref"},"admitted_goal_ref":{"path":"$.admitted_goal_ref"},"existing_goal_ref":{"path":"$.existing_goal_ref"},"goal_run_profile_revision_ref":{"path":"$.goal_run_profile_revision_ref"},"goal_run_profile_content_hash":{"path":"$.goal_run_profile_content_hash"},"resolved_component_set_snapshot_ref":{"path":"$.resolved_component_set_snapshot_ref"},"resolved_component_set_hash":{"path":"$.resolved_component_set_hash"},"profile_resolution_receipt_ref":{"path":"$.profile_resolution_receipt_ref"},"receipt_obligations_hash":{"path":"$.receipt_obligations_hash"},"attested_boundary_fact_refs":{"path":"$.attested_boundary_fact_refs"},"admitted_state_root_ref":{"path":"$.admitted_state_root_ref"},"admitted_at":{"path":"$.admitted_at"},"non_grants":{"path":"$.non_grants"}},"expected_path":"$.receipt_root","expected_encoding":"sha256_string"}}]"#),
@@ -175313,6 +176493,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:auth_factor|guardian)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:authority|policy)://\S+$"#,
+        r#"^(?:authority|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:benchmark|rubric|gate|policy)://[^\s]{1,500}$"#,
         r#"^(?:benchmark|rubric|gate|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -175363,6 +176547,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:constraint|policy|budget)://[^\s]{1,500}$"#,
         r#"^(?:constraint|policy|budget)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:context-cell|harness-invocation)://\S+$"#,
+        r#"^(?:context-cell|harness-invocation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:context_lease|grant|authority)://[^\s]{1,500}$"#,
@@ -175525,6 +176713,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\S+$"#,
+        r#"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\s]{1,500}$"#,
         r#"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -175565,6 +176757,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:harness-profile|agent-harness-adapter)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}/revision/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:harness-profile|agent-harness-adapter)://\S+/revision/\S+$"#,
+        r#"^(?:harness-profile|agent-harness-adapter)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+/revision/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:harness-profile|agent-harness-adapter):[^\s]{1,200}$"#,
         r#"^(?:harness-profile|agent-harness-adapter):[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,200}$"#,
     ),
@@ -175603,6 +176799,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:license|policy|restricted_view|receipt)://[^\s]{1,500}$"#,
         r#"^(?:license|policy|restricted_view|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:memory-projection|wiki)://\S+$"#,
+        r#"^(?:memory-projection|wiki)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:message|artifact)://[^\s]{1,500}$"#,
@@ -175717,6 +176917,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:participant-lease|system|worker|agent)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:participant-lease|system|worker|agent|service|org|user|domain)://\S+$"#,
+        r#"^(?:participant-lease|system|worker|agent|service|org|user|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:participant-lease|system|worker|org|user)://[^\s]{1,500}$"#,
         r#"^(?:participant-lease|system|worker|org|user)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -175747,6 +176951,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:policy|event)://[^\s]{1,500}$"#,
         r#"^(?:policy|event)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:policy|event)://\S+$"#,
+        r#"^(?:policy|event)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:policy|finding|evidence)://[^\s]{1,240}$"#,
@@ -175869,6 +177077,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:receipt|heartbeat)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:receipt|ledger)://\S+$"#,
+        r#"^(?:receipt|ledger)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:receipt|replay|agentgres)://[^\s]{1,500}$"#,
         r#"^(?:receipt|replay|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -175919,6 +177131,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:rubric|gate|policy)://[^\s]{1,500}$"#,
         r#"^(?:rubric|gate|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:rubric|gate|test)://\S+$"#,
+        r#"^(?:rubric|gate|test)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:rubric|verifier-path)://[^\s]{1,500}$"#,
@@ -176077,6 +177293,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:target-state|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://\S+$"#,
+        r#"^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:task|task-brief|policy)://[^\s]{1,500}$"#,
         r#"^(?:task|task-brief|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -176167,6 +177387,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:verifier_path|worker|gate|receipt)://[^\s]{1,500}$"#,
         r#"^(?:verifier_path|worker|gate|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:view://\S+/revision/\S+|(?:artifact|memory-projection|crate|receipt|workspace)://\S+)$"#,
+        r#"^(?:view://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+/revision/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+|(?:artifact|memory-projection|crate|receipt|workspace)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+)$"#,
     ),
     (
         r#"^(?:view|restricted_view)://[^\s]{1,240}$"#,
@@ -176753,6 +177977,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^branch-merge://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^budget://\S+$"#,
+        r#"^budget://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^build://[^\s]+$"#,
         r#"^build://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -176895,8 +178123,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^constitution://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^context-cell://\S+$"#,
+        r#"^context-cell://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^context-lease://[^\s]{1,500}$"#,
         r#"^context-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^context-lease://\S+$"#,
+        r#"^context-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^context-route-resolver://\S*$"#,
@@ -177280,6 +178516,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^guardian://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^handoff://\S+$"#,
+        r#"^handoff://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^harness-profile://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^harness-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
@@ -177342,6 +178582,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"#,
         r#"^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"#,
+    ),
+    (
+        r#"^ifc-label://\S+$"#,
+        r#"^ifc-label://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^improvement-governance-profile://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -177588,6 +178832,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
+        r#"^model-route://\S+$"#,
+        r#"^model-route://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^model-route:[^\s]{1,240}$"#,
         r#"^model-route:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -177766,6 +179014,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^outcome-room://[^\s]{1,500}$"#,
         r#"^outcome-room://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
+    (
+        r#"^outcome-room://\S+$"#,
+        r#"^outcome-room://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
     (r#"^pacc_[0-9a-f]{16}$"#, r#"^pacc_[0-9a-f]{16}$"#),
     (
         r#"^package-binding://\S*$"#,
@@ -177810,6 +179062,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^participant-lease://[^\s]{1,500}$"#,
         r#"^participant-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^participant-lease://\S+$"#,
+        r#"^participant-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^participant-state://[^\s]{1,500}$"#,
@@ -177868,6 +179124,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^policy://[^\s]{1,500}$"#,
         r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^policy://\S+$"#,
+        r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^preference://hypervisor/\S+$"#,
@@ -178107,6 +179367,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^review://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^role-topology://\S+/revision/\S+$"#,
+        r#"^role-topology://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+/revision/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^room-discovery://[^\s]{1,500}$"#,
         r#"^room-discovery://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -178122,6 +179386,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^runtime-assignment://[^\s]{1,500}$"#,
         r#"^runtime-assignment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^runtime-assignment://\S+$"#,
+        r#"^runtime-assignment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^runtime://[^\s]{1,248}$"#,
@@ -178662,6 +179930,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^work-claim://[^\s]{1,500}$"#,
         r#"^work-claim://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^work-claim://\S+$"#,
+        r#"^work-claim://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^work-item://[^\s]{1,500}$"#,
@@ -179884,6 +181156,28 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json"))),
     ("docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json"))),
     ("docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json"))),
@@ -181324,6 +182618,21 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1" => {
             serde_json::from_value::<CollaborativeWorkGraphV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/context-cell/v1" => {
+            serde_json::from_value::<ContextCellEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/context-handoff/v1" => {
+            serde_json::from_value::<ContextHandoffEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/context-lease/v1" => {
+            serde_json::from_value::<ContextLeaseEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -182800,6 +184109,21 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1" => {
             let projection = serde_json::from_value::<CollaborativeWorkGraphV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/context-cell/v1" => {
+            let projection = serde_json::from_value::<ContextCellEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/context-handoff/v1" => {
+            let projection = serde_json::from_value::<ContextHandoffEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/context-lease/v1" => {
+            let projection = serde_json::from_value::<ContextLeaseEnvelopeV1>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -184394,8 +185718,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1437,
-            "the registered golden corpus must remain the explicit 1437-fixture bar",
+            1459,
+            "the registered golden corpus must remain the explicit 1459-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -184637,7 +185961,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 943,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 966,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -114,6 +114,75 @@ export type CollaborativeWorkGraphV1 = {
   client_writable: false;
 };
 
+export type ContextCellEnvelopeV1 = {
+  schema_version: "ioi.context-cell.v1";
+  context_cell_id: string;
+  work_subject_ref: string;
+  outcome_room_ref: string | null;
+  participant_lease_ref: string | null;
+  role_topology_revision_ref: string | null;
+  role_binding_id: string;
+  accountable_actor_ref: string;
+  role: "conductor" | "implementer" | "reviewer" | "verifier" | "operator" | "researcher" | "specialist" | "synthesizer" | "resource_provider" | "integrity_challenger" | "memory_curator";
+  resolver_revision_ref: string | null;
+  resolver_content_hash: string | null;
+  model_route_ref: string | null;
+  memory_projection_refs: Array<string>;
+  context_lease_refs: Array<string>;
+  information_flow_label_refs: Array<string>;
+  active_runtime_assignment_ref: string | null;
+  authority_scope_refs: Array<string>;
+  compression_policy_ref: string | null;
+  current_claim_ref: string | null;
+  next_wake_condition_ref: string | null;
+  status: "open" | "active" | "sleeping" | "waiting" | "handed_off" | "summarized" | "quarantined" | "closed" | "revoked";
+};
+
+export type ContextHandoffEnvelopeV1 = {
+  schema_version: "ioi.context-handoff.v1";
+  handoff_id: string;
+  work_subject_ref: string;
+  from_context_cell_ref: string;
+  to_context_cell_ref: string;
+  handoff_kind: "task_brief" | "implementation_result" | "blocker" | "diff_summary" | "test_result" | "review_request" | "verification_result" | "attempt_result" | "finding" | "resource_request" | "capability_offer" | "frontier_update" | "verifier_challenge" | "decision_request" | "continuation_summary";
+  payload_ref: string | null;
+  context_lease_refs: Array<string>;
+  acceptance_refs: Array<string>;
+  receipt_refs: Array<string>;
+  non_grants: {
+      authority_widening: "none";
+      context_declassification: "none";
+      executable_state_transfer: "none";
+      budget_creation: "none";
+      receiver_policy_bypass: "none";
+    };
+  successor_of: string | null;
+  receipt_root: string;
+  status: "draft" | "sent" | "accepted" | "rejected" | "superseded";
+};
+
+export type ContextLeaseEnvelopeV1 = {
+  schema_version: "ioi.context-lease.v1";
+  context_lease_id: string;
+  work_subject_ref: string;
+  context_cell_ref: string | null;
+  issued_to_ref: string;
+  lease_kind: "canon" | "repo_slice" | "worktree" | "memory_projection" | "tool" | "connector" | "runtime" | "authority" | "budget" | "surface" | "receipt_view" | "mixed";
+  allowed_ref_patterns: Array<string>;
+  denied_ref_patterns: Array<string>;
+  authority_scope_refs: Array<string>;
+  budget_ref: string | null;
+  ttl_seconds: number | null;
+  receipt_required: boolean;
+  leased_refs: Array<string>;
+  information_flow_label_refs: Array<string>;
+  permitted_recipient_roles: Array<"conductor" | "implementer" | "reviewer" | "verifier" | "operator" | "researcher" | "specialist" | "synthesizer" | "resource_provider" | "integrity_challenger" | "memory_curator">;
+  successor_of: string | null;
+  predecessor_remains_valid: boolean;
+  receipt_root: string;
+  status: "draft" | "active" | "expired" | "revoked" | "consumed";
+};
+
 export type FindingV3 = {
   schema_version: "ioi.applications.ioi-ai.finding.v3";
   finding_id: string;
@@ -12881,6 +12950,182 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -26929,6 +27174,28 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-implementer-topology-less.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/positive-conductor-room-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-legacy-underscore-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-role-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-successor-wrong-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json","mutation_id":null,"value_json":null}),
@@ -28564,6 +28831,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$",
   "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$",
   "^(?:auth_factor|guardian)://[^\\s]{1,500}$",
+  "^(?:authority|policy)://\\S+$",
   "^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$",
   "^(?:blocker|handoff|proposal)://[^\\s]{1,500}$",
   "^(?:budget|spend|allocation)://[^\\s]{1,500}$",
@@ -28577,6 +28845,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
   "^(?:config-revision|artifact)://[^\\s]{1,500}$",
   "^(?:constraint|policy|budget)://[^\\s]{1,500}$",
+  "^(?:context-cell|harness-invocation)://\\S+$",
   "^(?:context_lease|grant|authority)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$",
@@ -28617,6 +28886,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$",
   "^(?:gate|policy)://[^\\s]{1,240}$",
   "^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$",
+  "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
   "^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$",
   "^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$",
   "^(?:goal|task|service)://[^\\s]{1,500}$",
@@ -28627,6 +28897,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$",
+  "^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$",
   "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$",
   "^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$",
   "^(?:heartbeat|receipt)://[^\\s]{1,500}$",
@@ -28637,6 +28908,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:license|policy)://[^\\s]{1,500}$",
   "^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$",
   "^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$",
+  "^(?:memory-projection|wiki)://\\S+$",
   "^(?:message|artifact)://[^\\s]{1,500}$",
   "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$",
   "^(?:method|finding|artifact)://[^\\s]{1,500}$",
@@ -28665,6 +28937,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$",
+  "^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$",
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:participation-request|proposal)://[^\\s]{1,500}$",
@@ -28673,6 +28946,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$",
   "^(?:policy|budget)://[^\\s]{1,500}$",
   "^(?:policy|event)://[^\\s]{1,500}$",
+  "^(?:policy|event)://\\S+$",
   "^(?:policy|finding|evidence)://[^\\s]{1,240}$",
   "^(?:policy|finding|ontology)://[^\\s]{1,500}$",
   "^(?:policy|gate|state)://[^\\s]{1,500}$",
@@ -28703,6 +28977,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:receipt|evidence|artifact)://[^\\s]{1,500}$",
   "^(?:receipt|evidence|attestation)://[^\\s]{1,500}$",
   "^(?:receipt|heartbeat)://[^\\s]{1,500}$",
+  "^(?:receipt|ledger)://\\S+$",
   "^(?:receipt|replay|agentgres)://[^\\s]{1,500}$",
   "^(?:region|custody|privacy_posture)://[^\\s]{1,500}$",
   "^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$",
@@ -28716,6 +28991,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
   "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
   "^(?:rubric|gate|policy)://[^\\s]{1,500}$",
+  "^(?:rubric|gate|test)://\\S+$",
   "^(?:rubric|verifier-path)://[^\\s]{1,500}$",
   "^(?:rubric|verifier_path)://[^\\s]{1,500}$",
   "^(?:runtime://\\S*|domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127})$",
@@ -28755,6 +29031,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$",
   "^(?:system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:target-state|agentgres)://[^\\s]{1,240}$",
+  "^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://\\S+$",
   "^(?:task|task-brief|policy)://[^\\s]{1,500}$",
   "^(?:task|task_brief|policy)://[^\\s]{1,500}$",
   "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
@@ -28778,6 +29055,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:verifier_path|test|schema|evidence)://[^\\s]{1,240}$",
   "^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$",
   "^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$",
+  "^(?:view://\\S+/revision/\\S+|(?:artifact|memory-projection|crate|receipt|workspace)://\\S+)$",
   "^(?:view|restricted_view)://[^\\s]{1,240}$",
   "^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$",
   "^(?:wallet|org|project)://[^\\s]{1,240}$",
@@ -28942,6 +29220,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^boot-profile://[^\\s]{1,248}$",
   "^branch-checkpoint://[^\\s]+$",
   "^branch-merge://[^\\s]+$",
+  "^budget://\\S+$",
   "^build://[^\\s]+$",
   "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
   "^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$",
@@ -28979,7 +29258,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^constitution://[A-Za-z0-9._:/-]+$",
   "^constitution://[^\\s]{1,248}$",
   "^constitution://[^\\s]{1,500}$",
+  "^context-cell://\\S+$",
   "^context-lease://[^\\s]{1,500}$",
+  "^context-lease://\\S+$",
   "^context-route-resolver://\\S*$",
   "^context_lease://[^\\s]{1,500}$",
   "^contract://[^\\s]{1,240}$",
@@ -29079,6 +29360,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://[^\\s]{1,500}$",
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^guardian://[^\\s]{1,500}$",
+  "^handoff://\\S+$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s]{1,500}$",
   "^harness-profile:[^\\s]{1,200}$",
@@ -29095,6 +29377,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ifc-label://[^\\s]+$",
   "^ifc-label://[^\\s]{1,500}$",
   "^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$",
+  "^ifc-label://\\S+$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
   "^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
@@ -29156,6 +29439,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^model-instance:[^\\s]{1,240}$",
   "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$",
   "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^model-route://\\S+$",
   "^model-route:[^\\s]{1,240}$",
   "^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^mount-receipt://mrcpt_[0-9a-f]{1,32}$",
@@ -29203,6 +29487,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^org://\\S+$",
   "^outcome-delta://[^\\s]{1,500}$",
   "^outcome-room://[^\\s]{1,500}$",
+  "^outcome-room://\\S+$",
   "^pacc_[0-9a-f]{16}$",
   "^package-binding://\\S*$",
   "^package-recall-impact://\\S+/sha256:[0-9a-f]{64}$",
@@ -29215,6 +29500,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^package://\\S+/release/\\S+$",
   "^packet://[^\\s]{1,500}$",
   "^participant-lease://[^\\s]{1,500}$",
+  "^participant-lease://\\S+$",
   "^participant-state://[^\\s]{1,500}$",
   "^participation-request://[^\\s]{1,500}$",
   "^payload://[^\\s]+$",
@@ -29231,6 +29517,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^policy://[^\\s]{1,248}$",
   "^policy://[^\\s]{1,460}$",
   "^policy://[^\\s]{1,500}$",
+  "^policy://\\S+$",
   "^preference://hypervisor/\\S+$",
   "^prim:[^\\s]{1,120}$",
   "^prim:[a-z0-9._-]+$",
@@ -29294,11 +29581,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^restore-[^\\s]{1,500}$",
   "^retention-disposition://[A-Za-z0-9._:-]+$",
   "^review://[^\\s]{1,500}$",
+  "^role-topology://\\S+/revision/\\S+$",
   "^room-discovery://[^\\s]{1,500}$",
   "^routing-decision://[^\\s]{1,500}$",
   "^run-[1-9][0-9]*[.]json$",
   "^run://[^\\s]+$",
   "^runtime-assignment://[^\\s]{1,500}$",
+  "^runtime-assignment://\\S+$",
   "^runtime://[^\\s]{1,248}$",
   "^runtime://[^\\s]{1,500}$",
   "^runtime://\\S*$",
@@ -29440,6 +29729,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$",
   "^wec_[0-9a-f]{64}$",
   "^work-claim://[^\\s]{1,500}$",
+  "^work-claim://\\S+$",
   "^work-item://[^\\s]{1,500}$",
   "^work-lifecycle-archive://[^\\s]+$",
   "^work-lifecycle-snapshot://[^\\s]+$",
@@ -29464,6 +29754,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/attempt/v3": "sha256:75afea38507e624bcd2833433691eb91f2036bdd0f11dcfa7cff2a2ba3fba03f",
   "schema://ioi/applications/ioi-ai/capability-offer/v3": "sha256:add2a12e4fe9e8285568e2f5d7e6e175a2aacf39a21165cfb76323e9b14bda4f",
   "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632",
+  "schema://ioi/applications/ioi-ai/context-cell/v1": "sha256:0eca9869c48e1186799ca5371d7173ad95b5f642a2e33e7ba541fc54708c2e28",
+  "schema://ioi/applications/ioi-ai/context-handoff/v1": "sha256:5083fcda55a9f6b103bbb961699d67f4ab28b00afb173846c00af2b68aa144e5",
+  "schema://ioi/applications/ioi-ai/context-lease/v1": "sha256:cd77670feff9c31f2cff2e34bb98f9906eaa0018d69944c31de4a3e58f26de25",
   "schema://ioi/applications/ioi-ai/finding/v3": "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": "sha256:b9ee6a68b49ece6ba66a51e69e0df922f8f22a1c7f3f22ed3b193371a21d8650",
   "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1": "sha256:59fc95ab0db7dea0fa7ea5310d53e9a112bcb52d57e318bc71d02f21a8ac68f0",
@@ -30587,6 +30880,611 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "client_writable": {
         "const": false
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/context-cell/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+    "title": "ContextCellEnvelope",
+    "x-ioi-schema-version": "ioi.context-cell.v1",
+    "description": "Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "context_cell_id",
+      "work_subject_ref",
+      "outcome_room_ref",
+      "participant_lease_ref",
+      "role_topology_revision_ref",
+      "role_binding_id",
+      "accountable_actor_ref",
+      "role",
+      "resolver_revision_ref",
+      "resolver_content_hash",
+      "model_route_ref",
+      "memory_projection_refs",
+      "context_lease_refs",
+      "information_flow_label_refs",
+      "active_runtime_assignment_ref",
+      "authority_scope_refs",
+      "compression_policy_ref",
+      "current_claim_ref",
+      "next_wake_condition_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.context-cell.v1"
+      },
+      "context_cell_id": {
+        "type": "string",
+        "pattern": "^context-cell://\\S+$",
+        "maxLength": 500
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+        "maxLength": 500
+      },
+      "outcome_room_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^outcome-room://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "participant_lease_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participant-lease://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "role_topology_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^role-topology://\\S+/revision/\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "role_binding_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "accountable_actor_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$",
+        "maxLength": 500
+      },
+      "role": {
+        "type": "string",
+        "enum": [
+          "conductor",
+          "implementer",
+          "reviewer",
+          "verifier",
+          "operator",
+          "researcher",
+          "specialist",
+          "synthesizer",
+          "resource_provider",
+          "integrity_challenger",
+          "memory_curator"
+        ]
+      },
+      "resolver_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolver_content_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_route_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^model-route://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "memory_projection_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:memory-projection|wiki)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "context_lease_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^context-lease://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "information_flow_label_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^ifc-label://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "active_runtime_assignment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^runtime-assignment://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:authority|policy)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "compression_policy_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^policy://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "current_claim_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^work-claim://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "next_wake_condition_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:policy|event)://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "open",
+          "active",
+          "sleeping",
+          "waiting",
+          "handed_off",
+          "summarized",
+          "quarantined",
+          "closed",
+          "revoked"
+        ]
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/context-handoff/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "title": "ContextHandoffEnvelope",
+    "x-ioi-schema-version": "ioi.context-handoff.v1",
+    "description": "A typed packet between ContextCells, owned by the ioi.ai orchestration application. It moves a payload REF and lease refs, never authority and never executable state: the non_grants block says so on the record in the same idiom the GoalRun activation receipt already uses, so the claim is inspectable rather than implied by absence. Acceptance creates a CANDIDATE re-evaluated under the receiving cell's current policy — a lease reaching it through a handoff is narrowed by the receiver, never widened by the sender — and a handoff whose acceptance would require declassification is refused unless a DeclassificationApproval already authorises that exact reviewed representation, because the handoff cannot mint one (goal-run-execution.md § ContextHandoffEnvelope).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "handoff_id",
+      "work_subject_ref",
+      "from_context_cell_ref",
+      "to_context_cell_ref",
+      "handoff_kind",
+      "payload_ref",
+      "context_lease_refs",
+      "acceptance_refs",
+      "receipt_refs",
+      "non_grants",
+      "successor_of",
+      "receipt_root",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.context-handoff.v1"
+      },
+      "handoff_id": {
+        "type": "string",
+        "pattern": "^handoff://\\S+$",
+        "maxLength": 500
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+        "maxLength": 500
+      },
+      "from_context_cell_ref": {
+        "type": "string",
+        "pattern": "^context-cell://\\S+$",
+        "maxLength": 500
+      },
+      "to_context_cell_ref": {
+        "type": "string",
+        "pattern": "^context-cell://\\S+$",
+        "maxLength": 500
+      },
+      "handoff_kind": {
+        "type": "string",
+        "enum": [
+          "task_brief",
+          "implementation_result",
+          "blocker",
+          "diff_summary",
+          "test_result",
+          "review_request",
+          "verification_result",
+          "attempt_result",
+          "finding",
+          "resource_request",
+          "capability_offer",
+          "frontier_update",
+          "verifier_challenge",
+          "decision_request",
+          "continuation_summary"
+        ]
+      },
+      "payload_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:task-brief|implementation-result|artifact|work-result|finding|resource-offer|capability-offer|verifier-challenge|message)://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "context_lease_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^context-lease://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "acceptance_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:rubric|gate|test)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:receipt|ledger)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "non_grants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_widening",
+          "context_declassification",
+          "executable_state_transfer",
+          "budget_creation",
+          "receiver_policy_bypass"
+        ],
+        "properties": {
+          "authority_widening": {
+            "const": "none"
+          },
+          "context_declassification": {
+            "const": "none"
+          },
+          "executable_state_transfer": {
+            "const": "none"
+          },
+          "budget_creation": {
+            "const": "none"
+          },
+          "receiver_policy_bypass": {
+            "const": "none"
+          }
+        }
+      },
+      "successor_of": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^handoff://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receipt_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "sent",
+          "accepted",
+          "rejected",
+          "superseded"
+        ]
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/context-lease/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "title": "ContextLeaseEnvelope",
+    "x-ioi-schema-version": "ioi.context-lease.v1",
+    "description": "A scoped lease letting one ContextCell or HarnessInvocation use only the context its bounded role requires, owned by the ioi.ai orchestration application. It RESTATES no privacy dimension: purpose, data classes, privacy class, redaction, retention and destination/egress belong to the bound PolicyBoundDataView revision and to the InformationFlowLabel it references, and they are folded by subtraction at resolution — a lease that declared its own data class could claim one wider than the view it leases, which is the hole this object exists to close (goal-run-execution.md § ContextLeaseEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). leased_refs names EXACT admitted revisions; a view:// entry must name a revision because a lease resolving through a moving head cannot reproduce the same least-context result after a restart.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "context_lease_id",
+      "work_subject_ref",
+      "context_cell_ref",
+      "issued_to_ref",
+      "lease_kind",
+      "allowed_ref_patterns",
+      "denied_ref_patterns",
+      "authority_scope_refs",
+      "budget_ref",
+      "ttl_seconds",
+      "receipt_required",
+      "leased_refs",
+      "information_flow_label_refs",
+      "permitted_recipient_roles",
+      "successor_of",
+      "predecessor_remains_valid",
+      "receipt_root",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.context-lease.v1"
+      },
+      "context_lease_id": {
+        "type": "string",
+        "pattern": "^context-lease://\\S+$",
+        "maxLength": 500
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+        "maxLength": 500
+      },
+      "context_cell_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^context-cell://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "issued_to_ref": {
+        "type": "string",
+        "pattern": "^(?:context-cell|harness-invocation)://\\S+$",
+        "maxLength": 500
+      },
+      "lease_kind": {
+        "type": "string",
+        "enum": [
+          "canon",
+          "repo_slice",
+          "worktree",
+          "memory_projection",
+          "tool",
+          "connector",
+          "runtime",
+          "authority",
+          "budget",
+          "surface",
+          "receipt_view",
+          "mixed"
+        ]
+      },
+      "allowed_ref_patterns": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "denied_ref_patterns": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:authority|policy)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "budget_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^budget://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ttl_seconds": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2592000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receipt_required": {
+        "type": "boolean"
+      },
+      "leased_refs": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:view://\\S+/revision/\\S+|(?:artifact|memory-projection|crate|receipt|workspace)://\\S+)$",
+          "maxLength": 500
+        }
+      },
+      "information_flow_label_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^ifc-label://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "permitted_recipient_roles": {
+        "type": "array",
+        "maxItems": 11,
+        "items": {
+          "type": "string",
+          "enum": [
+            "conductor",
+            "implementer",
+            "reviewer",
+            "verifier",
+            "operator",
+            "researcher",
+            "specialist",
+            "synthesizer",
+            "resource_provider",
+            "integrity_challenger",
+            "memory_curator"
+          ]
+        }
+      },
+      "successor_of": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^context-lease://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_remains_valid": {
+        "type": "boolean"
+      },
+      "receipt_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "active",
+          "expired",
+          "revoked",
+          "consumed"
+        ]
       }
     }
   },
@@ -127858,6 +128756,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": [],
+  "schema://ioi/applications/ioi-ai/context-cell/v1": [],
+  "schema://ioi/applications/ioi-ai/context-handoff/v1": [],
+  "schema://ioi/applications/ioi-ai/context-lease/v1": [],
   "schema://ioi/applications/ioi-ai/finding/v3": [
     {
       "rule_id": "finding.room.matches_admission",
@@ -145153,6 +146054,24 @@ export function validateCollaborativeWorkGraphV1(
   value: unknown,
 ): value is CollaborativeWorkGraphV1 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", value).ok;
+}
+
+export function validateContextCellEnvelopeV1(
+  value: unknown,
+): value is ContextCellEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/context-cell/v1", value).ok;
+}
+
+export function validateContextHandoffEnvelopeV1(
+  value: unknown,
+): value is ContextHandoffEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/context-handoff/v1", value).ok;
+}
+
+export function validateContextLeaseEnvelopeV1(
+  value: unknown,
+): value is ContextLeaseEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/context-lease/v1", value).ok;
 }
 
 export function validateFindingV3(

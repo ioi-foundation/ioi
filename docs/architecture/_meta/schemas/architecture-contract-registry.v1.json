@@ -176,6 +176,190 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v1",
+      "canonical_name": "ContextCellEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#contextcellenvelope",
+      "schema_version": "ioi.context-cell.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "context-cell.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ContextCellEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ContextCellEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/context-cell-v1/positive-implementer-topology-less.json",
+        "fixtures/context-cell-v1/positive-conductor-room-bound.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/context-cell-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v1/negative-legacy-underscore-identity.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v1/negative-role-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+      "canonical_name": "ContextHandoffEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#contexthandoffenvelope",
+      "schema_version": "ioi.context-handoff.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "context-handoff.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ContextHandoffEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ContextHandoffEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/context-handoff-v1/positive-review-request-accepted.json",
+        "fixtures/context-handoff-v1/positive-task-brief-sent.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-handoff-v1/negative-non-grant-member-missing.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-handoff-v1/negative-non-grant-weakened.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-handoff-v1/negative-payload-scheme-invented.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-handoff-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+      "canonical_name": "ContextLeaseEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#contextleaseenvelope",
+      "schema_version": "ioi.context-lease.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "context-lease.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ContextLeaseEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ContextLeaseEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/context-lease-v1/positive-view-revision-bound.json",
+        "fixtures/context-lease-v1/positive-worktree-least-context.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-legacy-view-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-successor-wrong-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-ttl-zero.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-view-family-head.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
       "canonical_name": "Finding",
       "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#findingenvelope",
