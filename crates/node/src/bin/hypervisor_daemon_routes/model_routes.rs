@@ -92,7 +92,7 @@ pub(crate) fn load_route_record(data_dir: &str, id: &str) -> Option<Value> {
         .find(|r| r.get("route_id").and_then(|v| v.as_str()) == Some(id))
 }
 
-fn canonical_value_hash(value: &Value) -> Result<String, String> {
+pub(crate) fn canonical_value_hash(value: &Value) -> Result<String, String> {
     let bytes = serde_jcs::to_vec(value)
         .map_err(|error| format!("record is not canonical JSON ({error})"))?;
     Ok(format!("sha256:{:x}", Sha256::digest(bytes)))

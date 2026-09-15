@@ -90,6 +90,8 @@ mod enforcement_coverage_routes;
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
 mod eval_suite_routes;
+#[path = "hypervisor_daemon_routes/evaluation_routes.rs"]
+mod evaluation_routes;
 #[path = "hypervisor_daemon_routes/event_stream_routes.rs"]
 mod event_stream_routes;
 #[path = "hypervisor_daemon_routes/feedback_routes.rs"]
@@ -2777,6 +2779,76 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/improvement-campaigns/:campaign_ref/upgrade-proposals",
             post(improvement_campaign_routes::handle_campaign_upgrade_proposal),
+        )
+        // M10.4 — the governed evaluation plane (evaluations.md § Registered shapes; foundry.md
+        // § Model-Swap Continuity): five families on the shared owner-scoped mutation chain.
+        .route(
+            "/v1/hypervisor/evaluation-suites",
+            get(evaluation_routes::handle_suite_query)
+                .post(evaluation_routes::handle_suite_create),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-suites/:suite_ref",
+            get(evaluation_routes::handle_suite_get),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-suites/:suite_ref/revisions",
+            post(evaluation_routes::handle_suite_revise),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-suites/:suite_ref/revisions/:revision/release",
+            post(evaluation_routes::handle_suite_release),
+        )
+        .route(
+            "/v1/hypervisor/evaluators",
+            get(evaluation_routes::handle_evaluator_query)
+                .post(evaluation_routes::handle_evaluator_create),
+        )
+        .route(
+            "/v1/hypervisor/evaluators/:evaluator_ref",
+            get(evaluation_routes::handle_evaluator_get),
+        )
+        .route(
+            "/v1/hypervisor/evaluators/:evaluator_ref/revisions",
+            post(evaluation_routes::handle_evaluator_revise),
+        )
+        .route(
+            "/v1/hypervisor/evaluators/:evaluator_ref/transitions/:verb",
+            post(evaluation_routes::handle_evaluator_transition),
+        )
+        .route(
+            "/v1/hypervisor/evaluators/:evaluator_ref/impact",
+            get(evaluation_routes::handle_evaluator_impact),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-runs",
+            get(evaluation_routes::handle_run_query)
+                .post(evaluation_routes::handle_run_admit),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-runs/:run_ref",
+            get(evaluation_routes::handle_run_get),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-runs/:run_ref/results",
+            post(evaluation_routes::handle_result_admit),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-results",
+            get(evaluation_routes::handle_result_query),
+        )
+        .route(
+            "/v1/hypervisor/evaluation-results/:result_ref",
+            get(evaluation_routes::handle_result_get),
+        )
+        .route(
+            "/v1/hypervisor/model-swap-continuity-runs",
+            get(evaluation_routes::handle_continuity_query)
+                .post(evaluation_routes::handle_continuity_run),
+        )
+        .route(
+            "/v1/hypervisor/model-swap-continuity-runs/:report_ref",
+            get(evaluation_routes::handle_continuity_get),
         )
         .route(
             "/v1/hypervisor/evaluation-epochs/:epoch_ref",

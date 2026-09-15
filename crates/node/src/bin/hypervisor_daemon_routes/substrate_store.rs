@@ -2209,6 +2209,17 @@ fn with_current_handle<T>(
 /// engine-opening/backfill mutation. An established writer lock linearizes the
 /// read with all admissions. If the lock has not existed yet, inspect first and
 /// recheck its existence; creation during the scan retries under the lock.
+/// The substrate engine's per-domain roots as a stable map — the institutional state root the
+/// evaluation plane's continuity report freezes (M10.4). A read-only snapshot; nothing is written.
+pub(crate) fn engine_domain_roots(data_dir: &str) -> Result<Value, String> {
+    let snapshot = read_only_status_snapshot(data_dir).map_err(|error| error.to_string())?;
+    let mut roots = serde_json::Map::new();
+    for (domain, state) in snapshot.domains {
+        roots.insert(domain, json!(state.root));
+    }
+    Ok(Value::Object(roots))
+}
+
 fn read_only_status_snapshot(data_dir: &str) -> std::io::Result<MuxStatusSnapshot> {
     loop {
         if let Some(_process_lock) = lock_existing_writer(data_dir)? {

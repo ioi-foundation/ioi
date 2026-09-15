@@ -2535,6 +2535,155 @@ fn epoch_successor(
 /// Where an epoch operation requires an epoch that can still be used: a draft answers
 /// `evaluation_epoch_not_frozen`; a challenged, closed or invalidated epoch answers
 /// `evaluation_epoch_invalid`.
+// ================================================================ published readers (M10.4)
+//
+// The evaluation plane (`evaluation_routes.rs`) binds runs, results and continuity reports to
+// THIS module's epoch, campaign and exposure ledger. It reads them through these readers and
+// writes nothing here: the ledger keeps its one writer.
+
+/// An epoch as the evaluation plane binds it: the epoch's current record, the campaign it belongs
+/// to (whose `target_base_root` the run copies) and the epoch's exposure ledger head when one has
+/// been created.
+pub(crate) struct EpochBinding {
+    pub(crate) epoch: Value,
+    pub(crate) campaign: Value,
+    pub(crate) ledger: Option<Value>,
+}
+
+/// Resolve `evaluation-epoch://{family}` under the caller's identity to its binding. The owner
+/// must be the epoch's owner; a family the caller cannot see is refused by the substrate.
+pub(crate) fn resolve_admitted_epoch_binding(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    expected_owner_ref: &str,
+    epoch_ref: &str,
+) -> Result<EpochBinding, Reply> {
+    let Some(family) = epoch_ref
+        .strip_prefix(EPOCH.ref_scheme)
+        .filter(|f| family_token(f))
+    else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &EPOCH.code("ref_not_canonical"),
+            "an evaluation epoch is bound by its family ref: evaluation-epoch://{family}",
+        ));
+    };
+    let resource = format!("{}{family}", EPOCH.ref_scheme);
+    let stream = authorized_stream(&EPOCH, &st.data_dir, identity, &resource)?;
+    let Some(epoch) = stream.last().map(|entry| entry.record.clone()) else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            &EPOCH.code("absent"),
+            "no epoch answers to that family",
+        ));
+    };
+    let campaign_ref = text(&epoch, "campaign_ref");
+    let campaign_stream = authorized_stream(&CAMPAIGN, &st.data_dir, identity, &campaign_ref)?;
+    let Some(campaign) = campaign_stream.last().map(|entry| entry.record.clone()) else {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            &EPOCH.code("campaign_unresolvable"),
+            format!("the epoch's campaign {campaign_ref} is not readable under this identity"),
+        ));
+    };
+    // An epoch carries no owner of its own: it is owned by its campaign contract, and evidence is
+    // admitted under that owner.
+    if text(&campaign, "owner_ref") != expected_owner_ref {
+        return Err(bad(
+            StatusCode::FORBIDDEN,
+            &EPOCH.code("owner_mismatch"),
+            "this epoch's campaign belongs to another owner; evidence is admitted under the epoch's own owner",
+        ));
+    }
+    let ledger_resource = format!("{}{family}", LEDGER.ref_scheme);
+    let ledger = match authorized_stream(&LEDGER, &st.data_dir, identity, &ledger_resource) {
+        Ok(stream) => stream.last().map(|entry| entry.record.clone()),
+        Err(_) => None,
+    };
+    Ok(EpochBinding {
+        epoch,
+        campaign,
+        ledger,
+    })
+}
+
+/// Resolve `evaluation-exposure://{epoch family}/entry/{seq}` to the entry the epoch's ledger head
+/// holds. An entry the ledger does not hold is refused: exposure is derived from the admitted
+/// ledger head, never from a caller's claim.
+pub(crate) fn resolve_exposure_entry(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    epoch_ref: &str,
+    entry_ref: &str,
+) -> Result<Value, Reply> {
+    let Some(family) = epoch_ref.strip_prefix(EPOCH.ref_scheme) else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &EPOCH.code("ref_not_canonical"),
+            "an evaluation epoch is bound by its family ref: evaluation-epoch://{family}",
+        ));
+    };
+    let ledger_resource = format!("{}{family}", LEDGER.ref_scheme);
+    if !entry_ref.starts_with(&format!("{ledger_resource}/entry/")) {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "exposure_entry_unresolvable",
+            format!("{entry_ref} is not an entry of this epoch's exposure ledger ({ledger_resource}/entry/{{seq}})"),
+        ));
+    }
+    let stream = authorized_stream(&LEDGER, &st.data_dir, identity, &ledger_resource)?;
+    let Some(ledger) = stream.last().map(|entry| entry.record.clone()) else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "exposure_entry_unresolvable",
+            "this epoch has no exposure ledger yet; protected access appends its entry through the ledger first",
+        ));
+    };
+    ledger
+        .get("entries")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .find(|entry| text(entry, "entry_ref") == entry_ref)
+        .cloned()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "exposure_entry_unresolvable",
+                format!("{entry_ref} is not an entry the admitted ledger head holds"),
+            )
+        })
+}
+
+/// Every epoch the caller can see whose evaluator refs name a revision of `evaluator_family`
+/// (`evaluator://{family}`), for the evaluation plane's impact projection.
+pub(crate) fn epochs_naming_evaluator(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    evaluator_family: &str,
+) -> Result<Vec<Value>, Reply> {
+    let prefix = format!("{evaluator_family}/revision/");
+    let refs = authorized_request_resource_refs(data_dir, identity, EPOCH.resource_kind)
+        .map_err(scope_refusal_reply)?;
+    let mut out = Vec::new();
+    for epoch_ref in refs {
+        let stream = authorized_stream(&EPOCH, data_dir, identity, &epoch_ref)?;
+        if let Some(entry) = stream.last() {
+            let named = list(&entry.record, "evaluator_version_and_affiliation_refs")
+                .iter()
+                .any(|value| value == evaluator_family || value.starts_with(&prefix));
+            if named {
+                out.push(json!({
+                    "evaluation_epoch_id": text(&entry.record, "evaluation_epoch_id"),
+                    "lifecycle_status": text(&entry.record, "lifecycle_status"),
+                    "campaign_ref": text(&entry.record, "campaign_ref"),
+                }));
+            }
+        }
+    }
+    Ok(out)
+}
+
 fn require_usable_epoch(record: &Value, require_active: bool) -> Result<(), Reply> {
     match text(record, "lifecycle_status").as_str() {
         "draft" => Err(bad(
