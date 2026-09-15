@@ -44,7 +44,8 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use super::improvement_campaign_routes::{
-    epochs_naming_evaluator, resolve_admitted_epoch_binding, resolve_exposure_entry,
+    delegate_to_binding, epochs_naming_evaluator, require_function, resolve_admitted_epoch_binding,
+    resolve_exposure_entry,
 };
 use super::institutional_learning_boundary_routes::resolve_admitted_boundary_profile;
 use super::model_route_rights_routes::{
@@ -1736,6 +1737,50 @@ fn resolve_evidence(st: &DaemonState, reference: &str) -> Result<Evidence, Reply
     ))
 }
 
+/// PUBLISHED READER for the campaign spine: the current record of an evaluation result, required to
+/// have been judged under `epoch_id`. A nomination cites results through this seam; a result from
+/// another epoch is refused as unresolvable evidence rather than silently accepted.
+pub(crate) fn resolve_result_under_epoch(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    result_ref: &str,
+    epoch_id: &str,
+) -> Result<Value, Reply> {
+    let Some(family) = result_ref
+        .strip_prefix(RESULT.ref_scheme)
+        .filter(|family| family_token(family))
+    else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "nomination_evidence_unresolvable",
+            format!("{result_ref} is not an evaluation-result:// family ref"),
+        ));
+    };
+    let resource = format!("{}{family}", RESULT.ref_scheme);
+    let stream = match authorized_stream(&RESULT, &st.data_dir, identity, &resource) {
+        Ok(stream) => stream,
+        Err(_) => Vec::new(),
+    };
+    let Some(result) = stream.last().map(|entry| entry.record.clone()) else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "nomination_evidence_unresolvable",
+            format!("{result_ref} is not an admitted evaluation result of this deployment"),
+        ));
+    };
+    if text(&result, "evaluation_epoch_ref") != epoch_id {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "nomination_evidence_unresolvable",
+            format!(
+                "{result_ref} was judged under {}, not the campaign's active epoch {epoch_id}",
+                text(&result, "evaluation_epoch_ref")
+            ),
+        ));
+    }
+    Ok(result)
+}
+
 /// The epoch a run or report binds must be FROZEN AND ACTIVE. M10.1's codes are reused so a caller
 /// meets one vocabulary across the campaign spine and the evaluation plane.
 fn require_active_epoch(epoch: &Value) -> Result<(), Reply> {
@@ -1769,6 +1814,31 @@ pub(crate) async fn handle_run_admit(
         Ok(resource) => resource,
         Err(response) => return response,
     };
+    // THE ROLE CHECK RUNS BEFORE THE GENESIS BIND (M10.2): Authority or Search refused here must
+    // not pin the run family's scope to itself. The epoch is resolved once more below under the
+    // opened write context; this pass answers only WHO.
+    {
+        let caller = match require_write_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
+        let epoch_ref = body_str(&body, "evaluation_epoch_ref");
+        if !epoch_ref.is_empty() {
+            if let Ok(binding) =
+                resolve_admitted_epoch_binding(&st, &caller.identity, &caller.owner_ref, &epoch_ref)
+            {
+                if let Err(response) = require_function(
+                    &st,
+                    &caller.identity,
+                    &text(&binding.campaign, "improvement_campaign_id"),
+                    &["judgment"],
+                    "admitting an evaluation run is Judgment's",
+                ) {
+                    return response;
+                }
+            }
+        }
+    }
     let ctx = match open_write(
         &st,
         &headers,
@@ -1824,6 +1894,39 @@ pub(crate) async fn handle_run_admit(
         Err(response) => return response,
     };
     if let Err(response) = require_active_epoch(&binding.epoch) {
+        return response;
+    }
+    // Evaluation evidence is JUDGMENT's: the resolved caller must hold judgment on the epoch's
+    // campaign (Authority cannot create evaluation evidence; Search cannot submit it), and a
+    // target_owner submitter must ALSO hold authority — which the declared profile may forbid.
+    let campaign_id = text(&binding.campaign, "improvement_campaign_id");
+    if let Err(response) = require_function(
+        &st,
+        &ctx.caller.identity,
+        &campaign_id,
+        &["judgment"],
+        "admitting an evaluation run is Judgment's",
+    ) {
+        return response;
+    }
+    if role == "target_owner" {
+        if let Err(response) = require_function(
+            &st,
+            &ctx.caller.identity,
+            &campaign_id,
+            &["authority"],
+            "a target_owner submitter is the campaign's Authority as well as its Judgment",
+        ) {
+            return response;
+        }
+    }
+    if let Err(response) = delegate_to_binding(
+        &st,
+        &ctx.caller.identity,
+        RUN.resource_kind,
+        &ctx.resource,
+        &campaign_id,
+    ) {
         return response;
     }
     let frozen_root = text(&binding.epoch, "frozen_root");
@@ -2192,6 +2295,35 @@ pub(crate) async fn handle_result_admit(
         Ok(resource) => resource,
         Err(response) => return response,
     };
+    // The role check before the genesis bind, as for runs: WHO, answered on the run's epoch.
+    {
+        let caller = match require_write_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
+        if let Ok(run_stream) =
+            authorized_stream(&RUN, &st.data_dir, &caller.identity, &run_resource)
+        {
+            if let Some(run) = run_stream.last().map(|entry| entry.record.clone()) {
+                if let Ok(binding) = resolve_admitted_epoch_binding(
+                    &st,
+                    &caller.identity,
+                    &caller.owner_ref,
+                    &text(&run, "evaluation_epoch_ref"),
+                ) {
+                    if let Err(response) = require_function(
+                        &st,
+                        &caller.identity,
+                        &text(&binding.campaign, "improvement_campaign_id"),
+                        &["judgment"],
+                        "admitting an evaluation result is Judgment's",
+                    ) {
+                        return response;
+                    }
+                }
+            }
+        }
+    }
     let ctx = match open_write(
         &st,
         &headers,
@@ -2236,6 +2368,24 @@ pub(crate) async fn handle_result_admit(
         Err(response) => return response,
     };
     if let Err(response) = require_active_epoch(&binding.epoch) {
+        return response;
+    }
+    if let Err(response) = require_function(
+        &st,
+        &ctx.caller.identity,
+        &text(&binding.campaign, "improvement_campaign_id"),
+        &["judgment"],
+        "admitting an evaluation result is Judgment's",
+    ) {
+        return response;
+    }
+    if let Err(response) = delegate_to_binding(
+        &st,
+        &ctx.caller.identity,
+        RESULT.resource_kind,
+        &ctx.resource,
+        &text(&binding.campaign, "improvement_campaign_id"),
+    ) {
         return response;
     }
     if text(&binding.epoch, "frozen_root") != text(&run, "epoch_frozen_root") {

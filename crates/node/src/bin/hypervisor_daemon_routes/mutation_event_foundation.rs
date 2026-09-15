@@ -117,6 +117,30 @@ fn validate_scope_fields(
     Ok(())
 }
 
+/// The READ-side validation (M10.2, register R-164): the scope's own principal, or a principal the
+/// scope's principal DELEGATED reads to by a successor operation on the scope's own stream. The
+/// write path above never consults delegates — a delegate reads and lists, it does not admit.
+fn validate_scope_fields_for_read(
+    authenticated_principal_ref: &str,
+    authorized_tenant_refs: &BTreeSet<String>,
+    scope: &RequestResourceScope,
+    resource_kind: &str,
+    resource_ref: &str,
+) -> Result<(), RequestScopeRefusal> {
+    if scope.resource_kind != resource_kind || scope.resource_ref != resource_ref {
+        return Err(RequestScopeRefusal::ResourceScopeRequired);
+    }
+    if !scope.readable_by(authenticated_principal_ref)
+        || !authorized_tenant_refs.contains(&scope.tenant_ref)
+    {
+        return Err(RequestScopeRefusal::ResourceScopeRequired);
+    }
+    if scope.tenant_ref != scope.owner_ref {
+        return Err(RequestScopeRefusal::ResourceOwnerMismatch);
+    }
+    Ok(())
+}
+
 fn validate_scope(request: &ScopedMutation<'_>) -> Result<(), MutationRefusal> {
     validate_scope_fields(
         &request.identity.principal_ref,
@@ -213,7 +237,7 @@ pub(crate) fn read_owner_scoped_head(
     owner_namespace: &str,
     stream_tail: &str,
 ) -> Result<Option<ExactProjection>, MutationRefusal> {
-    validate_scope_fields(
+    validate_scope_fields_for_read(
         &identity.principal_ref,
         &identity.tenant_refs,
         scope,
@@ -235,7 +259,7 @@ pub(crate) fn read_owner_scoped_history(
     owner_namespace: &str,
     stream_tail: &str,
 ) -> Result<Vec<ExactProjection>, MutationRefusal> {
-    validate_scope_fields(
+    validate_scope_fields_for_read(
         &identity.principal_ref,
         &identity.tenant_refs,
         scope,
@@ -315,7 +339,66 @@ mod tests {
             tenant_ref: tenant.into(),
             owner_ref: tenant.into(),
             correlation_ref: "correlation://test/1".into(),
+            delegate_principal_refs: Vec::new(),
         }
+    }
+
+    /// M10.2 (register R-164): a delegate READS, it never writes. The read-side validation accepts
+    /// a principal the scope names as a delegate; the write-side validation refuses that same
+    /// principal, so delegation can widen who sees a campaign without widening who admits into it.
+    #[test]
+    fn a_delegate_reads_and_never_writes() {
+        let mut delegated = scope("user://owner", "org://local");
+        delegated.delegate_principal_refs = vec!["user://judge".into()];
+        let tenants: BTreeSet<String> = ["org://local".to_string()].into_iter().collect();
+        assert!(validate_scope_fields_for_read(
+            "user://judge",
+            &tenants,
+            &delegated,
+            "test-object",
+            "test://object/1"
+        )
+        .is_ok());
+        assert!(validate_scope_fields_for_read(
+            "user://owner",
+            &tenants,
+            &delegated,
+            "test-object",
+            "test://object/1"
+        )
+        .is_ok());
+        assert!(matches!(
+            validate_scope_fields_for_read(
+                "user://stranger",
+                &tenants,
+                &delegated,
+                "test-object",
+                "test://object/1"
+            ),
+            Err(RequestScopeRefusal::ResourceScopeRequired)
+        ));
+        assert!(matches!(
+            validate_scope_fields(
+                "user://judge",
+                &tenants,
+                &delegated,
+                "test-object",
+                "test://object/1"
+            ),
+            Err(RequestScopeRefusal::ResourceScopeRequired)
+        ));
+        // A delegate outside the tenant reads nothing either: delegation never crosses the tenant.
+        let foreign: BTreeSet<String> = ["org://other".to_string()].into_iter().collect();
+        assert!(matches!(
+            validate_scope_fields_for_read(
+                "user://judge",
+                &foreign,
+                &delegated,
+                "test-object",
+                "test://object/1"
+            ),
+            Err(RequestScopeRefusal::ResourceScopeRequired)
+        ));
     }
 
     fn request<'a>(

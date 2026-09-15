@@ -2777,6 +2777,15 @@ async fn async_main() -> anyhow::Result<()> {
                 .post(improvement_campaign_routes::handle_cutoff_emit),
         )
         .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/role-bindings",
+            get(improvement_campaign_routes::handle_role_binding_get)
+                .post(improvement_campaign_routes::handle_role_binding_admit),
+        )
+        .route(
+            "/v1/hypervisor/improvement-campaigns/:campaign_ref/candidates",
+            get(improvement_campaign_routes::handle_campaign_candidates),
+        )
+        .route(
             "/v1/hypervisor/improvement-campaigns/:campaign_ref/upgrade-proposals",
             post(improvement_campaign_routes::handle_campaign_upgrade_proposal),
         )

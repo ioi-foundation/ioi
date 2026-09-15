@@ -62,9 +62,10 @@ use super::mutation_event_foundation::{
 };
 use super::substrate_store::{
     authorize_request_resource_scope, authorized_request_resource_refs,
-    bind_request_resource_scope, resolve_request_identity, RequestIdentity, RequestResourceScope,
+    bind_request_resource_scope, delegate_request_resource_scope, resolve_request_identity,
+    RequestIdentity, RequestResourceScope,
 };
-use super::DaemonState;
+use super::{read_record_dir, DaemonState};
 
 // ================================================================================ commitment domains
 
@@ -2055,6 +2056,29 @@ async fn campaign_transition(
             format!("'{to}' requires one of {from:?}; this campaign is {status}"),
         );
     }
+    // A campaign RUNS only with its three trust functions bound to accountable principals
+    // (bounded-recursive-improvement.md § Search, Judgment, And Authority; M10.2).
+    match current_role_binding(&st, &ctx.caller.identity, &ctx.resource) {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return bad(
+                StatusCode::CONFLICT,
+                "role_bindings_required",
+                "a campaign starts, pauses or stops only once an ImprovementRoleBinding names the principals holding Search, Judgment and Authority (POST …/improvement-campaigns/{family}/role-bindings)",
+            )
+        }
+        Err(response) => return response,
+    }
+    // Starting, pausing and stopping work is AUTHORITY's (canon: "admit scope and budgets … stop work").
+    if let Err(response) = require_function(
+        &st,
+        &ctx.caller.identity,
+        &ctx.resource,
+        &["authority"],
+        &format!("'{to}' on a campaign is Authority's"),
+    ) {
+        return response;
+    }
     let sequence = ctx.stream.len() as u64 + 1;
     let (record, recorded_at_ms) = match campaign_successor(prior, sequence, |record| {
         record["lifecycle_status"] = json!(to);
@@ -2362,6 +2386,30 @@ pub(crate) async fn handle_epoch_create(
         Ok(resource) => resource,
         Err(response) => return response,
     };
+    // THE ROLE CHECK RUNS BEFORE THE GENESIS BIND: a refused caller must not pin the epoch family's
+    // scope to itself and squat a name Judgment then cannot create.
+    {
+        let caller = match require_write_caller(&st.data_dir, &headers, &body) {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
+        // The campaign's own lifecycle answers first (a proposed campaign has no epochs, whoever
+        // asks); the function check answers WHO among the bound principals may create one.
+        if let Err(response) =
+            require_active_campaign(&st, &caller.identity, &caller.owner_ref, &campaign_ref)
+        {
+            return response;
+        }
+        if let Err(response) = require_function(
+            &st,
+            &caller.identity,
+            &campaign_ref,
+            &["judgment"],
+            "creating an evaluation epoch is Judgment's",
+        ) {
+            return response;
+        }
+    }
     let ctx = match open_write(
         &st,
         &headers,
@@ -2405,6 +2453,15 @@ pub(crate) async fn handle_epoch_create(
             &EPOCH.code("exposure_budget_out_of_domain"),
             "evaluation_exposure_budget_units is a bounded integer 0..=1000000000",
         );
+    }
+    if let Err(response) = delegate_to_binding(
+        &st,
+        &ctx.caller.identity,
+        EPOCH.resource_kind,
+        &ctx.resource,
+        &campaign_ref,
+    ) {
+        return response;
     }
     let siblings = match campaign_epochs(&st, &ctx.caller.identity, &campaign_ref) {
         Ok(epochs) => epochs,
@@ -2743,6 +2800,17 @@ async fn epoch_transition(
         );
     };
     let status = text(&prior.record, "lifecycle_status");
+    // The RESOLVED caller must hold Judgment or Authority on the epoch's campaign: Search cannot
+    // redefine the active epoch (canon's first separation rule), whatever a body may declare.
+    if let Err(response) = require_function(
+        &st,
+        &ctx.caller.identity,
+        &text(&prior.record, "campaign_ref"),
+        &["judgment"],
+        &format!("'{verb}' on an epoch is Judgment's — it freezes and applies the evaluation contract; Search cannot redefine the active epoch and Authority activates releases, not judgment contracts"),
+    ) {
+        return response;
+    }
     let (from, to): (&[&str], &str) = match verb {
         "freeze" => (&["draft"], "frozen"),
         "activate" => (&["frozen"], "active"),
@@ -3014,6 +3082,13 @@ fn ensure_ledger(
     if !stream.is_empty() {
         return Ok(stream);
     }
+    delegate_to_binding(
+        st,
+        &caller.identity,
+        LEDGER.resource_kind,
+        &resource,
+        &text(epoch, "campaign_ref"),
+    )?;
     let genesis_caller = WriteCaller {
         identity: caller.identity.clone(),
         owner_ref: caller.owner_ref.clone(),
@@ -3110,6 +3185,17 @@ async fn exposure_operation(
         );
     };
     if let Err(response) = require_usable_epoch(&epoch.record, false) {
+        return response;
+    }
+    // Exposure accounting is Judgment's: a Search-bound or Authority-bound principal that moves the
+    // ledger would be altering sealed evidence or fabricating it.
+    if let Err(response) = require_function(
+        &st,
+        &caller.identity,
+        &text(&epoch.record, "campaign_ref"),
+        &["judgment"],
+        &format!("'{entry_kind}' on the exposure ledger is Judgment's accounting"),
+    ) {
         return response;
     }
     let ledger_stream = match ensure_ledger(&st, &caller, &epoch_family, &epoch.record) {
@@ -3835,7 +3921,11 @@ const HANDOFF_REQUEST_FIELDS: &[&str] = &[
     "reason",
     "confidence",
     "owner_ref",
+    "selection_policy_ref",
 ];
+/// The nomination's accountable selector is the RESOLVED caller (INV-37); a body that names one
+/// is refused by that member's own name.
+const HANDOFF_SERVER_RESOLVED: &[&str] = &["accountable_selector_ref"];
 
 /// Nominate a candidate under the campaign's active frozen epoch by writing an ORDINARY PENDING
 /// improvement proposal through the direct path's own create function. The campaign's only exit.
@@ -3853,6 +3943,9 @@ pub(crate) async fn handle_campaign_upgrade_proposal(
         Ok(identity) => identity,
         Err(error) => return scope_refusal_reply(error),
     };
+    if let Err(response) = reject_authored(&body, &CAMPAIGN, HANDOFF_SERVER_RESOLVED) {
+        return response;
+    }
     if let Err(response) = refuse_unknown_fields(&body, &CAMPAIGN, HANDOFF_REQUEST_FIELDS) {
         return response;
     }
@@ -3869,6 +3962,17 @@ pub(crate) async fn handle_campaign_upgrade_proposal(
         Err(response) => return response,
     };
     let c = &campaign.record;
+    // Nomination is Search's: the RESOLVED caller must hold Search on this campaign. Judgment
+    // cannot nominate what it judged and Authority cannot nominate what it will activate.
+    if let Err(response) = require_function(
+        &st,
+        &identity,
+        &campaign_ref,
+        &["search"],
+        "a candidate nomination is Search's",
+    ) {
+        return response;
+    }
     let epochs = match campaign_epochs(&st, &identity, &campaign_ref) {
         Ok(epochs) => epochs,
         Err(response) => return response,
@@ -3883,6 +3987,67 @@ pub(crate) async fn handle_campaign_upgrade_proposal(
             "a candidate is nominated only under the campaign's ACTIVE frozen epoch; this campaign has none",
         );
     };
+    // The nomination DISCLOSES its selection policy — one the campaign contract declared — and
+    // cites evidence the daemon resolves under the active epoch: an evaluation result, or the
+    // exposure SPEND a protected access appended. A promotion attempted without the ledger's
+    // records is refused (canon: Authority cannot fabricate evidence; the archive keeps what
+    // selected the candidate, not a story about it).
+    let selection_policy_ref = body_str(&body, "selection_policy_ref");
+    let declared_policies = list(c, "search_and_candidate_archive_policy_refs");
+    if selection_policy_ref.is_empty() || !declared_policies.contains(&selection_policy_ref) {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "selection_policy_undeclared",
+            format!(
+                "a nomination discloses selection_policy_ref, one of the campaign contract's search_and_candidate_archive_policy_refs {declared_policies:?}"
+            ),
+        );
+    }
+    let epoch_id = text(epoch, "evaluation_epoch_id");
+    let mut resolved_evidence = 0usize;
+    for cited in list(&body, "evidence_refs") {
+        if cited.starts_with("evaluation-result://") {
+            if let Err(response) = super::evaluation_routes::resolve_result_under_epoch(
+                &st, &identity, &cited, &epoch_id,
+            ) {
+                return response;
+            }
+            resolved_evidence += 1;
+        } else if cited.starts_with("evaluation-exposure://") {
+            let entry = match resolve_exposure_entry(&st, &identity, &epoch_id, &cited) {
+                Ok(entry) => entry,
+                Err((_, reply)) => {
+                    return bad(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "nomination_evidence_unresolvable",
+                        format!(
+                            "{cited}: {}",
+                            reply
+                                .0
+                                .pointer("/error/message")
+                                .and_then(Value::as_str)
+                                .unwrap_or("not an entry of the active epoch's ledger")
+                        ),
+                    )
+                }
+            };
+            if text(&entry, "entry_kind") != "spend" {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "nomination_evidence_unresolvable",
+                    format!("{cited} is a {} entry; evidence is the SPEND a protected access appended, not a reservation, return or rotation", text(&entry, "entry_kind")),
+                );
+            }
+            resolved_evidence += 1;
+        }
+    }
+    if resolved_evidence == 0 {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "nomination_evidence_required",
+            "a nomination cites at least one evaluation result (evaluation-result://…) or exposure spend entry (evaluation-exposure://…/entry/n) admitted under the campaign's active epoch; a promotion attempted without the ledger's records is refused",
+        );
+    }
     let candidate_ref = body_str(&body, "candidate_ref");
     if candidate_ref.is_empty() {
         return bad(
@@ -3933,8 +4098,540 @@ pub(crate) async fn handle_campaign_upgrade_proposal(
         "campaign_contract_root": text(c, "campaign_contract_root"),
         "campaign_owner_ref": owner_ref,
         "candidate_ref": candidate_ref,
+        "selection_policy_ref": selection_policy_ref,
+        "accountable_selector_ref": identity.principal_ref,
     });
     create_improvement_proposal(&st, &proposal_body, Some(binding))
+}
+
+// ================================================================================ role bindings
+//
+// M10.2 — Search, Judgment and Authority are logical trust functions of one campaign
+// (bounded-recursive-improvement.md § Search, Judgment, And Authority). An ImprovementRoleBinding
+// names, for one campaign, which admitted deployment principals hold each; every role-separated
+// seam in this module and in the evaluation plane is keyed on the RESOLVED caller principal against
+// the campaign's current binding — never on a role a body declares. The independence obligation
+// follows the campaign's declared `improvement_assurance_profile`, checkably.
+
+const ROLE_BINDING_DOMAIN: &str = "ioi.improvement-role-binding-content-commitment-jcs-sha256.v1";
+const ROLE_FUNCTIONS: &[&str] = &["search", "judgment", "authority"];
+const ASSURANCE_PROFILES: &[&str] = &[
+    "local_lightweight",
+    "independent_review",
+    "protected_build",
+    "adversarial_control",
+    "threshold_recovery",
+    "failure_domain_independent",
+];
+const MAX_FUNCTION_PRINCIPALS: usize = 64;
+
+static ROLE_BINDING: FamilySpec = FamilySpec {
+    owner_namespace: "improvement-role-bindings",
+    resource_kind: "improvement_role_binding",
+    admit_op: "event_stream.improvement_role_binding_admitted",
+    payload_schema: "ioi.hypervisor.improvement-role-binding-admission.v1",
+    contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    schema_version: "ioi.improvement-role-binding.v1",
+    record_key: "improvement_role_binding_record",
+    code_prefix: "improvement_role_binding",
+    commitment_domain: ROLE_BINDING_DOMAIN,
+    material_fields: &[
+        "schema_version",
+        "improvement_role_binding_id",
+        "revision_ref",
+        "revision",
+        "predecessor_revision_ref",
+        "owner_ref",
+        "campaign_ref",
+        "improvement_assurance_profile",
+        "bindings",
+        "independence",
+        "binding_decision_ref",
+    ],
+    identity_field: "revision_ref",
+    ref_scheme: "improvement-role-binding://",
+    stamp_field: "admitted_at",
+};
+const ROLE_BINDING_REQUEST_FIELDS: &[&str] = &[
+    "owner_ref",
+    "idempotency_key",
+    "expected_head",
+    "expected_content_hash",
+    "expected_revision_ref",
+    "bindings",
+    "binding_decision_ref",
+];
+const ROLE_BINDING_SERVER_RESOLVED: &[&str] = &[
+    "schema_version",
+    "improvement_role_binding_id",
+    "revision_ref",
+    "revision",
+    "predecessor_revision_ref",
+    "content_hash",
+    "campaign_ref",
+    "improvement_assurance_profile",
+    "independence",
+    "admitted_at",
+];
+
+/// An admitted, active deployment principal (`user://{principal_id}` in the principals family), or
+/// the caller itself — which exists by construction of the authenticated request.
+fn principal_admitted(data_dir: &str, caller: &RequestIdentity, principal_ref: &str) -> bool {
+    if principal_ref == caller.principal_ref {
+        return true;
+    }
+    let Some(id) = principal_ref.strip_prefix("user://") else {
+        return false;
+    };
+    read_record_dir(data_dir, "principals")
+        .iter()
+        .any(|record| {
+            text(record, "principal_id") == id
+                && (text(record, "status") == "active" || text(record, "status").is_empty())
+        })
+}
+
+fn binding_family(campaign_ref: &str) -> Option<String> {
+    campaign_ref
+        .strip_prefix(CAMPAIGN.ref_scheme)
+        .filter(|family| family_token(family))
+        .map(|family| format!("{}{family}", ROLE_BINDING.ref_scheme))
+}
+
+/// The campaign's CURRENT role binding under the caller's identity, or None when no binding has
+/// been admitted (a scope the substrate never bound reads as absent, not as an error).
+pub(crate) fn current_role_binding(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    campaign_ref: &str,
+) -> Result<Option<Value>, Reply> {
+    let Some(resource) = binding_family(campaign_ref) else {
+        return Ok(None);
+    };
+    let scope = match authorize_request_resource_scope(
+        &st.data_dir,
+        identity,
+        ROLE_BINDING.resource_kind,
+        &resource,
+        None,
+    ) {
+        Ok(scope) => scope,
+        Err(_) => return Ok(None),
+    };
+    let stream = read_stream(&ROLE_BINDING, &st.data_dir, identity, &scope, &resource)?;
+    Ok(stream.last().map(|entry| entry.record.clone()))
+}
+
+/// THE SEPARATION CHECK. The resolved caller must hold at least one of `functions` on the
+/// campaign's current binding. No binding → the campaign has not bound its functions
+/// (`role_bindings_required`); a caller outside every named function → `role_separation_violated`,
+/// canon's own word, now meaning the RESOLVED principal's binding rather than a declared role.
+pub(crate) fn require_function(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    campaign_ref: &str,
+    functions: &[&str],
+    action: &str,
+) -> Result<Value, Reply> {
+    let Some(binding) = current_role_binding(st, identity, campaign_ref)? else {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "role_bindings_required",
+            format!("{campaign_ref} has no admitted ImprovementRoleBinding; {action}, and the functions are bound before any of them acts"),
+        ));
+    };
+    let bindings = binding.get("bindings").cloned().unwrap_or(Value::Null);
+    let held: Vec<&str> = functions
+        .iter()
+        .copied()
+        .filter(|function| list(&bindings, function).contains(&identity.principal_ref))
+        .collect();
+    if held.is_empty() {
+        return Err(bad(
+            StatusCode::FORBIDDEN,
+            "role_separation_violated",
+            format!(
+                "{} holds none of {functions:?} on {campaign_ref} ({action}); Search, Judgment and Authority are independently controlled and the binding, not the request, says who is which",
+                identity.principal_ref
+            ),
+        ));
+    }
+    Ok(binding)
+}
+
+/// Delegate READ access on a resource created under a bound campaign to every principal the
+/// campaign's current binding names, so Search can read the epochs Judgment created and Authority
+/// can read the results it decides on. A campaign with no binding delegates nothing.
+pub(crate) fn delegate_to_binding(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    resource_kind: &str,
+    resource: &str,
+    campaign_ref: &str,
+) -> Result<(), Reply> {
+    let Some(binding) = current_role_binding(st, identity, campaign_ref)? else {
+        return Ok(());
+    };
+    let bindings = binding.get("bindings").cloned().unwrap_or(Value::Null);
+    let everyone: Vec<String> = ROLE_FUNCTIONS
+        .iter()
+        .flat_map(|function| list(&bindings, function))
+        .collect::<BTreeSet<String>>()
+        .into_iter()
+        .collect();
+    delegate_request_resource_scope(&st.data_dir, identity, resource_kind, resource, &everyone)
+        .map(|_| ())
+        .map_err(scope_refusal_reply)
+}
+
+fn overlaps(a: &[String], b: &[String]) -> Vec<String> {
+    a.iter().filter(|item| b.contains(item)).cloned().collect()
+}
+
+pub(crate) async fn handle_role_binding_admit(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Path(campaign_family): Path<String>,
+    Json(body): Json<Value>,
+) -> Reply {
+    let campaign_ref = match family_resource(&CAMPAIGN, &campaign_family) {
+        Ok(resource) => resource,
+        Err(response) => return response,
+    };
+    let resource = format!("{}{campaign_family}", ROLE_BINDING.ref_scheme);
+    let identity = match resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return scope_refusal_reply(error),
+    };
+    // The campaign is read under the caller BEFORE the binding's genesis bind, so a caller who does
+    // not hold the campaign cannot pin the binding family's scope to itself.
+    match authorized_stream(&CAMPAIGN, &st.data_dir, &identity, &campaign_ref) {
+        Ok(stream) if stream.is_empty() => {
+            return bad(
+                StatusCode::NOT_FOUND,
+                &CAMPAIGN.code("absent"),
+                "no campaign answers to that family",
+            )
+        }
+        Ok(_) => {}
+        Err(response) => return response,
+    }
+    let genesis = authorize_request_resource_scope(
+        &st.data_dir,
+        &identity,
+        ROLE_BINDING.resource_kind,
+        &resource,
+        None,
+    )
+    .is_err();
+    let ctx = match open_write(
+        &st,
+        &headers,
+        &body,
+        &ROLE_BINDING,
+        resource,
+        ROLE_BINDING_REQUEST_FIELDS,
+        ROLE_BINDING_SERVER_RESOLVED,
+        genesis,
+        "improvement_role_binding",
+    ) {
+        Ok(ctx) => ctx,
+        Err(response) => return response,
+    };
+    let campaign_stream =
+        match authorized_stream(&CAMPAIGN, &st.data_dir, &ctx.caller.identity, &campaign_ref) {
+            Ok(stream) => stream,
+            Err(response) => return response,
+        };
+    let Some(campaign) = campaign_stream.last().map(|entry| entry.record.clone()) else {
+        return bad(
+            StatusCode::NOT_FOUND,
+            &CAMPAIGN.code("absent"),
+            "no campaign answers to that family",
+        );
+    };
+    if text(&campaign, "owner_ref") != ctx.caller.owner_ref {
+        return bad(
+            StatusCode::FORBIDDEN,
+            &CAMPAIGN.code("owner_required"),
+            "a role binding is admitted under the campaign's own owner",
+        );
+    }
+    let status = text(&campaign, "lifecycle_status");
+    if !matches!(
+        status.as_str(),
+        "proposed" | "admitted" | "active" | "paused"
+    ) {
+        return bad(
+            StatusCode::CONFLICT,
+            &CAMPAIGN.code("lifecycle_invalid"),
+            format!("a role binding is admitted on a proposed, admitted, active or paused campaign; this campaign is {status}"),
+        );
+    }
+    let decision = body_str(&body, "binding_decision_ref");
+    if !decision.starts_with("decision://") {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &ROLE_BINDING.code("binding_decision_required"),
+            "a role binding names the decision:// that bound the functions",
+        );
+    }
+    let Some(bindings) = body.get("bindings").filter(|value| value.is_object()) else {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &ROLE_BINDING.code("function_required"),
+            "bindings names the principals holding search, judgment and authority",
+        );
+    };
+    if let Some(unknown) = bindings
+        .as_object()
+        .into_iter()
+        .flat_map(|object| object.keys())
+        .find(|key| !ROLE_FUNCTIONS.contains(&key.as_str()))
+    {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &ROLE_BINDING.code("function_unknown"),
+            format!("'{unknown}' is not a trust function; the functions are search, judgment and authority"),
+        );
+    }
+    let mut frozen = serde_json::Map::new();
+    let mut sets: Vec<(String, Vec<String>)> = Vec::new();
+    for function in ROLE_FUNCTIONS {
+        let principals = list(bindings, function);
+        if principals.is_empty() || principals.len() > MAX_FUNCTION_PRINCIPALS {
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                &ROLE_BINDING.code("function_required"),
+                format!("'{function}' binds 1..={MAX_FUNCTION_PRINCIPALS} admitted principals"),
+            );
+        }
+        let mut seen = BTreeSet::new();
+        for principal in &principals {
+            if !seen.insert(principal.clone()) {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    &ROLE_BINDING.code("function_required"),
+                    format!("'{function}' names {principal} twice"),
+                );
+            }
+            if !principal_admitted(&st.data_dir, &ctx.caller.identity, principal) {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    &ROLE_BINDING.code("principal_unresolvable"),
+                    format!("{principal} is not an admitted principal of this deployment (user://{{principal_id}}); a function is held by an accountable principal, never by a label"),
+                );
+            }
+        }
+        frozen.insert((*function).to_string(), strings(&principals));
+        sets.push(((*function).to_string(), principals));
+    }
+    let profile = text(&campaign, "improvement_assurance_profile");
+    let search = &sets[0].1;
+    let judgment = &sets[1].1;
+    let authority = &sets[2].1;
+    let independence = match profile.as_str() {
+        "local_lightweight" => "separately_identifiable",
+        "independent_review" => {
+            let judge_and_authority = overlaps(judgment, authority);
+            let search_and_judge = overlaps(search, judgment);
+            if !judge_and_authority.is_empty() || !search_and_judge.is_empty() {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "role_independence_violated",
+                    format!(
+                        "at independent_review judgment and authority are DISTINCT principals and search is disjoint from judgment; judgment∩authority={judge_and_authority:?} search∩judgment={search_and_judge:?} — a candidate cannot control its evaluator or its promotion authority"
+                    ),
+                );
+            }
+            "distinct_principals"
+        }
+        other if ASSURANCE_PROFILES.contains(&other) => {
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "assurance_profile_not_evidenced",
+                format!("this campaign declares {other}; the tiers above independent_review require build provenance, a passing control evaluation, a threshold recovery root or declared failure domains this build does not evidence, and a declared profile the deployment cannot evidence fails closed (owners M10.8, M12.5)"),
+            );
+        }
+        other => {
+            return bad(
+                StatusCode::CONFLICT,
+                &CAMPAIGN.code("assurance_profile_unknown"),
+                format!(
+                    "the campaign's improvement_assurance_profile '{other}' is outside the ladder"
+                ),
+            );
+        }
+    };
+    // THE DELEGATING ACT: every bound principal may now READ the campaign and this binding
+    // (register R-164). Writes stay with each scope's principal and with the function checks.
+    let everyone: Vec<String> = sets
+        .iter()
+        .flat_map(|(_, principals)| principals.iter().cloned())
+        .collect::<BTreeSet<String>>()
+        .into_iter()
+        .collect();
+    for (kind, resource) in [
+        (CAMPAIGN.resource_kind, campaign_ref.clone()),
+        (ROLE_BINDING.resource_kind, ctx.resource.clone()),
+    ] {
+        if let Err(error) = delegate_request_resource_scope(
+            &st.data_dir,
+            &ctx.caller.identity,
+            kind,
+            &resource,
+            &everyone,
+        ) {
+            return scope_refusal_reply(error);
+        }
+    }
+    let revision = ctx.stream.len() as u64 + 1;
+    let predecessor = ctx
+        .stream
+        .last()
+        .map(|entry| text(&entry.record, "revision_ref"));
+    let recorded_at_ms = now_ms();
+    let record = json!({
+        "schema_version": ROLE_BINDING.schema_version,
+        "improvement_role_binding_id": ctx.resource,
+        "revision_ref": format!("{}/revision/{revision}", ctx.resource),
+        "revision": revision,
+        "predecessor_revision_ref": predecessor,
+        "owner_ref": ctx.caller.owner_ref,
+        "campaign_ref": campaign_ref,
+        "improvement_assurance_profile": profile,
+        "bindings": Value::Object(frozen),
+        "independence": independence,
+        "binding_decision_ref": decision,
+        "admitted_at": admitted_stamp(recorded_at_ms),
+    });
+    finish_admission(
+        &ROLE_BINDING,
+        &st,
+        &ctx.caller,
+        &ctx.scope,
+        &ctx.resource,
+        "improvement_role_binding",
+        record,
+        ctx.expected_head,
+        recorded_at_ms,
+        &body,
+        json!({}),
+    )
+}
+
+pub(crate) async fn handle_role_binding_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Path(campaign_family): Path<String>,
+) -> Reply {
+    if let Err(response) = family_resource(&CAMPAIGN, &campaign_family) {
+        return response;
+    }
+    let resource = format!("{}{campaign_family}", ROLE_BINDING.ref_scheme);
+    let identity = match resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return scope_refusal_reply(error),
+    };
+    match authorized_stream(&ROLE_BINDING, &st.data_dir, &identity, &resource) {
+        Ok(stream) if stream.is_empty() => bad(
+            StatusCode::NOT_FOUND,
+            &ROLE_BINDING.code("absent"),
+            "this campaign has no admitted role binding",
+        ),
+        Ok(stream) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "revisions": stream.iter().map(|entry| entry.record.clone()).collect::<Vec<_>>(),
+                "current": stream.last().map(|entry| entry.record.clone()),
+                "head": stream.last().map(|entry| entry.head.clone()),
+            })),
+        ),
+        Err(response) => response,
+    }
+}
+
+/// GET …/improvement-campaigns/{family}/candidates — THE CANDIDATE ARCHIVE, derived: every
+/// nomination ever bound to the campaign in whatever state it reached (pending, approved, rejected,
+/// applied), its accountable selector and declared selection policy, and its cited evidence
+/// resolved to what the daemon holds — an evaluation result's verdict and basis, an exposure
+/// entry's kind. NOT a promotion queue: no rank, no order member, no promote member; nothing is
+/// removed because a later nomination did better (canon: a best-candidate projection must never
+/// erase the archive). The application's Attempt/Finding DAG is the application's and is cited
+/// opaquely (register R-155).
+pub(crate) async fn handle_campaign_candidates(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Path(campaign_family): Path<String>,
+) -> Reply {
+    let campaign_ref = match family_resource(&CAMPAIGN, &campaign_family) {
+        Ok(resource) => resource,
+        Err(response) => return response,
+    };
+    let identity = match resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return scope_refusal_reply(error),
+    };
+    let stream = match authorized_stream(&CAMPAIGN, &st.data_dir, &identity, &campaign_ref) {
+        Ok(stream) => stream,
+        Err(response) => return response,
+    };
+    if stream.is_empty() {
+        return bad(
+            StatusCode::NOT_FOUND,
+            &CAMPAIGN.code("absent"),
+            "no campaign answers to that family",
+        );
+    }
+    let mut proposals: Vec<Value> = read_record_dir(&st.data_dir, "improvement-proposals")
+        .into_iter()
+        .filter(|proposal| text(proposal, "improvement_campaign_ref") == campaign_ref)
+        .collect();
+    proposals.sort_by_key(|proposal| text(proposal, "improvement_id"));
+    let mut candidates = Vec::new();
+    for proposal in &proposals {
+        let epoch_id = text(proposal, "evaluation_epoch_ref");
+        let evidence: Vec<Value> = list(proposal, "evidence_refs")
+            .iter()
+            .map(|cited| {
+                if cited.starts_with("evaluation-result://") {
+                    match super::evaluation_routes::resolve_result_under_epoch(&st, &identity, cited, &epoch_id) {
+                        Ok(result) => json!({ "ref": cited, "kind": "evaluation_result", "verdict": text(&result, "verdict"), "verdict_basis": text(&result, "verdict_basis"), "lane": text(&result, "lane"), "content_hash": text(&result, "content_hash") }),
+                        Err(_) => json!({ "ref": cited, "kind": "evaluation_result", "resolution": "unresolvable" }),
+                    }
+                } else if cited.starts_with("evaluation-exposure://") {
+                    match resolve_exposure_entry(&st, &identity, &epoch_id, cited) {
+                        Ok(entry) => json!({ "ref": cited, "kind": "exposure_entry", "entry_kind": text(&entry, "entry_kind"), "units": entry.get("units").cloned().unwrap_or(Value::Null), "entry_root": text(&entry, "entry_root") }),
+                        Err(_) => json!({ "ref": cited, "kind": "exposure_entry", "resolution": "unresolvable" }),
+                    }
+                } else {
+                    json!({ "ref": cited, "kind": "opaque" })
+                }
+            })
+            .collect();
+        candidates.push(json!({
+            "candidate_ref": text(proposal, "candidate_ref"),
+            "proposal_ref": text(proposal, "improvement_id"),
+            "state": text(proposal, "state"),
+            "evaluation_epoch_ref": epoch_id,
+            "campaign_contract_root": text(proposal, "campaign_contract_root"),
+            "selection_policy_ref": text(proposal, "selection_policy_ref"),
+            "accountable_selector_ref": text(proposal, "accountable_selector_ref"),
+            "evidence": evidence,
+            "retained": true,
+        }));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "improvement_campaign_id": campaign_ref,
+            "candidates": candidates,
+            "count": proposals.len(),
+            "note": "an archive, not a promotion queue: every nomination in every state it reached, with the evidence that selected it; no rank, no order and no promote member exist here — the target owner's ordinary UpgradeProposal path decides",
+        })),
+    )
 }
 
 /// The current entry of one family resource read RAW from the substrate — this module's own
@@ -4065,5 +4762,61 @@ mod tests {
         assert!(
             !refusal_message(&require_usable_epoch(&frozen, true).unwrap_err().1 .0).is_empty()
         );
+    }
+}
+
+#[cfg(test)]
+mod role_binding_tests {
+    use super::*;
+
+    #[test]
+    fn overlaps_reports_the_shared_principals_and_nothing_else() {
+        let a: Vec<String> = ["user://a", "user://b"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let b: Vec<String> = ["user://b", "user://c"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(overlaps(&a, &b), vec!["user://b".to_string()]);
+        assert!(overlaps(&a, &[]).is_empty());
+        let c: Vec<String> = vec!["user://c".to_string()];
+        assert!(overlaps(&a, &c).is_empty());
+    }
+
+    #[test]
+    fn the_ladder_is_canons_and_the_functions_are_three() {
+        assert_eq!(
+            ASSURANCE_PROFILES,
+            &[
+                "local_lightweight",
+                "independent_review",
+                "protected_build",
+                "adversarial_control",
+                "threshold_recovery",
+                "failure_domain_independent",
+            ]
+        );
+        assert_eq!(ROLE_FUNCTIONS, &["search", "judgment", "authority"]);
+        // The family's material excludes only the hash and the stamp; the derived verdict IS material.
+        assert!(!ROLE_BINDING.material_fields.contains(&"content_hash"));
+        assert!(!ROLE_BINDING.material_fields.contains(&"admitted_at"));
+        assert!(ROLE_BINDING.material_fields.contains(&"independence"));
+        assert!(ROLE_BINDING
+            .material_fields
+            .contains(&"improvement_assurance_profile"));
+        assert!(ROLE_BINDING_SERVER_RESOLVED.contains(&"independence"));
+        assert!(!ROLE_BINDING_REQUEST_FIELDS.contains(&"independence"));
+    }
+
+    #[test]
+    fn binding_family_follows_the_campaign_token_and_refuses_the_rest() {
+        assert_eq!(
+            binding_family("improvement-campaign://acme.live").as_deref(),
+            Some("improvement-role-binding://acme.live")
+        );
+        assert!(binding_family("evaluation-epoch://acme.live.epoch-1").is_none());
+        assert!(binding_family("improvement-campaign://Acme Live").is_none());
     }
 }

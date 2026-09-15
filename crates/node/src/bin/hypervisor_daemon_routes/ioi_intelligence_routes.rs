@@ -2786,6 +2786,10 @@ pub(crate) fn create_improvement_proposal(
         "campaign_contract_root": bound("campaign_contract_root"),
         "campaign_owner_ref": bound("campaign_owner_ref"),
         "candidate_ref": bound("candidate_ref"),
+        // M10.2: the declared selection policy and the RESOLVED accountable selector ride the
+        // campaign binding onto the proposal, where the archive reads them.
+        "selection_policy_ref": bound("selection_policy_ref"),
+        "accountable_selector_ref": bound("accountable_selector_ref"),
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
@@ -2849,11 +2853,58 @@ async fn improvement_state_change(
     Ok(proposal)
 }
 
+/// Review and apply are AUTHORITY's. Every reviewer is a resolved principal (a 401 before any
+/// record is read); a CAMPAIGN-BOUND proposal is additionally reviewed only by a principal the
+/// campaign's role binding names as Authority — Search cannot grant authority and Judgment cannot
+/// activate what it judged (M10.2). A campaign-less proposal keeps the direct path.
+fn require_reviewer(
+    st: &DaemonState,
+    headers: &axum::http::HeaderMap,
+    id: &str,
+    action: &str,
+) -> Result<super::substrate_store::RequestIdentity, (StatusCode, Json<Value>)> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
+        .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let campaign_ref = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
+        .into_iter()
+        .find(|p| text(p, "improvement_id") == id)
+        .map(|p| text(&p, "improvement_campaign_ref").to_string())
+        .unwrap_or_default();
+    if !campaign_ref.is_empty() {
+        super::improvement_campaign_routes::require_function(
+            st,
+            &identity,
+            &campaign_ref,
+            &["authority"],
+            action,
+        )?;
+    }
+    Ok(identity)
+}
+
 pub(crate) async fn handle_improvement_approve(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match improvement_state_change(&st, &id, &["pending"], "approved", json!({})).await {
+    let reviewer = match require_reviewer(
+        &st,
+        &headers,
+        &id,
+        "approving a campaign-bound proposal is Authority's",
+    ) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    match improvement_state_change(
+        &st,
+        &id,
+        &["pending"],
+        "approved",
+        json!({ "reviewed_by_ref": reviewer.principal_ref }),
+    )
+    .await
+    {
         Ok(proposal) => (
             StatusCode::OK,
             Json(json!({ "ok": true, "proposal": proposal })),
@@ -2864,15 +2915,25 @@ pub(crate) async fn handle_improvement_approve(
 
 pub(crate) async fn handle_improvement_reject(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let reviewer = match require_reviewer(
+        &st,
+        &headers,
+        &id,
+        "rejecting a campaign-bound proposal is Authority's",
+    ) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
     match improvement_state_change(
         &st,
         &id,
         &["pending", "approved"],
         "rejected",
-        json!({ "review_reason": text(&body, "reason") }),
+        json!({ "review_reason": text(&body, "reason"), "reviewed_by_ref": reviewer.principal_ref }),
     )
     .await
     {
@@ -3216,8 +3277,17 @@ pub(crate) async fn handle_improvement_patch(
 
 pub(crate) async fn handle_improvement_apply(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_reviewer(
+        &st,
+        &headers,
+        &id,
+        "applying a campaign-bound proposal is Authority's",
+    ) {
+        return response;
+    }
     let Some(proposal) = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
         .into_iter()
         .find(|p| text(p, "improvement_id") == id)

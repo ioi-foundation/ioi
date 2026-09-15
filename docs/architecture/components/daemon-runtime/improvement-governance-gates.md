@@ -424,3 +424,36 @@ promoted overlays alike). A rollout blocked by POSTURE (not mere non-membership)
 time is a receipted security decision — `receipt://hypervisor/rollout-enforcement/*`,
 indexed in the Work Ledger as `rollout_enforcement` entries carrying the posture, the
 context source, and the blocked variants with reasons.
+
+## Search, judgment and authority separation (implemented, M10.2)
+
+The three trust functions of
+[`bounded-recursive-improvement.md`](../../foundations/bounded-recursive-improvement.md)
+§ Search, Judgment, And Authority are bound per campaign by a registered
+[`ImprovementRoleBindingEnvelope`](../../foundations/objects/bounded-improvement.md#improvementrolebindingenvelope)
+on the routes [`api.md` § Bounded Improvement Campaign APIs](./api.md#bounded-improvement-campaign-apis)
+marks served, and every role-separated seam is keyed on the RESOLVED caller
+principal — never on a role a body declares. The codes are this section's own
+and sit beside, not inside, the campaign-grade family above:
+
+```text
+role_bindings_required           a campaign started, or a role-separated seam used,
+                                 before any binding was admitted for it
+role_separation_violated         the resolved principal holds none of the functions
+                                 the seam requires: Search on an epoch or its ledger,
+                                 Judgment or Authority nominating, Authority or Search
+                                 admitting evaluation evidence, Search or Judgment
+                                 reviewing or applying a campaign-bound proposal
+role_independence_violated       a binding that overlaps functions the campaign's
+                                 declared profile keeps distinct (independent_review:
+                                 judgment ∩ authority = ∅ and search ∩ judgment = ∅)
+assurance_profile_not_evidenced  a declared tier above independent_review, which this
+                                 build cannot evidence and therefore fails closed
+selection_policy_undeclared      a nomination naming no selection policy, or one the
+                                 campaign contract did not declare
+nomination_evidence_required     a nomination citing no evaluation result or exposure
+                                 spend under the active epoch — a promotion attempted
+                                 without the ledger's records
+nomination_evidence_unresolvable a cited result from another epoch, an entry the
+                                 ledger does not hold, or a reservation offered as a spend
+```

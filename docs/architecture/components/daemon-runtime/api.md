@@ -3330,11 +3330,26 @@ POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/pause
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/stop
 ```
 
-Candidate routes — planned, no registered route; the candidate, attempt and
-finding objects are M10.2's and M10.8's in the implementation program:
+Role bindings and the candidate archive (served, M10.2). A campaign starts only
+once an `ImprovementRoleBinding` names the admitted principals holding Search,
+Judgment and Authority; every role-separated seam is keyed on the resolved
+caller against that binding (`role_separation_violated`), and the independence
+obligation follows the campaign's declared `improvement_assurance_profile`
+(`role_independence_violated`). A nomination discloses its `selection_policy_ref`
+and cites evidence resolved under the active epoch; the archive is DERIVED over
+every nomination in every state it reached and carries no rank, order or
+promote member:
 
 ```http
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/role-bindings
+GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}/role-bindings
 GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}/candidates
+```
+
+Attempt and finding routes — planned, no registered route; the attempt and
+finding objects are M10.8's in the implementation program:
+
+```http
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/attempts
 POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/findings
 ```

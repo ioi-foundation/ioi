@@ -2926,6 +2926,21 @@ pub(crate) struct RequestResourceScope {
     pub(crate) tenant_ref: String,
     pub(crate) owner_ref: String,
     pub(crate) correlation_ref: String,
+    /// READ delegates (M10.2, register R-164): principals the scope's own principal has named, by a
+    /// successor operation on this scope's stream, as readers of the resource. A delegate reads and
+    /// lists; it never writes — the write path keys on `principal_ref` alone, and every
+    /// role-separated write is additionally keyed on the campaign's role binding.
+    pub(crate) delegate_principal_refs: Vec<String>,
+}
+
+impl RequestResourceScope {
+    pub(crate) fn readable_by(&self, principal_ref: &str) -> bool {
+        self.principal_ref == principal_ref
+            || self
+                .delegate_principal_refs
+                .iter()
+                .any(|delegate| delegate == principal_ref)
+    }
 }
 
 #[derive(Debug)]
@@ -3109,6 +3124,18 @@ fn project_request_scope(
             .map(str::to_owned)
             .ok_or(RequestScopeRefusal::ResourceScopeRequired)
     };
+    let delegate_principal_refs = payload
+        .get("delegate_principal_refs")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
     Ok(RequestResourceScope {
         resource_kind: field("resource_kind")?,
         resource_ref: field("resource_ref")?,
@@ -3116,7 +3143,79 @@ fn project_request_scope(
         tenant_ref: field("tenant_ref")?,
         owner_ref: field("owner_ref")?,
         correlation_ref: field("correlation_ref")?,
+        delegate_principal_refs,
     })
+}
+
+/// DELEGATE READ ACCESS on one bound scope to named principals (M10.2, register R-164). Only the
+/// scope's own principal may delegate, the delegation is a successor operation on the scope's own
+/// stream (exact-head, replayable, durable), and it widens READS only: `authorize_request_resource_scope`
+/// and `authorized_request_resource_refs` accept a delegate, the admitted-write path does not.
+/// The union is idempotent — delegating an already-delegated principal admits nothing new.
+pub(crate) fn delegate_request_resource_scope(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    resource_kind: &str,
+    resource_ref: &str,
+    delegates: &[String],
+) -> Result<RequestResourceScope, RequestScopeRefusal> {
+    let tail = request_scope_tail(resource_kind, resource_ref);
+    let Some(exact) =
+        read_event_stream_operation(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, &tail)
+            .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?
+    else {
+        return Err(RequestScopeRefusal::ResourceScopeRequired);
+    };
+    let existing = project_request_scope(&exact)?;
+    if existing.principal_ref != identity.principal_ref
+        || !identity.authorizes_tenant(&existing.tenant_ref)
+    {
+        return Err(RequestScopeRefusal::ResourceOwnerMismatch);
+    }
+    let mut union: BTreeSet<String> = existing.delegate_principal_refs.iter().cloned().collect();
+    for delegate in delegates {
+        if !delegate.is_empty() && delegate != &existing.principal_ref {
+            union.insert(delegate.clone());
+        }
+    }
+    let union: Vec<String> = union.into_iter().collect();
+    if union == existing.delegate_principal_refs {
+        return Ok(existing);
+    }
+    let payload = json!({
+        "schema_version": "ioi.request-resource-scope.v1",
+        "resource_kind": existing.resource_kind,
+        "resource_ref": existing.resource_ref,
+        "principal_ref": existing.principal_ref,
+        "tenant_ref": existing.tenant_ref,
+        "owner_ref": existing.owner_ref,
+        "correlation_ref": existing.correlation_ref,
+        "delegate_principal_refs": union,
+    });
+    let internal_idempotency_key = format!(
+        "scope-delegation:{}",
+        scoped_digest_bytes(&serde_jcs::to_vec(&payload).unwrap_or_default())
+    );
+    let admitted = admit_event_stream_operation(
+        data_dir,
+        REQUEST_RESOURCE_SCOPE_NAMESPACE,
+        &tail,
+        "event_stream.request_resource_scope_delegated",
+        Some(exact.head.as_str()),
+        &payload,
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0),
+        &internal_idempotency_key,
+    )
+    .map_err(|error| match error {
+        AdmissionRefusal::HeadConflict | AdmissionRefusal::SameKeyDifferentBytes { .. } => {
+            RequestScopeRefusal::ResourceOwnerMismatch
+        }
+        error => RequestScopeRefusal::SubstrateUnavailable(error.to_string()),
+    })?;
+    project_request_scope(&admitted.projection)
 }
 
 /// Read the immutable scope a resource was reserved under, without binding one.
@@ -3218,7 +3317,7 @@ pub(crate) fn authorize_request_resource_scope(
         .ok_or(RequestScopeRefusal::ResourceScopeRequired)?;
     if scope.resource_kind != resource_kind
         || scope.resource_ref != resource_ref
-        || scope.principal_ref != identity.principal_ref
+        || !scope.readable_by(&identity.principal_ref)
         || !identity.authorizes_tenant(&scope.tenant_ref)
     {
         return Err(RequestScopeRefusal::ResourceScopeRequired);
@@ -3248,7 +3347,7 @@ pub(crate) fn authorized_request_resource_refs(
         };
         let scope = project_request_scope(&exact)?;
         if scope.resource_kind == resource_kind
-            && scope.principal_ref == identity.principal_ref
+            && scope.readable_by(&identity.principal_ref)
             && identity.authorizes_tenant(&scope.tenant_ref)
             && scope.tenant_ref == scope.owner_ref
         {
