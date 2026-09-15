@@ -1,0 +1,83 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m04-11-context-lease-handoff-lifecycle",
+  "stage_id": "M04",
+  "required_work": [
+    "M04.11"
+  ],
+  "status": "active",
+  "objective": "Make GoalRun-owned ContextCell, ContextLease and ContextHandoff revisions admitted application state with a lifecycle, so a builder receives only the exact leased context its admitted role requires and a handoff re-evaluates under the receiver. The privacy dimensions the unit names — purpose, data class, redaction, retention, destination — are INHERITED from the bound PolicyBoundDataView revision and the InformationFlowLabel the lease references, never restated on the lease: canon's owner of those objects forbids parallel taint or privacy objects at this seam, and a lease that declared its own data class could claim one wider than the view it leases, which is the hole this unit exists to close.",
+  "falsifiable_claim": "ContextCell, ContextLease and ContextHandoff are registered contracts (schema://ioi/applications/ioi-ai/context-cell/v1, context-lease/v1, context-handoff/v1) whose positives include the producer's OWN output byte-for-byte, and the daemon validates every record against its registered contract BEFORE the write. Seven routes under /v1/goal-orchestration/goal-runs/:id/… admit a lease, narrow it, revoke it, resolve it, admit a handoff, and accept or reject it; narrow/revoke/accept/reject are successors on the object's own stream, so genesis-versus-successor, CAS on the head and idempotent replay belong to the shared owner-scoped mutation spine rather than to this module, and no writer bucket moves. Narrowing is SUBTRACTION: leased_refs, allowed_ref_patterns, authority_scope_refs, information_flow_label_refs and permitted_recipient_roles may only shrink, denied_ref_patterns may only grow, and a ttl may not be extended or removed — each widening refuses by its own name. A lease that DECLARES an inherited dimension is refused by the request-field fence. A lease naming a view family head, the predecessor's policy-bound-data-view:// spelling, or the legacy context_lease:// identity is refused. The resolution is a read model rebuilt on every read whose permitted uses are the INTERSECTION of the bound view revisions' own allowed_uses, resolved through that plane's published reader under the caller's identity, and it states which dimensions it inherits rather than implying a policy nobody asserted. A handoff's non_grants block is constant by construction and re-asserted on the decision successor; acceptance is a candidate under the receiver's policy that copies no lease and transfers no authority. The activation lane ADMITS its implementer lease through that plane under a derived idempotency key and binds the implementer's own CELL as issued_to_ref; if the lease does not admit, GoalRun creation fails.",
+  "canon_owners": [
+    "docs/architecture/domains/ioi-ai/goal-run-execution.md",
+    "docs/architecture/foundations/objects/execution-context-and-step-resolution.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
+      "literal": "pub(crate) async fn handle_context_lease_admit",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
+      "literal": "fn refuse_widening",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
+      "literal": "resolve_admitted_policy_bound_data_view",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
+      "literal": "fn handoff_non_grants",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
+      "literal": "pub(crate) fn admit_activation_context_lease",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "literal": "context_leases.push(admitted_lease)",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "/v1/goal-orchestration/goal-runs/:id/context-leases",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/context-lease.v1.schema.json",
+      "literal": "permitted_recipient_roles",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/context-handoff.v1.schema.json",
+      "literal": "receiver_policy_bypass",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/domains/ioi-ai/goal-run-execution.md",
+      "literal": "The lease restates no privacy dimension",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Eight module tests, each pinning a REFUSAL rather than a shape: a lease issued to a reusable HarnessProfile (the defect the contracts made visible in the activation lane) is refused by the contract; a view family head is refused where a revision is admitted; the legacy context_lease:// identity is refused; a request declaring an inherited dimension is refused by name; every one of the five widening members refuses while the same members shrinking are admitted; a dropped denial, an extended ttl and an unbounded ttl are each widenings while a shortened ttl is not; a weakened handoff non-grant fails the registered contract. check:m4-goalrun-activation-plane 52/52 on an isolated daemon after the activation lane was rewired, including its restart-replay clause, which is the one that would notice a lease admitted twice or not at all. The three contracts' negatives were proven to be EVALUATED rather than decorative: check:architecture-contracts is drift-only (a planted defect that made a negative fixture validate left it green at exit 0 after regeneration), and the real oracle is the generated Rust test golden_fixtures_match_generated_rust_contracts, which failed by name on that defect before it was restored by copy and digest-verified.",
+  "remaining_nonclaims": [
+    "NO VERIFIER YET: check:context-lease-handoff-lifecycle is unauthored, so M04.11's manifest check text is still the unresolved prefix and the unit remains a release blocker. The negative matrix over the MCP path in particular is unproven — the module tests and the activation gate exercise the native path only.",
+    "Handoffs and task briefs are still inline literals on the activation record; only the lease became an admitted revision, so the handoff lifecycle is exercised through its routes rather than through the producer.",
+    "Expiry is evaluated at resolution from the lease's status rather than by a sweep: a lease whose ttl has elapsed is not yet transitioned to expired by any producer, and the resolution refuses a non-active lease rather than computing elapsed time.",
+    "The resolution's permitted uses come from the bound views' allowed_uses only. The label plane's own axes (origin, integrity, confidentiality, instruction authority) are carried as refs and are NOT folded here; the lease names them and the labels' owner evaluates them.",
+    "Only two of ResolvedPolicyBoundDataView's accessors are published (allowed_uses, is_active), so the resolution folds those two; the view's data classes and redaction are inherited by reference rather than read here, which is the boundary its owner chose.",
+    "ACC-5 clauses 9 and N3 still carry their typed absences: the composed runner has not been re-run against this work, and no clause composes the unit's check because there is none.",
+    "verify-hypervisor-goalrun-multi-harness.mjs is the only verifier asserting on the activation record's context_leases array and it is invoked by no npm script and no CI job — an orphaned verifier, recorded here rather than relied on."
+  ],
+  "source_provenance": "Authored on the main tree 2026-09-14/15 in four slices (bc91b65ee canon + contracts, e9a1dea4a the object plane, cdf48045d the activation-lane admission) under ruling R-152. MVP finish-line program, the 36 → 0 leg.",
+  "last_status_transaction": "2026-09-15"
+}

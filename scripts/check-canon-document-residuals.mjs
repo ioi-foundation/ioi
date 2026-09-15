@@ -236,7 +236,13 @@ try {
   //
   // Closure test for the api.md and orchestration-api.md owners: this number goes down and the pin
   // moves with it in the same commit. A pin that only ever ratchets one way is a bound, not a pass.
-  const ENDPOINT_RATCHET = 168;
+  // 168 -> 167 (2026-09-15, M04.11): the ratchet moved DOWN because the work SERVED one of the
+  // documented endpoints rather than annotating it — `POST /v1/goal-orchestration/goal-runs/
+  // {goal_ref}/context-leases` (orchestration-api.md:410) is now a registered route, so it leaves
+  // the unannotated population by being implemented. This is the closure test this gate states
+  // about itself, exercised for the first time: the number goes down and the pin moves with it in
+  // the same commit.
+  const ENDPOINT_RATCHET = 167;
   const byFile = {};
   for (const entry of undocumented) {
     const file = entry.split(":")[0];
