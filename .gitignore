@@ -117,6 +117,12 @@ internal-docs/reverse-engineering
 # Its verifier reads the same private guide and asserts over nothing else, so it travels with it
 # rather than shipping a tracked check that is BLOCKED on every clone.
 /scripts/check-release-readiness-scope.mjs
+# ACC-R's release orchestrator and the plan derivation it shares with the tool above. Both READ the
+# private manifest as their subject — unlike the tracked ACC journey runners, whose clause tables
+# live in their own source — so by the same rule they travel with the guide and carry no tracked npm
+# script. They are invoked with `node`, as the guide's own check texts already invoke the tool.
+/scripts/check-release-rehearsal.mjs
+/scripts/lib/release-plan.mjs
 
 
 
