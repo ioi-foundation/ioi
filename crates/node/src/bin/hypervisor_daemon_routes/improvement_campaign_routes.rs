@@ -48,7 +48,9 @@ use super::institutional_learning_boundary_routes::{
     resolve_admitted_boundary_profile, resolve_admitted_evidence_eligibility,
     resolve_admitted_learning_egress_receipt,
 };
-use super::ioi_intelligence_routes::{create_improvement_proposal, resolve_core_mutable_target_root};
+use super::ioi_intelligence_routes::{
+    create_improvement_proposal, resolve_core_mutable_target_root,
+};
 use super::model_route_rights_routes::{
     authorized_stream, bad, body_str, digest_over, family_token, finish_admission, head_assertion,
     parse_revision_ref, project_stream, projection_cache_state, read_stream, ref_list,
@@ -575,7 +577,12 @@ fn refusal_message(reply: &Value) -> String {
 }
 
 fn strings(items: &[String]) -> Value {
-    Value::Array(items.iter().map(|item| Value::from(item.as_str())).collect())
+    Value::Array(
+        items
+            .iter()
+            .map(|item| Value::from(item.as_str()))
+            .collect(),
+    )
 }
 
 /// The four owner schemes canon names for this family; the substrate has ALREADY authorized the
@@ -696,8 +703,7 @@ fn read_family(
     spec: &'static FamilySpec,
     resource: &str,
 ) -> Result<(RequestIdentity, Vec<AdmittedRecord>), Reply> {
-    let identity =
-        resolve_request_identity(&st.data_dir, headers).map_err(scope_refusal_reply)?;
+    let identity = resolve_request_identity(&st.data_dir, headers).map_err(scope_refusal_reply)?;
     let stream = authorized_stream(spec, &st.data_dir, &identity, resource)?;
     Ok((identity, stream))
 }
@@ -882,7 +888,12 @@ pub(crate) async fn handle_governance_profile_query(
     Query(query): Query<StreamQuery>,
 ) -> Reply {
     let Some(family) = query.family.clone() else {
-        return inventory(&st, &headers, &PROFILE, "improvement_governance_profile_refs");
+        return inventory(
+            &st,
+            &headers,
+            &PROFILE,
+            "improvement_governance_profile_refs",
+        );
     };
     profile_read(&st, &headers, &family, query.revision)
 }
@@ -895,7 +906,12 @@ pub(crate) async fn handle_governance_profile_revision_get(
     profile_read(&st, &headers, &family, Some(revision))
 }
 
-fn profile_read(st: &DaemonState, headers: &HeaderMap, family: &str, revision: Option<u64>) -> Reply {
+fn profile_read(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    family: &str,
+    revision: Option<u64>,
+) -> Reply {
     let resource = match family_resource(&PROFILE, family) {
         Ok(resource) => resource,
         Err(response) => return response,
@@ -979,7 +995,10 @@ fn resolve_profile_for_admission(
     if ordinal != stream.len() as u64 {
         return Ok(ProfileResolution::Superseded);
     }
-    Ok(ProfileResolution::Current(project_profile(&stream, stream.len() - 1)))
+    Ok(ProfileResolution::Current(project_profile(
+        &stream,
+        stream.len() - 1,
+    )))
 }
 
 // ========================================================================================= agendas
@@ -1238,7 +1257,12 @@ pub(crate) async fn handle_agenda_revision_get(
     agenda_read(&st, &headers, &family, Some(revision))
 }
 
-fn agenda_read(st: &DaemonState, headers: &HeaderMap, family: &str, revision: Option<u64>) -> Reply {
+fn agenda_read(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    family: &str,
+    revision: Option<u64>,
+) -> Reply {
     let resource = match family_resource(&AGENDA, family) {
         Ok(resource) => resource,
         Err(response) => return response,
@@ -1262,7 +1286,9 @@ fn agenda_read(st: &DaemonState, headers: &HeaderMap, family: &str, revision: Op
         };
         return (
             StatusCode::OK,
-            Json(json!({ "ok": true, "resolved": record, "head": stream.last().map(|last| last.head.clone()), "index_state": index_state })),
+            Json(
+                json!({ "ok": true, "resolved": record, "head": stream.last().map(|last| last.head.clone()), "index_state": index_state }),
+            ),
         );
     }
     (
@@ -1314,7 +1340,10 @@ fn resolve_agenda_revision(
     else {
         return Ok(AgendaResolution::Absent);
     };
-    if matches!(text(&record, "registry_status").as_str(), "released" | "superseded") {
+    if matches!(
+        text(&record, "registry_status").as_str(),
+        "released" | "superseded"
+    ) {
         return Ok(AgendaResolution::Released(record));
     }
     Ok(AgendaResolution::NotReleased)
@@ -1498,7 +1527,10 @@ pub(crate) async fn handle_campaign_create(
             "a System-scoped campaign is admitted under the constitution's protected profile binding, which this build does not implement",
         );
     }
-    if body.get("atomic_target_bundle_ref").is_some_and(|value| !value.is_null()) {
+    if body
+        .get("atomic_target_bundle_ref")
+        .is_some_and(|value| !value.is_null())
+    {
         return bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             &CAMPAIGN.code("atomic_bundle_not_admitted"),
@@ -1548,7 +1580,10 @@ pub(crate) async fn handle_campaign_create(
         Ok(root) => root,
         Err(response) => return response,
     };
-    if let Some(asserted) = body.get("expected_target_base_root").and_then(Value::as_str) {
+    if let Some(asserted) = body
+        .get("expected_target_base_root")
+        .and_then(Value::as_str)
+    {
         if asserted != target_root {
             return bad(
                 StatusCode::CONFLICT,
@@ -1863,7 +1898,12 @@ pub(crate) async fn handle_campaign_admit(
     let item_ids: BTreeSet<String> = agenda
         .get("items")
         .and_then(Value::as_array)
-        .map(|items| items.iter().map(|item| text(item, "agenda_item_id")).collect())
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| text(item, "agenda_item_id"))
+                .collect()
+        })
         .unwrap_or_default();
     for item in list(&prior.record, "agenda_item_refs") {
         if !item_ids.contains(&item) {
@@ -1902,7 +1942,8 @@ pub(crate) async fn handle_campaign_admit(
 
     let profile_hash = text(&profile, "content_hash");
     let campaign_root = text(&prior.record, "campaign_contract_root");
-    let receipt_material = json!({ "campaign_contract_root": campaign_root, "decision_ref": decision });
+    let receipt_material =
+        json!({ "campaign_contract_root": campaign_root, "decision_ref": decision });
     let receipt_digest = match digest_over(
         &receipt_material,
         ADMISSION_RECEIPT_DOMAIN,
@@ -1917,7 +1958,8 @@ pub(crate) async fn handle_campaign_admit(
             )
         }
     };
-    let order_material = json!({ "campaign_contract_root": campaign_root, "target_improvement_order": order });
+    let order_material =
+        json!({ "campaign_contract_root": campaign_root, "target_improvement_order": order });
     let order_digest = match digest_over(
         &order_material,
         ADMISSION_RECEIPT_DOMAIN,
@@ -1936,11 +1978,19 @@ pub(crate) async fn handle_campaign_admit(
     let admission_policy = text(&profile, "campaign_admission_policy_ref");
     let sequence = ctx.stream.len() as u64 + 1;
     let (record, recorded_at_ms) = match campaign_successor(prior, sequence, |record| {
-        record["effective_governance_snapshot_ref"] = json!(format!("artifact://improvement-governance-profile/{}/{profile_hash}", profile_ref.trim_start_matches(PROFILE.ref_scheme)));
+        record["effective_governance_snapshot_ref"] = json!(format!(
+            "artifact://improvement-governance-profile/{}/{profile_hash}",
+            profile_ref.trim_start_matches(PROFILE.ref_scheme)
+        ));
         record["campaign_admission_decision_ref"] = json!(decision);
-        record["campaign_admission_receipt_ref"] = json!(format!("receipt://improvement-campaign/{family}/admission/{receipt_digest}"));
-        record["admission_authority_and_constitution_snapshot_refs"] = json!([profile_ref, agenda_ref, boundary_ref]);
-        record["target_order_assignment_receipt_ref"] = json!(format!("receipt://improvement-campaign/{family}/target-order/{order_digest}"));
+        record["campaign_admission_receipt_ref"] = json!(format!(
+            "receipt://improvement-campaign/{family}/admission/{receipt_digest}"
+        ));
+        record["admission_authority_and_constitution_snapshot_refs"] =
+            json!([profile_ref, agenda_ref, boundary_ref]);
+        record["target_order_assignment_receipt_ref"] = json!(format!(
+            "receipt://improvement-campaign/{family}/target-order/{order_digest}"
+        ));
         record["effective_target_order_ceiling"] = json!(ceiling);
         record["effective_target_order_ceiling_ref"] = json!(admission_policy);
         record["max_active_nested_campaign_depth"] = json!(max_depth);
@@ -2051,7 +2101,15 @@ pub(crate) async fn handle_campaign_stop(
     Path(family): Path<String>,
     Json(body): Json<Value>,
 ) -> Reply {
-    campaign_transition(st, headers, family, body, &["admitted", "active", "paused"], "stopped").await
+    campaign_transition(
+        st,
+        headers,
+        family,
+        body,
+        &["admitted", "active", "paused"],
+        "stopped",
+    )
+    .await
 }
 
 /// The campaign's epochs, DERIVED from the epoch streams the caller may read rather than kept as a
@@ -2354,7 +2412,12 @@ pub(crate) async fn handle_epoch_create(
     };
     let predecessor = siblings
         .last()
-        .map(|epoch| epoch.get("evaluation_epoch_id").cloned().unwrap_or(Value::Null))
+        .map(|epoch| {
+            epoch
+                .get("evaluation_epoch_id")
+                .cloned()
+                .unwrap_or(Value::Null)
+        })
         .unwrap_or(Value::Null);
     let derived = match derived_state(&st, &ctx.caller.identity, &campaign_ref) {
         Ok(derived) => derived,
@@ -2366,7 +2429,10 @@ pub(crate) async fn handle_epoch_create(
         .and_then(|refs| refs.last().cloned())
         .unwrap_or(Value::Null);
     let c = &campaign.record;
-    let pursuit = c.get("coordinating_pursuit").cloned().unwrap_or(Value::Null);
+    let pursuit = c
+        .get("coordinating_pursuit")
+        .cloned()
+        .unwrap_or(Value::Null);
     let mut snapshot_refs = vec![text(c, "resolved_component_snapshot_ref")];
     if let Some(receipt) = pursuit
         .get("goal_run_profile_resolution_receipt_ref")
@@ -2448,7 +2514,9 @@ fn epoch_successor(
     let mut record = prior.record.clone();
     mutate(&mut record);
     let root = frozen_root(&record)?;
-    if text(&prior.record, "lifecycle_status") != "draft" && root != text(&prior.record, "frozen_root") {
+    if text(&prior.record, "lifecycle_status") != "draft"
+        && root != text(&prior.record, "frozen_root")
+    {
         return Err(bad(
             StatusCode::CONFLICT,
             "campaign_binding_mismatch",
@@ -2698,10 +2766,12 @@ pub(crate) async fn handle_epoch_get(
         &ledger_resource,
         None,
     ) {
-        Ok(scope) => match read_stream(&LEDGER, &st.data_dir, &identity, &scope, &ledger_resource) {
-            Ok(stream) => stream.last().map(|entry| entry.record.clone()),
-            Err(response) => return response,
-        },
+        Ok(scope) => {
+            match read_stream(&LEDGER, &st.data_dir, &identity, &scope, &ledger_resource) {
+                Ok(stream) => stream.last().map(|entry| entry.record.clone()),
+                Err(response) => return response,
+            }
+        }
         Err(_) => None,
     };
     (
@@ -2753,7 +2823,8 @@ const LEDGER_SERVER_RESOLVED: &[&str] = &[
     "content_hash",
     "admitted_at",
 ];
-const INFORMATION_RETURN_CLASSES: &[&str] = &["none", "aggregate", "per_case", "labels", "internals"];
+const INFORMATION_RETURN_CLASSES: &[&str] =
+    &["none", "aggregate", "per_case", "labels", "internals"];
 
 fn genesis_ledger_root(ledger_id: &str) -> Result<String, Reply> {
     digest_over(
@@ -2872,7 +2943,13 @@ async fn exposure_operation(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    let epoch_stream = match read_stream(&EPOCH, &st.data_dir, &caller.identity, &epoch_scope, &epoch_resource) {
+    let epoch_stream = match read_stream(
+        &EPOCH,
+        &st.data_dir,
+        &caller.identity,
+        &epoch_scope,
+        &epoch_resource,
+    ) {
         Ok(stream) => stream,
         Err(response) => return response,
     };
@@ -2900,7 +2977,15 @@ async fn exposure_operation(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    match replay_for_key(&LEDGER, &st, &caller, &scope, &ledger_resource, &ledger_stream, "evaluation_exposure_ledger") {
+    match replay_for_key(
+        &LEDGER,
+        &st,
+        &caller,
+        &scope,
+        &ledger_resource,
+        &ledger_stream,
+        "evaluation_exposure_ledger",
+    ) {
         Ok(Some(reply)) => return reply,
         Ok(None) => {}
         Err(response) => return response,
@@ -2920,7 +3005,11 @@ async fn exposure_operation(
         );
     };
     let ledger = &prior.record;
-    let entries = ledger.get("entries").and_then(Value::as_array).cloned().unwrap_or_default();
+    let entries = ledger
+        .get("entries")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     if entries.len() >= MAX_LEDGER_ENTRIES {
         return bad(
             StatusCode::CONFLICT,
@@ -2947,7 +3036,11 @@ async fn exposure_operation(
     }
     let return_class = {
         let raw = body_str(&body, "information_return_class");
-        if raw.is_empty() { "none".to_string() } else { raw }
+        if raw.is_empty() {
+            "none".to_string()
+        } else {
+            raw
+        }
     };
     if !INFORMATION_RETURN_CLASSES.contains(&return_class.as_str()) {
         return bad(
@@ -2987,7 +3080,9 @@ async fn exposure_operation(
                 return bad(
                     StatusCode::CONFLICT,
                     "evaluation_exposure_exhausted",
-                    format!("returning {units} exceeds the outstanding reservation of {outstanding}"),
+                    format!(
+                        "returning {units} exceeds the outstanding reservation of {outstanding}"
+                    ),
                 );
             }
             returned += units;
@@ -3035,7 +3130,13 @@ async fn exposure_operation(
     record["spent_units"] = json!(spent);
     record["returned_units"] = json!(returned);
     record["remaining_units"] = json!(remaining);
-    record["contaminated"] = json!(ledger.get("contaminated").and_then(Value::as_bool).unwrap_or(false) || contamination_flag);
+    record["contaminated"] = json!(
+        ledger
+            .get("contaminated")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+            || contamination_flag
+    );
     record["entries"] = Value::Array(next_entries);
     record["admitted_entry_refs"] = strings(&refs);
     record["ledger_head_sequence"] = json!(seq);
@@ -3308,7 +3409,8 @@ pub(crate) async fn handle_cutoff_emit(
     // -- rule 6 at this plane: no agenda successor at the same cutoff -----------------------------
     let admitted_agenda = text(c, "agenda_revision_ref");
     let cited_agenda = body_str(&body, "agenda_revision_ref");
-    let Some((cited_family, cited_ordinal)) = parse_revision_ref(AGENDA.ref_scheme, &cited_agenda) else {
+    let Some((cited_family, cited_ordinal)) = parse_revision_ref(AGENDA.ref_scheme, &cited_agenda)
+    else {
         return bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             &AGENDA.code("revision_ref_not_canonical"),
@@ -3348,7 +3450,8 @@ pub(crate) async fn handle_cutoff_emit(
         Ok(list) => list,
         Err(response) => return response,
     };
-    let eligibility_refs = match ref_list(&body, "learning_evidence_eligibility_refs", 64, &CUTOFF) {
+    let eligibility_refs = match ref_list(&body, "learning_evidence_eligibility_refs", 64, &CUTOFF)
+    {
         Ok(list) => list,
         Err(response) => return response,
     };
@@ -3399,9 +3502,16 @@ pub(crate) async fn handle_cutoff_emit(
     // -- egress: an institutional crossing needs an admitted receipt ------------------------------
     let crossing = {
         let raw = body_str(&body, "boundary_crossing");
-        if raw.is_empty() { "same_boundary".to_string() } else { raw }
+        if raw.is_empty() {
+            "same_boundary".to_string()
+        } else {
+            raw
+        }
     };
-    if !matches!(crossing.as_str(), "same_boundary" | "institutional_boundary") {
+    if !matches!(
+        crossing.as_str(),
+        "same_boundary" | "institutional_boundary"
+    ) {
         return bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             &CUTOFF.code("boundary_crossing_outside_vocabulary"),
@@ -3502,16 +3612,17 @@ pub(crate) async fn handle_cutoff_emit(
         "previous_cutoff_receipt_root": previous_root,
         "admitted_at": admitted_stamp(recorded_at_ms),
     });
-    record["receipt_root"] = match digest_over(&record, CUTOFF_RECEIPT_DOMAIN, CUTOFF_RECEIPT_FIELDS) {
-        Ok(root) => json!(root),
-        Err(reason) => {
-            return bad(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &CUTOFF.code("receipt_root_failed"),
-                reason,
-            )
-        }
-    };
+    record["receipt_root"] =
+        match digest_over(&record, CUTOFF_RECEIPT_DOMAIN, CUTOFF_RECEIPT_FIELDS) {
+            Ok(root) => json!(root),
+            Err(reason) => {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &CUTOFF.code("receipt_root_failed"),
+                    reason,
+                )
+            }
+        };
     finish_admission(
         &CUTOFF,
         &st,
@@ -3702,7 +3813,10 @@ pub(crate) fn campaign_grade_bindings(
         return Ok(());
     }
     let Some(campaign) = raw_current(st, &CAMPAIGN, &campaign_ref) else {
-        return Err(("campaign_binding_mismatch", "the bound campaign no longer resolves".to_string()));
+        return Err((
+            "campaign_binding_mismatch",
+            "the bound campaign no longer resolves".to_string(),
+        ));
     };
     if text(&campaign, "lifecycle_status") != "active" {
         return Err((
@@ -3720,12 +3834,18 @@ pub(crate) fn campaign_grade_bindings(
     }
     let epoch_ref = text(proposal, "evaluation_epoch_ref");
     let Some(epoch) = raw_current(st, &EPOCH, &epoch_ref) else {
-        return Err(("evaluation_epoch_invalid", "the bound epoch no longer resolves".to_string()));
+        return Err((
+            "evaluation_epoch_invalid",
+            "the bound epoch no longer resolves".to_string(),
+        ));
     };
     if text(&epoch, "campaign_ref") != campaign_ref
         || text(&epoch, "campaign_contract_root") != text(&campaign, "campaign_contract_root")
     {
-        return Err(("campaign_binding_mismatch", "the bound epoch is not this campaign's".to_string()));
+        return Err((
+            "campaign_binding_mismatch",
+            "the bound epoch is not this campaign's".to_string(),
+        ));
     }
     if let Err((_, Json(reply))) = require_usable_epoch(&epoch, true) {
         // `bad` nests the code under `error`; reading the top level would silently turn every
@@ -3739,7 +3859,10 @@ pub(crate) fn campaign_grade_bindings(
     }
     let target_ref = text(&campaign, "mutable_target_ref");
     let Some(root) = resolve_core_mutable_target_root(st, &target_ref) else {
-        return Err(("target_base_stale", "the campaign's mutable target no longer resolves".to_string()));
+        return Err((
+            "target_base_stale",
+            "the campaign's mutable target no longer resolves".to_string(),
+        ));
     };
     if root != text(&campaign, "target_base_root") {
         return Err((
@@ -3777,10 +3900,21 @@ mod tests {
         let draft = json!({ "lifecycle_status": "draft" });
         let closed = json!({ "lifecycle_status": "closed" });
         let frozen = json!({ "lifecycle_status": "frozen" });
-        assert_eq!(refusal_code(&require_usable_epoch(&draft, false).unwrap_err().1 .0), "evaluation_epoch_not_frozen");
-        assert_eq!(refusal_code(&require_usable_epoch(&closed, false).unwrap_err().1 .0), "evaluation_epoch_invalid");
+        assert_eq!(
+            refusal_code(&require_usable_epoch(&draft, false).unwrap_err().1 .0),
+            "evaluation_epoch_not_frozen"
+        );
+        assert_eq!(
+            refusal_code(&require_usable_epoch(&closed, false).unwrap_err().1 .0),
+            "evaluation_epoch_invalid"
+        );
         assert!(require_usable_epoch(&frozen, false).is_ok());
-        assert_eq!(refusal_code(&require_usable_epoch(&frozen, true).unwrap_err().1 .0), "evaluation_epoch_not_frozen");
-        assert!(!refusal_message(&require_usable_epoch(&frozen, true).unwrap_err().1 .0).is_empty());
+        assert_eq!(
+            refusal_code(&require_usable_epoch(&frozen, true).unwrap_err().1 .0),
+            "evaluation_epoch_not_frozen"
+        );
+        assert!(
+            !refusal_message(&require_usable_epoch(&frozen, true).unwrap_err().1 .0).is_empty()
+        );
     }
 }

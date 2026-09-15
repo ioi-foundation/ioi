@@ -1933,7 +1933,9 @@ pub(crate) fn resolve_admitted_learning_egress_receipt(
     expected_owner_ref: Option<&str>,
     receipt_ref: &str,
 ) -> Result<Value, Reply> {
-    let family = receipt_ref.strip_prefix(EGRESS.ref_scheme).unwrap_or_default();
+    let family = receipt_ref
+        .strip_prefix(EGRESS.ref_scheme)
+        .unwrap_or_default();
     if !family_token(family) {
         return Err(refuse(
             &EGRESS.code("receipt_ref_not_canonical"),
@@ -1949,13 +1951,16 @@ pub(crate) fn resolve_admitted_learning_egress_receipt(
     )
     .map_err(scope_refusal_reply)?;
     let stream = read_stream(&EGRESS, data_dir, identity, &scope, receipt_ref)?;
-    stream.last().map(|entry| entry.record.clone()).ok_or_else(|| {
-        bad(
-            StatusCode::NOT_FOUND,
-            &EGRESS.code("receipt_absent"),
-            "this crossing family has no emitted receipt",
-        )
-    })
+    stream
+        .last()
+        .map(|entry| entry.record.clone())
+        .ok_or_else(|| {
+            bad(
+                StatusCode::NOT_FOUND,
+                &EGRESS.code("receipt_absent"),
+                "this crossing family has no emitted receipt",
+            )
+        })
 }
 
 pub(crate) async fn handle_evidence_eligibility_admit(

@@ -3976,7 +3976,10 @@ fn load_policy_record(st: &DaemonState, id: &str) -> Option<Value> {
 /// creation and compares it at admission, nomination and apply (`target_base_stale`). Only the
 /// families this module owns resolve here: a launch policy lives under the goal-orchestration
 /// application's namespace and is deliberately NOT a campaign target (register R-155).
-pub(crate) fn resolve_core_mutable_target_root(st: &DaemonState, target_ref: &str) -> Option<String> {
+pub(crate) fn resolve_core_mutable_target_root(
+    st: &DaemonState,
+    target_ref: &str,
+) -> Option<String> {
     let (family, id) = if let Some(id) = target_ref.strip_prefix(SKILL_FAMILY.ref_scheme) {
         (&SKILL_FAMILY, id)
     } else if let Some(id) = target_ref.strip_prefix(AFFINITY_FAMILY.ref_scheme) {
