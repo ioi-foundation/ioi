@@ -3357,6 +3357,58 @@ POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
 POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
 ```
 
+### Governed Evaluation Plane APIs
+
+The evaluation plane's four objects beyond the epoch and its ledger — released
+suite revisions, evaluator revisions with their validity lifecycle, admitted
+runs and immutable results — and the derived model-swap continuity report are
+SERVED by `evaluation_routes.rs` (M10.4, 2026-09-15) as registered contracts on
+the shared owner-scoped mutation chain
+([`evaluations.md` § Registered Shapes](../hypervisor/evaluations.md#registered-shapes);
+[`foundry.md` § Model-Swap Continuity](../hypervisor/foundry.md#model-swap-continuity)).
+`{suite_ref}`, `{evaluator_ref}`, `{run_ref}`, `{result_ref}` and
+`{report_ref}` are family tokens; `{revision}` is the revision ordinal; `{verb}`
+is one of `validate | release | activate | challenge | degrade | invalidate |
+reverify | supersede | retire`. A run binds a frozen AND active epoch, a
+RELEASED suite revision and an ACTIVE evaluator; a result's verdict floor is
+derived by the daemon; a sealed-lane result names the exposure entry the
+epoch's ledger appended (that ledger keeps its one writer above); no record here
+carries a promotion, nomination or activation member (`self_promotion_refused`).
+
+```http
+GET  /v1/hypervisor/evaluation-suites
+POST /v1/hypervisor/evaluation-suites
+GET  /v1/hypervisor/evaluation-suites/{suite_ref}
+POST /v1/hypervisor/evaluation-suites/{suite_ref}/revisions
+POST /v1/hypervisor/evaluation-suites/{suite_ref}/revisions/{revision}/release
+GET  /v1/hypervisor/evaluators
+POST /v1/hypervisor/evaluators
+GET  /v1/hypervisor/evaluators/{evaluator_ref}
+POST /v1/hypervisor/evaluators/{evaluator_ref}/revisions
+POST /v1/hypervisor/evaluators/{evaluator_ref}/transitions/{verb}
+GET  /v1/hypervisor/evaluators/{evaluator_ref}/impact
+GET  /v1/hypervisor/evaluation-runs
+POST /v1/hypervisor/evaluation-runs
+GET  /v1/hypervisor/evaluation-runs/{run_ref}
+POST /v1/hypervisor/evaluation-runs/{run_ref}/results
+GET  /v1/hypervisor/evaluation-results
+GET  /v1/hypervisor/evaluation-results/{result_ref}
+GET  /v1/hypervisor/model-swap-continuity-runs
+POST /v1/hypervisor/model-swap-continuity-runs
+GET  /v1/hypervisor/model-swap-continuity-runs/{report_ref}
+```
+
+The impact projection (`GET …/evaluators/{evaluator_ref}/impact`) is derived on
+read over the evaluator's CURRENT validity: dependent runs, results and epochs
+are listed with their standing, and their bytes never move — invalidation
+appends lineage. The continuity run derives its report from ordinary results
+under one epoch: baseline results bound to the incumbent route's own
+invocation receipts, candidate results bound to the candidate's, the
+incumbent's `disabled` lifecycle read from the model-route registry before
+candidate evidence is admitted (`incumbent_route_not_disabled` otherwise), and
+the threshold verdict from the declared equivalence envelope. The report grants
+no authority.
+
 Synchronization and promotion routes (served):
 
 ```http

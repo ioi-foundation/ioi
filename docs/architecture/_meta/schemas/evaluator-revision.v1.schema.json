@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/evaluator-revision/v1",
+  "title": "EvaluatorRevision",
+  "description": "A VERSIONED, FALLIBLE JUDGMENT DEPENDENCY WITH A LIFECYCLE: an evaluator revision freezes what judges (kind, implementation, affiliation, custodian) under `evaluator_root`, and carries its validity lifecycle — draft, validated, released, active; challenged, degraded, invalidated; reverified; superseded, retired (evaluations.md § Evaluator Validity And Challenges) — as a projection appended around that root: a transition is a successor whose frozen root hashes identically. Invalidation appends lineage and never mutates the evidence that depended on the evaluator; the dependent set is derived on read.",
+  "x-ioi-schema-version": "ioi.evaluator-revision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "optionalDecisionRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/decisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "optionalPolicyRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/policyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "optionalOwnerRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "suiteFamilyRef": {
+      "type": "string",
+      "pattern": "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "suiteRevisionRef": {
+      "type": "string",
+      "pattern": "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "optionalSuiteRevisionRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/suiteRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluatorFamilyRef": {
+      "type": "string",
+      "pattern": "^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "evaluatorRevisionRef": {
+      "type": "string",
+      "pattern": "^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "optionalEvaluatorRevisionRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/evaluatorRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "epochRef": {
+      "type": "string",
+      "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "viewRevisionRef": {
+      "type": "string",
+      "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "exposureEntryRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+    },
+    "optionalExposureEntryRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/exposureEntryRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"
+    },
+    "lane": {
+      "enum": [
+        "visible",
+        "sealed",
+        "transfer_ood",
+        "adversarial",
+        "cross_play_ablation",
+        "external_reality",
+        "production_acceptance",
+        "independent_reproduction"
+      ]
+    },
+    "nondeterminismClass": {
+      "enum": [
+        "deterministic",
+        "seeded",
+        "declared_nondeterministic"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "milli": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "ratioMilli": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "signedMilli": {
+      "type": "integer",
+      "minimum": -1000,
+      "maximum": 1000
+    },
+    "boundedCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "modelRouteRef": {
+      "type": "string",
+      "pattern": "^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "receiptOrDecisionRef": {
+      "type": "string",
+      "pattern": "^(?:receipt|decision)://[^\\s]{1,248}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "evaluator_id",
+    "revision_ref",
+    "revision",
+    "predecessor_revision_ref",
+    "evaluator_root",
+    "content_hash",
+    "owner_ref",
+    "evaluator_kind",
+    "implementation_ref",
+    "affiliation_ref",
+    "custodian_ref",
+    "validity_status",
+    "validity_decision_ref",
+    "challenge_refs",
+    "impact_disposition_ref",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.evaluator-revision.v1"
+    },
+    "evaluator_id": {
+      "$ref": "#/$defs/evaluatorFamilyRef"
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/evaluatorRevisionRef"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/evaluatorRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluator_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef"
+    },
+    "evaluator_kind": {
+      "enum": [
+        "scorer",
+        "judge",
+        "rubric_scorer",
+        "simulator",
+        "formal_verifier",
+        "human_panel",
+        "reproduction_harness"
+      ]
+    },
+    "implementation_ref": {
+      "type": "string",
+      "pattern": "^(?:artifact://|model-route:)[^\\s]{1,240}$"
+    },
+    "affiliation_ref": {
+      "$ref": "#/$defs/optionalOwnerRef"
+    },
+    "custodian_ref": {
+      "$ref": "#/$defs/optionalOwnerRef"
+    },
+    "validity_status": {
+      "enum": [
+        "draft",
+        "validated",
+        "released",
+        "active",
+        "challenged",
+        "degraded",
+        "invalidated",
+        "reverified",
+        "superseded",
+        "retired"
+      ]
+    },
+    "validity_decision_ref": {
+      "$ref": "#/$defs/optionalDecisionRef"
+    },
+    "challenge_refs": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/receiptOrDecisionRef"
+      }
+    },
+    "impact_disposition_ref": {
+      "$ref": "#/$defs/optionalDecisionRef"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

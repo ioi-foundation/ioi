@@ -18,6 +18,8 @@ Doctrine status: canonical
 Implementation status: partial (a bounded Agentgres-backed recipe, dataset,
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs` (the
+    model-swap continuity report, derived; 2026-09-15, M10.4)
 reference token-frequency trainer, checkpoint/restore verification, and
 proposal-only qualification slice executes; production trainers, independent
 evaluation, packaging/registry, serving qualification, and generalized
@@ -399,6 +401,58 @@ contracts, executable-eval receipts, scorecards, observed deltas, canary and
 rollback refs, and any incompatibilities. It proves continuity only for the
 declared task/eval envelope. Provider availability, a matching model name, or a
 single benchmark score is not model independence.
+
+The report is a registered contract
+(`schema://ioi/components/hypervisor/model-swap-continuity-report/v1`,
+2026-09-15, M10.4), DERIVED by the daemon from ordinary evaluation results
+admitted under one frozen epoch — baseline results bound to the incumbent
+route's own invocation receipts, candidate results bound to the candidate's —
+with the incumbent's disablement read from the model-route registry before any
+candidate evidence is admitted. The report grants no authority: the
+improvement path refuses it as authority by name.
+
+```yaml
+ModelSwapContinuityReport:
+  schema_version: ioi.model-swap-continuity-report.v1
+  model_swap_continuity_report_id: model-swap-continuity-report://...
+  content_hash: hash
+  owner_ref: org://... | user://... | project://... | system://...
+  evaluation_epoch_ref: evaluation-epoch://...
+  epoch_frozen_root: hash
+  suite_revision_ref: evaluation-suite://.../revision/...
+  institutional_state_root: hash          # the substrate engine's root at freeze
+  policy_bound_data_view_revision_ref: view://.../revision/...
+  learning_boundary_profile_ref: learning-boundary://... | null
+  incumbent_route_ref: model-route:...
+  incumbent_route_record_hash: hash
+  incumbent_disabled_evidence:
+    lifecycle_status: disabled            # registry truth, observed before candidate evidence
+    observed_at: timestamp
+    registry_record_hash: hash
+  candidate_route_ref: model-route:...
+  candidate_route_record_hash: hash
+  baseline_result_refs: [evaluation-result://...]
+  candidate_result_refs: [evaluation-result://...]
+  equivalence_envelope:
+    semantic_rule: exact_match | rubric_scored | declared_equivalence_class
+    semantic_floor_milli: integer
+    safety_floor_milli: integer
+    cost_ceiling_ratio_milli: integer
+    latency_ceiling_ratio_milli: integer
+    failure_posture_rule: identical | no_new_failure_classes | declared
+  observed_deltas:
+    semantic_delta_milli: integer
+    safety_delta_milli: integer
+    cost_ratio_milli: integer
+    latency_ratio_milli: integer
+    new_failure_classes: [string]
+  unsupported_dependencies: [string]
+  threshold_verdict: continuity_proven_for_declared_envelope | not_proven
+  canary_refs: [receipt://... | decision://...]
+  rollback_refs: [receipt://... | decision://...]
+  authority_note: "grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"
+  admitted_at: timestamp
+```
 
 Executable Evals should cover:
 

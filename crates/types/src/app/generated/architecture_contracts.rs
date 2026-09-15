@@ -348,6 +348,11 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", "sha256:51cd5599e3e05db1e1e3c6766c0a611410b9595c45801db23a14f4f66e098d8b"),
     ("schema://ioi/foundations/conformance-profile/v1", "sha256:0848d51bbc621590955a5a8a5c09c214d25b8ab11033cc8245089304a91ea878"),
     ("schema://ioi/components/hypervisor/connected-capability-disposition/v1", "sha256:509d3a140eada82e5d5fcefd1e26a72d53c21dea1977ed963da9aa8e423c3148"),
+    ("schema://ioi/components/hypervisor/evaluation-suite-revision/v1", "sha256:aabfe3416c18eed98b888c08e1f829588458597df951527526311d0e0b7458bc"),
+    ("schema://ioi/components/hypervisor/evaluator-revision/v1", "sha256:9f25a6e73e932b6ade9dd69677fe0cdcc9e2c2cafcd35b6ee794f682bee0a105"),
+    ("schema://ioi/components/hypervisor/evaluation-run/v1", "sha256:92bd9f0c1c8ddd0fd77f076c2c2cb1a22ef5a2453ef085e5001c5c4a6770446e"),
+    ("schema://ioi/components/hypervisor/evaluation-result/v1", "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987"),
+    ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -147769,6 +147774,1543 @@ pub enum ConnectedCapabilityDispositionV1ReasonCode {
     DeclaredEndpointNotExecutable,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationSuiteRevisionV1 {
+    pub schema_version: EvaluationSuiteRevisionV1SchemaVersion,
+    pub evaluation_suite_id: String,
+    pub revision_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub predecessor_revision_ref: Option<String>,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub library_suite_ref: String,
+    pub tasks: Vec<EvaluationSuiteRevisionV1TasksItem>,
+    pub scorer_revision_refs: Vec<String>,
+    pub rubric_refs: Vec<String>,
+    pub world_refs: Vec<String>,
+    pub required_lanes: Vec<EvaluationSuiteRevisionV1RequiredLanesItem>,
+    pub nondeterminism_class: EvaluationSuiteRevisionV1NondeterminismClass,
+    pub declared_seed_policy_ref: Option<String>,
+    pub verification_cost_class: EvaluationSuiteRevisionV1VerificationCostClass,
+    pub release_decision_ref: Option<String>,
+    pub registry_status: EvaluationSuiteRevisionV1RegistryStatus,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationSuiteRevisionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-suite-revision/v1","title":"EvaluationSuiteRevision","description":"AN IMMUTABLE-BY-REVISION, RELEASED EVALUATION SUITE: the reusable tasks (each bound to its exact source commitment — a mutable `latest` task cannot enter), worlds, scorers, rubrics, required lanes, nondeterminism class and verification-cost class an EvaluationEpoch binds by revision. It freezes the declaration-only library suite (`eval-suite://`) into something an epoch can commit to; only a RELEASED revision is epoch- or run-eligible (evaluations.md § Registered shapes). `content_hash` commits the body and excludes the release decision and registry status, so a release is a successor admission carrying the identical hash.","x-ioi-schema-version":"ioi.evaluation-suite-revision.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_suite_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","library_suite_ref","tasks","scorer_revision_refs","rubric_refs","world_refs","required_lanes","nondeterminism_class","declared_seed_policy_ref","verification_cost_class","release_decision_ref","registry_status","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-suite-revision.v1"},"evaluation_suite_id":{"$ref":"#/$defs/suiteFamilyRef"},"revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"library_suite_ref":{"type":"string","pattern":"^eval-suite://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"tasks":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["task_ref","source_commitment"],"properties":{"task_ref":{"type":"string","pattern":"^(?:dataset://|artifact://)[^\\s]{1,240}$"},"source_commitment":{"$ref":"#/$defs/sha256"}}}},"scorer_revision_refs":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/evaluatorRevisionRef"}},"rubric_refs":{"type":"array","minItems":0,"maxItems":256,"items":{"type":"string","pattern":"^rubric://[^\\s]{1,248}$"}},"world_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"type":"string","pattern":"^(?:artifact://|environment-class://)[^\\s]{1,240}$"}},"required_lanes":{"type":"array","minItems":1,"maxItems":8,"items":{"$ref":"#/$defs/lane"},"uniqueItems":true},"nondeterminism_class":{"$ref":"#/$defs/nondeterminismClass"},"declared_seed_policy_ref":{"$ref":"#/$defs/optionalPolicyRef"},"verification_cost_class":{"enum":["negligible","sublinear","comparable","superlinear","unverifiable_at_price"]},"release_decision_ref":{"$ref":"#/$defs/optionalDecisionRef"},"registry_status":{"enum":["draft","released","superseded","retired"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<EvaluationSuiteRevisionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_suite_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_suite_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_suite_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            library_suite_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"library_suite_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"library_suite_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tasks: serde_json::from_value::<Vec<EvaluationSuiteRevisionV1TasksItem>>(
+                object
+                    .remove(r#"tasks"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tasks"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scorer_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"scorer_revision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scorer_revision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rubric_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"rubric_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rubric_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            world_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"world_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"world_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_lanes:
+                serde_json::from_value::<Vec<EvaluationSuiteRevisionV1RequiredLanesItem>>(
+                    object
+                        .remove(r#"required_lanes"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"required_lanes"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            nondeterminism_class: serde_json::from_value::<
+                EvaluationSuiteRevisionV1NondeterminismClass,
+            >(
+                object
+                    .remove(r#"nondeterminism_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nondeterminism_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_seed_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"declared_seed_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_seed_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_cost_class: serde_json::from_value::<
+                EvaluationSuiteRevisionV1VerificationCostClass,
+            >(
+                object
+                    .remove(r#"verification_cost_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification_cost_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"release_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<EvaluationSuiteRevisionV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationSuiteRevisionV1SchemaVersion {
+    #[serde(rename = r#"ioi.evaluation-suite-revision.v1"#)]
+    IoiEvaluationSuiteRevisionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationSuiteRevisionV1TasksItem {
+    pub task_ref: String,
+    pub source_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationSuiteRevisionV1TasksItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["task_ref","source_commitment"],"properties":{"task_ref":{"type":"string","pattern":"^(?:dataset://|artifact://)[^\\s]{1,240}$"},"source_commitment":{"$ref":"#/$defs/sha256"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            task_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"task_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationSuiteRevisionV1RequiredLanesItem {
+    #[serde(rename = r#"visible"#)]
+    Visible,
+    #[serde(rename = r#"sealed"#)]
+    Sealed,
+    #[serde(rename = r#"transfer_ood"#)]
+    TransferOod,
+    #[serde(rename = r#"adversarial"#)]
+    Adversarial,
+    #[serde(rename = r#"cross_play_ablation"#)]
+    CrossPlayAblation,
+    #[serde(rename = r#"external_reality"#)]
+    ExternalReality,
+    #[serde(rename = r#"production_acceptance"#)]
+    ProductionAcceptance,
+    #[serde(rename = r#"independent_reproduction"#)]
+    IndependentReproduction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationSuiteRevisionV1NondeterminismClass {
+    #[serde(rename = r#"deterministic"#)]
+    Deterministic,
+    #[serde(rename = r#"seeded"#)]
+    Seeded,
+    #[serde(rename = r#"declared_nondeterministic"#)]
+    DeclaredNondeterministic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationSuiteRevisionV1VerificationCostClass {
+    #[serde(rename = r#"negligible"#)]
+    Negligible,
+    #[serde(rename = r#"sublinear"#)]
+    Sublinear,
+    #[serde(rename = r#"comparable"#)]
+    Comparable,
+    #[serde(rename = r#"superlinear"#)]
+    Superlinear,
+    #[serde(rename = r#"unverifiable_at_price"#)]
+    UnverifiableAtPrice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationSuiteRevisionV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluatorRevisionV1 {
+    pub schema_version: EvaluatorRevisionV1SchemaVersion,
+    pub evaluator_id: String,
+    pub revision_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub predecessor_revision_ref: Option<String>,
+    pub evaluator_root: String,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub evaluator_kind: EvaluatorRevisionV1EvaluatorKind,
+    pub implementation_ref: String,
+    pub affiliation_ref: Option<String>,
+    pub custodian_ref: Option<String>,
+    pub validity_status: EvaluatorRevisionV1ValidityStatus,
+    pub validity_decision_ref: Option<String>,
+    pub challenge_refs: Vec<String>,
+    pub impact_disposition_ref: Option<String>,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluatorRevisionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluator-revision/v1","title":"EvaluatorRevision","description":"A VERSIONED, FALLIBLE JUDGMENT DEPENDENCY WITH A LIFECYCLE: an evaluator revision freezes what judges (kind, implementation, affiliation, custodian) under `evaluator_root`, and carries its validity lifecycle — draft, validated, released, active; challenged, degraded, invalidated; reverified; superseded, retired (evaluations.md § Evaluator Validity And Challenges) — as a projection appended around that root: a transition is a successor whose frozen root hashes identically. Invalidation appends lineage and never mutates the evidence that depended on the evaluator; the dependent set is derived on read.","x-ioi-schema-version":"ioi.evaluator-revision.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluator_id","revision_ref","revision","predecessor_revision_ref","evaluator_root","content_hash","owner_ref","evaluator_kind","implementation_ref","affiliation_ref","custodian_ref","validity_status","validity_decision_ref","challenge_refs","impact_disposition_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluator-revision.v1"},"evaluator_id":{"$ref":"#/$defs/evaluatorFamilyRef"},"revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"evaluator_root":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluator_kind":{"enum":["scorer","judge","rubric_scorer","simulator","formal_verifier","human_panel","reproduction_harness"]},"implementation_ref":{"type":"string","pattern":"^(?:artifact://|model-route:)[^\\s]{1,240}$"},"affiliation_ref":{"$ref":"#/$defs/optionalOwnerRef"},"custodian_ref":{"$ref":"#/$defs/optionalOwnerRef"},"validity_status":{"enum":["draft","validated","released","active","challenged","degraded","invalidated","reverified","superseded","retired"]},"validity_decision_ref":{"$ref":"#/$defs/optionalDecisionRef"},"challenge_refs":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"impact_disposition_ref":{"$ref":"#/$defs/optionalDecisionRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<EvaluatorRevisionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluator_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluator_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_kind: serde_json::from_value::<EvaluatorRevisionV1EvaluatorKind>(
+                object
+                    .remove(r#"evaluator_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            implementation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"implementation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"implementation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affiliation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"affiliation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affiliation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            custodian_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"custodian_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"custodian_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validity_status: serde_json::from_value::<EvaluatorRevisionV1ValidityStatus>(
+                object
+                    .remove(r#"validity_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validity_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validity_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"validity_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validity_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            impact_disposition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"impact_disposition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"impact_disposition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluatorRevisionV1SchemaVersion {
+    #[serde(rename = r#"ioi.evaluator-revision.v1"#)]
+    IoiEvaluatorRevisionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluatorRevisionV1EvaluatorKind {
+    #[serde(rename = r#"scorer"#)]
+    Scorer,
+    #[serde(rename = r#"judge"#)]
+    Judge,
+    #[serde(rename = r#"rubric_scorer"#)]
+    RubricScorer,
+    #[serde(rename = r#"simulator"#)]
+    Simulator,
+    #[serde(rename = r#"formal_verifier"#)]
+    FormalVerifier,
+    #[serde(rename = r#"human_panel"#)]
+    HumanPanel,
+    #[serde(rename = r#"reproduction_harness"#)]
+    ReproductionHarness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluatorRevisionV1ValidityStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"validated"#)]
+    Validated,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+    #[serde(rename = r#"invalidated"#)]
+    Invalidated,
+    #[serde(rename = r#"reverified"#)]
+    Reverified,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationRunV1 {
+    pub schema_version: EvaluationRunV1SchemaVersion,
+    pub evaluation_run_id: String,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub evaluation_epoch_ref: String,
+    pub epoch_frozen_root: String,
+    pub suite_revision_ref: String,
+    pub evaluator_revision_ref: String,
+    pub lane: EvaluationRunV1Lane,
+    pub incumbent_ref: String,
+    pub incumbent_root: String,
+    pub target_base_root: String,
+    pub execution_evidence_refs: Vec<String>,
+    pub policy_bound_data_view_revision_ref: String,
+    pub nondeterminism_class: EvaluationRunV1NondeterminismClass,
+    pub seed: Option<ArchitectureContractInteger>,
+    pub submitter_role: EvaluationRunV1SubmitterRole,
+    pub cost_units: ArchitectureContractInteger,
+    pub cost_unit: EvaluationRunV1CostUnit,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationRunV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-run/v1","title":"EvaluationRun","description":"ONE ADMITTED EXECUTION AGAINST A FROZEN EPOCH: the run binds the epoch's frozen root, the RELEASED suite revision, the ACTIVE evaluator revision, the lane, the exact incumbent and target-base roots the epoch froze (copied and re-derived by the daemon, never caller-supplied), the execution evidence it judges by exact ref (model-invocation receipts, event-stream receipts, sessions, Foundry recipe runs), the current policy-bound data-view REVISION, the nondeterminism class with its seed, the submitter's role (Search is never a submitter) and its cost (evaluations.md § Registered shapes).","x-ioi-schema-version":"ioi.evaluation-run.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_run_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","incumbent_ref","incumbent_root","target_base_root","execution_evidence_refs","policy_bound_data_view_revision_ref","nondeterminism_class","seed","submitter_role","cost_units","cost_unit","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-run.v1"},"evaluation_run_id":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"incumbent_ref":{"$ref":"#/$defs/label"},"incumbent_root":{"$ref":"#/$defs/sha256"},"target_base_root":{"$ref":"#/$defs/sha256"},"execution_evidence_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/evidenceRef"}},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"nondeterminism_class":{"$ref":"#/$defs/nondeterminismClass"},"seed":{"anyOf":[{"type":"integer","minimum":0,"maximum":1000000000000},{"type":"null"}]},"submitter_role":{"enum":["evaluator","target_owner","independent_reproducer"]},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<EvaluationRunV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_run_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_run_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_run_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch_frozen_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"epoch_frozen_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_frozen_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suite_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"suite_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"suite_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluator_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lane: serde_json::from_value::<EvaluationRunV1Lane>(
+                object
+                    .remove(r#"lane"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lane"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incumbent_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"incumbent_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"incumbent_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incumbent_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"incumbent_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"incumbent_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_base_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_base_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_base_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            execution_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"execution_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"execution_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_bound_data_view_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nondeterminism_class: serde_json::from_value::<EvaluationRunV1NondeterminismClass>(
+                object
+                    .remove(r#"nondeterminism_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nondeterminism_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            seed: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"seed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"seed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            submitter_role: serde_json::from_value::<EvaluationRunV1SubmitterRole>(
+                object
+                    .remove(r#"submitter_role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"submitter_role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"cost_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_unit: serde_json::from_value::<EvaluationRunV1CostUnit>(
+                object
+                    .remove(r#"cost_unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationRunV1SchemaVersion {
+    #[serde(rename = r#"ioi.evaluation-run.v1"#)]
+    IoiEvaluationRunV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationRunV1Lane {
+    #[serde(rename = r#"visible"#)]
+    Visible,
+    #[serde(rename = r#"sealed"#)]
+    Sealed,
+    #[serde(rename = r#"transfer_ood"#)]
+    TransferOod,
+    #[serde(rename = r#"adversarial"#)]
+    Adversarial,
+    #[serde(rename = r#"cross_play_ablation"#)]
+    CrossPlayAblation,
+    #[serde(rename = r#"external_reality"#)]
+    ExternalReality,
+    #[serde(rename = r#"production_acceptance"#)]
+    ProductionAcceptance,
+    #[serde(rename = r#"independent_reproduction"#)]
+    IndependentReproduction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationRunV1NondeterminismClass {
+    #[serde(rename = r#"deterministic"#)]
+    Deterministic,
+    #[serde(rename = r#"seeded"#)]
+    Seeded,
+    #[serde(rename = r#"declared_nondeterministic"#)]
+    DeclaredNondeterministic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationRunV1SubmitterRole {
+    #[serde(rename = r#"evaluator"#)]
+    Evaluator,
+    #[serde(rename = r#"target_owner"#)]
+    TargetOwner,
+    #[serde(rename = r#"independent_reproducer"#)]
+    IndependentReproducer,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationRunV1CostUnit {
+    #[serde(rename = r#"tokens"#)]
+    Tokens,
+    #[serde(rename = r#"usd_micros"#)]
+    UsdMicros,
+    #[serde(rename = r#"seconds"#)]
+    Seconds,
+    #[serde(rename = r#"units"#)]
+    Units,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationResultV1 {
+    pub schema_version: EvaluationResultV1SchemaVersion,
+    pub evaluation_result_id: String,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub evaluation_run_ref: String,
+    pub evaluation_epoch_ref: String,
+    pub epoch_frozen_root: String,
+    pub suite_revision_ref: String,
+    pub evaluator_revision_ref: String,
+    pub lane: EvaluationResultV1Lane,
+    pub observations: Vec<EvaluationResultV1ObservationsItem>,
+    pub verdict: EvaluationResultV1Verdict,
+    pub verdict_basis: EvaluationResultV1VerdictBasis,
+    pub uncertainty: EvaluationResultV1Uncertainty,
+    pub guardrail_findings: Vec<String>,
+    pub applicability_scope: String,
+    pub cost_units: ArchitectureContractInteger,
+    pub cost_unit: EvaluationResultV1CostUnit,
+    pub failures: Vec<String>,
+    pub evaluator_versions: Vec<String>,
+    pub exposure_entry_ref: Option<String>,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationResultV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-result/v1","title":"EvaluationResult","description":"AN IMMUTABLE OBSERVATION AND ITS INTERPRETATION UNDER THE EPOCH — the result and the scorecard as one record: per-case observations bound to their case commitments and evidence, a verdict from the closed set pass | fail | inconclusive | blocked | invalid with the BASIS the daemon derived it on (a missing required lane is at most inconclusive; a mutable input, an inactive evaluator or undeclared nondeterminism is invalid; unavailable protected input or exhausted exposure is blocked), and the scorecard members canon says one aggregate score cannot erase: uncertainty, guardrails, applicability, cost, failures and evaluator versions. A sealed-lane result names the exposure entry its protected access appended. It carries no promotion, nomination or activation member: Evaluations emits evidence and decides nothing.","x-ioi-schema-version":"ioi.evaluation-result.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_result_id","content_hash","owner_ref","evaluation_run_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","observations","verdict","verdict_basis","uncertainty","guardrail_findings","applicability_scope","cost_units","cost_unit","failures","evaluator_versions","exposure_entry_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-result.v1"},"evaluation_result_id":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_run_ref":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"observations":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["observation_id","case_commitment","outcome","score_milli","evidence_refs"],"properties":{"observation_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"case_commitment":{"$ref":"#/$defs/sha256"},"outcome":{"enum":["pass","fail","error","skipped"]},"score_milli":{"$ref":"#/$defs/milli"},"evidence_refs":{"type":"array","minItems":0,"maxItems":16,"items":{"$ref":"#/$defs/evidenceRef"}}}}},"verdict":{"enum":["pass","fail","inconclusive","blocked","invalid"]},"verdict_basis":{"enum":["observed","required_lane_missing","mutable_input_refused","protected_input_unavailable","exposure_exhausted","evaluator_not_active","nondeterminism_undeclared"]},"uncertainty":{"type":"object","additionalProperties":false,"required":["method","interval_low_milli","interval_high_milli","sample_size"],"properties":{"method":{"enum":["fixed_test","sequential","anytime_valid","bayesian","frequentist","ranking","human_judgment","simulation","formal_verification","domain_acceptance"]},"interval_low_milli":{"$ref":"#/$defs/milli"},"interval_high_milli":{"$ref":"#/$defs/milli"},"sample_size":{"$ref":"#/$defs/boundedCount"}}},"guardrail_findings":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"applicability_scope":{"$ref":"#/$defs/label"},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"failures":{"type":"array","minItems":0,"maxItems":1024,"items":{"$ref":"#/$defs/label"}},"evaluator_versions":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/evaluatorRevisionRef"}},"exposure_entry_ref":{"$ref":"#/$defs/optionalExposureEntryRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<EvaluationResultV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_result_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_result_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_result_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_run_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch_frozen_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"epoch_frozen_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_frozen_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suite_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"suite_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"suite_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluator_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lane: serde_json::from_value::<EvaluationResultV1Lane>(
+                object
+                    .remove(r#"lane"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lane"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observations: serde_json::from_value::<Vec<EvaluationResultV1ObservationsItem>>(
+                object
+                    .remove(r#"observations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verdict: serde_json::from_value::<EvaluationResultV1Verdict>(
+                object
+                    .remove(r#"verdict"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verdict_basis: serde_json::from_value::<EvaluationResultV1VerdictBasis>(
+                object
+                    .remove(r#"verdict_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uncertainty: serde_json::from_value::<EvaluationResultV1Uncertainty>(
+                object
+                    .remove(r#"uncertainty"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            guardrail_findings: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"guardrail_findings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"guardrail_findings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applicability_scope: serde_json::from_value::<String>(
+                object
+                    .remove(r#"applicability_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applicability_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_units: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"cost_units"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_units"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_unit: serde_json::from_value::<EvaluationResultV1CostUnit>(
+                object
+                    .remove(r#"cost_unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failures: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"failures"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failures"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluator_versions: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluator_versions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluator_versions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_entry_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"exposure_entry_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_entry_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1SchemaVersion {
+    #[serde(rename = r#"ioi.evaluation-result.v1"#)]
+    IoiEvaluationResultV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1Lane {
+    #[serde(rename = r#"visible"#)]
+    Visible,
+    #[serde(rename = r#"sealed"#)]
+    Sealed,
+    #[serde(rename = r#"transfer_ood"#)]
+    TransferOod,
+    #[serde(rename = r#"adversarial"#)]
+    Adversarial,
+    #[serde(rename = r#"cross_play_ablation"#)]
+    CrossPlayAblation,
+    #[serde(rename = r#"external_reality"#)]
+    ExternalReality,
+    #[serde(rename = r#"production_acceptance"#)]
+    ProductionAcceptance,
+    #[serde(rename = r#"independent_reproduction"#)]
+    IndependentReproduction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationResultV1ObservationsItem {
+    pub observation_id: String,
+    pub case_commitment: String,
+    pub outcome: EvaluationResultV1ObservationsItemOutcome,
+    pub score_milli: ArchitectureContractInteger,
+    pub evidence_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationResultV1ObservationsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["observation_id","case_commitment","outcome","score_milli","evidence_refs"],"properties":{"observation_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"case_commitment":{"$ref":"#/$defs/sha256"},"outcome":{"enum":["pass","fail","error","skipped"]},"score_milli":{"$ref":"#/$defs/milli"},"evidence_refs":{"type":"array","minItems":0,"maxItems":16,"items":{"$ref":"#/$defs/evidenceRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            observation_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observation_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observation_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            case_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"case_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"case_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome: serde_json::from_value::<EvaluationResultV1ObservationsItemOutcome>(
+                object
+                    .remove(r#"outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            score_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"score_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"score_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1ObservationsItemOutcome {
+    #[serde(rename = r#"pass"#)]
+    Pass,
+    #[serde(rename = r#"fail"#)]
+    Fail,
+    #[serde(rename = r#"error"#)]
+    Error,
+    #[serde(rename = r#"skipped"#)]
+    Skipped,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1Verdict {
+    #[serde(rename = r#"pass"#)]
+    Pass,
+    #[serde(rename = r#"fail"#)]
+    Fail,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1VerdictBasis {
+    #[serde(rename = r#"observed"#)]
+    Observed,
+    #[serde(rename = r#"required_lane_missing"#)]
+    RequiredLaneMissing,
+    #[serde(rename = r#"mutable_input_refused"#)]
+    MutableInputRefused,
+    #[serde(rename = r#"protected_input_unavailable"#)]
+    ProtectedInputUnavailable,
+    #[serde(rename = r#"exposure_exhausted"#)]
+    ExposureExhausted,
+    #[serde(rename = r#"evaluator_not_active"#)]
+    EvaluatorNotActive,
+    #[serde(rename = r#"nondeterminism_undeclared"#)]
+    NondeterminismUndeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EvaluationResultV1Uncertainty {
+    pub method: EvaluationResultV1UncertaintyMethod,
+    pub interval_low_milli: ArchitectureContractInteger,
+    pub interval_high_milli: ArchitectureContractInteger,
+    pub sample_size: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for EvaluationResultV1Uncertainty {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["method","interval_low_milli","interval_high_milli","sample_size"],"properties":{"method":{"enum":["fixed_test","sequential","anytime_valid","bayesian","frequentist","ranking","human_judgment","simulation","formal_verification","domain_acceptance"]},"interval_low_milli":{"$ref":"#/$defs/milli"},"interval_high_milli":{"$ref":"#/$defs/milli"},"sample_size":{"$ref":"#/$defs/boundedCount"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            method: serde_json::from_value::<EvaluationResultV1UncertaintyMethod>(
+                object
+                    .remove(r#"method"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"method"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interval_low_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"interval_low_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interval_low_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interval_high_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"interval_high_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interval_high_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sample_size: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sample_size"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sample_size"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1UncertaintyMethod {
+    #[serde(rename = r#"fixed_test"#)]
+    FixedTest,
+    #[serde(rename = r#"sequential"#)]
+    Sequential,
+    #[serde(rename = r#"anytime_valid"#)]
+    AnytimeValid,
+    #[serde(rename = r#"bayesian"#)]
+    Bayesian,
+    #[serde(rename = r#"frequentist"#)]
+    Frequentist,
+    #[serde(rename = r#"ranking"#)]
+    Ranking,
+    #[serde(rename = r#"human_judgment"#)]
+    HumanJudgment,
+    #[serde(rename = r#"simulation"#)]
+    Simulation,
+    #[serde(rename = r#"formal_verification"#)]
+    FormalVerification,
+    #[serde(rename = r#"domain_acceptance"#)]
+    DomainAcceptance,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EvaluationResultV1CostUnit {
+    #[serde(rename = r#"tokens"#)]
+    Tokens,
+    #[serde(rename = r#"usd_micros"#)]
+    UsdMicros,
+    #[serde(rename = r#"seconds"#)]
+    Seconds,
+    #[serde(rename = r#"units"#)]
+    Units,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ModelSwapContinuityReportV1 {
+    pub schema_version: ModelSwapContinuityReportV1SchemaVersion,
+    pub model_swap_continuity_report_id: String,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub evaluation_epoch_ref: String,
+    pub epoch_frozen_root: String,
+    pub suite_revision_ref: String,
+    pub institutional_state_root: String,
+    pub policy_bound_data_view_revision_ref: String,
+    pub learning_boundary_profile_ref: Option<String>,
+    pub incumbent_route_ref: String,
+    pub incumbent_route_record_hash: String,
+    pub incumbent_disabled_evidence: ModelSwapContinuityReportV1IncumbentDisabledEvidence,
+    pub candidate_route_ref: String,
+    pub candidate_route_record_hash: String,
+    pub baseline_result_refs: Vec<String>,
+    pub candidate_result_refs: Vec<String>,
+    pub equivalence_envelope: ModelSwapContinuityReportV1EquivalenceEnvelope,
+    pub observed_deltas: ModelSwapContinuityReportV1ObservedDeltas,
+    pub unsupported_dependencies: Vec<String>,
+    pub threshold_verdict: ModelSwapContinuityReportV1ThresholdVerdict,
+    pub canary_refs: Vec<String>,
+    pub rollback_refs: Vec<String>,
+    pub authority_note: ModelSwapContinuityReportV1AuthorityNote,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ModelSwapContinuityReportV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","title":"ModelSwapContinuityReport","description":"THE MODEL-INDEPENDENCE TEST'S REPORT (foundry.md § Model-Swap Continuity; institutional-learning-boundary.md's five steps): the frozen snapshot — epoch, suite revision, institutional state root, policy-bound view revision, learning-boundary profile — both route contracts by record hash, the REGISTRY evidence that the incumbent was disabled before candidate evidence was admitted, the baseline and candidate results under the same epoch, the declared equivalence envelope, the observed deltas across semantic, safety, cost, latency and failure posture, unsupported dependencies, and the threshold verdict. It is a comparison and continuity proof for the declared envelope only: it grants no authority and makes no general model-equivalence claim.","x-ioi-schema-version":"ioi.model-swap-continuity-report.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","model_swap_continuity_report_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","institutional_state_root","policy_bound_data_view_revision_ref","learning_boundary_profile_ref","incumbent_route_ref","incumbent_route_record_hash","incumbent_disabled_evidence","candidate_route_ref","candidate_route_record_hash","baseline_result_refs","candidate_result_refs","equivalence_envelope","observed_deltas","unsupported_dependencies","threshold_verdict","canary_refs","rollback_refs","authority_note","admitted_at"],"properties":{"schema_version":{"const":"ioi.model-swap-continuity-report.v1"},"model_swap_continuity_report_id":{"type":"string","pattern":"^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"institutional_state_root":{"$ref":"#/$defs/sha256"},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"learning_boundary_profile_ref":{"anyOf":[{"type":"string","pattern":"^learning-boundary://[^\\s]{1,240}$"},{"type":"null"}]},"incumbent_route_ref":{"$ref":"#/$defs/modelRouteRef"},"incumbent_route_record_hash":{"$ref":"#/$defs/sha256"},"incumbent_disabled_evidence":{"type":"object","additionalProperties":false,"required":["lifecycle_status","observed_at","registry_record_hash"],"properties":{"lifecycle_status":{"const":"disabled"},"observed_at":{"$ref":"#/$defs/canonicalTimestamp"},"registry_record_hash":{"$ref":"#/$defs/sha256"}}},"candidate_route_ref":{"$ref":"#/$defs/modelRouteRef"},"candidate_route_record_hash":{"$ref":"#/$defs/sha256"},"baseline_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"candidate_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"equivalence_envelope":{"type":"object","additionalProperties":false,"required":["semantic_rule","semantic_floor_milli","safety_floor_milli","cost_ceiling_ratio_milli","latency_ceiling_ratio_milli","failure_posture_rule"],"properties":{"semantic_rule":{"enum":["exact_match","rubric_scored","declared_equivalence_class"]},"semantic_floor_milli":{"$ref":"#/$defs/milli"},"safety_floor_milli":{"$ref":"#/$defs/milli"},"cost_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"failure_posture_rule":{"enum":["identical","no_new_failure_classes","declared"]}}},"observed_deltas":{"type":"object","additionalProperties":false,"required":["semantic_delta_milli","safety_delta_milli","cost_ratio_milli","latency_ratio_milli","new_failure_classes"],"properties":{"semantic_delta_milli":{"$ref":"#/$defs/signedMilli"},"safety_delta_milli":{"$ref":"#/$defs/signedMilli"},"cost_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"new_failure_classes":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/label"}}}},"unsupported_dependencies":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"threshold_verdict":{"enum":["continuity_proven_for_declared_envelope","not_proven"]},"canary_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"rollback_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"authority_note":{"const":"grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ModelSwapContinuityReportV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_swap_continuity_report_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_swap_continuity_report_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"model_swap_continuity_report_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch_frozen_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"epoch_frozen_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_frozen_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suite_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"suite_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"suite_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            institutional_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"institutional_state_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"institutional_state_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_bound_data_view_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_boundary_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"learning_boundary_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"learning_boundary_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incumbent_route_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"incumbent_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"incumbent_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incumbent_route_record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"incumbent_route_record_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"incumbent_route_record_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incumbent_disabled_evidence: serde_json::from_value::<
+                ModelSwapContinuityReportV1IncumbentDisabledEvidence,
+            >(
+                object
+                    .remove(r#"incumbent_disabled_evidence"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"incumbent_disabled_evidence"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_route_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"candidate_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_route_record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"candidate_route_record_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"candidate_route_record_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_result_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"baseline_result_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_result_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            candidate_result_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"candidate_result_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_result_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            equivalence_envelope: serde_json::from_value::<
+                ModelSwapContinuityReportV1EquivalenceEnvelope,
+            >(
+                object
+                    .remove(r#"equivalence_envelope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"equivalence_envelope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_deltas: serde_json::from_value::<ModelSwapContinuityReportV1ObservedDeltas>(
+                object
+                    .remove(r#"observed_deltas"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_deltas"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unsupported_dependencies: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"unsupported_dependencies"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"unsupported_dependencies"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            threshold_verdict:
+                serde_json::from_value::<ModelSwapContinuityReportV1ThresholdVerdict>(
+                    object
+                        .remove(r#"threshold_verdict"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"threshold_verdict"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            canary_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"canary_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canary_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"rollback_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_note: serde_json::from_value::<ModelSwapContinuityReportV1AuthorityNote>(
+                object
+                    .remove(r#"authority_note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModelSwapContinuityReportV1SchemaVersion {
+    #[serde(rename = r#"ioi.model-swap-continuity-report.v1"#)]
+    IoiModelSwapContinuityReportV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ModelSwapContinuityReportV1IncumbentDisabledEvidence {
+    pub lifecycle_status: ModelSwapContinuityReportV1IncumbentDisabledEvidenceLifecycleStatus,
+    pub observed_at: String,
+    pub registry_record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ModelSwapContinuityReportV1IncumbentDisabledEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["lifecycle_status","observed_at","registry_record_hash"],"properties":{"lifecycle_status":{"const":"disabled"},"observed_at":{"$ref":"#/$defs/canonicalTimestamp"},"registry_record_hash":{"$ref":"#/$defs/sha256"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            lifecycle_status: serde_json::from_value::<
+                ModelSwapContinuityReportV1IncumbentDisabledEvidenceLifecycleStatus,
+            >(
+                object
+                    .remove(r#"lifecycle_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"registry_record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModelSwapContinuityReportV1IncumbentDisabledEvidenceLifecycleStatus {
+    #[serde(rename = r#"disabled"#)]
+    Disabled,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ModelSwapContinuityReportV1EquivalenceEnvelope {
+    pub semantic_rule: ModelSwapContinuityReportV1EquivalenceEnvelopeSemanticRule,
+    pub semantic_floor_milli: ArchitectureContractInteger,
+    pub safety_floor_milli: ArchitectureContractInteger,
+    pub cost_ceiling_ratio_milli: ArchitectureContractInteger,
+    pub latency_ceiling_ratio_milli: ArchitectureContractInteger,
+    pub failure_posture_rule: ModelSwapContinuityReportV1EquivalenceEnvelopeFailurePostureRule,
+}
+
+impl<'de> serde::Deserialize<'de> for ModelSwapContinuityReportV1EquivalenceEnvelope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["semantic_rule","semantic_floor_milli","safety_floor_milli","cost_ceiling_ratio_milli","latency_ceiling_ratio_milli","failure_posture_rule"],"properties":{"semantic_rule":{"enum":["exact_match","rubric_scored","declared_equivalence_class"]},"semantic_floor_milli":{"$ref":"#/$defs/milli"},"safety_floor_milli":{"$ref":"#/$defs/milli"},"cost_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"failure_posture_rule":{"enum":["identical","no_new_failure_classes","declared"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            semantic_rule: serde_json::from_value::<
+                ModelSwapContinuityReportV1EquivalenceEnvelopeSemanticRule,
+            >(
+                object
+                    .remove(r#"semantic_rule"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"semantic_rule"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_floor_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"semantic_floor_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"semantic_floor_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            safety_floor_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"safety_floor_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"safety_floor_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_ceiling_ratio_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"cost_ceiling_ratio_milli"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"cost_ceiling_ratio_milli"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latency_ceiling_ratio_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"latency_ceiling_ratio_milli"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"latency_ceiling_ratio_milli"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_posture_rule: serde_json::from_value::<
+                ModelSwapContinuityReportV1EquivalenceEnvelopeFailurePostureRule,
+            >(
+                object
+                    .remove(r#"failure_posture_rule"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_posture_rule"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModelSwapContinuityReportV1EquivalenceEnvelopeSemanticRule {
+    #[serde(rename = r#"exact_match"#)]
+    ExactMatch,
+    #[serde(rename = r#"rubric_scored"#)]
+    RubricScored,
+    #[serde(rename = r#"declared_equivalence_class"#)]
+    DeclaredEquivalenceClass,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModelSwapContinuityReportV1EquivalenceEnvelopeFailurePostureRule {
+    #[serde(rename = r#"identical"#)]
+    Identical,
+    #[serde(rename = r#"no_new_failure_classes"#)]
+    NoNewFailureClasses,
+    #[serde(rename = r#"declared"#)]
+    Declared,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ModelSwapContinuityReportV1ObservedDeltas {
+    pub semantic_delta_milli: ArchitectureContractSignedInteger,
+    pub safety_delta_milli: ArchitectureContractSignedInteger,
+    pub cost_ratio_milli: ArchitectureContractInteger,
+    pub latency_ratio_milli: ArchitectureContractInteger,
+    pub new_failure_classes: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ModelSwapContinuityReportV1ObservedDeltas {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["semantic_delta_milli","safety_delta_milli","cost_ratio_milli","latency_ratio_milli","new_failure_classes"],"properties":{"semantic_delta_milli":{"$ref":"#/$defs/signedMilli"},"safety_delta_milli":{"$ref":"#/$defs/signedMilli"},"cost_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"new_failure_classes":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/label"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            semantic_delta_milli: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"semantic_delta_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"semantic_delta_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            safety_delta_milli: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"safety_delta_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"safety_delta_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_ratio_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"cost_ratio_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_ratio_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latency_ratio_milli: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"latency_ratio_milli"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latency_ratio_milli"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            new_failure_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"new_failure_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"new_failure_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModelSwapContinuityReportV1ThresholdVerdict {
+    #[serde(rename = r#"continuity_proven_for_declared_envelope"#)]
+    ContinuityProvenForDeclaredEnvelope,
+    #[serde(rename = r#"not_proven"#)]
+    NotProven,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ModelSwapContinuityReportV1AuthorityNote {
+    #[serde(
+        rename = r#"grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"#
+    )]
+    GrantsNoAuthorityProvesContinuityOnlyForTheDeclaredTaskAndEvalEnvelopeAMatchingModelNameOrASingleScoreIsNotModelIndependence,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -159907,6 +161449,270 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("connected_capability_disposition.available_or_degraded.names_its_endpoint_host"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-draft-revision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-released-revision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-cost-class-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-task-without-source-commitment.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_suite_revision.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-released-without-a-decision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_suite_revision.release.names_its_decision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluator-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-draft.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluator-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-challenged-with-evidence.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluator-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluator-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-validity-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluator-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-frozen-root-moved.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluator_revision.evaluator_root.freezes_what_judges"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluator-revision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-invalidated-without-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluator_revision.challenge.names_its_evidence"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-visible-deterministic.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-sealed-seeded-reproduction.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-search-as-submitter.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-no-execution-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-suite-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_run.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-visible-pass.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-sealed-inconclusive.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-promotion-member-refused.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-verdict-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_result.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/evaluation-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("evaluation_result.sealed_lane.names_its_exposure_entry"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("model_swap_continuity_report.content_hash.commits_the_immutable_body"),
     },
 ];
 
@@ -178206,6 +180012,369 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-draft-revision.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-draft-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-released-revision.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-released-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-cost-class-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-cost-class-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-task-without-source-commitment.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-task-without-source-commitment.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-released-without-a-decision.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-suite-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-released-without-a-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-draft.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-challenged-with-evidence.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-challenged-with-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-validity-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-validity-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-frozen-root-moved.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-frozen-root-moved.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-invalidated-without-evidence.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluator-revision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-invalidated-without-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-visible-deterministic.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-visible-deterministic.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-sealed-seeded-reproduction.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-sealed-seeded-reproduction.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-search-as-submitter.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-search-as-submitter.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-no-execution-evidence.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-no-execution-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-suite-family-head.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-suite-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-visible-pass.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-visible-pass.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-sealed-inconclusive.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-sealed-inconclusive.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-promotion-member-refused.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-promotion-member-refused.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-verdict-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-verdict-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/evaluation-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/model-swap-continuity-report/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -179923,6 +182092,11 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","title":"ImprovementOrderCutoffReceiptEnvelope","description":"A TYPED EVIDENCE CUTOFF BETWEEN ADJACENT TARGET ORDERS — neither a live synchronization object nor later promotion proof. It binds one closed source epoch of one active campaign, the frozen source roots, the eligible findings and the eligibility decisions that admit them (resolved through the learning-boundary plane, never copied), the egress receipt an institutional-boundary crossing requires, the denied or quarantined classes, the destination base root and the previous cutoff root. `receipt_root` commits every member except itself, `content_hash` and the admission stamp and is re-derived offline; a registered invariant requires the destination order to lie strictly above the source order (the daemon enforces exactly plus one) and an `evidence_ready` disposition to carry at least one eligible ref. `blocked` names what a refused cutoff would have been and is never written by the daemon (bounded-improvement.md § ImprovementOrderCutoffReceiptEnvelope).","x-ioi-schema-version":"ioi.improvement-order-cutoff-receipt.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"optionalSystemRef":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"ledgerRef":{"type":"string","pattern":"^ledger://[^\\s]{1,248}$"},"budgetRef":{"type":"string","pattern":"^budget://[^\\s]{1,248}$"},"projectionRef":{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,240}$"},"lifecycleRef":{"anyOf":[{"type":"string","pattern":"^(?:agentgres://object/|decision://)[^\\s]{1,240}$"},{"type":"null"}]},"profileFamilyRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$"},"profileRevisionRef":{"type":"string","pattern":"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"agendaFamilyRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$"},"agendaRevisionRef":{"type":"string","pattern":"^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"campaignRevisionRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureLedgerRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"cutoffReceiptRef":{"type":"string","pattern":"^receipt://improvement-order-cutoff/[a-z0-9][a-z0-9._-]{0,127}/[1-9][0-9]{0,8}$"},"learningBoundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"eligibilityRevisionRef":{"type":"string","pattern":"^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"goalRunProfileRevisionRef":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"},"workSubjectRef":{"type":"string","pattern":"^(?:goal|session|work-run)://[^\\s]{1,248}$"},"outcomeRoomRef":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"policyRefList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/policyRef"}},"boundedOrder":{"type":"integer","minimum":0,"maximum":1000},"boundedPositive":{"type":"integer","minimum":1,"maximum":1000},"boundedSequence":{"type":"integer","minimum":0,"maximum":1000000},"boundedUnits":{"type":"integer","minimum":0,"maximum":1000000000},"version":{"type":"string","pattern":"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","receipt_id","receipt_profile","receipt_profile_ref","source_campaign_ref","source_evaluation_epoch_ref","synchronization_wave_ref","source_campaign_epoch_and_archive_roots","source_target_improvement_order","source_target_generation_cutoff","intended_destination_target_order","per_order_source_version_and_cutoff_vector_ref","destination_base_root","agenda_revision_ref","agenda_and_task_distribution_roots","boundary_crossing","eligible_finding_and_outcome_refs","learning_evidence_eligibility_refs","learning_egress_receipt_refs","boundary_enforcement_access_and_custody_receipt_refs","effective_learning_policy_hash","denied_or_quarantined_information_class_refs","source_incumbent_resolved_component_snapshot_ref","inherited_budget_risk_and_exposure_reservation_roots","dependency_and_statistical_assumption_delta_ref","signal_bundle_ref","terminal_disposition","previous_cutoff_receipt_root","receipt_root","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-order-cutoff-receipt.v1"},"receipt_id":{"$ref":"#/$defs/cutoffReceiptRef"},"receipt_profile":{"const":"improvement_order_cutoff"},"receipt_profile_ref":{"const":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1"},"source_campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"source_evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"synchronization_wave_ref":{"$ref":"#/$defs/artifactRef"},"source_campaign_epoch_and_archive_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"source_target_improvement_order":{"$ref":"#/$defs/boundedOrder"},"source_target_generation_cutoff":{"$ref":"#/$defs/boundedOrder"},"intended_destination_target_order":{"type":"integer","minimum":1,"maximum":1001},"per_order_source_version_and_cutoff_vector_ref":{"$ref":"#/$defs/artifactRef"},"destination_base_root":{"$ref":"#/$defs/sha256"},"agenda_revision_ref":{"$ref":"#/$defs/agendaRevisionRef"},"agenda_and_task_distribution_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"boundary_crossing":{"enum":["same_boundary","institutional_boundary"]},"eligible_finding_and_outcome_refs":{"$ref":"#/$defs/refList"},"learning_evidence_eligibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/eligibilityRevisionRef"}},"learning_egress_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/receiptRef"}},"boundary_enforcement_access_and_custody_receipt_refs":{"$ref":"#/$defs/refList"},"effective_learning_policy_hash":{"$ref":"#/$defs/sha256"},"denied_or_quarantined_information_class_refs":{"$ref":"#/$defs/refList"},"source_incumbent_resolved_component_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"inherited_budget_risk_and_exposure_reservation_roots":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/sha256"}},"dependency_and_statistical_assumption_delta_ref":{"$ref":"#/$defs/artifactRef"},"signal_bundle_ref":{"anyOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"terminal_disposition":{"enum":["evidence_ready","no_change","blocked"]},"previous_cutoff_receipt_root":{"anyOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"receipt_root":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/foundations/conformance-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/conformance-profile/v1","title":"ConformanceProfile","description":"A NARROWER PROFILE FOR PROTOCOL OR RUNTIME COMPATIBILITY: what a subject must expose and how it must refuse, portable and non-probative — it defines what must be proven and proves nothing itself (ecosystem-assurance-certification-liability.md § ConformanceProfile). A `runtime_node` profile may name the deployment FIXTURE it is checked under: the endpoint families the fixture denies and the egress it allows, so a runner can fail a deployment that quietly reaches past them. A registered invariant requires a runtime_node profile to declare its negative tests, because the negative half is the load-bearing half.","x-ioi-schema-version":"ioi.conformance-profile.v1","type":"object","additionalProperties":false,"$defs":{"profileId":{"type":"string","pattern":"^conformance_profile://[^\\s]{1,248}$"},"apiRef":{"type":"string","pattern":"^api://[^\\s]{1,248}$"},"canonRef":{"type":"string","pattern":"^canon://docs/architecture/[^\\s]{1,240}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"label":{"type":"string","minLength":1,"maxLength":240},"fixtureId":{"type":"string","pattern":"^[a-z][a-z0-9_]{2,63}$"},"endpointFamily":{"enum":["ioi_ai_account","hosted_wallet_network_login","marketplace","ioi_network_enrollment","ioi_l1","license_heartbeat","telemetry","update_service","external_model_provider"]},"egressClass":{"enum":["loopback","local_ipc","declared_byo_endpoint"]}},"required":["schema_version","profile_id","family","version","required_interfaces","required_events","required_receipts","negative_tests","compatibility_level","declared_envelope_ref","fixture"],"properties":{"schema_version":{"const":"ioi.conformance-profile.v1"},"profile_id":{"$ref":"#/$defs/profileId"},"family":{"enum":["worker_endpoint","harness_adapter","runtime_node","wallet_authority_client","mcp_gateway","ctee_private_workspace","hypervisoros_node","embodied_runtime","service_endpoint","executable_eval_world","storage_backend","agentgres_domain","standard_das"]},"version":{"$ref":"#/$defs/version"},"required_interfaces":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["interface_ref"],"properties":{"interface_ref":{"$ref":"#/$defs/apiRef"}}}},"required_events":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["event_type"],"properties":{"event_type":{"$ref":"#/$defs/label"}}}},"required_receipts":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["receipt_type"],"properties":{"receipt_type":{"$ref":"#/$defs/label"}}}},"negative_tests":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["condition","expected"],"properties":{"condition":{"$ref":"#/$defs/label"},"expected":{"enum":["reject","fail_closed","quarantine"]}}}},"compatibility_level":{"enum":["experimental","compatible","certified","restricted","revoked"]},"declared_envelope_ref":{"anyOf":[{"$ref":"#/$defs/canonRef"},{"type":"null"}]},"fixture":{"anyOf":[{"type":"object","additionalProperties":false,"required":["fixture_id","denied_endpoint_families","allowed_egress"],"properties":{"fixture_id":{"$ref":"#/$defs/fixtureId"},"denied_endpoint_families":{"type":"array","maxItems":16,"items":{"$ref":"#/$defs/endpointFamily"}},"allowed_egress":{"type":"array","maxItems":3,"items":{"$ref":"#/$defs/egressClass"}}}},{"type":"null"}]}}}"##),
     ("schema://ioi/components/hypervisor/connected-capability-disposition/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/connected-capability-disposition/v1","title":"ConnectedCapabilityDisposition","description":"ONE CONNECTED CAPABILITY, TYPED. The daemon's readiness projection enumerates every IOI-managed endpoint family the standalone contract names and says, for each, whether this deployment has it `available` (a declared endpoint the daemon can name), `degraded` (declared but not executable) or `unavailable` (with the reason), together with the BASIS the daemon read — an environment variable name or a record family, never a secret. `available` is never inferred from a connection; connection alone cannot upload, own, meter, authorize or complete a locally governed System (core-clients-surfaces.md § Standalone Local Completeness). A registered invariant requires an available or degraded disposition to name its endpoint host.","x-ioi-schema-version":"ioi.connected-capability-disposition.v1","type":"object","additionalProperties":false,"$defs":{"host":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$"}},"required":["schema_version","capability","disposition","reason_code","basis","declared_endpoint_host"],"properties":{"schema_version":{"const":"ioi.connected-capability-disposition.v1"},"capability":{"enum":["ioi_ai_account","hosted_wallet_network_login","marketplace","ioi_network_enrollment","ioi_l1","license_heartbeat","telemetry","update_service","external_model_provider"]},"disposition":{"enum":["available","unavailable","degraded"]},"reason_code":{"enum":["not_configured","deployment_local_authority_bound","not_enrolled","operator_supplied_packages_only","no_remote_route_declared","declared_endpoint","declared_endpoint_not_executable"]},"basis":{"type":"string","minLength":1,"maxLength":240},"declared_endpoint_host":{"anyOf":[{"$ref":"#/$defs/host"},{"type":"null"}]}}}"##),
+    ("schema://ioi/components/hypervisor/evaluation-suite-revision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-suite-revision/v1","title":"EvaluationSuiteRevision","description":"AN IMMUTABLE-BY-REVISION, RELEASED EVALUATION SUITE: the reusable tasks (each bound to its exact source commitment — a mutable `latest` task cannot enter), worlds, scorers, rubrics, required lanes, nondeterminism class and verification-cost class an EvaluationEpoch binds by revision. It freezes the declaration-only library suite (`eval-suite://`) into something an epoch can commit to; only a RELEASED revision is epoch- or run-eligible (evaluations.md § Registered shapes). `content_hash` commits the body and excludes the release decision and registry status, so a release is a successor admission carrying the identical hash.","x-ioi-schema-version":"ioi.evaluation-suite-revision.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_suite_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","library_suite_ref","tasks","scorer_revision_refs","rubric_refs","world_refs","required_lanes","nondeterminism_class","declared_seed_policy_ref","verification_cost_class","release_decision_ref","registry_status","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-suite-revision.v1"},"evaluation_suite_id":{"$ref":"#/$defs/suiteFamilyRef"},"revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"library_suite_ref":{"type":"string","pattern":"^eval-suite://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"tasks":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["task_ref","source_commitment"],"properties":{"task_ref":{"type":"string","pattern":"^(?:dataset://|artifact://)[^\\s]{1,240}$"},"source_commitment":{"$ref":"#/$defs/sha256"}}}},"scorer_revision_refs":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/evaluatorRevisionRef"}},"rubric_refs":{"type":"array","minItems":0,"maxItems":256,"items":{"type":"string","pattern":"^rubric://[^\\s]{1,248}$"}},"world_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"type":"string","pattern":"^(?:artifact://|environment-class://)[^\\s]{1,240}$"}},"required_lanes":{"type":"array","minItems":1,"maxItems":8,"items":{"$ref":"#/$defs/lane"},"uniqueItems":true},"nondeterminism_class":{"$ref":"#/$defs/nondeterminismClass"},"declared_seed_policy_ref":{"$ref":"#/$defs/optionalPolicyRef"},"verification_cost_class":{"enum":["negligible","sublinear","comparable","superlinear","unverifiable_at_price"]},"release_decision_ref":{"$ref":"#/$defs/optionalDecisionRef"},"registry_status":{"enum":["draft","released","superseded","retired"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/components/hypervisor/evaluator-revision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluator-revision/v1","title":"EvaluatorRevision","description":"A VERSIONED, FALLIBLE JUDGMENT DEPENDENCY WITH A LIFECYCLE: an evaluator revision freezes what judges (kind, implementation, affiliation, custodian) under `evaluator_root`, and carries its validity lifecycle — draft, validated, released, active; challenged, degraded, invalidated; reverified; superseded, retired (evaluations.md § Evaluator Validity And Challenges) — as a projection appended around that root: a transition is a successor whose frozen root hashes identically. Invalidation appends lineage and never mutates the evidence that depended on the evaluator; the dependent set is derived on read.","x-ioi-schema-version":"ioi.evaluator-revision.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluator_id","revision_ref","revision","predecessor_revision_ref","evaluator_root","content_hash","owner_ref","evaluator_kind","implementation_ref","affiliation_ref","custodian_ref","validity_status","validity_decision_ref","challenge_refs","impact_disposition_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluator-revision.v1"},"evaluator_id":{"$ref":"#/$defs/evaluatorFamilyRef"},"revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"evaluator_root":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluator_kind":{"enum":["scorer","judge","rubric_scorer","simulator","formal_verifier","human_panel","reproduction_harness"]},"implementation_ref":{"type":"string","pattern":"^(?:artifact://|model-route:)[^\\s]{1,240}$"},"affiliation_ref":{"$ref":"#/$defs/optionalOwnerRef"},"custodian_ref":{"$ref":"#/$defs/optionalOwnerRef"},"validity_status":{"enum":["draft","validated","released","active","challenged","degraded","invalidated","reverified","superseded","retired"]},"validity_decision_ref":{"$ref":"#/$defs/optionalDecisionRef"},"challenge_refs":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"impact_disposition_ref":{"$ref":"#/$defs/optionalDecisionRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/components/hypervisor/evaluation-run/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-run/v1","title":"EvaluationRun","description":"ONE ADMITTED EXECUTION AGAINST A FROZEN EPOCH: the run binds the epoch's frozen root, the RELEASED suite revision, the ACTIVE evaluator revision, the lane, the exact incumbent and target-base roots the epoch froze (copied and re-derived by the daemon, never caller-supplied), the execution evidence it judges by exact ref (model-invocation receipts, event-stream receipts, sessions, Foundry recipe runs), the current policy-bound data-view REVISION, the nondeterminism class with its seed, the submitter's role (Search is never a submitter) and its cost (evaluations.md § Registered shapes).","x-ioi-schema-version":"ioi.evaluation-run.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_run_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","incumbent_ref","incumbent_root","target_base_root","execution_evidence_refs","policy_bound_data_view_revision_ref","nondeterminism_class","seed","submitter_role","cost_units","cost_unit","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-run.v1"},"evaluation_run_id":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"incumbent_ref":{"$ref":"#/$defs/label"},"incumbent_root":{"$ref":"#/$defs/sha256"},"target_base_root":{"$ref":"#/$defs/sha256"},"execution_evidence_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/evidenceRef"}},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"nondeterminism_class":{"$ref":"#/$defs/nondeterminismClass"},"seed":{"anyOf":[{"type":"integer","minimum":0,"maximum":1000000000000},{"type":"null"}]},"submitter_role":{"enum":["evaluator","target_owner","independent_reproducer"]},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/components/hypervisor/evaluation-result/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-result/v1","title":"EvaluationResult","description":"AN IMMUTABLE OBSERVATION AND ITS INTERPRETATION UNDER THE EPOCH — the result and the scorecard as one record: per-case observations bound to their case commitments and evidence, a verdict from the closed set pass | fail | inconclusive | blocked | invalid with the BASIS the daemon derived it on (a missing required lane is at most inconclusive; a mutable input, an inactive evaluator or undeclared nondeterminism is invalid; unavailable protected input or exhausted exposure is blocked), and the scorecard members canon says one aggregate score cannot erase: uncertainty, guardrails, applicability, cost, failures and evaluator versions. A sealed-lane result names the exposure entry its protected access appended. It carries no promotion, nomination or activation member: Evaluations emits evidence and decides nothing.","x-ioi-schema-version":"ioi.evaluation-result.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_result_id","content_hash","owner_ref","evaluation_run_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","observations","verdict","verdict_basis","uncertainty","guardrail_findings","applicability_scope","cost_units","cost_unit","failures","evaluator_versions","exposure_entry_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-result.v1"},"evaluation_result_id":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_run_ref":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"observations":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["observation_id","case_commitment","outcome","score_milli","evidence_refs"],"properties":{"observation_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"case_commitment":{"$ref":"#/$defs/sha256"},"outcome":{"enum":["pass","fail","error","skipped"]},"score_milli":{"$ref":"#/$defs/milli"},"evidence_refs":{"type":"array","minItems":0,"maxItems":16,"items":{"$ref":"#/$defs/evidenceRef"}}}}},"verdict":{"enum":["pass","fail","inconclusive","blocked","invalid"]},"verdict_basis":{"enum":["observed","required_lane_missing","mutable_input_refused","protected_input_unavailable","exposure_exhausted","evaluator_not_active","nondeterminism_undeclared"]},"uncertainty":{"type":"object","additionalProperties":false,"required":["method","interval_low_milli","interval_high_milli","sample_size"],"properties":{"method":{"enum":["fixed_test","sequential","anytime_valid","bayesian","frequentist","ranking","human_judgment","simulation","formal_verification","domain_acceptance"]},"interval_low_milli":{"$ref":"#/$defs/milli"},"interval_high_milli":{"$ref":"#/$defs/milli"},"sample_size":{"$ref":"#/$defs/boundedCount"}}},"guardrail_findings":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"applicability_scope":{"$ref":"#/$defs/label"},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"failures":{"type":"array","minItems":0,"maxItems":1024,"items":{"$ref":"#/$defs/label"}},"evaluator_versions":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/evaluatorRevisionRef"}},"exposure_entry_ref":{"$ref":"#/$defs/optionalExposureEntryRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","title":"ModelSwapContinuityReport","description":"THE MODEL-INDEPENDENCE TEST'S REPORT (foundry.md § Model-Swap Continuity; institutional-learning-boundary.md's five steps): the frozen snapshot — epoch, suite revision, institutional state root, policy-bound view revision, learning-boundary profile — both route contracts by record hash, the REGISTRY evidence that the incumbent was disabled before candidate evidence was admitted, the baseline and candidate results under the same epoch, the declared equivalence envelope, the observed deltas across semantic, safety, cost, latency and failure posture, unsupported dependencies, and the threshold verdict. It is a comparison and continuity proof for the declared envelope only: it grants no authority and makes no general model-equivalence claim.","x-ioi-schema-version":"ioi.model-swap-continuity-report.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","model_swap_continuity_report_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","institutional_state_root","policy_bound_data_view_revision_ref","learning_boundary_profile_ref","incumbent_route_ref","incumbent_route_record_hash","incumbent_disabled_evidence","candidate_route_ref","candidate_route_record_hash","baseline_result_refs","candidate_result_refs","equivalence_envelope","observed_deltas","unsupported_dependencies","threshold_verdict","canary_refs","rollback_refs","authority_note","admitted_at"],"properties":{"schema_version":{"const":"ioi.model-swap-continuity-report.v1"},"model_swap_continuity_report_id":{"type":"string","pattern":"^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"institutional_state_root":{"$ref":"#/$defs/sha256"},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"learning_boundary_profile_ref":{"anyOf":[{"type":"string","pattern":"^learning-boundary://[^\\s]{1,240}$"},{"type":"null"}]},"incumbent_route_ref":{"$ref":"#/$defs/modelRouteRef"},"incumbent_route_record_hash":{"$ref":"#/$defs/sha256"},"incumbent_disabled_evidence":{"type":"object","additionalProperties":false,"required":["lifecycle_status","observed_at","registry_record_hash"],"properties":{"lifecycle_status":{"const":"disabled"},"observed_at":{"$ref":"#/$defs/canonicalTimestamp"},"registry_record_hash":{"$ref":"#/$defs/sha256"}}},"candidate_route_ref":{"$ref":"#/$defs/modelRouteRef"},"candidate_route_record_hash":{"$ref":"#/$defs/sha256"},"baseline_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"candidate_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"equivalence_envelope":{"type":"object","additionalProperties":false,"required":["semantic_rule","semantic_floor_milli","safety_floor_milli","cost_ceiling_ratio_milli","latency_ceiling_ratio_milli","failure_posture_rule"],"properties":{"semantic_rule":{"enum":["exact_match","rubric_scored","declared_equivalence_class"]},"semantic_floor_milli":{"$ref":"#/$defs/milli"},"safety_floor_milli":{"$ref":"#/$defs/milli"},"cost_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"failure_posture_rule":{"enum":["identical","no_new_failure_classes","declared"]}}},"observed_deltas":{"type":"object","additionalProperties":false,"required":["semantic_delta_milli","safety_delta_milli","cost_ratio_milli","latency_ratio_milli","new_failure_classes"],"properties":{"semantic_delta_milli":{"$ref":"#/$defs/signedMilli"},"safety_delta_milli":{"$ref":"#/$defs/signedMilli"},"cost_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"new_failure_classes":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/label"}}}},"unsupported_dependencies":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"threshold_verdict":{"enum":["continuity_proven_for_declared_envelope","not_proven"]},"canary_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"rollback_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"authority_note":{"const":"grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -180231,6 +182405,11 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1", r#"[{"rule_id":"improvement_order_cutoff_receipt.receipt_root.commits_the_cutoff","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.receipt_root commits THE RECEIPT — every member except the root itself, the entry commitment and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_profile":{"path":"$.receipt_profile"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"source_campaign_ref":{"path":"$.source_campaign_ref"},"source_evaluation_epoch_ref":{"path":"$.source_evaluation_epoch_ref"},"synchronization_wave_ref":{"path":"$.synchronization_wave_ref"},"source_campaign_epoch_and_archive_roots":{"path":"$.source_campaign_epoch_and_archive_roots"},"source_target_improvement_order":{"path":"$.source_target_improvement_order"},"source_target_generation_cutoff":{"path":"$.source_target_generation_cutoff"},"intended_destination_target_order":{"path":"$.intended_destination_target_order"},"per_order_source_version_and_cutoff_vector_ref":{"path":"$.per_order_source_version_and_cutoff_vector_ref"},"destination_base_root":{"path":"$.destination_base_root"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_and_task_distribution_roots":{"path":"$.agenda_and_task_distribution_roots"},"boundary_crossing":{"path":"$.boundary_crossing"},"eligible_finding_and_outcome_refs":{"path":"$.eligible_finding_and_outcome_refs"},"learning_evidence_eligibility_refs":{"path":"$.learning_evidence_eligibility_refs"},"learning_egress_receipt_refs":{"path":"$.learning_egress_receipt_refs"},"boundary_enforcement_access_and_custody_receipt_refs":{"path":"$.boundary_enforcement_access_and_custody_receipt_refs"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"denied_or_quarantined_information_class_refs":{"path":"$.denied_or_quarantined_information_class_refs"},"source_incumbent_resolved_component_snapshot_ref":{"path":"$.source_incumbent_resolved_component_snapshot_ref"},"inherited_budget_risk_and_exposure_reservation_roots":{"path":"$.inherited_budget_risk_and_exposure_reservation_roots"},"dependency_and_statistical_assumption_delta_ref":{"path":"$.dependency_and_statistical_assumption_delta_ref"},"signal_bundle_ref":{"path":"$.signal_bundle_ref"},"terminal_disposition":{"path":"$.terminal_disposition"},"previous_cutoff_receipt_root":{"path":"$.previous_cutoff_receipt_root"}},"expected_path":"$.receipt_root","expected_encoding":"sha256_string"}},{"rule_id":"improvement_order_cutoff_receipt.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The hash at $.content_hash commits the whole entry except the hash itself and the admission stamp, under the domain separator `ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.improvement-order-cutoff-receipt-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_profile":{"path":"$.receipt_profile"},"receipt_profile_ref":{"path":"$.receipt_profile_ref"},"source_campaign_ref":{"path":"$.source_campaign_ref"},"source_evaluation_epoch_ref":{"path":"$.source_evaluation_epoch_ref"},"synchronization_wave_ref":{"path":"$.synchronization_wave_ref"},"source_campaign_epoch_and_archive_roots":{"path":"$.source_campaign_epoch_and_archive_roots"},"source_target_improvement_order":{"path":"$.source_target_improvement_order"},"source_target_generation_cutoff":{"path":"$.source_target_generation_cutoff"},"intended_destination_target_order":{"path":"$.intended_destination_target_order"},"per_order_source_version_and_cutoff_vector_ref":{"path":"$.per_order_source_version_and_cutoff_vector_ref"},"destination_base_root":{"path":"$.destination_base_root"},"agenda_revision_ref":{"path":"$.agenda_revision_ref"},"agenda_and_task_distribution_roots":{"path":"$.agenda_and_task_distribution_roots"},"boundary_crossing":{"path":"$.boundary_crossing"},"eligible_finding_and_outcome_refs":{"path":"$.eligible_finding_and_outcome_refs"},"learning_evidence_eligibility_refs":{"path":"$.learning_evidence_eligibility_refs"},"learning_egress_receipt_refs":{"path":"$.learning_egress_receipt_refs"},"boundary_enforcement_access_and_custody_receipt_refs":{"path":"$.boundary_enforcement_access_and_custody_receipt_refs"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"denied_or_quarantined_information_class_refs":{"path":"$.denied_or_quarantined_information_class_refs"},"source_incumbent_resolved_component_snapshot_ref":{"path":"$.source_incumbent_resolved_component_snapshot_ref"},"inherited_budget_risk_and_exposure_reservation_roots":{"path":"$.inherited_budget_risk_and_exposure_reservation_roots"},"dependency_and_statistical_assumption_delta_ref":{"path":"$.dependency_and_statistical_assumption_delta_ref"},"signal_bundle_ref":{"path":"$.signal_bundle_ref"},"terminal_disposition":{"path":"$.terminal_disposition"},"previous_cutoff_receipt_root":{"path":"$.previous_cutoff_receipt_root"},"receipt_root":{"path":"$.receipt_root"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"improvement_order_cutoff_receipt.edge.destination_lies_above_source","description":"EVIDENCE MOVES UPWARD ONE ADJACENT EDGE. The destination order lies strictly above the source order; the daemon refuses anything but exactly plus one, and this is the half the portable language can state.","expression":{"operator":"numbers_lt","paths":["$.source_target_improvement_order","$.intended_destination_target_order"]}},{"rule_id":"improvement_order_cutoff_receipt.disposition.evidence_ready_carries_evidence","description":"An `evidence_ready` cutoff names at least one eligible finding or outcome; a cutoff that was ready with nothing to move would be a synchronization claim with no evidence in it.","expression":{"operator":"non_empty_when_in","when_path":"$.terminal_disposition","values":["evidence_ready"],"path":"$.eligible_finding_and_outcome_refs"}}]"#),
     ("schema://ioi/foundations/conformance-profile/v1", r#"[{"rule_id":"conformance_profile.runtime_node.declares_negative_tests","description":"THE NEGATIVE HALF IS THE LOAD-BEARING HALF. A runtime_node profile with no negative tests could be passed by a deployment that quietly reaches a first-party dependency, which is the exact failure the standalone contract exists to name (execution-horizons.md § Required sovereign-local fixture; core-clients-surfaces.md § Standalone Local Completeness). A runtime_node profile therefore declares at least one negative test.","expression":{"operator":"non_empty_when_in","path":"$.negative_tests","when_path":"$.family","values":["runtime_node"]}}]"#),
     ("schema://ioi/components/hypervisor/connected-capability-disposition/v1", r#"[{"rule_id":"connected_capability_disposition.available_or_degraded.names_its_endpoint_host","description":"AVAILABLE MEANS DECLARED. A capability the daemon reports available or degraded must name the endpoint host it read from its declaration; a disposition that claimed availability with no host would be availability inferred from nothing, which is exactly the hidden prerequisite the standalone contract forbids.","expression":{"operator":"non_empty_when_in","path":"$.declared_endpoint_host","when_path":"$.disposition","values":["available","degraded"]}}]"#),
+    ("schema://ioi/components/hypervisor/evaluation-suite-revision/v1", r#"[{"rule_id":"evaluation_suite_revision.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES: the revision ref begins with the family id and the `/revision/` segment, which also refuses a family head in the revision slot — the mutable `latest` canon forbids.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.evaluation_suite_id","prefix":"evaluation-suite://","strip_prefix":"evaluation-suite://","suffix":"/revision/"}},{"rule_id":"evaluation_suite_revision.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself, the release decision, the registry status and the admission stamp, under the domain separator `ioi.evaluation-suite-revision-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluation-suite-revision-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_suite_id":{"path":"$.evaluation_suite_id"},"revision_ref":{"path":"$.revision_ref"},"revision":{"path":"$.revision"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"library_suite_ref":{"path":"$.library_suite_ref"},"tasks":{"path":"$.tasks"},"scorer_revision_refs":{"path":"$.scorer_revision_refs"},"rubric_refs":{"path":"$.rubric_refs"},"world_refs":{"path":"$.world_refs"},"required_lanes":{"path":"$.required_lanes"},"nondeterminism_class":{"path":"$.nondeterminism_class"},"declared_seed_policy_ref":{"path":"$.declared_seed_policy_ref"},"verification_cost_class":{"path":"$.verification_cost_class"}}}},{"rule_id":"evaluation_suite_revision.release.names_its_decision","description":"A RELEASED REVISION NAMES THE DECISION THAT RELEASED IT; a status nobody decided is a projection nobody made.","expression":{"operator":"non_empty_when_in","when_path":"$.registry_status","values":["released"],"path":"$.release_decision_ref"}}]"#),
+    ("schema://ioi/components/hypervisor/evaluator-revision/v1", r#"[{"rule_id":"evaluator_revision.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.evaluator_id","prefix":"evaluator://","strip_prefix":"evaluator://","suffix":"/revision/"}},{"rule_id":"evaluator_revision.evaluator_root.freezes_what_judges","description":"THE FROZEN ROOT IS A SECOND COMMITMENT over what judges — kind, implementation, affiliation, custodian and the revision identity — under `ioi.evaluator-revision-frozen-root-jcs-sha256.v1`; a lifecycle transition is a successor whose root hashes identically, so validity moves while the evaluator does not.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.evaluator_root","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluator-revision-frozen-root-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluator_id":{"path":"$.evaluator_id"},"revision_ref":{"path":"$.revision_ref"},"revision":{"path":"$.revision"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"evaluator_kind":{"path":"$.evaluator_kind"},"implementation_ref":{"path":"$.implementation_ref"},"affiliation_ref":{"path":"$.affiliation_ref"},"custodian_ref":{"path":"$.custodian_ref"}}}},{"rule_id":"evaluator_revision.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash itself and the admission stamp, under `ioi.evaluator-revision-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluator-revision-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluator_id":{"path":"$.evaluator_id"},"revision_ref":{"path":"$.revision_ref"},"revision":{"path":"$.revision"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"evaluator_kind":{"path":"$.evaluator_kind"},"implementation_ref":{"path":"$.implementation_ref"},"affiliation_ref":{"path":"$.affiliation_ref"},"custodian_ref":{"path":"$.custodian_ref"},"evaluator_root":{"path":"$.evaluator_root"},"validity_status":{"path":"$.validity_status"},"validity_decision_ref":{"path":"$.validity_decision_ref"},"challenge_refs":{"path":"$.challenge_refs"},"impact_disposition_ref":{"path":"$.impact_disposition_ref"}}}},{"rule_id":"evaluator_revision.challenge.names_its_evidence","description":"A CHALLENGED, DEGRADED OR INVALIDATED EVALUATOR NAMES THE EVIDENCE THAT CHALLENGED IT; a challenge is not the deletion of inconvenient evidence, it is evidence.","expression":{"operator":"non_empty_when_in","when_path":"$.validity_status","values":["challenged","degraded","invalidated"],"path":"$.challenge_refs"}}]"#),
+    ("schema://ioi/components/hypervisor/evaluation-run/v1", r#"[{"rule_id":"evaluation_run.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.evaluation-run-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluation-run-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_run_id":{"path":"$.evaluation_run_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"evaluator_revision_ref":{"path":"$.evaluator_revision_ref"},"lane":{"path":"$.lane"},"incumbent_ref":{"path":"$.incumbent_ref"},"incumbent_root":{"path":"$.incumbent_root"},"target_base_root":{"path":"$.target_base_root"},"execution_evidence_refs":{"path":"$.execution_evidence_refs"},"policy_bound_data_view_revision_ref":{"path":"$.policy_bound_data_view_revision_ref"},"nondeterminism_class":{"path":"$.nondeterminism_class"},"seed":{"path":"$.seed"},"submitter_role":{"path":"$.submitter_role"},"cost_units":{"path":"$.cost_units"},"cost_unit":{"path":"$.cost_unit"}}}}]"#),
+    ("schema://ioi/components/hypervisor/evaluation-result/v1", r#"[{"rule_id":"evaluation_result.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.evaluation-result-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluation-result-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_result_id":{"path":"$.evaluation_result_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_run_ref":{"path":"$.evaluation_run_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"evaluator_revision_ref":{"path":"$.evaluator_revision_ref"},"lane":{"path":"$.lane"},"observations":{"path":"$.observations"},"verdict":{"path":"$.verdict"},"verdict_basis":{"path":"$.verdict_basis"},"uncertainty":{"path":"$.uncertainty"},"guardrail_findings":{"path":"$.guardrail_findings"},"applicability_scope":{"path":"$.applicability_scope"},"cost_units":{"path":"$.cost_units"},"cost_unit":{"path":"$.cost_unit"},"failures":{"path":"$.failures"},"evaluator_versions":{"path":"$.evaluator_versions"},"exposure_entry_ref":{"path":"$.exposure_entry_ref"}}}},{"rule_id":"evaluation_result.sealed_lane.names_its_exposure_entry","description":"A SEALED-LANE RESULT NAMES THE EXPOSURE ENTRY ITS PROTECTED ACCESS APPENDED; remaining exposure is derived from the admitted ledger head, never from an unreceipted counter.","expression":{"operator":"non_empty_when_in","when_path":"$.lane","values":["sealed"],"path":"$.exposure_entry_ref"}}]"#),
+    ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", r#"[{"rule_id":"model_swap_continuity_report.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"model_swap_continuity_report_id":{"path":"$.model_swap_continuity_report_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"institutional_state_root":{"path":"$.institutional_state_root"},"policy_bound_data_view_revision_ref":{"path":"$.policy_bound_data_view_revision_ref"},"learning_boundary_profile_ref":{"path":"$.learning_boundary_profile_ref"},"incumbent_route_ref":{"path":"$.incumbent_route_ref"},"incumbent_route_record_hash":{"path":"$.incumbent_route_record_hash"},"incumbent_disabled_evidence":{"path":"$.incumbent_disabled_evidence"},"candidate_route_ref":{"path":"$.candidate_route_ref"},"candidate_route_record_hash":{"path":"$.candidate_route_record_hash"},"baseline_result_refs":{"path":"$.baseline_result_refs"},"candidate_result_refs":{"path":"$.candidate_result_refs"},"equivalence_envelope":{"path":"$.equivalence_envelope"},"observed_deltas":{"path":"$.observed_deltas"},"unsupported_dependencies":{"path":"$.unsupported_dependencies"},"threshold_verdict":{"path":"$.threshold_verdict"},"canary_refs":{"path":"$.canary_refs"},"rollback_refs":{"path":"$.rollback_refs"},"authority_note":{"path":"$.authority_note"}}}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -180354,6 +182533,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:approval-policy|revocation)://[^\s]{1,240}$"#,
         r#"^(?:approval-policy|revocation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^(?:artifact://|environment-class://)[^\s]{1,240}$"#,
+        r#"^(?:artifact://|environment-class://)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^(?:artifact://|model-route:)[^\s]{1,240}$"#,
+        r#"^(?:artifact://|model-route:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:artifact|cid)://[^\s]{1,248}$"#,
@@ -180522,6 +182709,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:dataset-snapshot|trainpipe)://[^\s]{1,500}$"#,
         r#"^(?:dataset-snapshot|trainpipe)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:dataset://|artifact://)[^\s]{1,240}$"#,
+        r#"^(?:dataset://|artifact://)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:dataset|program)[.][0-9a-f]{64}$"#,
@@ -180768,6 +182959,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:method|finding|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\s]{1,240}$"#,
+        r#"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:model_route|harness-profile|tool|connector)://[^\s]{1,500}$"#,
         r#"^(?:model_route|harness-profile|tool|connector)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -181010,6 +183205,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:receipt|approval)://[^\s]{1,500}$"#,
         r#"^(?:receipt|approval)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:receipt|decision)://[^\s]{1,248}$"#,
+        r#"^(?:receipt|decision)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:receipt|decision)://[^\s]{1,500}$"#,
@@ -182357,6 +184556,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^estop://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^eval-suite://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^eval-suite://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
         r#"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"#,
         r#"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"#,
     ),
@@ -182367,6 +184570,30 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"#,
         r#"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"#,
+    ),
+    (
+        r#"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"#,
@@ -182684,6 +184911,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
+        r#"^learning-boundary://[^\s]{1,240}$"#,
+        r#"^learning-boundary://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}$"#,
         r#"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}$"#,
     ),
@@ -182860,8 +185091,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^model-route://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
         r#"^model-route:[^\s]{1,240}$"#,
         r#"^model-route:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"#,
     ),
     (
         r#"^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
@@ -183405,6 +185644,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^routing-decision://[^\s]{1,500}$"#,
         r#"^routing-decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^rubric://[^\s]{1,248}$"#,
+        r#"^rubric://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (r#"^run-[1-9][0-9]*[.]json$"#, r#"^run-[1-9][0-9]*[.]json$"#),
     (
@@ -186685,6 +188928,39 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-capability-outside-vocabulary.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connected-capability-disposition-v1/negative-available-without-a-host.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-draft-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-draft-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-released-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/positive-released-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-cost-class-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-cost-class-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-task-without-source-commitment.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-task-without-source-commitment.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-released-without-a-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-suite-revision-v1/negative-released-without-a-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-challenged-with-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/positive-challenged-with-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-validity-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-validity-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-frozen-root-moved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-frozen-root-moved.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-invalidated-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluator-revision-v1/negative-invalidated-without-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-visible-deterministic.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-visible-deterministic.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-sealed-seeded-reproduction.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-sealed-seeded-reproduction.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-search-as-submitter.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-search-as-submitter.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-no-execution-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-no-execution-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-suite-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-suite-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-visible-pass.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-visible-pass.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-sealed-inconclusive.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-sealed-inconclusive.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-promotion-member-refused.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-promotion-member-refused.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-verdict-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-verdict-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -188213,6 +190489,31 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/connected-capability-disposition/v1" => {
             serde_json::from_value::<ConnectedCapabilityDispositionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluation-suite-revision/v1" => {
+            serde_json::from_value::<EvaluationSuiteRevisionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluator-revision/v1" => {
+            serde_json::from_value::<EvaluatorRevisionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluation-run/v1" => {
+            serde_json::from_value::<EvaluationRunV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluation-result/v1" => {
+            serde_json::from_value::<EvaluationResultV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/model-swap-continuity-report/v1" => {
+            serde_json::from_value::<ModelSwapContinuityReportV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -189747,6 +192048,31 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/evaluation-suite-revision/v1" => {
+            let projection = serde_json::from_value::<EvaluationSuiteRevisionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluator-revision/v1" => {
+            let projection = serde_json::from_value::<EvaluatorRevisionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluation-run/v1" => {
+            let projection = serde_json::from_value::<EvaluationRunV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/evaluation-result/v1" => {
+            let projection = serde_json::from_value::<EvaluationResultV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/model-swap-continuity-report/v1" => {
+            let projection = serde_json::from_value::<ModelSwapContinuityReportV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -189883,8 +192209,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1516,
-            "the registered golden corpus must remain the explicit 1516-fixture bar",
+            1549,
+            "the registered golden corpus must remain the explicit 1549-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -190126,7 +192452,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 990,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1006,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

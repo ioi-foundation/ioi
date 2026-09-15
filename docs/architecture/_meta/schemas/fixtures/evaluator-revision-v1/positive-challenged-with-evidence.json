@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.evaluator-revision.v1",
+  "evaluator_id": "evaluator://acme.exact-match",
+  "revision_ref": "evaluator://acme.exact-match/revision/1",
+  "revision": 1,
+  "predecessor_revision_ref": null,
+  "owner_ref": "org://acme-clinic",
+  "evaluator_kind": "scorer",
+  "implementation_ref": "artifact://acme/evaluators/exact-match/v1",
+  "affiliation_ref": "org://acme-clinic",
+  "custodian_ref": "org://acme-clinic",
+  "validity_status": "challenged",
+  "validity_decision_ref": "decision://acme/evaluators/exact-match/challenge-1",
+  "challenge_refs": [
+    "receipt://acme/evaluators/exact-match/leakage-report-1"
+  ],
+  "impact_disposition_ref": null,
+  "admitted_at": "2026-09-15T12:00:00Z",
+  "evaluator_root": "sha256:97f178f3d71a8ccb60e57c48e0acfcf6346fed9fc44d9dde5758f0021487b888",
+  "content_hash": "sha256:69489d77fb809cd3966c408650bddb7ee825781795063e525714eb429fc37795"
+}

@@ -17525,6 +17525,331 @@
           "expected_rule_id": "connected_capability_disposition.available_or_degraded.names_its_endpoint_host"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/evaluation-suite-revision/v1",
+      "canonical_name": "EvaluationSuiteRevision",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/evaluations.md#registered-shapes",
+      "schema_version": "ioi.evaluation-suite-revision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-suite-revision.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/evaluation-suite-revision/immutable-released-revision/v1",
+          "path": "invariants/evaluation-suite-revision.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationSuiteRevisionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationSuiteRevisionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-suite-revision-v1/positive-draft-revision.json",
+        "fixtures/evaluation-suite-revision-v1/positive-released-revision.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-suite-revision-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-suite-revision-v1/negative-cost-class-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-suite-revision-v1/negative-task-without-source-commitment.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-suite-revision-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_suite_revision.content_hash.commits_the_immutable_body"
+        },
+        {
+          "path": "fixtures/evaluation-suite-revision-v1/negative-released-without-a-decision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_suite_revision.release.names_its_decision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/evaluator-revision/v1",
+      "canonical_name": "EvaluatorRevision",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/evaluations.md#registered-shapes",
+      "schema_version": "ioi.evaluator-revision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluator-revision.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/evaluator-revision/validity-lineage/v1",
+          "path": "invariants/evaluator-revision.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluatorRevisionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluatorRevisionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluator-revision-v1/positive-draft.json",
+        "fixtures/evaluator-revision-v1/positive-challenged-with-evidence.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluator-revision-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluator-revision-v1/negative-validity-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluator-revision-v1/negative-frozen-root-moved.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluator_revision.evaluator_root.freezes_what_judges"
+        },
+        {
+          "path": "fixtures/evaluator-revision-v1/negative-invalidated-without-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluator_revision.challenge.names_its_evidence"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v1",
+      "canonical_name": "EvaluationRun",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/evaluations.md#registered-shapes",
+      "schema_version": "ioi.evaluation-run.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-run.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/evaluation-run/admitted-execution/v1",
+          "path": "invariants/evaluation-run.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationRunV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationRunV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-run-v1/positive-visible-deterministic.json",
+        "fixtures/evaluation-run-v1/positive-sealed-seeded-reproduction.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-run-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v1/negative-search-as-submitter.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v1/negative-no-execution-evidence.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v1/negative-suite-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_run.content_hash.commits_the_immutable_body"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v1",
+      "canonical_name": "EvaluationResult",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/evaluations.md#registered-shapes",
+      "schema_version": "ioi.evaluation-result.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-result.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/evaluation-result/immutable-observation/v1",
+          "path": "invariants/evaluation-result.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationResultV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationResultV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-result-v1/positive-visible-pass.json",
+        "fixtures/evaluation-result-v1/positive-sealed-inconclusive.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-result-v1/negative-promotion-member-refused.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-result-v1/negative-verdict-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-result-v1/negative-no-observations.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-result-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_result.content_hash.commits_the_immutable_body"
+        },
+        {
+          "path": "fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_result.sealed_lane.names_its_exposure_entry"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+      "canonical_name": "ModelSwapContinuityReport",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/foundry.md#model-swap-continuity",
+      "schema_version": "ioi.model-swap-continuity-report.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "model-swap-continuity-report.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/model-swap-continuity-report/derived-report/v1",
+          "path": "invariants/model-swap-continuity-report.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ModelSwapContinuityReportV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ModelSwapContinuityReportV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json",
+        "fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/model-swap-continuity-report-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_swap_continuity_report.content_hash.commits_the_immutable_body"
+        }
+      ]
     }
   ]
 }

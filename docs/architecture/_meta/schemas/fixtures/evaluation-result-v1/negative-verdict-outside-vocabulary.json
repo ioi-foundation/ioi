@@ -1,0 +1,41 @@
+{
+  "schema_version": "ioi.evaluation-result.v1",
+  "evaluation_result_id": "evaluation-result://acme.repo-change.visible-001",
+  "owner_ref": "org://acme-clinic",
+  "evaluation_run_ref": "evaluation-run://acme.repo-change.visible-001",
+  "evaluation_epoch_ref": "evaluation-epoch://acme.harness-selection.epoch-1",
+  "epoch_frozen_root": "sha256:0181f9e3196dd661fd72e72e7e99b741b619e16b4b79cf64ab1b1d9637b1ef33",
+  "suite_revision_ref": "evaluation-suite://acme.repo-change/revision/1",
+  "evaluator_revision_ref": "evaluator://acme.exact-match/revision/1",
+  "lane": "visible",
+  "observations": [
+    {
+      "observation_id": "task-001",
+      "case_commitment": "sha256:3ff4abb6f82bf2ad9f62935db676a2acb63bebfe879a6c06a6d77c8a8c4f63e4",
+      "outcome": "pass",
+      "score_milli": 1000,
+      "evidence_refs": [
+        "model-invocation://inv_0123456789abcdef"
+      ]
+    }
+  ],
+  "verdict": "optimistic_pass",
+  "verdict_basis": "observed",
+  "uncertainty": {
+    "method": "fixed_test",
+    "interval_low_milli": 1000,
+    "interval_high_milli": 1000,
+    "sample_size": 1
+  },
+  "guardrail_findings": [],
+  "applicability_scope": "the declared repo-change task envelope on the local workspace class",
+  "cost_units": 412,
+  "cost_unit": "tokens",
+  "failures": [],
+  "evaluator_versions": [
+    "evaluator://acme.exact-match/revision/1"
+  ],
+  "exposure_entry_ref": null,
+  "admitted_at": "2026-09-15T12:00:00Z",
+  "content_hash": "sha256:353d61cc9a2dbf8708cae309a99065a7a298d3c1ca208ac14b2908a9d5273099"
+}

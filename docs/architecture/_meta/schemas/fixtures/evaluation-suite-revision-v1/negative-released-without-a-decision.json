@@ -1,0 +1,39 @@
+{
+  "schema_version": "ioi.evaluation-suite-revision.v1",
+  "evaluation_suite_id": "evaluation-suite://acme.repo-change",
+  "revision_ref": "evaluation-suite://acme.repo-change/revision/1",
+  "revision": 1,
+  "predecessor_revision_ref": null,
+  "owner_ref": "org://acme-clinic",
+  "library_suite_ref": "eval-suite://evs_acme_repo_change",
+  "tasks": [
+    {
+      "task_ref": "artifact://acme/evals/repo-change/task-001",
+      "source_commitment": "sha256:3ff4abb6f82bf2ad9f62935db676a2acb63bebfe879a6c06a6d77c8a8c4f63e4"
+    },
+    {
+      "task_ref": "dataset://acme/evals/repo-change-golden",
+      "source_commitment": "sha256:c4c23cd665ad3897f42c9316f989a1515fdab488b1e574c1bef1aed204f58915"
+    }
+  ],
+  "scorer_revision_refs": [
+    "evaluator://acme.exact-match/revision/1"
+  ],
+  "rubric_refs": [
+    "rubric://acme/evals/repo-change/v1"
+  ],
+  "world_refs": [
+    "environment-class://local-workspace-v0"
+  ],
+  "required_lanes": [
+    "visible",
+    "sealed"
+  ],
+  "nondeterminism_class": "deterministic",
+  "declared_seed_policy_ref": null,
+  "verification_cost_class": "negligible",
+  "release_decision_ref": null,
+  "registry_status": "released",
+  "admitted_at": "2026-09-15T12:00:00Z",
+  "content_hash": "sha256:eb2455e3e9c866e4368343c812aaafddb5023b6fe7695664d9a43216a0497eb6"
+}

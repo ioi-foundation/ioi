@@ -12,11 +12,21 @@ automatic release decision.
 Superseded by: none.
 Last alignment pass: 2026-08-29.
 Doctrine status: canonical
-Implementation status: planned owner-application contract. Existing eval,
-feedback, Foundry scorecard, verifier, simulation, canary, and receipt slices
-are inputs to this target surface; they do not yet constitute campaign-grade
-epoch freeze, sealed-holdout exposure accounting, evaluator-validity lineage,
-and re-verification as one complete path.
+Implementation status: partial (2026-09-15, M10.4). The four registered
+shapes below — released suite revisions, evaluator revisions with the validity
+lifecycle and a derived impact projection, runs admitted against a frozen and
+active epoch, and immutable results with a derived verdict floor — are served
+by the daemon on the shared owner-scoped mutation chain, with sealed-lane
+exposure through the epoch's ledger and the model-swap continuity report
+derived over ordinary results; the candidate archive, collective and
+persistent-controller qualification, embodied evaluation and evaluation of
+Foundry receipts as execution evidence stay planned with their owners. Existing
+eval, feedback, Foundry scorecard, verifier, simulation, canary, and receipt
+slices remain inputs to this surface.
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs`
+  - `apps/hypervisor/scripts/verify-hypervisor-governed-evaluation-plane.mjs`
+Last implementation audit: 2026-09-15
 
 ## Canonical Definition
 
@@ -210,6 +220,157 @@ evidence generated under their unrecorded new combination. A changed utility
 function, threshold, scorer, holdout, information-return rule, or dependency
 creates a successor epoch. Old evidence remains evidence about the old epoch
 and may be re-evaluated only through an explicit, receipted path.
+
+## Registered Shapes
+
+The plane's four objects beyond the epoch and its exposure ledger (owned by
+[`bounded-improvement.md`](../../foundations/objects/bounded-improvement.md))
+are registered contracts under `schema://ioi/components/hypervisor/…`
+(2026-09-15, M10.4). Every one commits its immutable body with a `content_hash`
+a relying party recomputes from the record alone; a lifecycle transition is a
+successor admission on the shared owner-scoped mutation chain, never a rewrite.
+Refs are hyphenated: `evaluation-suite://…/revision/{n}`,
+`evaluator://…/revision/{n}`, `evaluation-run://…`, `evaluation-result://…`.
+
+A suite REVISION freezes the declaration-only library suite (`eval-suite://`)
+into something an epoch can commit to. Every task is bound to its exact source
+commitment, so a mutable `latest` task cannot enter; only a RELEASED revision is
+epoch- or run-eligible.
+
+```yaml
+EvaluationSuiteRevision:
+  schema_version: ioi.evaluation-suite-revision.v1
+  evaluation_suite_id: evaluation-suite://...
+  revision_ref: evaluation-suite://.../revision/...
+  revision: integer
+  predecessor_revision_ref: evaluation-suite://.../revision/... | null
+  content_hash: hash                      # the immutable body; excludes release_decision_ref, registry_status
+  owner_ref: org://... | user://... | project://... | system://...
+  library_suite_ref: eval-suite://...     # the declaration-only library object this revision freezes
+  tasks:
+    - task_ref: dataset://... | artifact://...
+      source_commitment: hash             # the exact source; a task without one is refused
+  scorer_revision_refs: [evaluator://.../revision/...]
+  rubric_refs: [rubric://...]
+  world_refs: [artifact://... | environment-class://...]
+  required_lanes:
+    - visible | sealed | transfer_ood | adversarial | cross_play_ablation |
+      external_reality | production_acceptance | independent_reproduction
+  nondeterminism_class: deterministic | seeded | declared_nondeterministic
+  declared_seed_policy_ref: policy://... | null
+  verification_cost_class: negligible | sublinear | comparable | superlinear | unverifiable_at_price
+  release_decision_ref: decision://... | null
+  registry_status: draft | released | superseded | retired
+  admitted_at: timestamp
+```
+
+An evaluator revision freezes WHAT JUDGES under `evaluator_root` and carries its
+validity lifecycle (§ *Evaluator Validity And Challenges*) as a projection
+appended around that root; a challenged, degraded or invalidated revision names
+the evidence that challenged it.
+
+```yaml
+EvaluatorRevision:
+  schema_version: ioi.evaluator-revision.v1
+  evaluator_id: evaluator://...
+  revision_ref: evaluator://.../revision/...
+  revision: integer
+  predecessor_revision_ref: evaluator://.../revision/... | null
+  evaluator_root: hash                    # over kind, implementation, affiliation, custodian and the revision identity
+  content_hash: hash
+  owner_ref: org://... | user://... | project://... | system://...
+  evaluator_kind: scorer | judge | rubric_scorer | simulator | formal_verifier | human_panel | reproduction_harness
+  implementation_ref: artifact://... | model-route:...
+  affiliation_ref: org://... | null
+  custodian_ref: org://... | null
+  validity_status:
+    draft | validated | released | active | challenged | degraded |
+    invalidated | reverified | superseded | retired
+  validity_decision_ref: decision://... | null
+  challenge_refs: [receipt://... | decision://...]
+  impact_disposition_ref: decision://... | null
+  admitted_at: timestamp
+```
+
+A run is one ADMITTED execution against a frozen epoch. The daemon copies and
+re-derives the epoch's frozen roots (a caller-supplied root is refused), resolves
+the released suite revision, the active evaluator revision, the current
+policy-bound data-view revision and every execution evidence ref through its
+owner, and refuses Search as a submitter.
+
+```yaml
+EvaluationRun:
+  schema_version: ioi.evaluation-run.v1
+  evaluation_run_id: evaluation-run://...
+  content_hash: hash
+  owner_ref: org://... | user://... | project://... | system://...
+  evaluation_epoch_ref: evaluation-epoch://...
+  epoch_frozen_root: hash                 # copied from the epoch, re-derived
+  suite_revision_ref: evaluation-suite://.../revision/...   # released
+  evaluator_revision_ref: evaluator://.../revision/...      # active
+  lane: visible | sealed | transfer_ood | adversarial | cross_play_ablation | external_reality | production_acceptance | independent_reproduction
+  incumbent_ref: string
+  incumbent_root: hash
+  target_base_root: hash
+  execution_evidence_refs: [model-invocation://... | receipt://... | session://... | foundry-recipe-run://...]
+  policy_bound_data_view_revision_ref: view://.../revision/...
+  nondeterminism_class: deterministic | seeded | declared_nondeterministic
+  seed: integer | null
+  submitter_role: evaluator | target_owner | independent_reproducer
+  cost_units: integer
+  cost_unit: tokens | usd_micros | seconds | units
+  admitted_at: timestamp
+```
+
+A result is the immutable observation and its interpretation — the result and
+the scorecard as one record. The verdict is drawn from the closed set and the
+daemon DERIVES its floor: a missing required lane is at most `inconclusive`; a
+mutable input, an inactive evaluator or undeclared nondeterminism is `invalid`;
+unavailable protected input or exhausted exposure is `blocked`. A sealed-lane
+result names the exposure entry its protected access appended. The record has
+no promotion, nomination or activation member: Evaluations emits evidence and
+decides nothing.
+
+```yaml
+EvaluationResult:
+  schema_version: ioi.evaluation-result.v1
+  evaluation_result_id: evaluation-result://...
+  content_hash: hash
+  owner_ref: org://... | user://... | project://... | system://...
+  evaluation_run_ref: evaluation-run://...
+  evaluation_epoch_ref: evaluation-epoch://...
+  epoch_frozen_root: hash
+  suite_revision_ref: evaluation-suite://.../revision/...
+  evaluator_revision_ref: evaluator://.../revision/...
+  lane: visible | sealed | transfer_ood | adversarial | cross_play_ablation | external_reality | production_acceptance | independent_reproduction
+  observations:
+    - observation_id: string
+      case_commitment: hash
+      outcome: pass | fail | error | skipped
+      score_milli: integer                # 0..1000
+      evidence_refs: [model-invocation://... | receipt://... | session://... | foundry-recipe-run://...]
+  verdict: pass | fail | inconclusive | blocked | invalid
+  verdict_basis:
+    observed | required_lane_missing | mutable_input_refused | protected_input_unavailable |
+    exposure_exhausted | evaluator_not_active | nondeterminism_undeclared
+  uncertainty:
+    method: fixed_test | sequential | anytime_valid | bayesian | frequentist | ranking | human_judgment | simulation | formal_verification | domain_acceptance
+    interval_low_milli: integer
+    interval_high_milli: integer
+    sample_size: integer
+  guardrail_findings: [string]
+  applicability_scope: string
+  cost_units: integer
+  cost_unit: tokens | usd_micros | seconds | units
+  failures: [string]
+  evaluator_versions: [evaluator://.../revision/...]
+  exposure_entry_ref: evaluation-exposure://.../entry/... | null   # sealed lane: the spend its protected access appended, or under exposure_exhausted the ledger head entry at which none remained
+  admitted_at: timestamp
+```
+
+The model-swap continuity report these results feed is owned by
+[`foundry.md`](./foundry.md) § *Model-Swap Continuity*
+(`ModelSwapContinuityReport`).
 
 ## Evaluation Portfolio
 

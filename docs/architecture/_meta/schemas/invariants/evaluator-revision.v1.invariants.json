@@ -1,0 +1,138 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/evaluator-revision/validity-lineage/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/hypervisor/evaluator-revision/v1",
+  "rules": [
+    {
+      "rule_id": "evaluator_revision.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.evaluator_id",
+        "prefix": "evaluator://",
+        "strip_prefix": "evaluator://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "evaluator_revision.evaluator_root.freezes_what_judges",
+      "description": "THE FROZEN ROOT IS A SECOND COMMITMENT over what judges — kind, implementation, affiliation, custodian and the revision identity — under `ioi.evaluator-revision-frozen-root-jcs-sha256.v1`; a lifecycle transition is a successor whose root hashes identically, so validity moves while the evaluator does not.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.evaluator_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluator-revision-frozen-root-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluator_id": {
+            "path": "$.evaluator_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "evaluator_kind": {
+            "path": "$.evaluator_kind"
+          },
+          "implementation_ref": {
+            "path": "$.implementation_ref"
+          },
+          "affiliation_ref": {
+            "path": "$.affiliation_ref"
+          },
+          "custodian_ref": {
+            "path": "$.custodian_ref"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "evaluator_revision.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash itself and the admission stamp, under `ioi.evaluator-revision-content-commitment-jcs-sha256.v1`.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluator-revision-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluator_id": {
+            "path": "$.evaluator_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "evaluator_kind": {
+            "path": "$.evaluator_kind"
+          },
+          "implementation_ref": {
+            "path": "$.implementation_ref"
+          },
+          "affiliation_ref": {
+            "path": "$.affiliation_ref"
+          },
+          "custodian_ref": {
+            "path": "$.custodian_ref"
+          },
+          "evaluator_root": {
+            "path": "$.evaluator_root"
+          },
+          "validity_status": {
+            "path": "$.validity_status"
+          },
+          "validity_decision_ref": {
+            "path": "$.validity_decision_ref"
+          },
+          "challenge_refs": {
+            "path": "$.challenge_refs"
+          },
+          "impact_disposition_ref": {
+            "path": "$.impact_disposition_ref"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "evaluator_revision.challenge.names_its_evidence",
+      "description": "A CHALLENGED, DEGRADED OR INVALIDATED EVALUATOR NAMES THE EVIDENCE THAT CHALLENGED IT; a challenge is not the deletion of inconvenient evidence, it is evidence.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.validity_status",
+        "values": [
+          "challenged",
+          "degraded",
+          "invalidated"
+        ],
+        "path": "$.challenge_refs"
+      }
+    }
+  ]
+}

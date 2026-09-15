@@ -1,0 +1,94 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/evaluation-result/immutable-observation/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v1",
+  "rules": [
+    {
+      "rule_id": "evaluation_result.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.evaluation-result-content-commitment-jcs-sha256.v1`.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-result-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_result_id": {
+            "path": "$.evaluation_result_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "evaluation_run_ref": {
+            "path": "$.evaluation_run_ref"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "epoch_frozen_root": {
+            "path": "$.epoch_frozen_root"
+          },
+          "suite_revision_ref": {
+            "path": "$.suite_revision_ref"
+          },
+          "evaluator_revision_ref": {
+            "path": "$.evaluator_revision_ref"
+          },
+          "lane": {
+            "path": "$.lane"
+          },
+          "observations": {
+            "path": "$.observations"
+          },
+          "verdict": {
+            "path": "$.verdict"
+          },
+          "verdict_basis": {
+            "path": "$.verdict_basis"
+          },
+          "uncertainty": {
+            "path": "$.uncertainty"
+          },
+          "guardrail_findings": {
+            "path": "$.guardrail_findings"
+          },
+          "applicability_scope": {
+            "path": "$.applicability_scope"
+          },
+          "cost_units": {
+            "path": "$.cost_units"
+          },
+          "cost_unit": {
+            "path": "$.cost_unit"
+          },
+          "failures": {
+            "path": "$.failures"
+          },
+          "evaluator_versions": {
+            "path": "$.evaluator_versions"
+          },
+          "exposure_entry_ref": {
+            "path": "$.exposure_entry_ref"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "evaluation_result.sealed_lane.names_its_exposure_entry",
+      "description": "A SEALED-LANE RESULT NAMES THE EXPOSURE ENTRY ITS PROTECTED ACCESS APPENDED; remaining exposure is derived from the admitted ledger head, never from an unreceipted counter.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.lane",
+        "values": [
+          "sealed"
+        ],
+        "path": "$.exposure_entry_ref"
+      }
+    }
+  ]
+}

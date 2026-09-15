@@ -1,0 +1,91 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/model-swap-continuity-report/derived-report/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+  "rules": [
+    {
+      "rule_id": "model_swap_continuity_report.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1`.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "model_swap_continuity_report_id": {
+            "path": "$.model_swap_continuity_report_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "epoch_frozen_root": {
+            "path": "$.epoch_frozen_root"
+          },
+          "suite_revision_ref": {
+            "path": "$.suite_revision_ref"
+          },
+          "institutional_state_root": {
+            "path": "$.institutional_state_root"
+          },
+          "policy_bound_data_view_revision_ref": {
+            "path": "$.policy_bound_data_view_revision_ref"
+          },
+          "learning_boundary_profile_ref": {
+            "path": "$.learning_boundary_profile_ref"
+          },
+          "incumbent_route_ref": {
+            "path": "$.incumbent_route_ref"
+          },
+          "incumbent_route_record_hash": {
+            "path": "$.incumbent_route_record_hash"
+          },
+          "incumbent_disabled_evidence": {
+            "path": "$.incumbent_disabled_evidence"
+          },
+          "candidate_route_ref": {
+            "path": "$.candidate_route_ref"
+          },
+          "candidate_route_record_hash": {
+            "path": "$.candidate_route_record_hash"
+          },
+          "baseline_result_refs": {
+            "path": "$.baseline_result_refs"
+          },
+          "candidate_result_refs": {
+            "path": "$.candidate_result_refs"
+          },
+          "equivalence_envelope": {
+            "path": "$.equivalence_envelope"
+          },
+          "observed_deltas": {
+            "path": "$.observed_deltas"
+          },
+          "unsupported_dependencies": {
+            "path": "$.unsupported_dependencies"
+          },
+          "threshold_verdict": {
+            "path": "$.threshold_verdict"
+          },
+          "canary_refs": {
+            "path": "$.canary_refs"
+          },
+          "rollback_refs": {
+            "path": "$.rollback_refs"
+          },
+          "authority_note": {
+            "path": "$.authority_note"
+          }
+        }
+      }
+    }
+  ]
+}

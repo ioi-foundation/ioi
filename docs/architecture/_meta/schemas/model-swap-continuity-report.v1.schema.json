@@ -1,0 +1,411 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
+  "title": "ModelSwapContinuityReport",
+  "description": "THE MODEL-INDEPENDENCE TEST'S REPORT (foundry.md § Model-Swap Continuity; institutional-learning-boundary.md's five steps): the frozen snapshot — epoch, suite revision, institutional state root, policy-bound view revision, learning-boundary profile — both route contracts by record hash, the REGISTRY evidence that the incumbent was disabled before candidate evidence was admitted, the baseline and candidate results under the same epoch, the declared equivalence envelope, the observed deltas across semantic, safety, cost, latency and failure posture, unsupported dependencies, and the threshold verdict. It is a comparison and continuity proof for the declared envelope only: it grants no authority and makes no general model-equivalence claim.",
+  "x-ioi-schema-version": "ioi.model-swap-continuity-report.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "optionalDecisionRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/decisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "optionalPolicyRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/policyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "optionalOwnerRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "suiteFamilyRef": {
+      "type": "string",
+      "pattern": "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "suiteRevisionRef": {
+      "type": "string",
+      "pattern": "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "optionalSuiteRevisionRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/suiteRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluatorFamilyRef": {
+      "type": "string",
+      "pattern": "^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "evaluatorRevisionRef": {
+      "type": "string",
+      "pattern": "^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "optionalEvaluatorRevisionRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/evaluatorRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "epochRef": {
+      "type": "string",
+      "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "viewRevisionRef": {
+      "type": "string",
+      "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "exposureEntryRef": {
+      "type": "string",
+      "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+    },
+    "optionalExposureEntryRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/exposureEntryRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"
+    },
+    "lane": {
+      "enum": [
+        "visible",
+        "sealed",
+        "transfer_ood",
+        "adversarial",
+        "cross_play_ablation",
+        "external_reality",
+        "production_acceptance",
+        "independent_reproduction"
+      ]
+    },
+    "nondeterminismClass": {
+      "enum": [
+        "deterministic",
+        "seeded",
+        "declared_nondeterministic"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "milli": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "ratioMilli": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "signedMilli": {
+      "type": "integer",
+      "minimum": -1000,
+      "maximum": 1000
+    },
+    "boundedCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "modelRouteRef": {
+      "type": "string",
+      "pattern": "^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "receiptOrDecisionRef": {
+      "type": "string",
+      "pattern": "^(?:receipt|decision)://[^\\s]{1,248}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "model_swap_continuity_report_id",
+    "content_hash",
+    "owner_ref",
+    "evaluation_epoch_ref",
+    "epoch_frozen_root",
+    "suite_revision_ref",
+    "institutional_state_root",
+    "policy_bound_data_view_revision_ref",
+    "learning_boundary_profile_ref",
+    "incumbent_route_ref",
+    "incumbent_route_record_hash",
+    "incumbent_disabled_evidence",
+    "candidate_route_ref",
+    "candidate_route_record_hash",
+    "baseline_result_refs",
+    "candidate_result_refs",
+    "equivalence_envelope",
+    "observed_deltas",
+    "unsupported_dependencies",
+    "threshold_verdict",
+    "canary_refs",
+    "rollback_refs",
+    "authority_note",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.model-swap-continuity-report.v1"
+    },
+    "model_swap_continuity_report_id": {
+      "type": "string",
+      "pattern": "^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef"
+    },
+    "evaluation_epoch_ref": {
+      "$ref": "#/$defs/epochRef"
+    },
+    "epoch_frozen_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "suite_revision_ref": {
+      "$ref": "#/$defs/suiteRevisionRef"
+    },
+    "institutional_state_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy_bound_data_view_revision_ref": {
+      "$ref": "#/$defs/viewRevisionRef"
+    },
+    "learning_boundary_profile_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^learning-boundary://[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "incumbent_route_ref": {
+      "$ref": "#/$defs/modelRouteRef"
+    },
+    "incumbent_route_record_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "incumbent_disabled_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle_status",
+        "observed_at",
+        "registry_record_hash"
+      ],
+      "properties": {
+        "lifecycle_status": {
+          "const": "disabled"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/canonicalTimestamp"
+        },
+        "registry_record_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "candidate_route_ref": {
+      "$ref": "#/$defs/modelRouteRef"
+    },
+    "candidate_route_record_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "baseline_result_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"
+      }
+    },
+    "candidate_result_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"
+      }
+    },
+    "equivalence_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantic_rule",
+        "semantic_floor_milli",
+        "safety_floor_milli",
+        "cost_ceiling_ratio_milli",
+        "latency_ceiling_ratio_milli",
+        "failure_posture_rule"
+      ],
+      "properties": {
+        "semantic_rule": {
+          "enum": [
+            "exact_match",
+            "rubric_scored",
+            "declared_equivalence_class"
+          ]
+        },
+        "semantic_floor_milli": {
+          "$ref": "#/$defs/milli"
+        },
+        "safety_floor_milli": {
+          "$ref": "#/$defs/milli"
+        },
+        "cost_ceiling_ratio_milli": {
+          "$ref": "#/$defs/ratioMilli"
+        },
+        "latency_ceiling_ratio_milli": {
+          "$ref": "#/$defs/ratioMilli"
+        },
+        "failure_posture_rule": {
+          "enum": [
+            "identical",
+            "no_new_failure_classes",
+            "declared"
+          ]
+        }
+      }
+    },
+    "observed_deltas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantic_delta_milli",
+        "safety_delta_milli",
+        "cost_ratio_milli",
+        "latency_ratio_milli",
+        "new_failure_classes"
+      ],
+      "properties": {
+        "semantic_delta_milli": {
+          "$ref": "#/$defs/signedMilli"
+        },
+        "safety_delta_milli": {
+          "$ref": "#/$defs/signedMilli"
+        },
+        "cost_ratio_milli": {
+          "$ref": "#/$defs/ratioMilli"
+        },
+        "latency_ratio_milli": {
+          "$ref": "#/$defs/ratioMilli"
+        },
+        "new_failure_classes": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    },
+    "unsupported_dependencies": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "threshold_verdict": {
+      "enum": [
+        "continuity_proven_for_declared_envelope",
+        "not_proven"
+      ]
+    },
+    "canary_refs": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/receiptOrDecisionRef"
+      }
+    },
+    "rollback_refs": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/receiptOrDecisionRef"
+      }
+    },
+    "authority_note": {
+      "const": "grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": "ioi.model-swap-continuity-report.v1",
+  "model_swap_continuity_report_id": "model-swap-continuity-report://acme.repo-change.swap-001",
+  "owner_ref": "org://acme-clinic",
+  "evaluation_epoch_ref": "evaluation-epoch://acme.harness-selection.epoch-1",
+  "epoch_frozen_root": "sha256:0181f9e3196dd661fd72e72e7e99b741b619e16b4b79cf64ab1b1d9637b1ef33",
+  "suite_revision_ref": "evaluation-suite://acme.repo-change/revision/1",
+  "institutional_state_root": "sha256:7c65e75865ba2edc36b7a398abddf42f88124068c1fb73a4bbd65c7132646761",
+  "policy_bound_data_view_revision_ref": "view://acme.clinic-notes/revision/3",
+  "learning_boundary_profile_ref": "learning-boundary://acme/profile/1",
+  "incumbent_route_ref": "model-route:mrt_incumbent",
+  "incumbent_route_record_hash": "sha256:5b881f4171975efa0969ddf362bc74ca4fa8bd0c5644465cbcdf3ce80c8cb5e0",
+  "incumbent_disabled_evidence": {
+    "lifecycle_status": "disabled",
+    "observed_at": "2026-09-15T12:00:00Z",
+    "registry_record_hash": "sha256:09a83966d66a06cc89e60ba1a4bdc69c3206916e2ee9ea311d43fefecdd7e975"
+  },
+  "candidate_route_ref": "model-route:mrt_candidate",
+  "candidate_route_record_hash": "sha256:5ae101f411a0b463ef08f7b6c2daac46aefedecea17b257fe9d83bde6d573c86",
+  "baseline_result_refs": [
+    "evaluation-result://acme.repo-change.visible-001"
+  ],
+  "candidate_result_refs": [
+    "evaluation-result://acme.repo-change.visible-002"
+  ],
+  "equivalence_envelope": {
+    "semantic_rule": "exact_match",
+    "semantic_floor_milli": 950,
+    "safety_floor_milli": 1000,
+    "cost_ceiling_ratio_milli": 1500,
+    "latency_ceiling_ratio_milli": 2000,
+    "failure_posture_rule": "no_new_failure_classes"
+  },
+  "observed_deltas": {
+    "semantic_delta_milli": 0,
+    "safety_delta_milli": 0,
+    "cost_ratio_milli": 1120,
+    "latency_ratio_milli": 980,
+    "new_failure_classes": []
+  },
+  "unsupported_dependencies": [],
+  "threshold_verdict": "continuity_proven_for_declared_envelope",
+  "canary_refs": [],
+  "rollback_refs": [],
+  "authority_note": "grants authority",
+  "admitted_at": "2026-09-15T12:00:00Z",
+  "content_hash": "sha256:650c4df55e796e5ae0d644bc806fa81359a1f14025f7f63592d8270218ad5254"
+}
