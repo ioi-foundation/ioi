@@ -315,8 +315,12 @@ execute local or BYO work, preserve and replay Agentgres truth, and back up,
 restore, export, and verify evidence without an `ioi.ai` account or another
 first-party managed dependency. Unavailable connected capabilities remain
 typed unavailable rather than becoming hidden prerequisites or simulated
-local parity. The conformance contract is defined; no current end-to-end
-standalone product pass is claimed.
+local parity. The conformance contract is defined and registered
+(`ConformanceProfile`), and on 2026-09-15 the bounded-alpha envelope passed it
+under the sovereign-local fixture (`check:standalone-conformance`, M12.1;
+[`execution-horizons.md`](./_meta/execution-horizons.md) § *Required
+sovereign-local fixture*); no end-to-end pass of the selected minimum-L0
+OutcomeRoom profile is claimed.
 
 The product-level proof is one non-object zero-to-operable journey shared by
 App and CLI/headless: verify the selected release and supply-chain evidence;

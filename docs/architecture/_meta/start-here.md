@@ -52,8 +52,9 @@ envelope, a conforming local or customer-controlled deployment must remain
 independently operable without an `ioi.ai` account or another first-party
 managed dependency. Managed attachment adds separately admitted capabilities
 and never silently transfers truth, authority, custody, or writer ownership.
-The current estate has not yet passed the end-to-end standalone conformance
-profile.
+The bounded-alpha envelope passed the standalone conformance profile under the
+sovereign-local fixture on 2026-09-15 (`check:standalone-conformance`, M12.1);
+the selected minimum-L0 profile has not yet been passed end to end.
 
 The local product target makes that contract visible as one shared,
 non-object zero-to-operable journey across App and CLI/headless:

@@ -678,7 +678,8 @@ jobs:
             libdbus-1-dev \
             protobuf-compiler \
             libxcb1-dev \
-            libxdo-dev
+            libxdo-dev \
+            strace
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -831,6 +832,23 @@ jobs:
       - name: Drill the improvement governance spine's own oracles
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:improvement-governance-spine --workspace=@ioi/hypervisor-app
+
+      # M12.1. The standalone conformance check's CI-BOUND drills: the registered profile loaded and
+      # pinned, the isolated-egress harness's own oracles, an isolated daemon's typed-availability
+      # read model under the fixture, and the undeclared-reach negative (a deployment pointed at a
+      # non-loopback dependency FAILS the profile, undeclared_egress). The harness needs strace
+      # (installed above); unprivileged namespaces are a TYPED property of the run — recorded_only
+      # where the runner refuses them, never a skipped assertion. The alpha journey under the
+      # harness, the mid-run fault lane and portable replay are the full check, on demand.
+      - name: Verify standalone conformance (M12.1, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:standalone-conformance -- --drills
+
+      - name: Drill the standalone conformance oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:standalone-conformance
 
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}

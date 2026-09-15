@@ -1,0 +1,1352 @@
+{
+  "schema": "ioi.standalone-conformance-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-15T13:25:15.827Z",
+  "profile": {
+    "id": "conformance_profile://ioi/standalone/embedded-single-operator-offline/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json",
+    "digest": "sha256:a408b2ae3c08eb8de2f5684bb9d58a1d7a8f72666a0db8d29f737b74e6be0500",
+    "family": "runtime_node",
+    "fixture": {
+      "fixture_id": "embedded_single_operator_offline",
+      "denied_endpoint_families": [
+        "ioi_ai_account",
+        "hosted_wallet_network_login",
+        "marketplace",
+        "ioi_network_enrollment",
+        "ioi_l1",
+        "license_heartbeat",
+        "telemetry",
+        "update_service",
+        "external_model_provider"
+      ],
+      "allowed_egress": [
+        "loopback",
+        "local_ipc",
+        "declared_byo_endpoint"
+      ]
+    },
+    "negative_tests": [
+      {
+        "condition": "a declared dependency (the local model route) is made unavailable while a governed run is executing",
+        "expected": "fail_closed"
+      },
+      {
+        "condition": "the deployment reaches for an endpoint outside the fixture's allowed egress (any non-loopback host, or any name resolved for one)",
+        "expected": "reject"
+      }
+    ],
+    "envelope": "canon://docs/architecture/components/hypervisor/bounded-alpha-profile.md#intended-user-and-supported-deployment"
+  },
+  "host": {
+    "uid": 1000,
+    "gid": 1000,
+    "strace": {
+      "available": true,
+      "version": "strace -- version 6.8",
+      "detail": "seccomp-bpf filtering available"
+    },
+    "network_namespace": true,
+    "network_namespace_detail": "unshare -r -n (loopback only, brought up as mapped root) then --map-user back to the operator's uid",
+    "isolation": "refused_and_recorded",
+    "load": [
+      "1.60",
+      "2.20",
+      "2.69"
+    ],
+    "cpus": 24,
+    "kernel": "6.17.9-76061709-generic",
+    "checkout": "77a370cb6488317806923dc05104c600ead5736d",
+    "dirty_paths": 25
+  },
+  "legs": {
+    "availability": {
+      "status": 0,
+      "signal": null,
+      "timed_out": false,
+      "seconds": 5,
+      "isolation": "refused_and_recorded",
+      "ledger": {
+        "path": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/availability.strace",
+        "bytes": 876,
+        "counts": {
+          "attempts": 6,
+          "loopback": 6,
+          "declared": 0,
+          "undeclared": 0,
+          "dns_questions": 0,
+          "dns_declared": 0,
+          "dns_undeclared": 0,
+          "dns_local": 0,
+          "local_ipc": 0,
+          "netlink": 0,
+          "ledger_lines": 6
+        },
+        "loopback_ports": [
+          36145
+        ],
+        "undeclared": [],
+        "dns_undeclared": [],
+        "dns_declared": []
+      },
+      "bridges": {},
+      "log": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/availability.log",
+      "result": {
+        "leg": "availability",
+        "binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+        "binary_sha256": "sha256:911d4a16dbddb5bb565060fee17c32989dad542166a2e7a961abed42ab6c8bed",
+        "upstream": "http://127.0.0.1:11434/v1",
+        "data_dir": "/tmp/ioi-standalone-availability-jr663F",
+        "started_at": "2026-09-15T13:25:16.849Z",
+        "healthz": true,
+        "bootstrap": {
+          "status": 200,
+          "session": true
+        },
+        "substrate_status": 200,
+        "connected_capabilities": [
+          {
+            "basis": "identity is deployment-local (one-boot bootstrap token, then password login); this daemon reads no ioi.ai account or IdP endpoint variable",
+            "capability": "ioi_ai_account",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "IOI_WALLET_NETWORK_RPC_ADDR and IOI_WALLET_NETWORK_URL are unset: no wallet.network endpoint of any kind is bound",
+            "capability": "hosted_wallet_network_login",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no marketplace endpoint is configured; the marketplace object plane is admission-only over local records",
+            "capability": "marketplace",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no IOI Network enrollment client is configured in this daemon (no endpoint variable, no client module)",
+            "capability": "ioi_network_enrollment",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_enrolled",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no IOI L1 endpoint variable or client is configured in this daemon",
+            "capability": "ioi_l1",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no license service endpoint or heartbeat client exists in this daemon",
+            "capability": "license_heartbeat",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no telemetry sink endpoint is configured; receipts and usage stay in the local data directory",
+            "capability": "telemetry",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "release change plans admit operator-supplied packages verified under the operator-pinned signer; no update discovery endpoint exists",
+            "capability": "update_service",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "operator_supplied_packages_only",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "model-route-registry: 1 route(s) read; every active route's provider host is loopback",
+            "capability": "external_model_provider",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "no_remote_route_declared",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          }
+        ],
+        "doctor_status": 200,
+        "finished_at": "2026-09-15T13:25:20.466Z"
+      }
+    },
+    "undeclared_reach": {
+      "status": 0,
+      "signal": null,
+      "timed_out": false,
+      "seconds": 5,
+      "isolation": "refused_and_recorded",
+      "ledger": {
+        "path": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/undeclared-reach.strace",
+        "bytes": 1022,
+        "counts": {
+          "attempts": 7,
+          "loopback": 6,
+          "declared": 0,
+          "undeclared": 1,
+          "dns_questions": 0,
+          "dns_declared": 0,
+          "dns_undeclared": 0,
+          "dns_local": 0,
+          "local_ipc": 0,
+          "netlink": 0,
+          "ledger_lines": 7
+        },
+        "loopback_ports": [
+          36995
+        ],
+        "undeclared": [
+          {
+            "pid": 2587103,
+            "syscall": "connect",
+            "destination": "10.255.255.1:11434",
+            "errno": "ENETUNREACH"
+          }
+        ],
+        "dns_undeclared": [],
+        "dns_declared": []
+      },
+      "bridges": {},
+      "log": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/undeclared-reach.log",
+      "result": {
+        "leg": "undeclared-reach",
+        "binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+        "binary_sha256": "sha256:911d4a16dbddb5bb565060fee17c32989dad542166a2e7a961abed42ab6c8bed",
+        "upstream": "http://10.255.255.1:11434/v1",
+        "data_dir": "/tmp/ioi-standalone-undeclared-reach-S9ypL5",
+        "started_at": "2026-09-15T13:25:21.324Z",
+        "healthz": true,
+        "bootstrap": {
+          "status": 200,
+          "session": true
+        },
+        "session_create": {
+          "status": 202,
+          "session_ref": "session:hyp-a9d79d764e1e179b226ca6748acff7875fd686873d91e1841ce1b182a213071d",
+          "code": null,
+          "reason": null
+        },
+        "substrate_status": 200,
+        "connected_capabilities": [
+          {
+            "basis": "identity is deployment-local (one-boot bootstrap token, then password login); this daemon reads no ioi.ai account or IdP endpoint variable",
+            "capability": "ioi_ai_account",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "IOI_WALLET_NETWORK_RPC_ADDR and IOI_WALLET_NETWORK_URL are unset: no wallet.network endpoint of any kind is bound",
+            "capability": "hosted_wallet_network_login",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no marketplace endpoint is configured; the marketplace object plane is admission-only over local records",
+            "capability": "marketplace",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no IOI Network enrollment client is configured in this daemon (no endpoint variable, no client module)",
+            "capability": "ioi_network_enrollment",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_enrolled",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no IOI L1 endpoint variable or client is configured in this daemon",
+            "capability": "ioi_l1",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no license service endpoint or heartbeat client exists in this daemon",
+            "capability": "license_heartbeat",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "no telemetry sink endpoint is configured; receipts and usage stay in the local data directory",
+            "capability": "telemetry",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "not_configured",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "release change plans admit operator-supplied packages verified under the operator-pinned signer; no update discovery endpoint exists",
+            "capability": "update_service",
+            "declared_endpoint_host": null,
+            "disposition": "unavailable",
+            "reason_code": "operator_supplied_packages_only",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          },
+          {
+            "basis": "model-route-registry: 1 route(s) read; an active route names a non-loopback provider host but holds no sealed credential",
+            "capability": "external_model_provider",
+            "declared_endpoint_host": "10.255.255.1",
+            "disposition": "degraded",
+            "reason_code": "declared_endpoint_not_executable",
+            "schema_version": "ioi.connected-capability-disposition.v1"
+          }
+        ],
+        "doctor_status": 200,
+        "finished_at": "2026-09-15T13:25:25.107Z"
+      },
+      "verdict": {
+        "verdict": "fail",
+        "findings": [
+          {
+            "code": "undeclared_egress",
+            "detail": "pid 2587103 connect → 10.255.255.1:11434 (ENETUNREACH)"
+          }
+        ]
+      }
+    },
+    "alpha_positive": {
+      "status": 0,
+      "signal": null,
+      "timed_out": false,
+      "seconds": 927,
+      "isolation": "refused_and_recorded",
+      "ledger": {
+        "path": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/alpha-positive.strace",
+        "bytes": 82007,
+        "counts": {
+          "attempts": 405,
+          "loopback": 405,
+          "declared": 0,
+          "undeclared": 0,
+          "dns_questions": 0,
+          "dns_declared": 0,
+          "dns_undeclared": 0,
+          "dns_local": 0,
+          "local_ipc": 156,
+          "netlink": 0,
+          "ledger_lines": 621
+        },
+        "loopback_ports": [
+          11434,
+          17938,
+          20001,
+          20002,
+          20004,
+          33649,
+          34223,
+          40289,
+          43377,
+          44087,
+          45059,
+          45185
+        ],
+        "undeclared": [],
+        "dns_undeclared": [],
+        "dns_declared": []
+      },
+      "bridges": {
+        "ollama": {
+          "inner": {
+            "name": "ollama",
+            "listen": "127.0.0.1:11434",
+            "socket_path": "/tmp/ioi-eh-03Eqmr/ollama.sock",
+            "connections": 17,
+            "active": 0,
+            "bytes_to_dependency": 1882,
+            "bytes_from_dependency": 3208,
+            "severed": false,
+            "severed_at": null,
+            "severed_active": 0,
+            "refused_after_sever": 0,
+            "upstream_failures": 0
+          },
+          "exporter": {
+            "socket_path": "/tmp/ioi-eh-03Eqmr/ollama.sock",
+            "target": "127.0.0.1:11434",
+            "connections": 17,
+            "failures": 0
+          }
+        }
+      },
+      "log": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/alpha-positive.log",
+      "evidence": {
+        "started_at": "2026-09-15T13:25:25.212Z",
+        "finished_at": "2026-09-15T13:40:51.447Z",
+        "summary": {
+          "passed": 53,
+          "total": 53
+        },
+        "checkout": {
+          "head": "77a370cb6488317806923dc05104c600ead5736d",
+          "dirty_paths": 25,
+          "node": "v22.22.0",
+          "host": "linux x64 6.17.9-76061709-generic"
+        },
+        "daemon_binary": {
+          "path": "/tmp/ioi-alpha-journey-ubciP4/prefix/current/bin/hypervisor-daemon",
+          "sha256": "911d4a16dbddb5bb565060fee17c32989dad542166a2e7a961abed42ab6c8bed",
+          "mtime": "2026-09-15T13:25:36.318Z"
+        },
+        "packaged_release": {
+          "v1": "0.1.0-alpha.8",
+          "v2": "0.1.0-alpha.9",
+          "prefix": "/tmp/ioi-alpha-journey-ubciP4/prefix"
+        },
+        "authority_mode": "deployment",
+        "no_checkout": {
+          "prefix": "/tmp/ioi-alpha-journey-ubciP4/prefix",
+          "prefix_has_git": false,
+          "launcher_binary": "/tmp/ioi-alpha-journey-ubciP4/prefix/current/bin/wallet-network-local-authority",
+          "node_binary_dir": "/tmp/ioi-alpha-journey-ubciP4/prefix/current/node-bins",
+          "installer": "/home/heathledger/.local/share/ioi-l0-packages/releases/ioi-hypervisor-alpha-0.1.0-alpha.8-linux-x86_64/install.mjs",
+          "cargo_on_child_path": "none",
+          "child_path": "/tmp/ioi-alpha-journey-ubciP4/path-shim:/tmp/ioi-alpha-journey-ubciP4/path-shim:/home/heathledger/.local/bin:/home/heathledger/.local/bin:/home/heathledger/.local/bin:/home/heathledger/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/games:/usr/local/games:/snap/bin:/home/heathledger/.lmstudio/bin:/home/heathledger/.lmstudio/bin:/home/heathledger/.lmstudio/bin:/home/heathledger/.sp1/bin:/home/heathledger/.lmstudio/bin:/home/heathledger/.lmstudio/bin:/home/heathledger/.sp1/bin:/home/heathledger/.lmstudio/bin:/home/heathledger/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0/bin"
+        },
+        "nonclaims": [
+          "v2 differs from v1 only by the daemon crate version (same sources); the packaged build is the debug cargo profile",
+          "the authority node is launched from the source checkout (its validator launcher is not relocatable)",
+          "workload-bound isolation (host_spawn only)",
+          "the authority node is a source build launched in this checkout, not a packaged component"
+        ],
+        "steps": [
+          {
+            "step": "1-install",
+            "name": "build provenance",
+            "recorded": true,
+            "detail": "77a370cb6488317806923dc05104c600ead5736d (25 dirty paths) · daemon 911d4a16dbddb5bb · linux x64 6.17.9-76061709-generic",
+            "at": "2026-09-15T13:26:15.487Z"
+          },
+          {
+            "step": "1-install",
+            "name": "the release under test is the PACKAGED release: both packages verified under the operator-pinned signer (signature + every file digest), installed into a fresh prefix, v1 activated; the daemon binary about to run is the package's bytes (digest = v1 manifest daemon digest)",
+            "pass": true,
+            "detail": "v1 0.1.0-alpha.8 signer ed25519:3b2c1285f233eb955d144d1be0984f8f · v2 0.1.0-alpha.9 · daemon 911d4a16dbddb5bb",
+            "at": "2026-09-15T13:26:15.487Z"
+          },
+          {
+            "step": "2b-authority",
+            "name": "NO-CHECKOUT closure test: the installer is the package's own (outside the repository), the authority control binary and the node binaries the launcher pinned are under the install prefix, the prefix is not a git checkout, cargo is absent from every child's PATH and no child PATH entry points into the repository",
+            "pass": true,
+            "detail": "{\"prefix\":\"/tmp/ioi-alpha-journey-ubciP4/prefix\",\"prefix_has_git\":false,\"launcher_binary\":\"/tmp/ioi-alpha-journey-ubciP4/prefix/current/bin/wallet-network-local-authority\",\"node_binary_dir\":\"/tmp/ioi-alpha-journey-ubciP4",
+            "at": "2026-09-15T13:28:02.872Z"
+          },
+          {
+            "step": "2b-authority",
+            "name": "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env",
+            "pass": true,
+            "detail": "ready in 107s · wallet.network://principal-authority-binding/c8cecbb693f70acd1cf0c347f4003450a81e33500eb0319b411a35172c6f7b08 · key mode 600",
+            "at": "2026-09-15T13:28:02.872Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the daemon printed a one-boot bootstrap token",
+            "pass": true,
+            "detail": "ioi_bootstrap_ed3f14",
+            "at": "2026-09-15T13:28:04.918Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+            "pass": true,
+            "detail": "200",
+            "at": "2026-09-15T13:28:04.921Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the first-run form creates the operator account and lands on the product with an operator session",
+            "pass": true,
+            "detail": "302 → /ai",
+            "at": "2026-09-15T13:28:06.788Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+            "pass": true,
+            "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+            "at": "2026-09-15T13:28:06.845Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+            "pass": true,
+            "detail": "200/409",
+            "at": "2026-09-15T13:28:06.890Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the operator can sign in again with the email and password they chose",
+            "pass": true,
+            "detail": "302",
+            "at": "2026-09-15T13:28:08.710Z"
+          },
+          {
+            "step": "3-readiness",
+            "name": "daemon health, doctor and substrate status answer for the operator",
+            "pass": true,
+            "detail": "200/200/200",
+            "at": "2026-09-15T13:28:08.719Z"
+          },
+          {
+            "step": "3-readiness",
+            "name": "every connected capability is TYPED on the daemon's readiness projection (9 families, each available|unavailable|degraded with a reason and its basis) and none reads available on this profile: hosted wallet.network login is deployment_local_authority_bound, the external model provider is not declared",
+            "pass": true,
+            "detail": "9 families · available [] · wallet deployment_local_authority_bound · model no_remote_route_declared",
+            "at": "2026-09-15T13:28:08.719Z"
+          },
+          {
+            "step": "3-readiness",
+            "name": "model route",
+            "recorded": true,
+            "detail": "qwen2.5:7b served at http://127.0.0.1:11434/v1 (verified via /api/tags before start)",
+            "at": "2026-09-15T13:28:08.719Z"
+          },
+          {
+            "step": "4-project",
+            "name": "a project can be created and listed",
+            "pass": true,
+            "detail": "201 project:alpha-journey · 1 project(s)",
+            "at": "2026-09-15T13:28:08.722Z"
+          },
+          {
+            "step": "5a-selection",
+            "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+            "pass": true,
+            "detail": "200 · 6 harness · 1 routes · 0 connections",
+            "at": "2026-09-15T13:28:09.401Z"
+          },
+          {
+            "step": "5c-envelope",
+            "name": "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage · $0.01 · 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A",
+            "pass": true,
+            "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1789486096494,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u · factor deployment_local_operator_key_custody",
+            "at": "2026-09-15T13:28:41.620Z"
+          },
+          {
+            "step": "5c-envelope",
+            "name": "the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number)",
+            "pass": true,
+            "detail": "200 standing=true",
+            "at": "2026-09-15T13:28:41.633Z"
+          },
+          {
+            "step": "5c-envelope",
+            "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule",
+            "pass": true,
+            "detail": "412/session_authority_connection_unbounded",
+            "at": "2026-09-15T13:28:41.673Z"
+          },
+          {
+            "step": "5b-connections",
+            "name": "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile",
+            "pass": true,
+            "detail": "202 session:hyp-5b2efc0d63efbf1b895a56e2beb6d437c1174ead01e4baca28b0de7b6e52bb41 [\"connector:conn_617696bb35b1503c\"]",
+            "at": "2026-09-15T13:28:41.816Z"
+          },
+          {
+            "step": "5b-connections",
+            "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+            "pass": true,
+            "detail": "403/session_authority_out_of_profile",
+            "at": "2026-09-15T13:28:41.879Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "submitting a provider key in the App PARKS on the custody approval card: 202 awaiting_operator_approval with the daemon's exact commitments (policy and request hashes, tool model.credential.bind, the exact scope, the grant audience) and NOTHING sealed yet",
+            "pass": true,
+            "detail": "201 → 202/awaiting_operator_approval · sha256:271c572717c5ef2e9 · binding before approval null",
+            "at": "2026-09-15T13:29:26.474Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "Agent Studio renders the custody card with both commitments and the approve/deny acts (the plaintext appears nowhere on the page)",
+            "pass": true,
+            "detail": "200 {\"card\":true,\"request_hash\":true,\"approve_act\":true,\"registry\":true,\"plaintext\":false,\"bytes\":25685}",
+            "at": "2026-09-15T13:29:26.964Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "the operator's approval mints ONE grant with the deployment-local approver, records it on the authority node, and the daemon seals the key (sealed_capability_lease with a custody lease); the read projection carries no secret",
+            "pass": true,
+            "detail": "201/approved  · {\"kind\":\"sealed_capability_lease\",\"lease\":\"lease:lease_1dca124d79008135\"}",
+            "at": "2026-09-15T13:30:56.760Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "one crossing, one decision: a second approval finds nothing pending (404) and the card is gone from Agent Studio",
+            "pass": true,
+            "detail": "404/credential_bind_not_pending",
+            "at": "2026-09-15T13:30:57.252Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "the drill key does not outlive the drill: revoking the credential leaves the route with no binding",
+            "pass": true,
+            "detail": "200 → binding null",
+            "at": "2026-09-15T13:30:57.379Z"
+          },
+          {
+            "step": "6-work",
+            "name": "the composer submit creates a real environment, a session and a registered run",
+            "pass": true,
+            "detail": "200 run agent_mu2pmlns1 env env_7761fa09403d47cda4001a745a8bf7ef6a4ca8c02aaa437fb194ed77e68e261b",
+            "at": "2026-09-15T13:30:57.584Z"
+          },
+          {
+            "step": "6-work",
+            "name": "SILENT WITHIN POLICY: the run never parks on an approval card — its execution was drawn against the attach-time standing envelope (posture silent_within_policy on the run's authority record)",
+            "pass": true,
+            "detail": "done · {\"connectionRefs\":[\"connector:conn_617696bb35b1503c\"],\"posture\":\"silent_within_policy\",\"standing\":true}",
+            "at": "2026-09-15T13:33:12.089Z"
+          },
+          {
+            "step": "6-work",
+            "name": "Work / Sessions shows NO approval card for the silent run",
+            "pass": true,
+            "detail": "200",
+            "at": "2026-09-15T13:33:12.144Z"
+          },
+          {
+            "step": "6-work",
+            "name": "the silently authorized run completes on the qualified harness/model and writes at least one file (14s)",
+            "pass": true,
+            "detail": "done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontainer_\",\"status\":\"added\"}],\"folder\":\".devco · ",
+            "at": "2026-09-15T13:33:12.144Z"
+          },
+          {
+            "step": "6-work",
+            "name": "the silence is attributable: a standing_draw receipt (operation session_execute, envelope hash, admission intent) is on the run's session — the draw-down receipt exists, no dialog was suppressed",
+            "pass": true,
+            "detail": "1 draw receipt(s)",
+            "at": "2026-09-15T13:33:12.145Z"
+          },
+          {
+            "step": "6-work",
+            "name": "OVER THE ENVELOPE: a second run under the same 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, no card, and the refusal receipt names the bound",
+            "pass": true,
+            "detail": "200 failed · {\"connectionRef\":\"connector:conn_617696bb35b1503c\",\"posture\":\"refused_outside_envelope\",\"reason\":\"standing_envelope_exceeded\",\"refusalReceiptRef\":\"receipt://hyp · exec 0 · refusals 1",
+            "at": "2026-09-15T13:33:47.567Z"
+          },
+          {
+            "step": "6-work",
+            "name": "REVOCATION: revoking the envelope on Connections refuses the very next session naming that connection (412, lease_status revoked) — leaving is real",
+            "pass": true,
+            "detail": "200 → 412/session_authority_connection_unbounded",
+            "at": "2026-09-15T13:33:47.637Z"
+          },
+          {
+            "step": "7-inspect",
+            "name": "the written artifacts of the silently authorized run are in the session's workspace on disk",
+            "pass": true,
+            "detail": "/tmp/ioi-alpha-journey-ubciP4/data/environments/env_7761fa09403d47cda4001a745a8bf7ef6a4ca8c02aaa437fb194ed77e68e261b/workspace · ALPHA_JOURNEY.md",
+            "at": "2026-09-15T13:33:47.667Z"
+          },
+          {
+            "step": "7-inspect",
+            "name": "the session record carries the execute receipt binding the consumed capability lease — the standing draw is the lease's admission",
+            "pass": true,
+            "detail": "1 receipt(s)",
+            "at": "2026-09-15T13:33:47.668Z"
+          },
+          {
+            "step": "2c-rotation",
+            "name": "the operator rotates the approver key: a NEW key is custodied at the same path, the retired key is versioned read-only, and the chain holds an Active successor binding (version n+1) for the new authority",
+            "pass": true,
+            "detail": "ok · v1→v2 · wallet.network://principal-authority-binding/3a0f441a7f0d705",
+            "at": "2026-09-15T13:34:19.194Z"
+          },
+          {
+            "step": "2c-rotation",
+            "name": "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts",
+            "pass": true,
+            "detail": "202 · done · [{\"files\":[{\"delta\":\"+0\",\"file_ref\":\"changed-file:.devcontainer_\",\"name\":\"\",\"receipt_ref\":\"receipt://changes/.devcontain · ",
+            "at": "2026-09-15T13:37:29.331Z"
+          },
+          {
+            "step": "2c-revocation",
+            "name": "the operator revokes the principal's approval authority: the chain holds a Revoked successor that retains the exact prior authority snapshot",
+            "pass": true,
+            "detail": "ok · v3 revoked",
+            "at": "2026-09-15T13:37:35.111Z"
+          },
+          {
+            "step": "2c-revocation",
+            "name": "AFTER revocation a new run fails CLOSED with a typed authority error before any harness runs — no approval card, no execute receipt, nothing written",
+            "pass": true,
+            "detail": "failed · Execution authority is not available on this deployment (live_route_authority_resolution_refused): a deployment-local wallet.network authority node and IOI_HYPE · 0 receipt(s)",
+            "at": "2026-09-15T13:37:55.428Z"
+          },
+          {
+            "step": "7-inspect",
+            "name": "cost/consumption, the run timeline and the work ledger answer for the operator",
+            "pass": true,
+            "detail": "200/200/200",
+            "at": "2026-09-15T13:37:55.445Z"
+          },
+          {
+            "step": "8-stop",
+            "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
+            "pass": true,
+            "detail": "200 → torn_down",
+            "at": "2026-09-15T13:37:55.594Z"
+          },
+          {
+            "step": "8-stop",
+            "name": "revoking a connection refuses every later use under the sessions that named it",
+            "pass": true,
+            "detail": "200 → 400",
+            "at": "2026-09-15T13:37:55.650Z"
+          },
+          {
+            "step": "9-recover",
+            "name": "IN-FLIGHT DRILL: a run left \"running\" by a serve that died mid-execute is RECONCILED at the next serve boot from the daemon session's execute receipt (its verdict, not the App's memory) — the durable record reads the receipt's outcome again",
+            "pass": true,
+            "detail": "planted 200/true → done · Done — reconciled from the daemon's execute receipt after a restart",
+            "at": "2026-09-15T13:37:57.758Z"
+          },
+          {
+            "step": "9-recover",
+            "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (done), its execute receipts (1) and the Sessions surface are all recovered exactly as they were",
+            "pass": true,
+            "detail": "200 · run done · 1 receipt(s) · page 200",
+            "at": "2026-09-15T13:37:57.832Z"
+          },
+          {
+            "step": "9-recover",
+            "name": "the operator's identity and session survive the restart",
+            "pass": true,
+            "detail": "200",
+            "at": "2026-09-15T13:37:57.890Z"
+          },
+          {
+            "step": "10-backup",
+            "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
+            "pass": true,
+            "detail": "exit 0 · 76/76 passed",
+            "at": "2026-09-15T13:38:22.669Z"
+          },
+          {
+            "step": "11-diagnostics",
+            "name": "doctor, the audit trail, the Operations surface and the developer route ledger answer",
+            "pass": true,
+            "detail": "200/200/200/200",
+            "at": "2026-09-15T13:38:22.780Z"
+          },
+          {
+            "step": "12-update",
+            "name": "a plan whose target is the RUNNING release is refused (the daemon compares the target digest with its own executable; nothing is minted for a no-op)",
+            "pass": true,
+            "detail": "409 release_change_plan_target_is_running",
+            "at": "2026-09-15T13:38:42.170Z"
+          },
+          {
+            "step": "12-update",
+            "name": "an UPDATE plan to v2 is admitted with the daemon's own digest recorded at admission and a durable admission receipt",
+            "pass": true,
+            "detail": "201 rcp_deb03ba9fd9af90f868b132a · 1 receipt(s)",
+            "at": "2026-09-15T13:39:01.125Z"
+          },
+          {
+            "step": "12-update",
+            "name": "a second in-flight plan is refused while one is admitted and unobserved",
+            "pass": true,
+            "detail": "409 release_change_plan_already_admitted",
+            "at": "2026-09-15T13:39:23.120Z"
+          },
+          {
+            "step": "12-update",
+            "name": "after activation + restart the daemon that came back OBSERVES its own executable digest = v2's daemon digest and completes the plan with a receipt (the outcome is the daemon's word)",
+            "pass": true,
+            "detail": "200 completed · running f91e5249a96cf525 · v2 f91e5249a96cf525",
+            "at": "2026-09-15T13:39:47.346Z"
+          },
+          {
+            "step": "12-update",
+            "name": "the updated daemon serves the SAME durable state: the sessions created before the update are still its records",
+            "pass": true,
+            "detail": "200 · 5 session(s)",
+            "at": "2026-09-15T13:39:47.384Z"
+          },
+          {
+            "step": "12-rollback",
+            "name": "a ROLLBACK plan to v1 is admitted on the updated daemon",
+            "pass": true,
+            "detail": "201 rcp_2425ff6f23954219dc3fef72",
+            "at": "2026-09-15T13:40:09.135Z"
+          },
+          {
+            "step": "12-rollback",
+            "name": "after the installer's rollback + restart, the v1 daemon observes its own digest = v1's and completes the rollback plan with a receipt; both plans and all receipts are daemon records",
+            "pass": true,
+            "detail": "200 completed · running 911d4a16dbddb5bb",
+            "at": "2026-09-15T13:40:32.443Z"
+          },
+          {
+            "step": "12-rollback",
+            "name": "the headless client lists both completed plans and the installer's activation history agrees (activate v1 → activate v2 → rollback v1)",
+            "pass": true,
+            "detail": "update:completed,rollback:completed · activate>activate>rollback",
+            "at": "2026-09-15T13:40:51.342Z"
+          },
+          {
+            "step": "13-agree",
+            "name": "the App's Sessions surface and the headless client render the same daemon-owned sessions",
+            "pass": true,
+            "detail": "5 session(s)",
+            "at": "2026-09-15T13:40:51.442Z"
+          }
+        ]
+      },
+      "verdict": {
+        "verdict": "pass",
+        "findings": []
+      }
+    },
+    "alpha_fault": {
+      "status": 0,
+      "signal": null,
+      "timed_out": false,
+      "seconds": 398,
+      "isolation": "refused_and_recorded",
+      "ledger": {
+        "path": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/alpha-fault.strace",
+        "bytes": 40173,
+        "counts": {
+          "attempts": 252,
+          "loopback": 252,
+          "declared": 0,
+          "undeclared": 0,
+          "dns_questions": 0,
+          "dns_declared": 0,
+          "dns_undeclared": 0,
+          "dns_local": 0,
+          "local_ipc": 4,
+          "netlink": 0,
+          "ledger_lines": 298
+        },
+        "loopback_ports": [
+          11434,
+          17725,
+          20001,
+          20002,
+          20004,
+          33629,
+          36551,
+          37607,
+          46729
+        ],
+        "undeclared": [],
+        "dns_undeclared": [],
+        "dns_declared": []
+      },
+      "bridges": {
+        "ollama": {
+          "inner": {
+            "name": "ollama",
+            "listen": "127.0.0.1:11434",
+            "socket_path": "/tmp/ioi-eh-hJhXGF/ollama.sock",
+            "connections": 6,
+            "active": 0,
+            "bytes_to_dependency": 1032,
+            "bytes_from_dependency": 2133,
+            "severed": true,
+            "severed_at": "2026-09-15T13:47:28.152Z",
+            "severed_active": 1,
+            "refused_after_sever": 0,
+            "upstream_failures": 0,
+            "severed_by": "trigger file sever"
+          },
+          "exporter": {
+            "socket_path": "/tmp/ioi-eh-hJhXGF/ollama.sock",
+            "target": "127.0.0.1:11434",
+            "connections": 6,
+            "failures": 0
+          }
+        }
+      },
+      "log": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/alpha-fault.log",
+      "evidence": {
+        "started_at": "2026-09-15T13:40:51.779Z",
+        "finished_at": "2026-09-15T13:47:29.239Z",
+        "summary": {
+          "passed": 30,
+          "total": 30
+        },
+        "fault_lane": {
+          "lane": "model_route_mid_run",
+          "trigger": "/tmp/ioi-standalone-conformance-AwOcsO/alpha-fault-control/sever",
+          "run_id": "agent_mu2q6w121",
+          "session_ref": "session:ai-agent_mu2q6w121",
+          "bridge_baseline": 2,
+          "terminal_status": "failed",
+          "error": "no_model_route",
+          "bridge": {
+            "name": "ollama",
+            "listen": "127.0.0.1:11434",
+            "socket_path": "/tmp/ioi-eh-hJhXGF/ollama.sock",
+            "connections": 6,
+            "active": 0,
+            "bytes_to_dependency": 1032,
+            "bytes_from_dependency": 2133,
+            "severed": true,
+            "severed_at": "2026-09-15T13:47:28.152Z",
+            "severed_active": 1,
+            "refused_after_sever": 0,
+            "upstream_failures": 0,
+            "severed_by": "trigger file sever"
+          },
+          "workspace_files": [],
+          "execute_receipts": [
+            {
+              "exit_status": "failure",
+              "exit_code": 0,
+              "files_written": [],
+              "error": "no_model_route"
+            }
+          ],
+          "seconds_to_terminal": 1
+        },
+        "nonclaims": [
+          "every step after 6f (inspect, rotation/revocation, stop, recover, backup, diagnostics, update/rollback, agreement) — not run under the fault lane",
+          "workload-bound isolation (host_spawn only)"
+        ],
+        "steps": [
+          {
+            "step": "1-install",
+            "name": "build provenance",
+            "recorded": true,
+            "detail": "77a370cb6488317806923dc05104c600ead5736d (25 dirty paths) · daemon 911d4a16dbddb5bb · linux x64 6.17.9-76061709-generic",
+            "at": "2026-09-15T13:41:46.109Z"
+          },
+          {
+            "step": "1-install",
+            "name": "the release under test is the PACKAGED release: both packages verified under the operator-pinned signer (signature + every file digest), installed into a fresh prefix, v1 activated; the daemon binary about to run is the package's bytes (digest = v1 manifest daemon digest)",
+            "pass": true,
+            "detail": "v1 0.1.0-alpha.8 signer ed25519:3b2c1285f233eb955d144d1be0984f8f · v2 0.1.0-alpha.9 · daemon 911d4a16dbddb5bb",
+            "at": "2026-09-15T13:41:46.110Z"
+          },
+          {
+            "step": "2b-authority",
+            "name": "NO-CHECKOUT closure test: the installer is the package's own (outside the repository), the authority control binary and the node binaries the launcher pinned are under the install prefix, the prefix is not a git checkout, cargo is absent from every child's PATH and no child PATH entry points into the repository",
+            "pass": true,
+            "detail": "{\"prefix\":\"/tmp/ioi-alpha-journey-fHbry6/prefix\",\"prefix_has_git\":false,\"launcher_binary\":\"/tmp/ioi-alpha-journey-fHbry6/prefix/current/bin/wallet-network-local-authority\",\"node_binary_dir\":\"/tmp/ioi-alpha-journey-fHbry6",
+            "at": "2026-09-15T13:43:49.056Z"
+          },
+          {
+            "step": "2b-authority",
+            "name": "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env",
+            "pass": true,
+            "detail": "ready in 123s · wallet.network://principal-authority-binding/6c78ab17cd2ed2ac07f3ba1526135dc5ed701649ae6fefa2cf874bd5bd5da3fa · key mode 600",
+            "at": "2026-09-15T13:43:49.056Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the daemon printed a one-boot bootstrap token",
+            "pass": true,
+            "detail": "ioi_bootstrap_49ebb9",
+            "at": "2026-09-15T13:43:51.096Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+            "pass": true,
+            "detail": "200",
+            "at": "2026-09-15T13:43:51.099Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the first-run form creates the operator account and lands on the product with an operator session",
+            "pass": true,
+            "detail": "302 → /ai",
+            "at": "2026-09-15T13:43:52.977Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+            "pass": true,
+            "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+            "at": "2026-09-15T13:43:53.037Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+            "pass": true,
+            "detail": "200/409",
+            "at": "2026-09-15T13:43:53.087Z"
+          },
+          {
+            "step": "2a-identity",
+            "name": "the operator can sign in again with the email and password they chose",
+            "pass": true,
+            "detail": "302",
+            "at": "2026-09-15T13:43:54.982Z"
+          },
+          {
+            "step": "3-readiness",
+            "name": "daemon health, doctor and substrate status answer for the operator",
+            "pass": true,
+            "detail": "200/200/200",
+            "at": "2026-09-15T13:43:54.992Z"
+          },
+          {
+            "step": "3-readiness",
+            "name": "every connected capability is TYPED on the daemon's readiness projection (9 families, each available|unavailable|degraded with a reason and its basis) and none reads available on this profile: hosted wallet.network login is deployment_local_authority_bound, the external model provider is not declared",
+            "pass": true,
+            "detail": "9 families · available [] · wallet deployment_local_authority_bound · model no_remote_route_declared",
+            "at": "2026-09-15T13:43:54.992Z"
+          },
+          {
+            "step": "3-readiness",
+            "name": "model route",
+            "recorded": true,
+            "detail": "qwen2.5:7b served at http://127.0.0.1:11434/v1 (verified via /api/tags before start)",
+            "at": "2026-09-15T13:43:54.992Z"
+          },
+          {
+            "step": "4-project",
+            "name": "a project can be created and listed",
+            "pass": true,
+            "detail": "201 project:alpha-journey · 1 project(s)",
+            "at": "2026-09-15T13:43:54.995Z"
+          },
+          {
+            "step": "5a-selection",
+            "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+            "pass": true,
+            "detail": "200 · 6 harness · 1 routes · 0 connections",
+            "at": "2026-09-15T13:43:55.708Z"
+          },
+          {
+            "step": "5c-envelope",
+            "name": "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage · $0.01 · 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A",
+            "pass": true,
+            "detail": "200/ok {\"allowed_tools\":[\"ping\"],\"expires_at_ms\":1789487042624,\"max_cumulative_deposit_microusd\":10000,\"max_cumulative_spend_microusd\":10000,\"max_u · factor deployment_local_operator_key_custody",
+            "at": "2026-09-15T13:44:27.921Z"
+          },
+          {
+            "step": "5c-envelope",
+            "name": "the Connections card renders the envelope's status and bounds from the daemon record (bounded vs unbounded is daemon truth, never a client-side number)",
+            "pass": true,
+            "detail": "200 standing=true",
+            "at": "2026-09-15T13:44:27.932Z"
+          },
+          {
+            "step": "5c-envelope",
+            "name": "M13.3: a launch naming an UNBOUNDED connection refuses at session create (412 session_authority_connection_unbounded) with widening pointed at Connections — configure-once is the admission rule",
+            "pass": true,
+            "detail": "412/session_authority_connection_unbounded",
+            "at": "2026-09-15T13:44:27.973Z"
+          },
+          {
+            "step": "5b-connections",
+            "name": "the composer's launch binds the operator's selected BOUNDED connection as the session's CLOSED authority profile",
+            "pass": true,
+            "detail": "202 session:hyp-ec928c3b715dad0f5d2d85365eafde0e62a18aa0fb39c52f9f922c02dead69d5 [\"connector:conn_617696bb35b1503c\"]",
+            "at": "2026-09-15T13:44:28.132Z"
+          },
+          {
+            "step": "5b-connections",
+            "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+            "pass": true,
+            "detail": "403/session_authority_out_of_profile",
+            "at": "2026-09-15T13:44:28.182Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "submitting a provider key in the App PARKS on the custody approval card: 202 awaiting_operator_approval with the daemon's exact commitments (policy and request hashes, tool model.credential.bind, the exact scope, the grant audience) and NOTHING sealed yet",
+            "pass": true,
+            "detail": "201 → 202/awaiting_operator_approval · sha256:c013f6783d25937e7 · binding before approval null",
+            "at": "2026-09-15T13:45:13.077Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "Agent Studio renders the custody card with both commitments and the approve/deny acts (the plaintext appears nowhere on the page)",
+            "pass": true,
+            "detail": "200 {\"card\":true,\"request_hash\":true,\"approve_act\":true,\"registry\":true,\"plaintext\":false,\"bytes\":25685}",
+            "at": "2026-09-15T13:45:13.577Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "the operator's approval mints ONE grant with the deployment-local approver, records it on the authority node, and the daemon seals the key (sealed_capability_lease with a custody lease); the read projection carries no secret",
+            "pass": true,
+            "detail": "201/approved  · {\"kind\":\"sealed_capability_lease\",\"lease\":\"lease:lease_aa5d09ba0345d27c\"}",
+            "at": "2026-09-15T13:46:43.327Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "one crossing, one decision: a second approval finds nothing pending (404) and the card is gone from Agent Studio",
+            "pass": true,
+            "detail": "404/credential_bind_not_pending",
+            "at": "2026-09-15T13:46:43.806Z"
+          },
+          {
+            "step": "5d-custody",
+            "name": "the drill key does not outlive the drill: revoking the credential leaves the route with no binding",
+            "pass": true,
+            "detail": "200 → binding null",
+            "at": "2026-09-15T13:46:43.941Z"
+          },
+          {
+            "step": "6-work",
+            "name": "the composer submit creates a real environment, a session and a registered run",
+            "pass": true,
+            "detail": "200 run agent_mu2q6w121 env env_30d4b8b4dc454f21900c970e14a85b60be75dd644c44491186ec03e874f27587",
+            "at": "2026-09-15T13:46:44.139Z"
+          },
+          {
+            "step": "6f-fault",
+            "name": "the run is EXECUTING when the declared model route is severed: admitted and authorized, the harness child alive, and its model REQUEST in flight through the route bridge (a connection open past the pre-run baseline that has carried request bytes — a bare reachability probe carries none)",
+            "pass": true,
+            "detail": "status running · bridge connections 6 (baseline 2) active 1 · request bytes 854 · 44s",
+            "at": "2026-09-15T13:47:28.020Z"
+          },
+          {
+            "step": "6f-fault",
+            "name": "the harness bridge SEVERED the declared dependency MID-STREAM: at least one in-flight model stream was destroyed and every later connect is refused — the deployment itself was not touched",
+            "pass": true,
+            "detail": "severed true at 2026-09-15T13:47:28.152Z · in-flight 1 · refused after 0",
+            "at": "2026-09-15T13:47:29.024Z"
+          },
+          {
+            "step": "6f-fault",
+            "name": "after the declared dependency died mid-run the run TERMINATES TYPED: status failed (never done, never left running) with an error naming the failure (1s)",
+            "pass": true,
+            "detail": "failed · no_model_route",
+            "at": "2026-09-15T13:47:29.024Z"
+          },
+          {
+            "step": "6f-fault",
+            "name": "NO FABRICATED SUCCESS: the session workspace holds no artifact of the run and no execute receipt claims success or a written file; every receipt that exists carries a typed failure",
+            "pass": true,
+            "detail": "workspace files [] · execute receipts 1 · fabricated 0 · failure/0/no_model_route",
+            "at": "2026-09-15T13:47:29.057Z"
+          },
+          {
+            "step": "6f-fault",
+            "name": "readiness now reports the severed route as TYPED unreachable: the daemon's own availability probe of the declared local route answers `unreachable` (not a pass, not silence, not a stale `declared`)",
+            "pass": true,
+            "detail": "200 · state unreachable · ",
+            "at": "2026-09-15T13:47:29.190Z"
+          },
+          {
+            "step": "6f-fault",
+            "name": "the App shows the failed run as failed: Work / Sessions renders the run with no approval card and the daemon transcript's terminal status is what the surface reads",
+            "pass": true,
+            "detail": "200",
+            "at": "2026-09-15T13:47:29.239Z"
+          },
+          {
+            "step": "7-inspect",
+            "name": "every later step",
+            "recorded": true,
+            "detail": "NOT RUN under the fault lane (IOI_ALPHA_JOURNEY_FAULT=model_route_mid_run): the lane's claim ends at the typed termination above; steps 7–13 are qualified by the ordinary journey, never by this run",
+            "at": "2026-09-15T13:47:29.239Z"
+          }
+        ]
+      }
+    },
+    "portable_replay": {
+      "status": 0,
+      "signal": null,
+      "timed_out": false,
+      "seconds": 11,
+      "isolation": "refused_and_recorded",
+      "ledger": {
+        "path": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/portable-replay.strace",
+        "bytes": 0,
+        "counts": {
+          "attempts": 0,
+          "loopback": 0,
+          "declared": 0,
+          "undeclared": 0,
+          "dns_questions": 0,
+          "dns_declared": 0,
+          "dns_undeclared": 0,
+          "dns_local": 0,
+          "local_ipc": 0,
+          "netlink": 0,
+          "ledger_lines": 0
+        },
+        "loopback_ports": [],
+        "undeclared": [],
+        "dns_undeclared": [],
+        "dns_declared": []
+      },
+      "bridges": {},
+      "log": "../../../../../../tmp/ioi-standalone-conformance-AwOcsO/portable-replay.log"
+    }
+  },
+  "results": [
+    {
+      "name": "the standalone profile is a registered ConformanceProfile instance: valid against schema://ioi/foundations/conformance-profile/v1, family runtime_node, fixture embedded_single_operator_offline naming the nine denied families, and both negative tests declared (fail_closed + reject)",
+      "pass": true,
+      "detail": "sha256:a408b2ae3c08eb8d · 21 interfaces · envelope canon://docs/architecture/components/hypervisor/bounded-alpha-profile.md#intended-user-and-supported-deployment"
+    },
+    {
+      "name": "the profile's envelope is the bounded alpha's declared deployment (the check claims exactly that envelope, never the selected minimum-L0 OutcomeRoom profile)",
+      "pass": true,
+      "detail": "canon://docs/architecture/components/hypervisor/bounded-alpha-profile.md#intended-user-and-supported-deployment"
+    },
+    {
+      "name": "the isolation property is TYPED for this run: refused_and_recorded (strace present; unprivileged nested namespaces available — every non-loopback destination is refused by the kernel)",
+      "pass": true,
+      "detail": "unshare -r -n (loopback only, brought up as mapped root) then --map-user back to the operator's uid"
+    },
+    {
+      "name": "the ledger parser reads every shape strace writes: loopback IPv4 and IPv6 connects (the resolver's own 127.0.0.53 among them), an unfinished non-loopback connect whose ENETUNREACH arrives on the resumed line, a unix socket and a netlink datagram counted as local IPC, and a DNS question name parsed from a connected datagram's bytes (with its search-domain variant folded onto it)",
+      "pass": true,
+      "detail": "5 attempts · unix 1 · netlink 1 · dns api.ioi.ai,api.ioi.ai.tail025d2d.ts.net"
+    },
+    {
+      "name": "the classifier allows loopback and a DECLARED host, and names every other destination and every undeclared name as a reach",
+      "pass": true,
+      "detail": "{\"attempts\":5,\"loopback\":3,\"declared\":1,\"undeclared\":1,\"dns_questions\":2,\"dns_declared\":0,\"dns_undeclared\":1,\"dns_local\":0,\"local_ipc\":1,\"netlink\":1,\"ledger_lines\":10}"
+    },
+    {
+      "name": "the verdict is the absence of findings, never a default: the same ledger with the reach and the name lookup removed passes, and with them present it fails naming undeclared_egress and undeclared_name_resolution",
+      "pass": true,
+      "detail": "pid 4242 connect → 203.0.113.7:443 (ENETUNREACH) · pid(s) 4246 asked the resolver for api.ioi.ai (+1 search variants)"
+    },
+    {
+      "name": "a disposition is validated against the registered schema AND the runner's own rules: available without a host is a finding, unavailable with none is not",
+      "pass": true,
+      "detail": "available_without_a_host: telemetry"
+    },
+    {
+      "name": "an isolated daemon under the fixture boots, bootstraps its operator and answers readiness with the typed-availability read model (connected_capabilities on /v1/hypervisor/substrate/status)",
+      "pass": true,
+      "detail": "exit 0 · 5s · 9 dispositions"
+    },
+    {
+      "name": "every one of the nine IOI-managed families is present exactly once and validates against schema://ioi/components/hypervisor/connected-capability-disposition/v1 plus the runner's coupling rules",
+      "pass": true,
+      "detail": "ioi_ai_account=unavailable/not_configured hosted_wallet_network_login=unavailable/not_configured marketplace=unavailable/not_configured ioi_network_enrollment=unavailable/not_enrolled ioi_l1=unavailable/not_configured license_heartbeat=unavailable/not_configured telemetry=unavailable/not_configured update_service=unavailable/operator_supplied_packages_only external_model_provider=unavailable/no_remote_route_declared"
+    },
+    {
+      "name": "under the fixture every denied family reads UNAVAILABLE with its reason and no family reads available: no hosted login (not_configured), no remote provider (no_remote_route_declared), updates are operator-supplied packages only, enrollment/L1/license/telemetry/marketplace/account not configured",
+      "pass": true,
+      "detail": "ioi_ai_account:not_configured hosted_wallet_network_login:not_configured marketplace:not_configured ioi_network_enrollment:not_enrolled ioi_l1:not_configured license_heartbeat:not_configured telemetry:not_configured update_service:operator_supplied_packages_only external_model_provider:no_remote_route_declared"
+    },
+    {
+      "name": "the offline daemon's whole life is on the ledger and it reached NOTHING outside loopback: zero undeclared connects, zero undeclared name lookups; the profile verdict over this deployment is pass",
+      "pass": true,
+      "detail": "{\"attempts\":6,\"loopback\":6,\"declared\":0,\"undeclared\":0,\"dns_questions\":0,\"dns_declared\":0,\"dns_undeclared\":0,\"dns_local\":0,\"local_ipc\":0,\"netlink\":0,\"ledger_lines\":6} · ports 36145 · "
+    },
+    {
+      "name": "NEGATIVE (b): a deployment whose model upstream names the non-loopback host 10.255.255.1 ATTEMPTS the reach — the daemon's own readiness probe at session create connects to it, and the ledger records the attempt from the daemon process",
+      "pass": true,
+      "detail": "1 attempt(s) pid 2587103 ENETUNREACH · session create 202/"
+    },
+    {
+      "name": "the KERNEL refused it: every attempt to the non-loopback host failed ENETUNREACH inside the namespace, before any packet existed",
+      "pass": true,
+      "detail": "ENETUNREACH"
+    },
+    {
+      "name": "the profile FAILS that deployment, typed: undeclared_egress naming the process and destination — the load-bearing half of the standalone contract",
+      "pass": true,
+      "detail": "undeclared_egress: pid 2587103 connect → 10.255.255.1:11434 (ENETUNREACH)"
+    },
+    {
+      "name": "and the daemon's own read model told the truth about the same fact: external_model_provider reads DEGRADED (declared_endpoint_not_executable) naming the non-loopback host — declared, not executable, never available",
+      "pass": true,
+      "detail": "{\"basis\":\"model-route-registry: 1 route(s) read; an active route names a non-loopback provider host but holds no sealed credential\",\"capability\":\"external_model_provider\",\"declared_endpoint_host\":\"10.255.255.1\",\"disposition\":\"degraded\",\"reason_code\":\"declared_endpoint_not_executable\",\"schema_version\":\"ioi.connected-capability-disposition.v1\"}"
+    },
+    {
+      "name": "POSITIVE: the bounded-alpha essential journey PASSES on the packaged release with no source checkout inside the harness (53/53 in 927s): verified packages installed by the package's own installer outside the repository, the deployment-local authority node up with generated keys, first-run identity, readiness, a governed run completed on the local model, rotation and revocation, stop, restart and recovery, backup/restore across two daemons, diagnostics, update to v2 and rollback to v1 observed by the daemon's own digest",
+      "pass": true,
+      "detail": "exit 0 · 53/53 · "
+    },
+    {
+      "name": "the journey's own steps prove the envelope's interfaces under the fixture: 1-install (PACKAGED, signer-verified), 2b-authority (NO-CHECKOUT closure + generated keys), 6-work (a run completed on the qualified harness/model and wrote a file), 9-recover, 10-backup (the two-daemon verifier), 12-update and 12-rollback (admitted change plans, digest observed)",
+      "pass": true,
+      "detail": "1-install 1/2 · 2b-authority 2/2 · 6-work 7/7 · 9-recover 3/3 · 10-backup 1/1 · 12-update 5/5 · 12-rollback 3/3"
+    },
+    {
+      "name": "with the deployment-local authority bound, the daemon's readiness read model types every IOI-managed family: hosted wallet.network login is deployment_local_authority_bound (a loopback node, not a hosted login), the external model provider is not declared, nothing reads available — and the journey's own 3-readiness assertion over the same projection passed",
+      "pass": true,
+      "detail": "ioi_ai_account=unavailable/not_configured hosted_wallet_network_login=unavailable/deployment_local_authority_bound marketplace=unavailable/not_configured ioi_network_enrollment=unavailable/not_enrolled ioi_l1=unavailable/not_configured license_heartbeat=unavailable/not_configured telemetry=unavailable/not_configured update_service=unavailable/operator_supplied_packages_only external_model_provider=unavailable/no_remote_route_declared"
+    },
+    {
+      "name": "the ONE declared loopback dependency was reached only through the harness bridge — the model served the run (bytes flowed back from Ollama) — and the ledger's loopback ports are the deployment's own: daemon, served App, product UI, the authority node and its TLS front, the backup verifier's daemons, the bridge",
+      "pass": true,
+      "detail": "bridge connections 17 · bytes from the model 3208 · loopback ports 12"
+    },
+    {
+      "name": "ZERO REACH beyond loopback across the whole journey (405 recorded attempts, 0 resolver questions): no undeclared connect, no undeclared name lookup (the journey's own example.invalid / custody-drill.invalid inputs are its declared BYO names); the profile verdict over the deployment is PASS — and connection alone completed nothing: every managed family stayed typed unavailable while the local System bootstrapped, governed, executed, preserved and restored (ACC-14 N2)",
+      "pass": true,
+      "detail": "{\"attempts\":405,\"loopback\":405,\"declared\":0,\"undeclared\":0,\"dns_questions\":0,\"dns_declared\":0,\"dns_undeclared\":0,\"dns_local\":0,\"local_ipc\":156,\"netlink\":0,\"ledger_lines\":621} · no findings · declared names none seen"
+    },
+    {
+      "name": "NEGATIVE (a): with the declared model route SEVERED while the run executed, the run terminated TYPED — status failed, an error naming the failure — never done, never left running (1s to terminal; journey 30/30)",
+      "pass": true,
+      "detail": "exit 0 · failed · no_model_route · "
+    },
+    {
+      "name": "the harness bridge did the severing, not the deployment, and it was MID-STREAM: at least one in-flight model stream was destroyed and every later connect refused, and the ledger shows no reach beyond loopback while the deployment failed closed",
+      "pass": true,
+      "detail": "severed true at 2026-09-15T13:47:28.152Z · in-flight 1 · refused after 0 · {\"attempts\":252,\"loopback\":252,\"declared\":0,\"undeclared\":0,\"dns_questions\":0,\"dns_declared\":0,\"dns_undeclared\":0,\"dns_local\":0,\"local_ipc\":4,\"netlink\":0,\"ledger_lines\":298}"
+    },
+    {
+      "name": "no fabricated success: the session workspace holds no artifact of the failed run and no execute receipt claims success or a written file — every receipt carries a typed failure (the journey counted the things themselves)",
+      "pass": true,
+      "detail": "workspace [] · receipts [{\"exit_status\":\"failure\",\"exit_code\":0,\"files_written\":[],\"error\":\"no_model_route\"}]"
+    },
+    {
+      "name": "portable evidence replay (M06.4's check: a bundle reproduces its decision on the standalone relying party, reordered accepted byte-identically, every missing or substituted member refused) passes under the ledger with NO network attempt at all — offline means offline (and the ledger is empty because nothing was attempted, not because nothing was traced: the harness's inner summary carries the child's exit under strace)",
+      "pass": true,
+      "detail": "exit 0 · 11s · {\"attempts\":0,\"loopback\":0,\"declared\":0,\"undeclared\":0,\"dns_questions\":0,\"dns_declared\":0,\"dns_undeclared\":0,\"dns_local\":0,\"local_ipc\":0,\"netlink\":0,\"ledger_lines\":0} ·   \"verdict\": \"PASS\","
+    }
+  ],
+  "work_dir": "/tmp/ioi-standalone-conformance-AwOcsO",
+  "packages": {
+    "source": "/home/heathledger/.local/share/ioi-l0-packages",
+    "trust": "/home/heathledger/.local/share/ioi-l0-packages/signer/release-signer.pub.pem",
+    "v1": "/home/heathledger/.local/share/ioi-l0-packages/releases/ioi-hypervisor-alpha-0.1.0-alpha.8-linux-x86_64",
+    "v2": "/home/heathledger/.local/share/ioi-l0-packages/releases/ioi-hypervisor-alpha-0.1.0-alpha.9-linux-x86_64",
+    "v1_release": {
+      "version": "0.1.0-alpha.8",
+      "daemon_sha256": "911d4a16dbddb5bb565060fee17c32989dad542166a2e7a961abed42ab6c8bed",
+      "files": 772,
+      "signer": "ed25519:3b2c1285f233eb955d144d1be0984f8f"
+    },
+    "v2_release": {
+      "version": "0.1.0-alpha.9",
+      "daemon_sha256": "f91e5249a96cf525fd7640e2440809d2e62559ee98acf3576f2000a41e49bc33",
+      "files": 772,
+      "signer": "ed25519:3b2c1285f233eb955d144d1be0984f8f"
+    }
+  },
+  "legs_selected": [
+    "positive",
+    "fault",
+    "replay"
+  ],
+  "finished_at": "2026-09-15T13:47:40.593Z",
+  "summary": {
+    "passed": 24,
+    "total": 24,
+    "drills_executed": 15
+  }
+}

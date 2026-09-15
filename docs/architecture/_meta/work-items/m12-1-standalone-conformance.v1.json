@@ -1,0 +1,104 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-1-standalone-conformance",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.1"
+  ],
+  "status": "evidence_ready",
+  "objective": "Turn the declared standalone envelope into a pass-or-fail check under the sovereign-local fixture (execution-horizons.md § Required sovereign-local fixture: every IOI-managed endpoint denied, loopback and explicit local IPC allowed, optional planes typed unavailable rather than fabricated), with the negative half executed rather than described: a deployment that quietly reaches a first-party dependency fails, and a declared dependency that dies mid-run produces a typed refusal, never a fabricated success.",
+  "falsifiable_claim": "npm run check:standalone-conformance loads the registered ConformanceProfile instance conformance_profile://ioi/standalone/embedded-single-operator-offline/v1 (schema://ioi/foundations/conformance-profile/v1; family runtime_node; the nine denied families; two negative tests), validates it against its schema and pins its digest; runs the bounded-alpha essential journey on the packaged release with no source checkout INSIDE the isolated-egress harness (scripts/lib/egress-harness.mjs: a nested user+network namespace holding only loopback, a seccomp-filtered strace ledger of every connect/sendto/sendmmsg from every descendant process with DNS question names parsed from the datagram bytes, and a unix-socket bridge for the one declared loopback dependency) and requires zero reach beyond loopback, the journey green, and every IOI-managed family typed unavailable on the daemon's own readiness projection (connected_capabilities[] on GET /v1/hypervisor/substrate/status, each member schema://ioi/components/hypervisor/connected-capability-disposition/v1); runs backup/restore across two daemons inside that journey and portable evidence replay under the same ledger with no network attempt; and executes the negative half: (a) the harness bridge severs the declared model route while the run executes and the run terminates failed with an error, no artifact and no successful execute receipt while readiness reads the route failed; (b) a deployment pointed at a non-loopback model upstream attempts the reach from its own readiness probe, the kernel refuses it where namespaces exist, and the profile FAILS it undeclared_egress naming pid and destination while the daemon's read model calls the same route degraded/declared_endpoint_not_executable. --drills is the CI-bound subset (15 assertions, floor-pinned, in the Rust-backed verifier job with mutate:standalone-conformance, 5/5 planted defects red). Isolation is a typed property of each run (refused_and_recorded | recorded_only). The pass claims the bounded-alpha envelope under the fixture, not the selected minimum-L0 OutcomeRoom profile.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/bounded-alpha-profile.md",
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-standalone-conformance.mjs",
+      "literal": "undeclared_egress",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/egress-harness.mjs",
+      "literal": "refused_and_recorded",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/egress-harness-inner.mjs",
+      "literal": "severed",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+      "literal": "model_route_mid_run",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "connected_capability_dispositions",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs",
+      "literal": "connected_capabilities",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json",
+      "literal": "embedded_single_operator_offline",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/conformance-profile.v1.schema.json",
+      "literal": "schema://ioi/foundations/conformance-profile/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/connected-capability-disposition.v1.schema.json",
+      "literal": "schema://ioi/components/hypervisor/connected-capability-disposition/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "literal": "check:standalone-conformance",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/release-plan.mjs",
+      "literal": "lifecycle:injected-dependency-failure",
+      "present_when": "merged"
+    },
+    {
+      "path": "package.json",
+      "literal": "\"check:standalone-conformance\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "literal": "check:standalone-conformance -- --drills",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "literal": "\"id\": \"standalone-conformance\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-1-standalone-conformance-2026-09-15.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:standalone-conformance plants a non-loopback connect, a resolver question for api.ioi.ai, a denied family reading available, a degraded family without a host, a re-familied profile, a profile with a negative test dropped, an unknown member, and a fault-lane run that read done — each must go red (5/5 detected). The undeclared-reach drill is itself a live negative: the daemon's own probe attempts the reach and the profile fails the deployment. The fault lane severs a live model stream and requires typed termination.",
+  "remaining_nonclaims": [
+    "System genesis + governance under the sovereign-local fixture: the bounded alpha (ADR 0052) contains no System; the profile declares the genesis interfaces and M12.3's gate composes genesis, constitution and the room under the same fixture",
+    "The selected minimum-L0 OutcomeRoom profile is not claimed passed; the pass is the bounded-alpha envelope under the fixture",
+    "The refusal half of isolation is typed absent (recorded_only) on a host that refuses unprivileged user namespaces; the ledger still proves zero reach",
+    "Egress through io_uring connect operations would not appear in a ptrace ledger; no component of this deployment uses them today",
+    "The full check (the alpha journey under the harness, the fault lane, portable replay) is on demand, not CI-gated"
+  ],
+  "source_provenance": "Authored 2026-09-15 by the MVP finish-line program (R-157 opened the unit by measurement; R-158 ruled the build shape). First full run on 77a370cb6 (25 dirty paths: this unit's own uncommitted files) 2026-09-15: 24/24 — the harnessed journey 53/53 in 927 s with 405 recorded attempts, all loopback; the fault lane 30/30 (terminal failed in 1 s); portable replay with 0 network attempts; isolation refused_and_recorded. Recorded in canon-to-code-delta.md § Journey verification LXXXVIII.",
+  "last_status_transaction": "2026-09-15"
+}

@@ -51,6 +51,19 @@
 //                                  runs with cargo/rustup removed from PATH and cwd at the
 //                                  install root, and the evidence records the paths it observed.
 //                                  This verifier itself is only the driver.
+//   IOI_ALPHA_JOURNEY_FAULT        "model_route_mid_run" runs the INJECTED-DEPENDENCY-FAILURE
+//                                  lane (M12.1's negative half; ACC-14 clause 1; ACC-R's
+//                                  lifecycle leg): once the composer run is EXECUTING, the journey
+//                                  writes IOI_ALPHA_JOURNEY_FAULT_TRIGGER, which the isolated-
+//                                  egress harness's model-route bridge watches — it severs the
+//                                  in-flight model stream and refuses every later connect — and
+//                                  the run must then terminate TYPED (failed, never done; no
+//                                  artifact; no successful execute receipt) while readiness reads
+//                                  the route unreachable. The lane stops after the fault
+//                                  assertions; every later step is recorded as not run under it.
+//                                  IOI_ALPHA_JOURNEY_FAULT_STATS names the bridge's statistics
+//                                  file when the harness exposes one (the lane waits for the
+//                                  bridge to have carried the model stream before severing).
 
 import { spawn, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -117,6 +130,12 @@ const REMOTE = MODEL_ROUTE_LANE === "remote" && PROVIDER_KEY.length > 0 && AUTHO
 const DEPLOYMENT_NODE_PRINCIPAL_REF = "domain://alpha-host";
 const AUTHORITY_PRESENT = AUTHORITY_MODE !== "none";
 const PACKAGE_MODE = process.env.IOI_ALPHA_JOURNEY_PACKAGE === "1";
+// M12.1 — the injected-dependency-failure lane (see the header). The trigger is a file the harness
+// watches; without a trigger path the lane cannot sever anything and refuses to claim it did.
+const FAULT = process.env.IOI_ALPHA_JOURNEY_FAULT === "model_route_mid_run" ? "model_route_mid_run" : null;
+const FAULT_TRIGGER = process.env.IOI_ALPHA_JOURNEY_FAULT_TRIGGER || "";
+const FAULT_STATS = process.env.IOI_ALPHA_JOURNEY_FAULT_STATS || "";
+if (FAULT && !FAULT_TRIGGER) { console.error("BLOCKED: IOI_ALPHA_JOURNEY_FAULT needs IOI_ALPHA_JOURNEY_FAULT_TRIGGER (the harness bridge's trigger file)"); process.exit(2); }
 const NO_CHECKOUT = PACKAGE_MODE && process.env.IOI_ALPHA_JOURNEY_NO_CHECKOUT === "1";
 // A PATH with no cargo, rustup or the repository's own bin dirs: the packaged release must not be
 // able to build anything on the host.
@@ -514,6 +533,19 @@ async function run() {
   const doctor = await jd(DAEMON, "/v1/doctor");
   const substrate = await jd(DAEMON, "/v1/hypervisor/substrate/status");
   ok("3-readiness", "daemon health, doctor and substrate status answer for the operator", healthz.status === 200 && doctor.status === 200 && substrate.status === 200, `${healthz.status}/${doctor.status}/${substrate.status}`);
+  // M12.1 — the typed-availability read model (core-clients-surfaces.md § Standalone Local
+  // Completeness): every IOI-managed endpoint family is typed on the daemon's own readiness
+  // projection. On this profile nothing hosted is bound: the wallet.network endpoint is the
+  // deployment-local node (loopback) or absent, and the model route is local unless the REMOTE
+  // lane declared one — so no family may read `available` except a declared remote provider.
+  const caps = Array.isArray(substrate.body?.connected_capabilities) ? substrate.body.connected_capabilities : [];
+  const capFamilies = ["ioi_ai_account", "hosted_wallet_network_login", "marketplace", "ioi_network_enrollment", "ioi_l1", "license_heartbeat", "telemetry", "update_service", "external_model_provider"];
+  const capByName = Object.fromEntries(caps.map((c) => [c.capability, c]));
+  const capsTyped = capFamilies.every((f) => ["available", "unavailable", "degraded"].includes(capByName[f]?.disposition) && typeof capByName[f]?.reason_code === "string" && typeof capByName[f]?.basis === "string");
+  const capsAvailable = caps.filter((c) => c.disposition === "available").map((c) => c.capability);
+  const allowedAvailable = REMOTE ? ["external_model_provider"] : [];
+  ok("3-readiness", `every connected capability is TYPED on the daemon's readiness projection (${capFamilies.length} families, each available|unavailable|degraded with a reason and its basis) and none reads available on this profile${REMOTE ? " except the declared remote provider" : ""}: hosted wallet.network login is ${AUTHORITY_PRESENT ? "deployment_local_authority_bound" : "not_configured"}, the external model provider is not declared`, caps.length === capFamilies.length && capsTyped && capsAvailable.every((c) => allowedAvailable.includes(c)) && capByName.hosted_wallet_network_login?.reason_code === (AUTHORITY_PRESENT ? "deployment_local_authority_bound" : "not_configured") && (REMOTE || capByName.external_model_provider?.reason_code === "no_remote_route_declared"), `${caps.length} families · available ${JSON.stringify(capsAvailable)} · wallet ${capByName.hosted_wallet_network_login?.reason_code} · model ${capByName.external_model_provider?.reason_code}`);
+  evidence.connected_capabilities = caps;
   if (REMOTE) record("3-readiness", "model route", `REMOTE lane: ${PROVIDER_MODEL} at ${PROVIDER_BASE_URL} through the daemon's model-mount proxy; the local route is not required for this run`);
   else record("3-readiness", "model route", `${MODEL} served at ${MODEL_UPSTREAM} (verified via /api/tags before start)`);
 
@@ -645,11 +677,81 @@ async function run() {
   // ---- 6. start useful work: composer → parked on approval → approve → execute ----------------
   const intent = "Create a file named ALPHA_JOURNEY.md whose first line is exactly: hello from the alpha journey";
   const composerBody = { initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: VENUE_CLASS_ID, ...(STANDING ? { authorityProfile: { connectionRefs: [`connector:${A}`] } } : {}), ...(remoteRoute ? { modelRouteRef: remoteRoute.routeRef } : {}) };
+  // M12.1 fault lane: the bridge's connection count BEFORE this run exists is the baseline; the
+  // run is mid-stream when the count has grown past it and a connection is still open.
+  const faultStatsRead = () => { try { return JSON.parse(fs.readFileSync(FAULT_STATS, "utf8")); } catch { return null; } };
+  const faultBaseline = FAULT && FAULT_STATS ? (faultStatsRead()?.connections ?? 0) : 0;
+  // Probe connections (the daemon's 300 ms reachability checks) carry no bytes; the harness's model
+  // request does. A stream is the MODEL stream only once request bytes have flowed past this mark.
+  const faultBytesBaseline = FAULT && FAULT_STATS ? (faultStatsRead()?.bytes_to_dependency ?? 0) : 0;
   const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody) });
   const runId = create.body?.agentExecutionId || "";
   const envId = create.body?.environment?.id || create.body?.environment?.environmentId || "";
   ok("6-work", "the composer submit creates a real environment, a session and a registered run", create.status === 200 && runId && envId, `${create.status} run ${runId} env ${envId}`);
   let transcript = null;
+  if (FAULT === "model_route_mid_run") {
+    // ---- 6f. THE INJECTED DEPENDENCY FAILURE (M12.1 negative half) ------------------------------
+    // This lane runs BEFORE the ordinary park loop below: a warm model can complete the whole run
+    // inside that loop's 120 s, and a dependency severed after completion proves nothing (the
+    // first run of this lane read exactly that — a legitimately completed run mistaken for a
+    // fabricated success). The trigger fires only while the run is EXECUTING with a model stream
+    // OPEN through the bridge: past admission and authority, the harness child alive, its request
+    // in flight. That is the only moment "mid-run" means what canon means by it.
+    const runSessionRef = transcript?.session_ref || `session:ai-${runId}`;
+    const execStart = Date.now();
+    let bridge = faultStatsRead();
+    let status = null;
+    let lastPoll = 0;
+    while (Date.now() - execStart < 180_000) {
+      bridge = faultStatsRead();
+      if (bridge && (bridge.connections ?? 0) > faultBaseline && (bridge.active ?? 0) >= 1 && (bridge.bytes_to_dependency ?? 0) > faultBytesBaseline) break;
+      if (Date.now() - lastPoll >= 1000) {
+        lastPoll = Date.now();
+        const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+        transcript = t.body?.run || t.body?.record || t.body;
+        status = transcript?.status;
+        if (["done", "failed", "denied", "awaiting_operator_approval"].includes(status)) break;
+      }
+      await sleep(100);
+    }
+    const streamOpen = !!bridge && (bridge.connections ?? 0) > faultBaseline && (bridge.active ?? 0) >= 1 && (bridge.bytes_to_dependency ?? 0) > faultBytesBaseline;
+    const executing = streamOpen && !["done", "failed", "denied", "awaiting_operator_approval"].includes(status);
+    ok("6f-fault", "the run is EXECUTING when the declared model route is severed: admitted and authorized, the harness child alive, and its model REQUEST in flight through the route bridge (a connection open past the pre-run baseline that has carried request bytes — a bare reachability probe carries none)", executing, `status ${status ?? "not yet read"} · bridge connections ${bridge?.connections ?? "n/a"} (baseline ${faultBaseline}) active ${bridge?.active ?? "n/a"} · request bytes ${(bridge?.bytes_to_dependency ?? 0) - faultBytesBaseline} · ${Math.round((Date.now() - execStart) / 1000)}s`);
+    fs.writeFileSync(FAULT_TRIGGER, `sever ${new Date().toISOString()}\n`);
+    const severedAt = Date.now();
+    let severedStats = bridge;
+    while (Date.now() - severedAt < EXECUTE_BUDGET_MS) {
+      const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+      transcript = t.body?.run || t.body?.record || t.body;
+      severedStats = faultStatsRead() || severedStats;
+      if (["done", "failed", "denied"].includes(transcript?.status)) break;
+      await sleep(1000);
+    }
+    const faultSeconds = Math.round((Date.now() - severedAt) / 1000);
+    ok("6f-fault", "the harness bridge SEVERED the declared dependency MID-STREAM: at least one in-flight model stream was destroyed and every later connect is refused — the deployment itself was not touched", severedStats?.severed === true && (severedStats?.severed_active ?? 0) >= 1, `severed ${severedStats?.severed} at ${severedStats?.severed_at} · in-flight ${severedStats?.severed_active} · refused after ${severedStats?.refused_after_sever}`);
+    ok("6f-fault", `after the declared dependency died mid-run the run TERMINATES TYPED: status failed (never done, never left running) with an error naming the failure (${faultSeconds}s)`, transcript?.status === "failed" && String(transcript?.error || "").length > 0, `${transcript?.status} · ${String(transcript?.error || "").slice(0, 160)}`);
+    const envF = await jd(DAEMON, `/v1/hypervisor/environments/${encodeURIComponent(envId)}`);
+    const rootF = envF.body?.environment?.status?.workspace_root || "";
+    let filesF = [];
+    try { filesF = fs.readdirSync(rootF).filter((f) => !f.startsWith(".")); } catch { /* none */ }
+    const execF = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
+    // A success CLAIM is `exit_status: success` or a written file. A refusal before any process
+    // ran carries exit_code 0 beside `exit_status: failure` and a typed error — that is the honest
+    // shape of "nothing ran", not a success.
+    const fabricated = execF.filter((r) => r.exit_status === "success" || (Array.isArray(r.files_written) ? r.files_written.length : Number(r.files_written || 0)) > 0);
+    ok("6f-fault", "NO FABRICATED SUCCESS: the session workspace holds no artifact of the run and no execute receipt claims success or a written file; every receipt that exists carries a typed failure", filesF.length === 0 && fabricated.length === 0 && execF.every((r) => r.exit_status !== "success" && String(r.error || "").length > 0), `workspace files ${JSON.stringify(filesF.slice(0, 6))} · execute receipts ${execF.length} · fabricated ${fabricated.length} · ${execF.map((r) => `${r.exit_status}/${r.exit_code}/${String(r.error || "").slice(0, 40)}`).join(",")}`);
+    // The daemon's OWN probe of the declared route after the sever: `unreachable`, typed, from the
+    // route registry's availability probe (it asks the endpoint for its model list and says so).
+    const probeF = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent("mrt_local_default")}/probe`, { method: "POST" });
+    const availF = probeF.body?.availability || probeF.body?.route?.availability || {};
+    ok("6f-fault", "readiness now reports the severed route as TYPED unreachable: the daemon's own availability probe of the declared local route answers `unreachable` (not a pass, not silence, not a stale `declared`)", probeF.status < 300 && availF.state === "unreachable", `${probeF.status} · state ${availF.state ?? "absent"} · ${String(probeF.body?.error?.code || probeF.body?.code || "")}`);
+    const runsPage = await jd(SERVE, "/work/sessions");
+    ok("6f-fault", "the App shows the failed run as failed: Work / Sessions renders the run with no approval card and the daemon transcript's terminal status is what the surface reads", runsPage.status === 200 && !runsPage.text.includes(`data-ioi-awaiting-approval="${runId}"`), `${runsPage.status}`);
+    evidence.fault_lane = { lane: FAULT, trigger: FAULT_TRIGGER, run_id: runId, session_ref: runSessionRef, bridge_baseline: faultBaseline, terminal_status: transcript?.status || null, error: String(transcript?.error || "").slice(0, 400), bridge: severedStats || null, workspace_files: filesF.slice(0, 12), execute_receipts: execF.map((r) => ({ exit_status: r.exit_status, exit_code: r.exit_code, files_written: r.files_written, error: String(r.error || "").slice(0, 200) })), seconds_to_terminal: faultSeconds };
+    record("7-inspect", "every later step", `NOT RUN under the fault lane (IOI_ALPHA_JOURNEY_FAULT=${FAULT}): the lane's claim ends at the typed termination above; steps 7–13 are qualified by the ordinary journey, never by this run`);
+    evidence.nonclaims = ["every step after 6f (inspect, rotation/revocation, stop, recover, backup, diagnostics, update/rollback, agreement) — not run under the fault lane", "workload-bound isolation (host_spawn only)"];
+    return;
+  }
   const parkDeadline = Date.now() + 120_000;
   while (Date.now() < parkDeadline) {
     const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
@@ -1041,7 +1143,9 @@ run().then(async () => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   const file = writeEvidence();
   console.log(`evidence: ${path.relative(ROOT, file)}`);
-  emitVerifierCensus({ verifierId: "alpha-journey", sourceUrl: import.meta.url, results });
+  // The fault lane is a LANE of this journey, not the journey: it stops after step 6f, so its
+  // assertion count is not this verifier's population and must not be censused under its id.
+  if (!FAULT) emitVerifierCensus({ verifierId: "alpha-journey", sourceUrl: import.meta.url, results });
   await cleanup();
   process.exit(fails.length ? 1 : 0);
 }).catch(async (e) => {

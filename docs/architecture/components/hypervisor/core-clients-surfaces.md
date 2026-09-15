@@ -42,7 +42,9 @@ contract, and older mapping documents remain archived historical evidence.
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; NO implementation was re-derived in this pass. The substantive bases are unchanged: 2026-08-20 for the Application Surfaces implementation-status block, the New Session block, and the Hypervisor Home block, re-derived against the running estate under the Reference-UX Remediation correction; the 2026-08-08 R2 basis for core-workspace enumeration sections against the v2 route table and surface compiler; and the 2026-07-05 basis for all other sections, which still need re-derivation before citing)
+  - `scripts/check-standalone-conformance.mjs`
+  - `scripts/lib/egress-harness.mjs`
+Last implementation audit: 2026-09-15 (§ Standalone Local Completeness re-derived by M12.1: the typed-availability read model on the substrate status projection and check:standalone-conformance; every other section as on 2026-09-12: docs-only ownership move under ADR 0052 Decision 4; NO implementation was re-derived in this pass. The substantive bases are unchanged: 2026-08-20 for the Application Surfaces implementation-status block, the New Session block, and the Hypervisor Home block, re-derived against the running estate under the Reference-UX Remediation correction; the 2026-08-08 R2 basis for core-workspace enumeration sections against the v2 route table and surface compiler; and the 2026-07-05 basis for all other sections, which still need re-derivation before citing)
 
 ## Canonical Definition
 
@@ -197,10 +199,66 @@ custody, and assurance differences remain explicit.
 The claim's fixture and target-evidence contract is stated in
 [`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
 minimum-L0 proof profile* (the former separate conformance document was
-retired on 2026-08-12); the contract currently defines target evidence and
-does not claim a shipped end-to-end standalone product. The narrower
-base-platform alpha is owned by
+retired on 2026-08-12). The narrower base-platform alpha is owned by
 [`bounded-alpha-profile.md`](./bounded-alpha-profile.md).
+
+### The typed-availability read model
+
+"Typed unavailable" is a property of the daemon's own readiness projection,
+never of a client's inference. `GET /v1/hypervisor/substrate/status` carries
+`connected_capabilities[]`: one `ConnectedCapabilityDisposition` per
+IOI-managed endpoint family the standalone contract names, computed from what
+the daemon actually read — an environment variable name, a record family —
+and never from a probe of a hidden endpoint. `available` requires a declared
+endpoint the daemon can name (a hosted wallet.network RPC host, an active
+remote model route with a sealed credential); `degraded` is declared but not
+executable; `unavailable` carries the reason. Connection alone never makes a
+family available.
+
+```yaml
+ConnectedCapabilityDisposition:
+  schema_version: ioi.connected-capability-disposition.v1
+  capability:
+    ioi_ai_account | hosted_wallet_network_login | marketplace |
+    ioi_network_enrollment | ioi_l1 | license_heartbeat | telemetry |
+    update_service | external_model_provider
+  disposition: available | unavailable | degraded
+  reason_code:
+    not_configured | deployment_local_authority_bound | not_enrolled |
+    operator_supplied_packages_only | no_remote_route_declared |
+    declared_endpoint | declared_endpoint_not_executable
+  basis: string          # what the daemon read: a variable name, a record family — never a secret
+  declared_endpoint_host: string | null   # named whenever available or degraded (registered invariant)
+```
+
+Registered as `schema://ioi/components/hypervisor/connected-capability-disposition/v1`
+(2026-09-15). The read model is composed into readiness rather than served as
+a second plane, so a deployment's doctor and status surfaces show the same
+dispositions the conformance runner reads.
+
+### The standalone conformance check
+
+`check:standalone-conformance` (`scripts/check-standalone-conformance.mjs`,
+M12.1) is the executable form of this section under the
+`embedded_single_operator_offline` fixture: the instantiated profile
+`conformance_profile://ioi/standalone/embedded-single-operator-offline/v1`
+(a registered `ConformanceProfile`) is loaded and pinned; the bounded-alpha
+essential journey runs on the packaged release with no source checkout INSIDE
+an isolated-egress harness — a user+network namespace holding only loopback,
+with a seccomp-filtered `strace` ledger of every `connect`/`sendto` from every
+descendant process and the DNS question names parsed from it, and unix-socket
+bridges for the declared loopback dependencies; the daemon's
+`connected_capabilities[]` must read typed unavailable for every denied
+family; backup/restore across daemons and portable evidence replay run under
+the same ledger. The negative half is executed, not described: the declared
+model route is severed mid-run and the run must terminate typed (`failed`,
+never `done`, no artifact, no successful execute receipt); a deployment
+pointed at a non-loopback dependency must FAIL the profile with
+`undeclared_egress` naming the process and destination. Isolation is a typed
+property of each run (`refused_and_recorded` where unprivileged namespaces
+exist, `recorded_only` where they do not); a pass claims exactly the
+bounded-alpha envelope under the fixture and not the selected minimum-L0
+OutcomeRoom profile, which stays with `M12.3`/`M12.4`.
 
 ## Zero-To-Operable Local Deployment
 

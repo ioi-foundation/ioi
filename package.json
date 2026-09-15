@@ -136,6 +136,8 @@
     "mutate:acceptance-bounded-improvement": "node scripts/check-acceptance-bounded-improvement.mjs --mutation",
     "check:acceptance-sovereign-interop": "node scripts/check-acceptance-sovereign-interop.mjs",
     "mutate:acceptance-sovereign-interop": "node scripts/check-acceptance-sovereign-interop.mjs --mutation",
+    "check:standalone-conformance": "node scripts/check-standalone-conformance.mjs",
+    "mutate:standalone-conformance": "node scripts/check-standalone-conformance.mjs --mutation",
     "check:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs",
     "check:acceptance-conformance-ladder:live": "node scripts/check-acceptance-conformance-ladder.mjs --live",
     "mutate:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs --mutation",
