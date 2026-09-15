@@ -215,8 +215,12 @@ but the fixture source must be visible and must not be presented as admitted
 runtime truth.
 
 ```http
-GET /v1/hypervisor/work-projection?view={active|sessions|queues|reviews|incidents|history}[&q=…]
+GET /v1/hypervisor/work-projection
 ```
+
+Query: `view` is exactly one of `active | sessions | queues | reviews | incidents |
+history` (default `active`); optional `q` narrows rows only; optional `subject_ref`
+and `subject_kind` select one typed subject and refuse when they disagree.
 
 **Built 2026-09-14 (M08.9).** The policy-filtered Work read model canon names
 in `core-clients-surfaces.md` § *Hypervisor Work*. The daemon derives it on
