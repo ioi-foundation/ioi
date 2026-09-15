@@ -297,6 +297,48 @@ of a component. `pursuit_method_order` is recorded only with the frozen target-
 to-method edge and is normally the target order plus one; generation indexes,
 active nesting depth, transfer tier, and evidence claim class remain orthogonal.
 
+### ImprovementRoleBindingEnvelope
+
+Search, Judgment and Authority are logical trust functions of one campaign
+([`../bounded-recursive-improvement.md`](../bounded-recursive-improvement.md)
+§ Search, Judgment, And Authority). A role binding makes them SEPARATELY
+IDENTIFIABLE: it names, for one campaign, which admitted deployment principals
+hold each function, so every role-separated seam is keyed on the RESOLVED
+caller principal against the campaign's current binding and never on a role a
+request body declares. The campaign's declared `improvement_assurance_profile`
+is copied at admission and decides the checkable independence obligation the
+daemon derives into `independence`: `local_lightweight` permits one
+accountable principal to hold all three (`separately_identifiable`);
+`independent_review` and every tier above require judgment and authority under
+distinct principals and search disjoint from judgment
+(`distinct_principals`) — a binding that violates the declared tier is refused
+`role_independence_violated`, and a tier the deployment cannot evidence fails
+closed at admission. A campaign starts only once a binding is admitted
+(`role_bindings_required`); a successor revision names the exact current head.
+Registered as `schema://ioi/foundations/objects/improvement-role-binding/v1`
+(2026-09-15, M10.2).
+
+```yaml
+ImprovementRoleBindingEnvelope:
+  schema_version: ioi.improvement-role-binding.v1
+  improvement_role_binding_id: improvement-role-binding://...   # the campaign's family token
+  revision_ref: improvement-role-binding://.../revision/...
+  revision: positive_integer
+  predecessor_revision_ref: improvement-role-binding://.../revision/... | null
+  content_hash: hash                      # every member except itself and admitted_at
+  owner_ref: org://... | project://... | system://... | user://...
+  campaign_ref: improvement-campaign://...
+  improvement_assurance_profile: local_lightweight | independent_review | protected_build |
+    adversarial_control | threshold_recovery | failure_domain_independent   # copied from the campaign contract
+  bindings:
+    search: [user://...]                  # propose candidates and investigations; request evaluation
+    judgment: [user://...]                # freeze and apply evaluation contracts; account for exposure
+    authority: [user://...]               # admit, approve, activate, stop, recover
+  independence: separately_identifiable | distinct_principals   # derived from the profile, never authored
+  binding_decision_ref: decision://...
+  admitted_at: timestamp
+```
+
 ### EvaluationEpochEnvelope
 
 An Evaluation Epoch freezes one Campaign utility, verifier, holdout,

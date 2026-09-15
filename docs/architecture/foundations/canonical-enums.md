@@ -202,9 +202,11 @@ never as authority; a declared profile the deployment cannot evidence fails
 closed, and this enum must not be conflated with the receipt `assurance-stage`
 ladder or the `EcosystemAssuranceProfile` certification family.
 
-Implementation grounding: planned contract field on `ImprovementCampaign`
-(`ioi.improvement-campaign.v1`) and direct-proposal admission; no substrate
-is on current master.
+Implementation grounding: a registered contract field on `ImprovementCampaign`
+(`ioi.improvement-campaign.v1`, M10.1) copied onto the campaign's
+`ImprovementRoleBindingEnvelope` at admission, where the daemon derives and
+enforces the tier's independence obligation (M10.2, 2026-09-15); direct-proposal
+admission does not yet carry it.
 
 ## Enforcement Coverage Facts (`coverage_fact`)
 

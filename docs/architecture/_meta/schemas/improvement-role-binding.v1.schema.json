@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+  "title": "ImprovementRoleBindingEnvelope",
+  "description": "THE THREE TRUST FUNCTIONS OF ONE CAMPAIGN BOUND TO ACCOUNTABLE PRINCIPALS (bounded-improvement.md § ImprovementRoleBindingEnvelope; doctrine in bounded-recursive-improvement.md § Search, Judgment, And Authority). A binding names, for one campaign, which admitted deployment principals hold Search (propose candidates and investigations), Judgment (freeze and apply evaluation contracts, account for exposure) and Authority (admit, approve, activate, stop, recover). The campaign's declared `improvement_assurance_profile` is COPIED at admission and decides the checkable independence obligation the daemon derives into `independence`: `local_lightweight` requires the three functions to be separately identifiable and permits one accountable principal to hold them all (`separately_identifiable`); `independent_review` and every tier above require judgment and authority under distinct principals and search disjoint from judgment (`distinct_principals`). The daemon keys every role-separated seam on the RESOLVED caller principal against the campaign's current binding — never on a role a body declares. `content_hash` commits the body and excludes only itself and the admission stamp.",
+  "x-ioi-schema-version": "ioi.improvement-role-binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "campaignFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "bindingFamilyRef": {
+      "type": "string",
+      "pattern": "^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "bindingRevisionRef": {
+      "type": "string",
+      "pattern": "^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "principalRef": {
+      "type": "string",
+      "pattern": "^user://[^\\s/?#\\\\]{1,480}$"
+    },
+    "principalRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/principalRef"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "improvement_role_binding_id",
+    "revision_ref",
+    "revision",
+    "predecessor_revision_ref",
+    "content_hash",
+    "owner_ref",
+    "campaign_ref",
+    "improvement_assurance_profile",
+    "bindings",
+    "independence",
+    "binding_decision_ref",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.improvement-role-binding.v1"
+    },
+    "improvement_role_binding_id": {
+      "$ref": "#/$defs/bindingFamilyRef"
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/bindingRevisionRef"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/bindingRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef"
+    },
+    "campaign_ref": {
+      "$ref": "#/$defs/campaignFamilyRef"
+    },
+    "improvement_assurance_profile": {
+      "enum": [
+        "local_lightweight",
+        "independent_review",
+        "protected_build",
+        "adversarial_control",
+        "threshold_recovery",
+        "failure_domain_independent"
+      ]
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "search",
+        "judgment",
+        "authority"
+      ],
+      "properties": {
+        "search": {
+          "$ref": "#/$defs/principalRefs"
+        },
+        "judgment": {
+          "$ref": "#/$defs/principalRefs"
+        },
+        "authority": {
+          "$ref": "#/$defs/principalRefs"
+        }
+      }
+    },
+    "independence": {
+      "enum": [
+        "separately_identifiable",
+        "distinct_principals"
+      ]
+    },
+    "binding_decision_ref": {
+      "$ref": "#/$defs/decisionRef"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

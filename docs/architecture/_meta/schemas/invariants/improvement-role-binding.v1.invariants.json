@@ -1,0 +1,67 @@
+{
+  "$id": "invariant://ioi/foundations/objects/improvement-role-binding/accountable-functions/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+  "rules": [
+    {
+      "rule_id": "improvement_role_binding.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES: the revision ref begins with the binding id and the `/revision/` segment, which also refuses a family head in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.improvement_role_binding_id",
+        "prefix": "improvement-role-binding://",
+        "strip_prefix": "improvement-role-binding://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_role_binding.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp — the campaign, the copied profile, the three principal sets, the derived independence verdict and the decision — under the domain separator `ioi.improvement-role-binding-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so a binding whose principal set was edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-role-binding-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_role_binding_id": {
+            "path": "$.improvement_role_binding_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "campaign_ref": {
+            "path": "$.campaign_ref"
+          },
+          "improvement_assurance_profile": {
+            "path": "$.improvement_assurance_profile"
+          },
+          "bindings": {
+            "path": "$.bindings"
+          },
+          "independence": {
+            "path": "$.independence"
+          },
+          "binding_decision_ref": {
+            "path": "$.binding_decision_ref"
+          }
+        }
+      }
+    }
+  ]
+}

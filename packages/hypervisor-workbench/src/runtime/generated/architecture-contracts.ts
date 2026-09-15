@@ -13265,6 +13265,26 @@ export type ModelSwapContinuityReportV1 = {
   admitted_at: string;
 };
 
+export type ImprovementRoleBindingEnvelopeV1 = {
+  schema_version: "ioi.improvement-role-binding.v1";
+  improvement_role_binding_id: string;
+  revision_ref: string;
+  revision: number;
+  predecessor_revision_ref: string | null;
+  content_hash: string;
+  owner_ref: string;
+  campaign_ref: string;
+  improvement_assurance_profile: "local_lightweight" | "independent_review" | "protected_build" | "adversarial_control" | "threshold_recovery" | "failure_domain_independent";
+  bindings: {
+      search: Array<string>;
+      judgment: Array<string>;
+      authority: Array<string>;
+    };
+  independence: "separately_identifiable" | "distinct_principals";
+  binding_decision_ref: string;
+  admitted_at: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -25666,6 +25686,78 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "model_swap_continuity_report.content_hash.commits_the_immutable_body"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_role_binding.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "improvement_role_binding.content_hash.commits_the_immutable_body"
   }
 ] as const;
 
@@ -29868,6 +29960,15 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json","contract_id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json","contract_id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -30663,6 +30764,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}$",
   "^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^incident://[^\\s]+$",
   "^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^install://\\S*$",
@@ -30992,6 +31095,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^transition://state-transition/sha256:[0-9a-f]{64}$",
   "^trun_[0-9a-f]{12,32}$",
   "^user://[^\\s/?#\\\\]+$",
+  "^user://[^\\s/?#\\\\]{1,480}$",
   "^user://\\S+$",
   "^v[1-9][0-9]{0,8}$",
   "^vault://[^\\s]{1,248}$",
@@ -31350,7 +31454,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/evaluator-revision/v1": "sha256:9f25a6e73e932b6ade9dd69677fe0cdcc9e2c2cafcd35b6ee794f682bee0a105",
   "schema://ioi/components/hypervisor/evaluation-run/v1": "sha256:92bd9f0c1c8ddd0fd77f076c2c2cb1a22ef5a2453ef085e5001c5c4a6770446e",
   "schema://ioi/components/hypervisor/evaluation-result/v1": "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987",
-  "schema://ioi/components/hypervisor/model-swap-continuity-report/v1": "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33"
+  "schema://ioi/components/hypervisor/model-swap-continuity-report/v1": "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33",
+  "schema://ioi/foundations/objects/improvement-role-binding/v1": "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -134240,6 +134345,151 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/canonicalTimestamp"
       }
     }
+  },
+  "schema://ioi/foundations/objects/improvement-role-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+    "title": "ImprovementRoleBindingEnvelope",
+    "description": "THE THREE TRUST FUNCTIONS OF ONE CAMPAIGN BOUND TO ACCOUNTABLE PRINCIPALS (bounded-improvement.md § ImprovementRoleBindingEnvelope; doctrine in bounded-recursive-improvement.md § Search, Judgment, And Authority). A binding names, for one campaign, which admitted deployment principals hold Search (propose candidates and investigations), Judgment (freeze and apply evaluation contracts, account for exposure) and Authority (admit, approve, activate, stop, recover). The campaign's declared `improvement_assurance_profile` is COPIED at admission and decides the checkable independence obligation the daemon derives into `independence`: `local_lightweight` requires the three functions to be separately identifiable and permits one accountable principal to hold them all (`separately_identifiable`); `independent_review` and every tier above require judgment and authority under distinct principals and search disjoint from judgment (`distinct_principals`). The daemon keys every role-separated seam on the RESOLVED caller principal against the campaign's current binding — never on a role a body declares. `content_hash` commits the body and excludes only itself and the admission stamp.",
+    "x-ioi-schema-version": "ioi.improvement-role-binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "campaignFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "bindingFamilyRef": {
+        "type": "string",
+        "pattern": "^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "bindingRevisionRef": {
+        "type": "string",
+        "pattern": "^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^user://[^\\s/?#\\\\]{1,480}$"
+      },
+      "principalRefs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/principalRef"
+        }
+      }
+    },
+    "required": [
+      "schema_version",
+      "improvement_role_binding_id",
+      "revision_ref",
+      "revision",
+      "predecessor_revision_ref",
+      "content_hash",
+      "owner_ref",
+      "campaign_ref",
+      "improvement_assurance_profile",
+      "bindings",
+      "independence",
+      "binding_decision_ref",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.improvement-role-binding.v1"
+      },
+      "improvement_role_binding_id": {
+        "$ref": "#/$defs/bindingFamilyRef"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/bindingRevisionRef"
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000000000
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/bindingRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "campaign_ref": {
+        "$ref": "#/$defs/campaignFamilyRef"
+      },
+      "improvement_assurance_profile": {
+        "enum": [
+          "local_lightweight",
+          "independent_review",
+          "protected_build",
+          "adversarial_control",
+          "threshold_recovery",
+          "failure_domain_independent"
+        ]
+      },
+      "bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "search",
+          "judgment",
+          "authority"
+        ],
+        "properties": {
+          "search": {
+            "$ref": "#/$defs/principalRefs"
+          },
+          "judgment": {
+            "$ref": "#/$defs/principalRefs"
+          },
+          "authority": {
+            "$ref": "#/$defs/principalRefs"
+          }
+        }
+      },
+      "independence": {
+        "enum": [
+          "separately_identifiable",
+          "distinct_principals"
+        ]
+      },
+      "binding_decision_ref": {
+        "$ref": "#/$defs/decisionRef"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -152561,6 +152811,68 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         }
       }
     }
+  ],
+  "schema://ioi/foundations/objects/improvement-role-binding/v1": [
+    {
+      "rule_id": "improvement_role_binding.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES: the revision ref begins with the binding id and the `/revision/` segment, which also refuses a family head in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.improvement_role_binding_id",
+        "prefix": "improvement-role-binding://",
+        "strip_prefix": "improvement-role-binding://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "improvement_role_binding.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp — the campaign, the copied profile, the three principal sets, the derived independence verdict and the decision — under the domain separator `ioi.improvement-role-binding-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so a binding whose principal set was edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.improvement-role-binding-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "improvement_role_binding_id": {
+            "path": "$.improvement_role_binding_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "campaign_ref": {
+            "path": "$.campaign_ref"
+          },
+          "improvement_assurance_profile": {
+            "path": "$.improvement_assurance_profile"
+          },
+          "bindings": {
+            "path": "$.bindings"
+          },
+          "independence": {
+            "path": "$.independence"
+          },
+          "binding_decision_ref": {
+            "path": "$.binding_decision_ref"
+          }
+        }
+      }
+    }
   ]
 };
 
@@ -155292,4 +155604,10 @@ export function validateModelSwapContinuityReportV1(
   value: unknown,
 ): value is ModelSwapContinuityReportV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", value).ok;
+}
+
+export function validateImprovementRoleBindingEnvelopeV1(
+  value: unknown,
+): value is ImprovementRoleBindingEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/improvement-role-binding/v1", value).ok;
 }

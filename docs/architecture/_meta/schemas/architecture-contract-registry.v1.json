@@ -17850,6 +17850,78 @@
           "expected_rule_id": "model_swap_continuity_report.content_hash.commits_the_immutable_body"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/improvement-role-binding/v1",
+      "canonical_name": "ImprovementRoleBindingEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#improvementrolebindingenvelope",
+      "schema_version": "ioi.improvement-role-binding.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "improvement-role-binding.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/improvement-role-binding/accountable-functions/v1",
+          "path": "invariants/improvement-role-binding.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ImprovementRoleBindingEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ImprovementRoleBindingEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json",
+        "fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json",
+        "fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/improvement-role-binding-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-role-binding-v1/negative-empty-judgment.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_role_binding.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/improvement-role-binding-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "improvement_role_binding.content_hash.commits_the_immutable_body"
+        }
+      ]
     }
   ]
 }

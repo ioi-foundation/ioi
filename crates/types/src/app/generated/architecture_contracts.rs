@@ -353,6 +353,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/evaluation-run/v1", "sha256:92bd9f0c1c8ddd0fd77f076c2c2cb1a22ef5a2453ef085e5001c5c4a6770446e"),
     ("schema://ioi/components/hypervisor/evaluation-result/v1", "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987"),
     ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33"),
+    ("schema://ioi/foundations/objects/improvement-role-binding/v1", "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -149311,6 +149312,207 @@ pub enum ModelSwapContinuityReportV1AuthorityNote {
     GrantsNoAuthorityProvesContinuityOnlyForTheDeclaredTaskAndEvalEnvelopeAMatchingModelNameOrASingleScoreIsNotModelIndependence,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementRoleBindingEnvelopeV1 {
+    pub schema_version: ImprovementRoleBindingEnvelopeV1SchemaVersion,
+    pub improvement_role_binding_id: String,
+    pub revision_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub predecessor_revision_ref: Option<String>,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub campaign_ref: String,
+    pub improvement_assurance_profile: ImprovementRoleBindingEnvelopeV1ImprovementAssuranceProfile,
+    pub bindings: ImprovementRoleBindingEnvelopeV1Bindings,
+    pub independence: ImprovementRoleBindingEnvelopeV1Independence,
+    pub binding_decision_ref: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementRoleBindingEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-role-binding/v1","title":"ImprovementRoleBindingEnvelope","description":"THE THREE TRUST FUNCTIONS OF ONE CAMPAIGN BOUND TO ACCOUNTABLE PRINCIPALS (bounded-improvement.md § ImprovementRoleBindingEnvelope; doctrine in bounded-recursive-improvement.md § Search, Judgment, And Authority). A binding names, for one campaign, which admitted deployment principals hold Search (propose candidates and investigations), Judgment (freeze and apply evaluation contracts, account for exposure) and Authority (admit, approve, activate, stop, recover). The campaign's declared `improvement_assurance_profile` is COPIED at admission and decides the checkable independence obligation the daemon derives into `independence`: `local_lightweight` requires the three functions to be separately identifiable and permits one accountable principal to hold them all (`separately_identifiable`); `independent_review` and every tier above require judgment and authority under distinct principals and search disjoint from judgment (`distinct_principals`). The daemon keys every role-separated seam on the RESOLVED caller principal against the campaign's current binding — never on a role a body declares. `content_hash` commits the body and excludes only itself and the admission stamp.","x-ioi-schema-version":"ioi.improvement-role-binding.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingFamilyRef":{"type":"string","pattern":"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingRevisionRef":{"type":"string","pattern":"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"principalRef":{"type":"string","pattern":"^user://[^\\s/?#\\\\]{1,480}$"},"principalRefs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/principalRef"}}},"required":["schema_version","improvement_role_binding_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","campaign_ref","improvement_assurance_profile","bindings","independence","binding_decision_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-role-binding.v1"},"improvement_role_binding_id":{"$ref":"#/$defs/bindingFamilyRef"},"revision_ref":{"$ref":"#/$defs/bindingRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/bindingRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"improvement_assurance_profile":{"enum":["local_lightweight","independent_review","protected_build","adversarial_control","threshold_recovery","failure_domain_independent"]},"bindings":{"type":"object","additionalProperties":false,"required":["search","judgment","authority"],"properties":{"search":{"$ref":"#/$defs/principalRefs"},"judgment":{"$ref":"#/$defs/principalRefs"},"authority":{"$ref":"#/$defs/principalRefs"}}},"independence":{"enum":["separately_identifiable","distinct_principals"]},"binding_decision_ref":{"$ref":"#/$defs/decisionRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<ImprovementRoleBindingEnvelopeV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            improvement_role_binding_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"improvement_role_binding_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"improvement_role_binding_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            campaign_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"campaign_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"campaign_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_assurance_profile: serde_json::from_value::<
+                ImprovementRoleBindingEnvelopeV1ImprovementAssuranceProfile,
+            >(
+                object
+                    .remove(r#"improvement_assurance_profile"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"improvement_assurance_profile"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bindings: serde_json::from_value::<ImprovementRoleBindingEnvelopeV1Bindings>(
+                object
+                    .remove(r#"bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            independence: serde_json::from_value::<ImprovementRoleBindingEnvelopeV1Independence>(
+                object
+                    .remove(r#"independence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"independence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementRoleBindingEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.improvement-role-binding.v1"#)]
+    IoiImprovementRoleBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementRoleBindingEnvelopeV1ImprovementAssuranceProfile {
+    #[serde(rename = r#"local_lightweight"#)]
+    LocalLightweight,
+    #[serde(rename = r#"independent_review"#)]
+    IndependentReview,
+    #[serde(rename = r#"protected_build"#)]
+    ProtectedBuild,
+    #[serde(rename = r#"adversarial_control"#)]
+    AdversarialControl,
+    #[serde(rename = r#"threshold_recovery"#)]
+    ThresholdRecovery,
+    #[serde(rename = r#"failure_domain_independent"#)]
+    FailureDomainIndependent,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ImprovementRoleBindingEnvelopeV1Bindings {
+    pub search: Vec<String>,
+    pub judgment: Vec<String>,
+    pub authority: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ImprovementRoleBindingEnvelopeV1Bindings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["search","judgment","authority"],"properties":{"search":{"$ref":"#/$defs/principalRefs"},"judgment":{"$ref":"#/$defs/principalRefs"},"authority":{"$ref":"#/$defs/principalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            search: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"search"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"search"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            judgment: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"judgment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"judgment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ImprovementRoleBindingEnvelopeV1Independence {
+    #[serde(rename = r#"separately_identifiable"#)]
+    SeparatelyIdentifiable,
+    #[serde(rename = r#"distinct_principals"#)]
+    DistinctPrincipals,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -161713,6 +161915,78 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("model_swap_continuity_report.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_role_binding.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/improvement-role-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("improvement_role_binding.content_hash.commits_the_immutable_body"),
     },
 ];
 
@@ -180375,6 +180649,105 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/improvement-role-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -182097,6 +182470,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/evaluation-run/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-run/v1","title":"EvaluationRun","description":"ONE ADMITTED EXECUTION AGAINST A FROZEN EPOCH: the run binds the epoch's frozen root, the RELEASED suite revision, the ACTIVE evaluator revision, the lane, the exact incumbent and target-base roots the epoch froze (copied and re-derived by the daemon, never caller-supplied), the execution evidence it judges by exact ref (model-invocation receipts, event-stream receipts, sessions, Foundry recipe runs), the current policy-bound data-view REVISION, the nondeterminism class with its seed, the submitter's role (Search is never a submitter) and its cost (evaluations.md § Registered shapes).","x-ioi-schema-version":"ioi.evaluation-run.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_run_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","incumbent_ref","incumbent_root","target_base_root","execution_evidence_refs","policy_bound_data_view_revision_ref","nondeterminism_class","seed","submitter_role","cost_units","cost_unit","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-run.v1"},"evaluation_run_id":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"incumbent_ref":{"$ref":"#/$defs/label"},"incumbent_root":{"$ref":"#/$defs/sha256"},"target_base_root":{"$ref":"#/$defs/sha256"},"execution_evidence_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/evidenceRef"}},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"nondeterminism_class":{"$ref":"#/$defs/nondeterminismClass"},"seed":{"anyOf":[{"type":"integer","minimum":0,"maximum":1000000000000},{"type":"null"}]},"submitter_role":{"enum":["evaluator","target_owner","independent_reproducer"]},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/components/hypervisor/evaluation-result/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-result/v1","title":"EvaluationResult","description":"AN IMMUTABLE OBSERVATION AND ITS INTERPRETATION UNDER THE EPOCH — the result and the scorecard as one record: per-case observations bound to their case commitments and evidence, a verdict from the closed set pass | fail | inconclusive | blocked | invalid with the BASIS the daemon derived it on (a missing required lane is at most inconclusive; a mutable input, an inactive evaluator or undeclared nondeterminism is invalid; unavailable protected input or exhausted exposure is blocked), and the scorecard members canon says one aggregate score cannot erase: uncertainty, guardrails, applicability, cost, failures and evaluator versions. A sealed-lane result names the exposure entry its protected access appended. It carries no promotion, nomination or activation member: Evaluations emits evidence and decides nothing.","x-ioi-schema-version":"ioi.evaluation-result.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_result_id","content_hash","owner_ref","evaluation_run_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","observations","verdict","verdict_basis","uncertainty","guardrail_findings","applicability_scope","cost_units","cost_unit","failures","evaluator_versions","exposure_entry_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-result.v1"},"evaluation_result_id":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_run_ref":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"observations":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["observation_id","case_commitment","outcome","score_milli","evidence_refs"],"properties":{"observation_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"case_commitment":{"$ref":"#/$defs/sha256"},"outcome":{"enum":["pass","fail","error","skipped"]},"score_milli":{"$ref":"#/$defs/milli"},"evidence_refs":{"type":"array","minItems":0,"maxItems":16,"items":{"$ref":"#/$defs/evidenceRef"}}}}},"verdict":{"enum":["pass","fail","inconclusive","blocked","invalid"]},"verdict_basis":{"enum":["observed","required_lane_missing","mutable_input_refused","protected_input_unavailable","exposure_exhausted","evaluator_not_active","nondeterminism_undeclared"]},"uncertainty":{"type":"object","additionalProperties":false,"required":["method","interval_low_milli","interval_high_milli","sample_size"],"properties":{"method":{"enum":["fixed_test","sequential","anytime_valid","bayesian","frequentist","ranking","human_judgment","simulation","formal_verification","domain_acceptance"]},"interval_low_milli":{"$ref":"#/$defs/milli"},"interval_high_milli":{"$ref":"#/$defs/milli"},"sample_size":{"$ref":"#/$defs/boundedCount"}}},"guardrail_findings":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"applicability_scope":{"$ref":"#/$defs/label"},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"failures":{"type":"array","minItems":0,"maxItems":1024,"items":{"$ref":"#/$defs/label"}},"evaluator_versions":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/evaluatorRevisionRef"}},"exposure_entry_ref":{"$ref":"#/$defs/optionalExposureEntryRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","title":"ModelSwapContinuityReport","description":"THE MODEL-INDEPENDENCE TEST'S REPORT (foundry.md § Model-Swap Continuity; institutional-learning-boundary.md's five steps): the frozen snapshot — epoch, suite revision, institutional state root, policy-bound view revision, learning-boundary profile — both route contracts by record hash, the REGISTRY evidence that the incumbent was disabled before candidate evidence was admitted, the baseline and candidate results under the same epoch, the declared equivalence envelope, the observed deltas across semantic, safety, cost, latency and failure posture, unsupported dependencies, and the threshold verdict. It is a comparison and continuity proof for the declared envelope only: it grants no authority and makes no general model-equivalence claim.","x-ioi-schema-version":"ioi.model-swap-continuity-report.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","model_swap_continuity_report_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","institutional_state_root","policy_bound_data_view_revision_ref","learning_boundary_profile_ref","incumbent_route_ref","incumbent_route_record_hash","incumbent_disabled_evidence","candidate_route_ref","candidate_route_record_hash","baseline_result_refs","candidate_result_refs","equivalence_envelope","observed_deltas","unsupported_dependencies","threshold_verdict","canary_refs","rollback_refs","authority_note","admitted_at"],"properties":{"schema_version":{"const":"ioi.model-swap-continuity-report.v1"},"model_swap_continuity_report_id":{"type":"string","pattern":"^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"institutional_state_root":{"$ref":"#/$defs/sha256"},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"learning_boundary_profile_ref":{"anyOf":[{"type":"string","pattern":"^learning-boundary://[^\\s]{1,240}$"},{"type":"null"}]},"incumbent_route_ref":{"$ref":"#/$defs/modelRouteRef"},"incumbent_route_record_hash":{"$ref":"#/$defs/sha256"},"incumbent_disabled_evidence":{"type":"object","additionalProperties":false,"required":["lifecycle_status","observed_at","registry_record_hash"],"properties":{"lifecycle_status":{"const":"disabled"},"observed_at":{"$ref":"#/$defs/canonicalTimestamp"},"registry_record_hash":{"$ref":"#/$defs/sha256"}}},"candidate_route_ref":{"$ref":"#/$defs/modelRouteRef"},"candidate_route_record_hash":{"$ref":"#/$defs/sha256"},"baseline_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"candidate_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"equivalence_envelope":{"type":"object","additionalProperties":false,"required":["semantic_rule","semantic_floor_milli","safety_floor_milli","cost_ceiling_ratio_milli","latency_ceiling_ratio_milli","failure_posture_rule"],"properties":{"semantic_rule":{"enum":["exact_match","rubric_scored","declared_equivalence_class"]},"semantic_floor_milli":{"$ref":"#/$defs/milli"},"safety_floor_milli":{"$ref":"#/$defs/milli"},"cost_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"failure_posture_rule":{"enum":["identical","no_new_failure_classes","declared"]}}},"observed_deltas":{"type":"object","additionalProperties":false,"required":["semantic_delta_milli","safety_delta_milli","cost_ratio_milli","latency_ratio_milli","new_failure_classes"],"properties":{"semantic_delta_milli":{"$ref":"#/$defs/signedMilli"},"safety_delta_milli":{"$ref":"#/$defs/signedMilli"},"cost_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"new_failure_classes":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/label"}}}},"unsupported_dependencies":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"threshold_verdict":{"enum":["continuity_proven_for_declared_envelope","not_proven"]},"canary_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"rollback_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"authority_note":{"const":"grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/improvement-role-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-role-binding/v1","title":"ImprovementRoleBindingEnvelope","description":"THE THREE TRUST FUNCTIONS OF ONE CAMPAIGN BOUND TO ACCOUNTABLE PRINCIPALS (bounded-improvement.md § ImprovementRoleBindingEnvelope; doctrine in bounded-recursive-improvement.md § Search, Judgment, And Authority). A binding names, for one campaign, which admitted deployment principals hold Search (propose candidates and investigations), Judgment (freeze and apply evaluation contracts, account for exposure) and Authority (admit, approve, activate, stop, recover). The campaign's declared `improvement_assurance_profile` is COPIED at admission and decides the checkable independence obligation the daemon derives into `independence`: `local_lightweight` requires the three functions to be separately identifiable and permits one accountable principal to hold them all (`separately_identifiable`); `independent_review` and every tier above require judgment and authority under distinct principals and search disjoint from judgment (`distinct_principals`). The daemon keys every role-separated seam on the RESOLVED caller principal against the campaign's current binding — never on a role a body declares. `content_hash` commits the body and excludes only itself and the admission stamp.","x-ioi-schema-version":"ioi.improvement-role-binding.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingFamilyRef":{"type":"string","pattern":"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingRevisionRef":{"type":"string","pattern":"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"principalRef":{"type":"string","pattern":"^user://[^\\s/?#\\\\]{1,480}$"},"principalRefs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/principalRef"}}},"required":["schema_version","improvement_role_binding_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","campaign_ref","improvement_assurance_profile","bindings","independence","binding_decision_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-role-binding.v1"},"improvement_role_binding_id":{"$ref":"#/$defs/bindingFamilyRef"},"revision_ref":{"$ref":"#/$defs/bindingRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/bindingRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"improvement_assurance_profile":{"enum":["local_lightweight","independent_review","protected_build","adversarial_control","threshold_recovery","failure_domain_independent"]},"bindings":{"type":"object","additionalProperties":false,"required":["search","judgment","authority"],"properties":{"search":{"$ref":"#/$defs/principalRefs"},"judgment":{"$ref":"#/$defs/principalRefs"},"authority":{"$ref":"#/$defs/principalRefs"}}},"independence":{"enum":["separately_identifiable","distinct_principals"]},"binding_decision_ref":{"$ref":"#/$defs/decisionRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -182410,6 +182784,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/evaluation-run/v1", r#"[{"rule_id":"evaluation_run.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.evaluation-run-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluation-run-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_run_id":{"path":"$.evaluation_run_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"evaluator_revision_ref":{"path":"$.evaluator_revision_ref"},"lane":{"path":"$.lane"},"incumbent_ref":{"path":"$.incumbent_ref"},"incumbent_root":{"path":"$.incumbent_root"},"target_base_root":{"path":"$.target_base_root"},"execution_evidence_refs":{"path":"$.execution_evidence_refs"},"policy_bound_data_view_revision_ref":{"path":"$.policy_bound_data_view_revision_ref"},"nondeterminism_class":{"path":"$.nondeterminism_class"},"seed":{"path":"$.seed"},"submitter_role":{"path":"$.submitter_role"},"cost_units":{"path":"$.cost_units"},"cost_unit":{"path":"$.cost_unit"}}}}]"#),
     ("schema://ioi/components/hypervisor/evaluation-result/v1", r#"[{"rule_id":"evaluation_result.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.evaluation-result-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluation-result-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_result_id":{"path":"$.evaluation_result_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_run_ref":{"path":"$.evaluation_run_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"evaluator_revision_ref":{"path":"$.evaluator_revision_ref"},"lane":{"path":"$.lane"},"observations":{"path":"$.observations"},"verdict":{"path":"$.verdict"},"verdict_basis":{"path":"$.verdict_basis"},"uncertainty":{"path":"$.uncertainty"},"guardrail_findings":{"path":"$.guardrail_findings"},"applicability_scope":{"path":"$.applicability_scope"},"cost_units":{"path":"$.cost_units"},"cost_unit":{"path":"$.cost_unit"},"failures":{"path":"$.failures"},"evaluator_versions":{"path":"$.evaluator_versions"},"exposure_entry_ref":{"path":"$.exposure_entry_ref"}}}},{"rule_id":"evaluation_result.sealed_lane.names_its_exposure_entry","description":"A SEALED-LANE RESULT NAMES THE EXPOSURE ENTRY ITS PROTECTED ACCESS APPENDED; remaining exposure is derived from the admitted ledger head, never from an unreceipted counter.","expression":{"operator":"non_empty_when_in","when_path":"$.lane","values":["sealed"],"path":"$.exposure_entry_ref"}}]"#),
     ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", r#"[{"rule_id":"model_swap_continuity_report.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"model_swap_continuity_report_id":{"path":"$.model_swap_continuity_report_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"institutional_state_root":{"path":"$.institutional_state_root"},"policy_bound_data_view_revision_ref":{"path":"$.policy_bound_data_view_revision_ref"},"learning_boundary_profile_ref":{"path":"$.learning_boundary_profile_ref"},"incumbent_route_ref":{"path":"$.incumbent_route_ref"},"incumbent_route_record_hash":{"path":"$.incumbent_route_record_hash"},"incumbent_disabled_evidence":{"path":"$.incumbent_disabled_evidence"},"candidate_route_ref":{"path":"$.candidate_route_ref"},"candidate_route_record_hash":{"path":"$.candidate_route_record_hash"},"baseline_result_refs":{"path":"$.baseline_result_refs"},"candidate_result_refs":{"path":"$.candidate_result_refs"},"equivalence_envelope":{"path":"$.equivalence_envelope"},"observed_deltas":{"path":"$.observed_deltas"},"unsupported_dependencies":{"path":"$.unsupported_dependencies"},"threshold_verdict":{"path":"$.threshold_verdict"},"canary_refs":{"path":"$.canary_refs"},"rollback_refs":{"path":"$.rollback_refs"},"authority_note":{"path":"$.authority_note"}}}}]"#),
+    ("schema://ioi/foundations/objects/improvement-role-binding/v1", r#"[{"rule_id":"improvement_role_binding.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES: the revision ref begins with the binding id and the `/revision/` segment, which also refuses a family head in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.improvement_role_binding_id","prefix":"improvement-role-binding://","strip_prefix":"improvement-role-binding://","suffix":"/revision/"}},{"rule_id":"improvement_role_binding.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp — the campaign, the copied profile, the three principal sets, the derived independence verdict and the decision — under the domain separator `ioi.improvement-role-binding-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so a binding whose principal set was edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.improvement-role-binding-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"improvement_role_binding_id":{"path":"$.improvement_role_binding_id"},"revision_ref":{"path":"$.revision_ref"},"revision":{"path":"$.revision"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"campaign_ref":{"path":"$.campaign_ref"},"improvement_assurance_profile":{"path":"$.improvement_assurance_profile"},"bindings":{"path":"$.bindings"},"independence":{"path":"$.independence"},"binding_decision_ref":{"path":"$.binding_decision_ref"}}}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -184839,6 +185214,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^improvement-governance-profile://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
+        r#"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
         r#"^incident://[^\s]+$"#,
         r#"^incident://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -186099,6 +186482,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^user://[^\s/?#\\]+$"#,
         r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]+$"#,
+    ),
+    (
+        r#"^user://[^\s/?#\\]{1,480}$"#,
+        r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]{1,480}$"#,
     ),
     (
         r#"^user://\S+$"#,
@@ -188961,6 +189348,15 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-incumbent-not-disabled.json"))),
     ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-authority-claimed.json"))),
     ("docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-independent-review-distinct-principals.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-local-lightweight-one-accountable-principal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/positive-successor-revision-adds-a-judge.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-empty-judgment.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-profile-outside-ladder.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -190514,6 +190910,11 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/model-swap-continuity-report/v1" => {
             serde_json::from_value::<ModelSwapContinuityReportV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/improvement-role-binding/v1" => {
+            serde_json::from_value::<ImprovementRoleBindingEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -192073,6 +192474,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/improvement-role-binding/v1" => {
+            let projection = serde_json::from_value::<ImprovementRoleBindingEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -192209,8 +192615,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1549,
-            "the registered golden corpus must remain the explicit 1549-fixture bar",
+            1558,
+            "the registered golden corpus must remain the explicit 1558-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -192452,7 +192858,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1006,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1009,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -1,0 +1,25 @@
+{
+  "schema_version": "ioi.improvement-role-binding.v1",
+  "improvement_role_binding_id": "improvement-role-binding://acme.local-notes",
+  "revision_ref": "improvement-role-binding://acme.local-notes/revision/1",
+  "revision": 1,
+  "predecessor_revision_ref": null,
+  "owner_ref": "user://solo-operator",
+  "campaign_ref": "improvement-campaign://acme.local-notes",
+  "improvement_assurance_profile": "local_lightweight",
+  "bindings": {
+    "search": [
+      "user://solo-operator"
+    ],
+    "judgment": [
+      "user://solo-operator"
+    ],
+    "authority": [
+      "user://solo-operator"
+    ]
+  },
+  "independence": "separately_identifiable",
+  "binding_decision_ref": "decision://solo/improvement/roles/local-notes/1",
+  "admitted_at": "2026-09-15T12:00:00Z",
+  "content_hash": "sha256:05bd24fea7e7c373ed369fcf80f3cd9e3d5b9f11aebd884a34c4ff735de40982"
+}

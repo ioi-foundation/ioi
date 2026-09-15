@@ -1,0 +1,26 @@
+{
+  "schema_version": "ioi.improvement-role-binding.v1",
+  "improvement_role_binding_id": "improvement-role-binding://acme.intake-affinity-live",
+  "revision_ref": "improvement-role-binding://acme.intake-affinity-live/revision/2",
+  "revision": 2,
+  "predecessor_revision_ref": "improvement-role-binding://acme.intake-affinity-live/revision/1",
+  "owner_ref": "org://acme-clinic",
+  "campaign_ref": "improvement-campaign://acme.intake-affinity-live",
+  "improvement_assurance_profile": "independent_review",
+  "bindings": {
+    "search": [
+      "user://prin_search_a"
+    ],
+    "judgment": [
+      "user://prin_judge_b",
+      "user://prin_judge_d"
+    ],
+    "authority": [
+      "user://prin_authority_c"
+    ]
+  },
+  "independence": "distinct_principals",
+  "binding_decision_ref": "decision://acme/improvement/roles/intake-affinity-live/2",
+  "admitted_at": "2026-09-15T12:00:00Z",
+  "content_hash": "sha256:73d29b77efea76d168efd0f306d67f43e90041807b77ef4d805e3775f155453c"
+}

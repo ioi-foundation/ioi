@@ -158,6 +158,26 @@ Canonical separation rule:
 > path must remain separately identifiable, versioned, challengeable, and
 > unable to silently widen one another.
 
+Implemented on this basis (2026-09-15, M10.2): the three functions are bound to
+admitted deployment principals by a registered
+[`ImprovementRoleBindingEnvelope`](./objects/bounded-improvement.md#improvementrolebindingenvelope)
+per campaign, admitted before the campaign starts, and every role-separated
+seam is keyed on the RESOLVED caller principal against that binding — never on
+a role a request declares. Search nominates; a search-only principal that
+freezes, activates, challenges, closes, invalidates or rotates the active epoch
+or moves its exposure ledger is refused `role_separation_violated`. Judgment
+admits evaluation runs and results; a judgment-only principal that nominates,
+approves or applies the campaign-bound proposal is refused the same way.
+Authority approves, rejects and applies campaign-bound proposals; an
+authority-only principal that admits an evaluation run or result is refused the
+same way. The independence obligation follows the declared profile, checkably:
+`local_lightweight` permits one accountable principal to hold all three;
+`independent_review` and above require judgment and authority under distinct
+principals and search disjoint from judgment. A nomination discloses its
+selection policy (one of the campaign contract's declared search and
+candidate-archive policies) and its accountable selector (the resolved caller),
+and cites evidence the daemon resolves under the campaign's active epoch.
+
 ## Improvement Assurance Profiles
 
 "Assurance class" was previously prose; it is now the executable
