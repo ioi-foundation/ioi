@@ -5206,20 +5206,26 @@ pub(crate) async fn handle_goal_runs_create(
             "context_lease_refs": [lease_ref],
             "status": "open",
         }));
-        context_leases.push(json!({
-            "context_lease_id": lease_ref,
-            "goal_ref": goal_ref,
-            "context_cell_ref": cell_ref,
-            "issued_to": profile_ref,
-            "lease_kind": "worktree",
-            // The implementer's writable surface is ITS candidate session workspace only.
-            "allowed_ref_patterns": [format!("workspace://goal-run/{goal_run_id}/{role_key}")],
-            "denied_ref_patterns": ["secret://", "unsafe_plaintext://", format!("workspace://session/{}", safe(&session_ref))],
-            "budget_ref": format!("budget://goal-run/{goal_run_id}/invocation"),
-            "ttl_seconds": 3600,
-            "receipt_required": true,
-            "status": "active",
-        }));
+        // M04.11: the lease is ADMITTED through its own plane and the array below is a projection
+        // of what was admitted — not an inline literal that nothing validated. The predecessor of
+        // this call issued the lease to `profile_ref`, a reusable HarnessProfile, which canon
+        // forbids as a lease subject; the admitted record binds the implementer's own CELL.
+        let admitted_lease = match super::goal_run_context_routes::admit_activation_context_lease(
+            &st.data_dir,
+            &request_identity,
+            &owner_ref,
+            &goal_run_id,
+            role_key,
+            &cell_ref,
+            &format!("workspace://goal-run/{goal_run_id}/{role_key}"),
+            &format!("workspace://session/{}", safe(&session_ref)),
+        ) {
+            Ok(lease) => lease,
+            // A GoalRun whose context lease did not admit would be claiming a bounded context it
+            // never obtained, so the creation fails rather than reporting success without it.
+            Err(response) => return response,
+        };
+        context_leases.push(admitted_lease);
         task_briefs.push(json!({
             "task_brief_id": brief_ref,
             "goal_ref": goal_ref,

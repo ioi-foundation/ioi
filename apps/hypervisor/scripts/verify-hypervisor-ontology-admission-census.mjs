@@ -633,6 +633,15 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-15 (M04.11 slice C2): the activation lane ADMITS its context lease instead
+  // of writing an inline literal. Tokens 153327 -> 153360 (+33), split by the same experiment as
+  // slice C: with goalrun_routes.rs alone reverted the census read 153376, so the new
+  // `admit_activation_context_lease` is +49 and the activation lane is -16 — the inline literal it
+  // removed was LARGER than the call that replaced it, which is why a net +33 understates both
+  // halves. Modules 122, opaque-initialiser 2854 and foreign-qualified 4739 all HELD, and so did
+  // every writer bucket (family 57 / non-ODK 254 / runtime 311): the lane now writes through the
+  // shared owner-scoped mutation spine, so moving a write from a literal into an admission adds
+  // no literal writer call site. The file was restored by copy and digest-verified afterwards.
   // Re-pinned 2026-09-14 (M04.11 slice C): the GoalRun-owned ContextLease and ContextHandoff
   // lifecycle. Modules 121 -> 122 (goal_run_context_routes.rs joins the graph). Tokens
   // 152781 -> 153327 (+546), SPLIT BY MEASUREMENT rather than by assumption: the module
@@ -920,7 +929,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 153327,
+  tokenMentions: 153360,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,

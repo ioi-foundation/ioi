@@ -41,6 +41,7 @@ use super::mutation_event_foundation::{
 use super::policy_bound_data_view_revision_routes::resolve_admitted_policy_bound_data_view;
 use super::substrate_store::{
     authorize_request_resource_scope, bind_request_resource_scope, resolve_request_identity,
+    RequestIdentity,
 };
 use super::DaemonState;
 
@@ -1053,6 +1054,116 @@ pub(crate) async fn handle_context_handoff_reject(
     Json(body): Json<Value>,
 ) -> Reply {
     decide_handoff(st, goal_run_id, handoff_id, headers, body, false).await
+}
+
+/// Admit the activation lane's OWN ContextLease for one implementer role.
+///
+/// The activation lane used to write this lease as an inline literal on the goal-run record, and
+/// that is how it came to name a reusable HarnessProfile as the lease subject: `issued_to_ref` here
+/// is the implementer's own CELL, which is what canon permits. The lease is now an ADMITTED revision
+/// on the shared spine like any other, so the array the goal run carries is a projection of what was
+/// admitted rather than a second source of truth.
+///
+/// The idempotency key is DERIVED from the run and the role rather than taken from the caller: a
+/// replayed creation must replay the same lease instead of minting a second one for the same cell.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn admit_activation_context_lease(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    owner_ref: &str,
+    goal_run_id: &str,
+    role_key: &str,
+    cell_ref: &str,
+    workspace_ref: &str,
+    denied_session_workspace_ref: &str,
+) -> Result<Value, Reply> {
+    let lease_ref = format!("context-lease://cl_{goal_run_id}_{role_key}");
+    let record = sealed(json!({
+        "schema_version": LEASE_SCHEMA_VERSION,
+        "context_lease_id": lease_ref,
+        "work_subject_ref": goal_subject_ref(goal_run_id),
+        "context_cell_ref": cell_ref,
+        // The CELL, never the reusable HarnessProfile the inline literal used to name.
+        "issued_to_ref": cell_ref,
+        "lease_kind": "worktree",
+        "allowed_ref_patterns": [workspace_ref],
+        "denied_ref_patterns": [
+            "secret://",
+            "unsafe_plaintext://",
+            denied_session_workspace_ref,
+        ],
+        "authority_scope_refs": [],
+        "budget_ref": format!("budget://goal-run/{goal_run_id}/invocation"),
+        "ttl_seconds": 3600,
+        "receipt_required": true,
+        // The implementer's writable surface is ITS candidate workspace only.
+        "leased_refs": [workspace_ref],
+        "information_flow_label_refs": [],
+        "permitted_recipient_roles": ["implementer"],
+        "successor_of": Value::Null,
+        "predecessor_remains_valid": false,
+        "status": "active",
+    }));
+    validate_against_contract(LEASE_CONTRACT_ID, &record, "context_lease_contract_invalid")?;
+
+    let idempotency_key = format!("goal-run-activation:{goal_run_id}:{role_key}");
+    let scope = bind_request_resource_scope(
+        data_dir,
+        identity,
+        LEASE_RESOURCE_KIND,
+        &lease_ref,
+        owner_ref,
+        owner_ref,
+        &idempotency_key,
+    )
+    .map_err(scope_refusal_reply)?;
+    let tail = stream_tail(LEASE_RESOURCE_KIND, &lease_ref);
+    match prior_admission_for_key_on_stream(
+        data_dir,
+        identity,
+        &scope,
+        LEASE_RESOURCE_KIND,
+        &lease_ref,
+        OWNER_NAMESPACE,
+        &tail,
+        &idempotency_key,
+    ) {
+        Ok(Some(prior)) => {
+            return Ok(prior
+                .operation
+                .payload
+                .get("context_lease")
+                .cloned()
+                .unwrap_or(record));
+        }
+        Ok(None) => {}
+        Err(error) => return Err(mutation_refusal_reply(error)),
+    }
+
+    let recorded_at_ms = now_ms();
+    let payload = json!({
+        "context_lease": record,
+        "admitted_at": admitted_stamp(recorded_at_ms),
+    });
+    admit_owner_scoped_mutation(
+        data_dir,
+        true,
+        ScopedMutation {
+            identity,
+            scope: &scope,
+            resource_kind: LEASE_RESOURCE_KIND,
+            resource_ref: &lease_ref,
+            owner_namespace: OWNER_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: LEASE_ADMITTED_OP,
+            expected_head: None,
+            payload: &payload,
+            idempotency_key: &idempotency_key,
+            recorded_at_ms,
+        },
+    )
+    .map_err(mutation_refusal_reply)?;
+    Ok(record)
 }
 
 #[cfg(test)]
