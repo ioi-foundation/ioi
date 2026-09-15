@@ -161,6 +161,15 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 886 -> 911 (2026-09-15, M10.1): the bounded improvement campaign spine — TWENTY-FIVE distinct
+  // paths under `/v1/hypervisor/improvement-governance-profiles`, `/improvement-agendas`,
+  // `/improvement-campaigns` and `/evaluation-epochs`, carrying twenty-nine handlers (four paths
+  // carry both GET and POST: the three family collections and the campaign's order-cutoffs), which
+  // is why `verify-hypervisor-environment-owner-source.mjs` moved 1145 -> 1174 in this same commit
+  // while this pin moved by twenty-five. Every write is a genesis or an exact-head successor on the
+  // shared owner-scoped mutation chain through the estate's `FamilySpec` machinery, so the module
+  // adds no writer of its own. 912 `.route(` occurrences, 912 with a path literal, 911 distinct
+  // paths.
   // 879 -> 886 (2026-09-14, M04.11): the GoalRun-owned ContextLease and ContextHandoff lifecycle —
   // SEVEN paths on `/v1/goal-orchestration/goal-runs/:id/...`: context-leases (POST), its narrow,
   // revoke and resolution, context-handoffs (POST), and its accept and reject. Narrow/revoke/accept/
@@ -234,7 +243,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 886,
+  registeredRoutes: 911,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
@@ -249,6 +258,16 @@ const PINNED = {
   // standing-lease consumer loop and the standing-lease population drills among them — and two of
   // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
   // coverage count that lags its population stops being a closed world.
+  // 109 -> 111 (2026-09-15, M10.1): TWO absence-worded assertions joined, both in the new
+  // `check:improvement-governance-spine`, and attribution is exact rather than inferred — this
+  // gate's own label regex over the same population differs in that one file and in no other. One
+  // is the typed absence that there is no registered route for candidates, attempts, findings or
+  // evidence claims on this basis (owners M10.2/M10.8 and M12.5, annotated as planned in api.md);
+  // the other is the measured no-effect claim that the campaign's upgrade-proposal handoff moved
+  // no target, session, route or profile — an absence of EFFECT, worded as one, and counted here
+  // because a coverage count that excluded it would have to explain why. Neither resolves a probe
+  // URL (the first reads the router's 404, the second compares byte snapshots), so the second stage
+  // holds at 17.
   // 108 -> 109 (2026-09-15, M04.11): one absence-worded assertion joined, in the new
   // `check:context-lease-handoff-lifecycle` — the typed absence that NO MCP tool reaches the context
   // families, so the unit's "native and MCP" negative matrix is proven on the only path that reaches
@@ -269,7 +288,7 @@ const PINNED = {
   // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
   // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
   // second stage holds at 17 while the first moves.
-  verifierAbsenceLabels: 109,
+  verifierAbsenceLabels: 111,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

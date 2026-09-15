@@ -817,6 +817,21 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
 
+      # M10.1 — the bounded improvement campaign spine, driven against an ISOLATED daemon this job
+      # already built: six registered families, the direct path proven green before and after,
+      # the campaign proven to own no production mutation, and canon's reason-code family entailed
+      # in both directions. The drill runs beside the gate because the commitment oracles and the
+      # byte-identity comparison are exactly the assertions that would pass vacuously if they broke.
+      - name: Verify the improvement governance spine (M10.1)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:improvement-governance-spine --workspace=@ioi/hypervisor-app
+
+      - name: Drill the improvement governance spine's own oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:improvement-governance-spine --workspace=@ioi/hypervisor-app
+
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         uses: actions/upload-artifact@v4

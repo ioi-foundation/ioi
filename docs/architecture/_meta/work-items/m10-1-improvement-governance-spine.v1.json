@@ -1,0 +1,130 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-1-improvement-governance-spine",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.1"
+  ],
+  "status": "evidence_ready",
+  "objective": "Make the six objects of the bounded improvement campaign spine — ImprovementGovernanceProfile, ImprovementAgenda, ImprovementCampaign, EvaluationEpoch, EvaluationExposureLedger and ImprovementOrderCutoffReceipt — immutable, owner-scoped, successor-lineaged registered records with a lifecycle on the shared owner-scoped mutation chain, so that campaign-grade improvement has a durable spine while the direct proposal path keeps working with no campaign anywhere near it and the campaign owns no production mutation: its only exit is an ordinary pending UpgradeProposal evaluated by the target owner's unchanged gate plus the campaign-grade bindings at apply.",
+  "falsifiable_claim": "Six contracts are registered under schema://ioi/foundations/objects/ (improvement-governance-profile, improvement-agenda, improvement-campaign, evaluation-epoch, evaluation-exposure-ledger, improvement-order-cutoff-receipt), each with registered invariants that re-derive canon's root over the subset it freezes, and the daemon validates every record against its contract before the write. Twenty-five routes under /v1/hypervisor/improvement-governance-profiles, /improvement-agendas, /improvement-campaigns and /evaluation-epochs admit, transition and read the six families through the estate's FamilySpec machinery: identity derived from the stream, exact-head successors, replay by key. campaign_contract_root, frozen_root, ledger_head_root and receipt_root are second commitments over the contract, frozen and chained subsets, so a lifecycle successor that moves a contract member is refused campaign_binding_mismatch. Admission resolves the owner's CURRENT governance profile, the RELEASED agenda revision and its items, the mutable target's root through the target's own owner (core-owned families only), the learning-boundary profile through that plane's published reader, the profile's protections and ceilings and a non-empty recovery posture; the coordinating pursuit is recorded as the goal-orchestration application's declaration and never resolved by core. Freeze creates the epoch's exposure ledger; reservation, spend and return are a subtraction against the frozen budget with chained entry roots; a campaign has one active epoch; a cutoff happens at epoch close on one adjacent edge, resolves every cited eligibility and egress receipt through the learning-boundary plane, and refuses a released agenda successor at the same cutoff. The handoff writes exactly one pending improvement proposal through the direct path's own creator with every other observable family byte-identical; the public create refuses a caller-supplied binding; at apply the campaign must be active and unmoved, the epoch active and frozen, and the target unmoved. Canon's seventeen-member campaign-grade reason-code family is entailed in both directions: the ten members canon marks implemented are each emitted live and the seven marked target appear nowhere in the module.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/bounded-improvement.md",
+    "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+    "docs/architecture/foundations/bounded-recursive-improvement.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) async fn handle_campaign_admit",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "fn campaign_successor",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "fn ensure_ledger",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) async fn handle_cutoff_emit",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) async fn handle_campaign_upgrade_proposal",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "pub(crate) fn campaign_grade_bindings",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs",
+      "literal": "IMPLEMENTED_CAMPAIGN_GATE_CODES",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+      "literal": "pub(crate) fn create_improvement_proposal",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+      "literal": "pub(crate) fn resolve_core_mutable_target_root",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+      "literal": "improvement_campaign_binding_not_caller_authored",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/institutional_learning_boundary_routes.rs",
+      "literal": "pub(crate) fn resolve_admitted_learning_egress_receipt",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "/v1/hypervisor/improvement-campaigns/:campaign_ref/upgrade-proposals",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/improvement-campaign.v1.schema.json",
+      "literal": "campaign_contract_root",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/invariants/improvement-campaign.v1.invariants.json",
+      "literal": "improvement_campaign.campaign_contract_root.freezes_the_contract",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/evaluation-exposure-ledger.v1.schema.json",
+      "literal": "remaining_units",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "literal": "Three tiers, each with its own commitment",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+      "literal": "## Bounded improvement campaign spine (implemented, M10.1)",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-improvement-governance-spine.mjs",
+      "literal": "deriveContractRoot",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "literal": "improvement-governance-spine",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:improvement-governance-spine 100/100 against an ISOLATED daemon, drilled 5/5 by mutate:improvement-governance-spine, floor-pinned at 100 and CI-bound in the Rust-backed verifier job beside its drill. THE ORACLES ARE INDEPENDENT: content_hash, campaign_contract_root, operation_head_root, frozen_root, ledger_head_root, every entry_root and receipt_root are re-derived in JavaScript under canon's domain separators from the record's own members, and the drill proves the content-hash oracle rejects a changed member and the contract-root oracle rejects a moved contract member while accepting a moved projection. \"The campaign owns no production mutation\" is MEASURED: six other families are byte-compared across every campaign operation, the handoff differs by exactly one pending proposal, and the drill writes a real record between two reads to prove the comparison goes red. The direct path is proven green BEFORE any campaign object exists and AGAIN after all six do on the same daemon, and a restart reproduces every projection byte for byte. Canon's seventeen-member reason-code family is parsed from the fenced block itself and entailed in both directions. Writing the verifier found two daemon defects (fence order before the authored-member refusal; the agenda release route rejecting its own decision ref), and the module's unit test found a third the driven run had passed over (the refusal code read from the wrong level of the reply, which would have mis-coded a frozen-but-inactive epoch at apply with an empty message).",
+  "remaining_nonclaims": [
+    "The coordinating pursuit (a GoalRunProfile revision and its resolution receipt) is RECORDED as the ioi.ai orchestration application's declaration and never resolved: core publishes no reader for that application's families (register R-155). Agreement between the pursuit's resolution receipt and the campaign's component snapshot is the application's claim, not this plane's check.",
+    "Only core-owned mutable targets resolve: skill-entry:// and automation-affinity://. A launch policy lives under the goal-orchestration application's namespace and is refused mutable_target_unresolvable by design; harness profiles, workflow templates and Foundry assets are typed absences of the resolver.",
+    "Seven of canon's seventeen campaign-grade reason codes remain target with named owners: candidate_conflict_unresolved (M10.2/M10.8), resource_reservation_exhausted and statistical_risk_budget_exhausted (M10.8, the ancestor ledgers), hard_constraint_regression, monitorability_regression and reproduction_required (M10.2, promotion-bundle judgment), recursive_claim_unsupported (M12.5, the evidence-claim object). The gate asserts none appears in the module's source.",
+    "Not built and named as such: candidate, attempt and finding routes (M10.2/M10.8), evidence claims (M12.5), governed successor contract revisions (campaign_contract_revision is 1), profile revocation (superseded is derived on read), System-scoped admission under a constitution and atomic target bundles (refused typed), epoch adjudication (a challenged epoch stays invalid until closed or invalidated), ledger invalidation entries, and the direct path's 24-hour decomposition guard (a planned direct-path gate extension, corrected from 'built' to 'planned' in bounded-recursive-improvement.md).",
+    "The handoff is not idempotent by key beyond the direct path's own semantics: a retried nomination mints a second pending proposal, exactly as a retried direct create does.",
+    "The high-impact half of the direct gate (approval_required, release_control_not_open over a saved high-impact simulation) is exercised only by the older shared-daemon verifier, which is not isolated and is not composed; M12.5 cites it and owes its isolated form. ACC-12 clause 1 composes this gate and names that half as an absence owned by M12.5.",
+    "Seven core daemon modules import goal-orchestration application modules today (system_genesis 11 sites, work_result 12, system_sequence_zero 4, authority_gateway 2, ioi_intelligence 2, governed_authority 1, system_activation 1) — a layer-law debt measured during this unit and queued on the register, not this unit's to fix. This module adds none.",
+    "The ACC-12 composed journey has not been re-run on this basis yet at the time of authoring; its verdict stays PARTIAL for M10.2, M10.4, M10.8 and M10.9's absences regardless."
+  ],
+  "source_provenance": "Authored on the main tree 2026-09-15 under rulings R-154 (registration-and-lifecycle over canon's own shapes; the three-tier commitments; the handoff as the only exit) and R-155 (the owner's mid-leg layer-law correction). MVP finish-line program, the 34 → 0 leg.",
+  "last_status_transaction": "2026-09-15"
+}
