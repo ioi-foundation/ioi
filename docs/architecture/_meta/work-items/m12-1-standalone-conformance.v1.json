@@ -66,11 +66,6 @@
       "present_when": "merged"
     },
     {
-      "path": "scripts/lib/release-plan.mjs",
-      "literal": "lifecycle:injected-dependency-failure",
-      "present_when": "merged"
-    },
-    {
       "path": "package.json",
       "literal": "\"check:standalone-conformance\"",
       "present_when": "merged"
@@ -97,7 +92,8 @@
     "The selected minimum-L0 OutcomeRoom profile is not claimed passed; the pass is the bounded-alpha envelope under the fixture",
     "The refusal half of isolation is typed absent (recorded_only) on a host that refuses unprivileged user namespaces; the ledger still proves zero reach",
     "Egress through io_uring connect operations would not appear in a ptrace ledger; no component of this deployment uses them today",
-    "The full check (the alpha journey under the harness, the fault lane, portable replay) is on demand, not CI-gated"
+    "The full check (the alpha journey under the harness, the fault lane, portable replay) is on demand, not CI-gated",
+    "ACC-R's lifecycle:injected-dependency-failure leg is bound provenBy ACC-14 clause 1 in scripts/lib/release-plan.mjs, which is PRIVATE by R-150 (gitignored) and therefore not a tracked anchor of this record"
   ],
   "source_provenance": "Authored 2026-09-15 by the MVP finish-line program (R-157 opened the unit by measurement; R-158 ruled the build shape). First full run on 77a370cb6 (25 dirty paths: this unit's own uncommitted files) 2026-09-15: 24/24 — the harnessed journey 53/53 in 927 s with 405 recorded attempts, all loopback; the fault lane 30/30 (terminal failed in 1 s); portable replay with 0 network attempts; isolation refused_and_recorded. Recorded in canon-to-code-delta.md § Journey verification LXXXVIII.",
   "last_status_transaction": "2026-09-15"

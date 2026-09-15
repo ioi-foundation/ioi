@@ -13,6 +13,8 @@
     "capture:u1-provider-preflight": "node scripts/capture-u1-provider-preflight.mjs",
     "check:akash-live-lifecycle": "node scripts/verify-akash-live-lifecycle.mjs",
     "check:alpha-journey": "node scripts/verify-hypervisor-alpha-journey.mjs",
+    "check:standalone-conformance": "node ../../scripts/check-standalone-conformance.mjs --drills",
+    "mutate:standalone-conformance": "node ../../scripts/check-standalone-conformance.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

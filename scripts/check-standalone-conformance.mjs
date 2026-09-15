@@ -295,7 +295,7 @@ async function drills(profileLoaded) {
   isolation = probeIsolation();
   evidence.host = { ...isolation, load: os.loadavg().map((n) => n.toFixed(2)), cpus: os.cpus().length, kernel: os.release(), checkout: git("rev-parse", "HEAD"), dirty_paths: git("status", "--porcelain").split("\n").filter(Boolean).length };
   if (!isolation.strace.available) blocked(`the harness cannot record: ${isolation.strace.detail}`);
-  ok(`the isolation property is TYPED for this run: ${isolation.isolation} (strace ${isolation.strace.version ? "present" : "absent"}; unprivileged nested namespaces ${isolation.network_namespace ? "available — every non-loopback destination is refused by the kernel" : "unavailable — the ledger still proves zero reach, only the refusal half is typed absent"})`, ["refused_and_recorded", "recorded_only"].includes(isolation.isolation), isolation.network_namespace_detail);
+  ok("the isolation property is TYPED for this run (refused_and_recorded where unprivileged nested namespaces exist — every non-loopback destination refused by the kernel; recorded_only where the host refuses them — the ledger still proves zero reach and only the refusal half is typed absent), and never a skipped assertion", ["refused_and_recorded", "recorded_only"].includes(isolation.isolation), `${isolation.isolation} · strace ${isolation.strace.version ? "present" : "absent"} · namespaces ${isolation.network_namespace ? "available" : "unavailable"} · ${isolation.network_namespace_detail}`);
 
   // ---- D2. the harness oracles over a ledger written the way strace writes one -----------------
   const parsed = parseStraceLedger(SYNTHETIC_LEDGER);

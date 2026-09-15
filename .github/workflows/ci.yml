@@ -839,16 +839,17 @@ jobs:
       # non-loopback dependency FAILS the profile, undeclared_egress). The harness needs strace
       # (installed above); unprivileged namespaces are a TYPED property of the run — recorded_only
       # where the runner refuses them, never a skipped assertion. The alpha journey under the
-      # harness, the mid-run fault lane and portable replay are the full check, on demand.
+      # harness, the mid-run fault lane and portable replay are the full check, on demand. The
+      # workspace script is the root runner's --drills form, so the floors gate's closed world holds it.
       - name: Verify standalone conformance (M12.1, CI-bound drills)
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
-        run: npm run check:standalone-conformance -- --drills
+        run: npm run check:standalone-conformance --workspace=@ioi/hypervisor-app
 
       - name: Drill the standalone conformance oracles
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
-        run: npm run mutate:standalone-conformance
+        run: npm run mutate:standalone-conformance --workspace=@ioi/hypervisor-app
 
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}

@@ -75,7 +75,10 @@ const ciChecks = new Set(
 );
 
 // A CI check counts as a verifier when its npm script runs a verify-*.mjs file, plus the historical
-// landing-designation audit whose filename predates this convention. Non-verifier checks
+// landing-designation audit whose filename predates this convention, plus the standalone
+// conformance runner (M12.1, 2026-09-15): a ROOT script (`scripts/check-standalone-conformance.mjs`,
+// named by three canon owners) whose CI-bound drills form is invoked through this workspace's
+// `check:standalone-conformance` so it lives in this gate's closed world. Non-verifier checks
 // (bundlers, generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
 for (const check of ciChecks) {
@@ -84,7 +87,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 
