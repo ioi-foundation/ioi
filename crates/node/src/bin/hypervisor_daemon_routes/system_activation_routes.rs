@@ -445,9 +445,12 @@ pub(crate) fn prepare_node_evidence(
 }
 
 /// Operation-agnostic authority evidence preparation over one closed
-/// server-derived effect. The bootstrap wrapper above and the protected
-/// transition runtime both converge here so a single implementation owns
-/// the grant/policy/request/effect binding discipline.
+/// server-derived effect for the SYSTEM GENESIS planes: the bootstrap wrapper
+/// above, the protected transition runtime, membership, writers, amendments and
+/// continuity all converge here, and their effects carry the system and genesis
+/// the decision was challenged under. Other planes (the HypervisorOS node plane,
+/// the environment plane) challenge under their own policy context and re-derive
+/// through `prepare_node_evidence_under` with that context named explicitly.
 pub(crate) fn prepare_node_evidence_for(
     authority_effect: &Value,
     op_name: &str,
@@ -456,6 +459,50 @@ pub(crate) fn prepare_node_evidence_for(
     source_governing_authority_ref: &str,
     resulting_state_root: &str,
     authorized: AuthorizedDecision,
+) -> Result<NodeAdmissionEvidence, VErr> {
+    let system_id = required_string(authority_effect, "/system_id")?;
+    let genesis_ref = required_string(authority_effect, "/genesis_ref")?;
+    prepare_node_evidence_under(
+        authority_effect,
+        op_name,
+        sequence,
+        required_scope,
+        source_governing_authority_ref,
+        resulting_state_root,
+        authorized,
+        AuthorityDecisionBinding {
+            policy_context: AuthorityPolicyContext::SystemGenesis {
+                system_id,
+                genesis_id: genesis_ref,
+            },
+            subject_ref: system_id,
+        },
+    )
+}
+
+/// The binding a governed decision was challenged under: the policy context its
+/// policy hash was derived in and the subject its request hash named. Evidence is
+/// re-derived under exactly this binding, so a plane whose effect carries no
+/// system id (a node profile declaration, an estate-governed environment record)
+/// is never re-derived as a system-genesis decision and refused for a member it
+/// never had.
+pub(crate) struct AuthorityDecisionBinding<'a> {
+    pub(crate) policy_context: AuthorityPolicyContext<'a>,
+    pub(crate) subject_ref: &'a str,
+}
+
+/// The single implementation that owns the grant/policy/request/effect binding
+/// discipline, under the caller's own decision binding.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn prepare_node_evidence_under(
+    authority_effect: &Value,
+    op_name: &str,
+    sequence: u64,
+    required_scope: &str,
+    source_governing_authority_ref: &str,
+    resulting_state_root: &str,
+    authorized: AuthorizedDecision,
+    binding: AuthorityDecisionBinding<'_>,
 ) -> Result<NodeAdmissionEvidence, VErr> {
     if authorized.evidence.authorized_effect != *authority_effect {
         return Err(verr(
@@ -504,22 +551,17 @@ pub(crate) fn prepare_node_evidence_for(
                 )
             })?
     );
-    let system_id = required_string(authority_effect, "/system_id")?;
-    let genesis_ref = required_string(authority_effect, "/genesis_ref")?;
     let expected_policy_hash = governed::decision_policy_hash_for_context(
         AUTHORITY,
         Governance::Host,
-        AuthorityPolicyContext::SystemGenesis {
-            system_id,
-            genesis_id: genesis_ref,
-        },
+        binding.policy_context,
         source_governing_authority_ref,
         op_name,
     );
     let expected_request_hash = governed::decision_request_hash(
         AUTHORITY,
         Governance::Host,
-        system_id,
+        binding.subject_ref,
         op_name,
         sequence,
         source_governing_authority_ref,

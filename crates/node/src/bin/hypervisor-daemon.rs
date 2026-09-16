@@ -212,6 +212,8 @@ mod resource_routes;
 mod retention_routes;
 #[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
 mod room_participation_routes;
+#[path = "hypervisor_daemon_routes/route_assurance_routes.rs"]
+mod route_assurance_routes;
 #[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
 mod runpod_candidate_source;
 #[path = "hypervisor_daemon_routes/scm_publication_routes.rs"]
@@ -4964,6 +4966,33 @@ async fn async_main() -> anyhow::Result<()> {
         // ProviderConnectionBinding whose epoch fences every brokered use at the capability-lease
         // gateway; verify, reauthorize and disconnect as successor versions with durable dependent
         // obligations. Connected is not authorized: none of these routes mints action authority.
+        // M09.7 — custody-proven private routes and node integrity: the physical enforcement
+        // owner's admitted node-profile observation and the coverage declarations the daemon
+        // derives from it; a model route's assurance class DERIVED from evidence the daemon
+        // resolves (rights terms, an isolation binding, the node's verified boot receipt and
+        // appraisal, physical egress coverage) and never rounded up.
+        .route(
+            "/v1/hypervisor/hypervisoros/node-enforcement/observations",
+            get(route_assurance_routes::handle_observation_list)
+                .post(route_assurance_routes::handle_observation_admit),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/node-enforcement/observations/:profile/:node",
+            get(route_assurance_routes::handle_observation_get),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/node-enforcement/coverage",
+            get(route_assurance_routes::handle_node_coverage),
+        )
+        .route(
+            "/v1/hypervisor/route-assurance",
+            get(route_assurance_routes::handle_route_assurance_list),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id/assurance",
+            get(route_assurance_routes::handle_route_assurance_get)
+                .post(route_assurance_routes::handle_route_assurance_admit),
+        )
         .route(
             "/v1/hypervisor/auth/connections/authorization/start",
             post(provider_connection_routes::handle_connection_start),

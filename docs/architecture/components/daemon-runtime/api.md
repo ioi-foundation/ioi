@@ -3372,6 +3372,32 @@ POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
 POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
 ```
 
+### Route Assurance And Node Enforcement APIs
+
+Served (2026-09-16, M09.7). A model route's assurance class is DERIVED from
+evidence the daemon resolves — a rights contract bound to the route, an admitted
+workload isolation binding, the node-attestation plane's verified boot receipt
+and its appraisal, and the node's physical egress coverage — and never rounded
+up: an unavailable, stale, withdrawn or ambiguous appraisal downgrades to the
+strongest class the remaining evidence supports and names the reason; role
+confusion, a replayed nonce, a substituted measurement or a remote-readable
+custody refuse the custody-proven class. The physical enforcement owner admits a
+`NodeEnforcementProfileObservation`, and the daemon produces one
+`EnforcementCoverageDeclaration` per covered action class from it through the
+enforcement-coverage registry — `mediated`, `preventable` and `receipted` only
+from an active, verified mechanism; a measured-boot receipt discovers and
+attributes only.
+
+```http
+POST /v1/hypervisor/hypervisoros/node-enforcement/observations
+GET  /v1/hypervisor/hypervisoros/node-enforcement/observations
+GET  /v1/hypervisor/hypervisoros/node-enforcement/observations/{profile}/{node}
+GET  /v1/hypervisor/hypervisoros/node-enforcement/coverage
+GET  /v1/hypervisor/route-assurance
+POST /v1/hypervisor/model-routes/{id}/assurance
+GET  /v1/hypervisor/model-routes/{id}/assurance
+```
+
 ### Provider Connection APIs
 
 Served (2026-09-16, M03.16) under the daemon's wallet.network seam namespace,

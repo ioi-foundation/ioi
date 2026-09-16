@@ -30,10 +30,10 @@ use axum::Json;
 use super::governed_authority::{self as governed, AuthorityPolicyContext, Governance};
 use super::system_activation_routes::{
     classify, contains_sensitive_key, evidence_intent_value, forced_fault, intent_seal, jcs_hash,
-    load_local, load_required_exact, ms_to_timestamp, persist_local, prepare_node_evidence_for,
-    remove_intent, required_string, tail, validate_contract, validate_wallet_receipt,
-    verify_intent_seal, verr, with_source_locks, AUTHORITY, AUTHORITY_CONSUMPTION_DIR,
-    AUTHORITY_EVIDENCE_DIR, MAX_REQUEST_BYTES, SYSTEM_ACTIVATION_GATE,
+    load_local, load_required_exact, ms_to_timestamp, persist_local, remove_intent,
+    required_string, tail, validate_contract, validate_wallet_receipt, verify_intent_seal, verr,
+    with_source_locks, AUTHORITY, AUTHORITY_CONSUMPTION_DIR, AUTHORITY_EVIDENCE_DIR,
+    MAX_REQUEST_BYTES, SYSTEM_ACTIVATION_GATE,
 };
 use super::system_protected_transition_routes::{
     decision_tuple, preflight_chain_writer_grant, DecisionAuthorityTuple,
@@ -69,10 +69,6 @@ const RECEIPT_CONTRACT: &str = "schema://ioi/foundations/receipt-envelope/v1";
 const TRANSITION_ARTIFACT_DOMAIN: &str =
     "ioi.hypervisor-environment-lifecycle-transition-jcs-sha256.v1";
 const RECEIPT_ARTIFACT_DOMAIN: &str = "ioi.hypervisor-environment-lifecycle-receipt-jcs-sha256.v1";
-
-/// The estate's governing principal for records that carry no per-record
-/// owner (the same local-estate posture as the HypervisorOS profile plane).
-const ESTATE_OWNER_REF: &str = "wallet://hypervisor/local-estate-owner";
 
 fn required(value: &Value, pointer: &str) -> Result<String, VErr> {
     required_string(value, pointer).map(str::to_owned)
@@ -516,7 +512,9 @@ pub(crate) fn compile_from_source(
 
     let mut state = source.state.clone();
     let mut activation_outcome = None;
-    let mut governing_owner_ref = ESTATE_OWNER_REF.to_owned();
+    // The estate's governing principal for records that carry no per-record owner: the same
+    // configured estate owner the HypervisorOS profile plane governs its temporal profile under.
+    let mut governing_owner_ref = super::hypervisoros_node_routes::estate_owner_ref();
     let (subject_ref, record_family, record): (String, &'static str, Value) = match op {
         EnvironmentLifecycleOp::DeclareRouteBinding => {
             let declared = declaration
@@ -1101,7 +1099,7 @@ pub(crate) async fn handle_environment_transition(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let mut evidence = match prepare_node_evidence_for(
+    let mut evidence = match super::system_activation_routes::prepare_node_evidence_under(
         &plan.authority_effect,
         op.as_str(),
         plan.sequence,
@@ -1109,6 +1107,13 @@ pub(crate) async fn handle_environment_transition(
         &governing,
         &plan.resulting_plane_root,
         authorized,
+        super::system_activation_routes::AuthorityDecisionBinding {
+            policy_context: AuthorityPolicyContext::HypervisorEnvironment {
+                estate_namespace: &estate_namespace,
+                subject_ref: &plan.subject_ref,
+            },
+            subject_ref: &plan.subject_ref,
+        },
     ) {
         Ok(value) => value,
         Err(error) => return classify(error),

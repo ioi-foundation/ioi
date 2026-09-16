@@ -29,10 +29,10 @@ use axum::Json;
 use super::governed_authority::{self as governed, AuthorityPolicyContext, Governance};
 use super::system_activation_routes::{
     classify, contains_sensitive_key, evidence_intent_value, forced_fault, intent_seal, jcs_hash,
-    load_local, load_required_exact, ms_to_timestamp, persist_local, prepare_node_evidence_for,
-    remove_intent, required_string, tail, validate_contract, validate_wallet_receipt,
-    verify_intent_seal, verr, with_source_locks, AUTHORITY, AUTHORITY_CONSUMPTION_DIR,
-    AUTHORITY_EVIDENCE_DIR, MAX_REQUEST_BYTES, SYSTEM_ACTIVATION_GATE,
+    load_local, load_required_exact, ms_to_timestamp, persist_local, remove_intent,
+    required_string, tail, validate_contract, validate_wallet_receipt, verify_intent_seal, verr,
+    with_source_locks, AUTHORITY, AUTHORITY_CONSUMPTION_DIR, AUTHORITY_EVIDENCE_DIR,
+    MAX_REQUEST_BYTES, SYSTEM_ACTIVATION_GATE,
 };
 use super::system_protected_transition_routes::{
     decision_tuple, preflight_chain_writer_grant, DecisionAuthorityTuple,
@@ -309,6 +309,18 @@ fn current_declared_profile(
             "two declared profiles both claim currency",
         )),
     }
+}
+
+/// The estate's governing principal for records that carry no per-record owner (the
+/// temporal-verification profile here, the environment plane's estate-governed records). It is
+/// deployment configuration (`IOI_HYPERVISOR_ESTATE_OWNER_REF`, a principal the wallet.network can
+/// hold an approval authority for); absent that, the local-estate default. No request may choose it.
+pub(crate) fn estate_owner_ref() -> String {
+    std::env::var("IOI_HYPERVISOR_ESTATE_OWNER_REF")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| value.contains("://"))
+        .unwrap_or_else(|| "wallet://hypervisor/local-estate-owner".to_owned())
 }
 
 pub(crate) fn load_node_attestation_source(data_dir: &str) -> Result<NodeAttestationSource, VErr> {
@@ -905,7 +917,7 @@ pub(crate) async fn handle_node_transition(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let mut evidence = match prepare_node_evidence_for(
+    let mut evidence = match super::system_activation_routes::prepare_node_evidence_under(
         &plan.authority_effect,
         op.as_str(),
         plan.sequence,
@@ -913,6 +925,13 @@ pub(crate) async fn handle_node_transition(
         &governing,
         &plan.resulting_node_set_root,
         authorized,
+        super::system_activation_routes::AuthorityDecisionBinding {
+            policy_context: AuthorityPolicyContext::HypervisorOsNode {
+                estate_namespace: &estate_namespace,
+                node_id: &plan.node_id,
+            },
+            subject_ref: &plan.node_record_ref,
+        },
     ) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -1363,7 +1382,7 @@ fn build_profile_declaration_plan(
         ProfileFamily::Boot => required(&profile, "/owner_ref")?,
         // The temporal profile carries no owner field; the estate daemon
         // owner governs its declaration.
-        ProfileFamily::Temporal => "wallet://hypervisor/local-estate-owner".to_owned(),
+        ProfileFamily::Temporal => estate_owner_ref(),
     };
     let sequence = source
         .head
@@ -1461,7 +1480,7 @@ async fn handle_declare_profile(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let mut evidence = match prepare_node_evidence_for(
+    let mut evidence = match super::system_activation_routes::prepare_node_evidence_under(
         &effect,
         op,
         sequence,
@@ -1469,6 +1488,13 @@ async fn handle_declare_profile(
         &governing,
         &profile_root,
         authorized,
+        super::system_activation_routes::AuthorityDecisionBinding {
+            policy_context: AuthorityPolicyContext::HypervisorOsNode {
+                estate_namespace: &estate_namespace,
+                node_id: &profile_root,
+            },
+            subject_ref: &profile_root,
+        },
     ) {
         Ok(value) => value,
         Err(error) => return classify(error),
