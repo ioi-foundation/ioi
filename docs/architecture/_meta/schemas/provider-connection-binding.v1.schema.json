@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+  "title": "ProviderConnectionBinding",
+  "x-ioi-schema-version": "ioi.wallet.provider-connection-binding.v1",
+  "description": "A wallet.network-owned, versioned and revocable relationship between one wallet principal and one externally owned provider account, bound to provider-granted scopes, an exact brokered credential binding, a custody profile, permitted audiences, a connection revocation epoch, current provider verification, a reauthorization deadline and successor lineage. Provider-granted scopes express reachability only: the binding is not an AuthFactor, a credential, a connector installation, an authority grant, a provider account or an effect result. Disconnect, provider revocation, reauthorization expiry or credential rotation advances the epoch and fences the next brokered use at admission; reconnect creates a successor and never revives a predecessor's grants. Owner: wallet-network/api-authority-scopes.md § Provider Connection Binding (M03.16).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "connection_ref",
+    "connection_version",
+    "predecessor_ref",
+    "owner_ref",
+    "principal_ref",
+    "connector_ref",
+    "provider_profile_ref",
+    "provider_account_subject_hash",
+    "provider_tenant_subject_hash",
+    "provider_granted_scopes",
+    "credential_binding_ref",
+    "credential_custody_profile_ref",
+    "permitted_audience_classes",
+    "connection_revocation_epoch",
+    "reauthorization_required_at",
+    "last_provider_verification",
+    "status",
+    "successor_ref",
+    "ceremony_ref",
+    "receipt_refs",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.wallet.provider-connection-binding.v1"
+    },
+    "connection_ref": {
+      "type": "string",
+      "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "description": "The connection family; a version is named connection_ref@version."
+    },
+    "connection_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000,
+      "description": "A connection is versioned append-only; a million versions of one connection is beyond any honest lifecycle."
+    },
+    "predecessor_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"
+        }
+      ]
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+      "description": "The tenant that owns the record on the shared owner-scoped mutation chain (org:// or project://)."
+    },
+    "connector_ref": {
+      "type": "string",
+      "pattern": "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "provider_profile_ref": {
+      "type": "string",
+      "pattern": "^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$"
+    },
+    "provider_account_subject_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "A commitment to the provider's account subject; the provider remains the truth owner of the identifier."
+    },
+    "provider_tenant_subject_hash": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "provider_granted_scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "What the provider credential could request. Reachability, never a wallet authority grant."
+    },
+    "credential_binding_ref": {
+      "type": "string",
+      "pattern": "^credential://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
+      "description": "The brokered ProviderCredentialBinding this version acts through; its contents are never a member."
+    },
+    "credential_custody_profile_ref": {
+      "type": "string",
+      "pattern": "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"
+    },
+    "permitted_audience_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "connector",
+          "final_invoker"
+        ]
+      }
+    },
+    "connection_revocation_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000,
+      "description": "Advanced by disconnect, provider revocation, reauthorization expiry and credential rotation; final admission revalidates the exact version, status and epoch."
+    },
+    "reauthorization_required_at": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        }
+      ]
+    },
+    "last_provider_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "evidence_ref",
+        "status"
+      ],
+      "properties": {
+        "observed_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            }
+          ]
+        },
+        "evidence_ref": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "current",
+            "degraded",
+            "unknown",
+            "provider_revoked"
+          ]
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_authorization",
+        "active",
+        "reauthorization_required",
+        "degraded",
+        "provider_revoked",
+        "disconnected",
+        "superseded"
+      ]
+    },
+    "successor_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"
+        }
+      ]
+    },
+    "ceremony_ref": {
+      "type": "string",
+      "pattern": "^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "description": "The ceremony whose completion created this version (a reconnect or reauthorization names its own ceremony)."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "JCS-SHA256 over the flat material map under ioi.wallet.provider-connection-binding-content-commitment-jcs-sha256.v1; server-resolved."
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "The admission stamp the shared owner-scoped mutation chain assigns; server-resolved, outside the content commitment."
+    },
+    "principal_ref": {
+      "type": "string",
+      "pattern": "^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+      "description": "The authenticated wallet principal the ceremony and every connection version are bound to, as the daemon RESOLVED it — never a body claim."
+    }
+  }
+}

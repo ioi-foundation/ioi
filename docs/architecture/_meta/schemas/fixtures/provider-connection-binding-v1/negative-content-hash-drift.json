@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.wallet.provider-connection-binding.v1",
+  "connection_ref": "connection://provider/acme-mail/principal_01/default",
+  "connection_version": 1,
+  "predecessor_ref": null,
+  "owner_ref": "org://acme",
+  "connector_ref": "connector://cnx_acme_mail",
+  "provider_profile_ref": "provider-profile://cnx_acme_mail@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "provider_account_subject_hash": "sha256:abababababababababababababababababababababababababababababababab",
+  "provider_tenant_subject_hash": null,
+  "provider_granted_scopes": [
+    "mail.read"
+  ],
+  "credential_binding_ref": "credential://cnx_acme_mail/principal_01@1",
+  "credential_custody_profile_ref": "custody-profile://brokered/local@1",
+  "permitted_audience_classes": [
+    "connector"
+  ],
+  "connection_revocation_epoch": 0,
+  "reauthorization_required_at": "2026-10-16T10:03:00Z",
+  "last_provider_verification": {
+    "observed_at": "2026-09-16T10:03:00Z",
+    "evidence_ref": "evidence://provider-connection/cer_02/token-response",
+    "status": "current"
+  },
+  "status": "active",
+  "successor_ref": null,
+  "ceremony_ref": "connection-ceremony://cer_02",
+  "receipt_refs": [
+    "receipt://wallet/provider-connection/cnx_acme_mail/principal_01/1/admitted"
+  ],
+  "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "admitted_at": "2026-09-16T10:00:00.250Z",
+  "principal_ref": "user://principal_01"
+}

@@ -13315,6 +13315,79 @@ export type LearningImpactRecordEnvelopeV1 = {
   admitted_at: string;
 };
 
+export type ProviderConnectionCeremonyV1 = {
+  schema_version: "ioi.wallet.provider-connection-ceremony.v1";
+  ceremony_ref: string;
+  owner_ref: string;
+  connector_ref: string;
+  provider_profile_ref: string;
+  redirect: {
+      origin: string;
+      uri: string;
+    };
+  state: string;
+  nonce: string;
+  proof: {
+      kind: "pkce_s256" | "profile_equivalent";
+      code_challenge: string;
+      code_challenge_method: "S256";
+    };
+  requested_scopes: Array<string>;
+  credential_custody_profile_ref: string;
+  permitted_audience_classes: Array<"connector" | "final_invoker">;
+  product_session_origin: string;
+  issued_at: string;
+  expires_at: string;
+  status: "issued" | "completed" | "expired" | "refused";
+  completion: {
+      completed_at: null | string;
+      connection_ref: null | string;
+      provider_account_subject_hash: null | string;
+      provider_tenant_subject_hash: null | string;
+      provider_granted_scopes: Array<string>;
+      evidence_ref: null | string;
+    };
+  refusal: {
+      code: null | string;
+      refused_at: null | string;
+    };
+  receipt_refs: Array<string>;
+  content_hash: string;
+  admitted_at: string;
+  principal_ref: string;
+  declared_account_subject: null | string;
+};
+
+export type ProviderConnectionBindingV1 = {
+  schema_version: "ioi.wallet.provider-connection-binding.v1";
+  connection_ref: string;
+  connection_version: number;
+  predecessor_ref: null | string;
+  owner_ref: string;
+  connector_ref: string;
+  provider_profile_ref: string;
+  provider_account_subject_hash: string;
+  provider_tenant_subject_hash: null | string;
+  provider_granted_scopes: Array<string>;
+  credential_binding_ref: string;
+  credential_custody_profile_ref: string;
+  permitted_audience_classes: Array<"connector" | "final_invoker">;
+  connection_revocation_epoch: number;
+  reauthorization_required_at: null | string;
+  last_provider_verification: {
+      observed_at: null | string;
+      evidence_ref: null | string;
+      status: "current" | "degraded" | "unknown" | "provider_revoked";
+    };
+  status: "pending_authorization" | "active" | "reauthorization_required" | "degraded" | "provider_revoked" | "disconnected" | "superseded";
+  successor_ref: null | string;
+  ceremony_ref: string;
+  receipt_refs: Array<string>;
+  content_hash: string;
+  admitted_at: string;
+  principal_ref: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -25852,6 +25925,134 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "learning_impact_record.content_hash.commits_the_immutable_body"
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-issued.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-completed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-refused.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-completed-without-connection.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-missing-proof.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-empty-scopes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-content-hash-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-refused-without-code.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-disconnected.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-superseded.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-active-without-scopes.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-superseded-without-successor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-bad-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-verified-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-content-hash-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -30071,6 +30272,22 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-issued.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-issued.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-completed.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-completed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-refused.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/positive-refused.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-completed-without-connection.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-completed-without-connection.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-missing-proof.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-missing-proof.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-empty-scopes.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-empty-scopes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-content-hash-drift.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-content-hash-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-refused-without-code.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-ceremony-v1/negative-refused-without-code.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-active.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-disconnected.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-disconnected.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-superseded.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/positive-superseded.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-active-without-scopes.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-active-without-scopes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-superseded-without-successor.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-superseded-without-successor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-bad-status.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-bad-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-verified-without-evidence.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-verified-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-content-hash-drift.json","contract_id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-content-hash-drift.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -30384,6 +30601,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$",
   "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
+  "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
   "^(?:org|project)://\\S*$",
@@ -30510,6 +30728,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:user|wallet)://\\S*$",
   "^(?:user|wallet)://\\S+$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
+  "^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
   "^(?:verifier-path|evidence|schema)://[^\\s]{1,240}$",
   "^(?:verifier-path|rubric|gate)://[^\\s]{1,500}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
@@ -30722,8 +30941,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^conformance-profile://[^\\s]{1,248}$",
   "^conformance_profile://[^\\s]{1,248}$",
   "^conn_[0-9a-f]{16}$",
+  "^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$",
+  "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+  "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
   "^connector-mapping://cmap_[0-9a-f]{12,32}$",
   "^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
   "^connector://[^\\s]{1,248}$",
   "^constitution-amendment://[^\\s]{1,248}$",
   "^constitution://[A-Za-z0-9._:/-]+$",
@@ -30737,6 +30960,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^contract://[^\\s]{1,240}$",
   "^controller-binding://[^\\s]+$",
   "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$",
+  "^credential://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
+  "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$",
   "^dapp_[0-9a-f]{16}$",
   "^dartm_[0-9a-f]{1,32}$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -31037,6 +31262,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^proposal://[^\\s]{1,248}$",
   "^protocol://[^\\s]{1,248}$",
   "^provenance://[^\\s]{1,248}$",
+  "^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$",
   "^qualification-proposal://foundry/[^\\s]{1,500}$",
   "^query://hypervisor/\\S+$",
   "^quote://[^\\s]{1,500}$",
@@ -31559,7 +31785,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/evaluation-result/v1": "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987",
   "schema://ioi/components/hypervisor/model-swap-continuity-report/v1": "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33",
   "schema://ioi/foundations/objects/improvement-role-binding/v1": "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd",
-  "schema://ioi/foundations/objects/learning-impact-record/v1": "sha256:42f059a812dc4a67edbe0c542440d03b9107e18ab434cbfe28b835348acb1222"
+  "schema://ioi/foundations/objects/learning-impact-record/v1": "sha256:42f059a812dc4a67edbe0c542440d03b9107e18ab434cbfe28b835348acb1222",
+  "schema://ioi/components/wallet-network/provider-connection-ceremony/v1": "sha256:6e0436605e944d7018ea484b7611a9661511ffbfe58191c1d855c96f1181e804",
+  "schema://ioi/components/wallet-network/provider-connection-binding/v1": "sha256:a752e6e00f0cb8c215e3d8307329444fb282c657e71c38c6de0b3a64a49c928f"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -134819,6 +135047,555 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/canonicalTimestamp"
       }
     }
+  },
+  "schema://ioi/components/wallet-network/provider-connection-ceremony/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+    "title": "ProviderConnectionCeremony",
+    "x-ioi-schema-version": "ioi.wallet.provider-connection-ceremony.v1",
+    "description": "A single-use, expiring provider authorization ceremony bound to the authenticated wallet principal, the exact provider profile revision, redirect origin and URI, state and nonce, PKCE (or the profile's equivalent proof) commitment, requested provider scopes, intended credential custody profile, permitted audience classes and product-session origin. It grants no provider access and no machine authority; completion validates the provider, the exact account and tenant subject commitments, the returned scopes and the credential response, and creates a ProviderConnectionBinding — never a product integration or an authority grant. The PKCE verifier is never a member: it is sealed server-side and only its S256 challenge is committed. Owner: wallet-network/api-authority-scopes.md § Provider Connection Binding (M03.16).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ceremony_ref",
+      "owner_ref",
+      "declared_account_subject",
+      "principal_ref",
+      "connector_ref",
+      "provider_profile_ref",
+      "redirect",
+      "state",
+      "nonce",
+      "proof",
+      "requested_scopes",
+      "credential_custody_profile_ref",
+      "permitted_audience_classes",
+      "product_session_origin",
+      "issued_at",
+      "expires_at",
+      "status",
+      "completion",
+      "refusal",
+      "receipt_refs",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.wallet.provider-connection-ceremony.v1"
+      },
+      "ceremony_ref": {
+        "type": "string",
+        "pattern": "^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "description": "The ceremony's own ref; single-use, never reissued."
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+        "description": "The tenant that owns the record on the shared owner-scoped mutation chain (org:// or project://)."
+      },
+      "connector_ref": {
+        "type": "string",
+        "pattern": "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+        "description": "The registered connector whose provider profile the ceremony binds; the product/System integration handle, not the provider account."
+      },
+      "provider_profile_ref": {
+        "type": "string",
+        "pattern": "^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$",
+        "description": "The exact provider registry/profile revision: content-addressed over the connector's registered auth profile with secrets excluded, so a profile edited after the ceremony was issued cannot complete it."
+      },
+      "redirect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "origin",
+          "uri"
+        ],
+        "properties": {
+          "origin": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uri": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "state": {
+        "type": "string",
+        "minLength": 16,
+        "maxLength": 128
+      },
+      "nonce": {
+        "type": "string",
+        "minLength": 16,
+        "maxLength": 128
+      },
+      "proof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "code_challenge",
+          "code_challenge_method"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pkce_s256",
+              "profile_equivalent"
+            ]
+          },
+          "code_challenge": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 128
+          },
+          "code_challenge_method": {
+            "type": "string",
+            "enum": [
+              "S256"
+            ]
+          }
+        }
+      },
+      "requested_scopes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "credential_custody_profile_ref": {
+        "type": "string",
+        "pattern": "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"
+      },
+      "permitted_audience_classes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "connector",
+            "final_invoker"
+          ]
+        }
+      },
+      "product_session_origin": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "issued_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "expires_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "issued",
+          "completed",
+          "expired",
+          "refused"
+        ]
+      },
+      "completion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "completed_at",
+          "connection_ref",
+          "provider_account_subject_hash",
+          "provider_tenant_subject_hash",
+          "provider_granted_scopes",
+          "evidence_ref"
+        ],
+        "description": "Always present; every member is null until the ceremony completes. A completed ceremony names the connection version it created and the evidence its validation observed (registered invariant).",
+        "properties": {
+          "completed_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              }
+            ]
+          },
+          "connection_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"
+              }
+            ]
+          },
+          "provider_account_subject_hash": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            ]
+          },
+          "provider_tenant_subject_hash": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            ]
+          },
+          "provider_granted_scopes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidence_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          }
+        }
+      },
+      "refusal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "refused_at"
+        ],
+        "description": "Always present; null members until the ceremony is refused, then the typed code and the instant.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          },
+          "refused_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              }
+            ]
+          }
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "JCS-SHA256 over the flat material map under ioi.wallet.provider-connection-ceremony-content-commitment-jcs-sha256.v1; server-resolved."
+      },
+      "admitted_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+        "description": "The admission stamp the shared owner-scoped mutation chain assigns; server-resolved, outside the content commitment."
+      },
+      "principal_ref": {
+        "type": "string",
+        "pattern": "^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+        "description": "The authenticated wallet principal the ceremony and every connection version are bound to, as the daemon RESOLVED it — never a body claim."
+      },
+      "declared_account_subject": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        ],
+        "description": "The provider account the owner intends to connect, when declared at start. A provider-returned subject that differs is refused as substitution; when the provider returns none, the declared subject stands and the evidence records subject_source owner_declared."
+      }
+    }
+  },
+  "schema://ioi/components/wallet-network/provider-connection-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+    "title": "ProviderConnectionBinding",
+    "x-ioi-schema-version": "ioi.wallet.provider-connection-binding.v1",
+    "description": "A wallet.network-owned, versioned and revocable relationship between one wallet principal and one externally owned provider account, bound to provider-granted scopes, an exact brokered credential binding, a custody profile, permitted audiences, a connection revocation epoch, current provider verification, a reauthorization deadline and successor lineage. Provider-granted scopes express reachability only: the binding is not an AuthFactor, a credential, a connector installation, an authority grant, a provider account or an effect result. Disconnect, provider revocation, reauthorization expiry or credential rotation advances the epoch and fences the next brokered use at admission; reconnect creates a successor and never revives a predecessor's grants. Owner: wallet-network/api-authority-scopes.md § Provider Connection Binding (M03.16).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "connection_ref",
+      "connection_version",
+      "predecessor_ref",
+      "owner_ref",
+      "principal_ref",
+      "connector_ref",
+      "provider_profile_ref",
+      "provider_account_subject_hash",
+      "provider_tenant_subject_hash",
+      "provider_granted_scopes",
+      "credential_binding_ref",
+      "credential_custody_profile_ref",
+      "permitted_audience_classes",
+      "connection_revocation_epoch",
+      "reauthorization_required_at",
+      "last_provider_verification",
+      "status",
+      "successor_ref",
+      "ceremony_ref",
+      "receipt_refs",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.wallet.provider-connection-binding.v1"
+      },
+      "connection_ref": {
+        "type": "string",
+        "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+        "description": "The connection family; a version is named connection_ref@version."
+      },
+      "connection_version": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000000,
+        "description": "A connection is versioned append-only; a million versions of one connection is beyond any honest lifecycle."
+      },
+      "predecessor_ref": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"
+          }
+        ]
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+        "description": "The tenant that owns the record on the shared owner-scoped mutation chain (org:// or project://)."
+      },
+      "connector_ref": {
+        "type": "string",
+        "pattern": "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+      },
+      "provider_profile_ref": {
+        "type": "string",
+        "pattern": "^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$"
+      },
+      "provider_account_subject_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "A commitment to the provider's account subject; the provider remains the truth owner of the identifier."
+      },
+      "provider_tenant_subject_hash": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        ]
+      },
+      "provider_granted_scopes": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "What the provider credential could request. Reachability, never a wallet authority grant."
+      },
+      "credential_binding_ref": {
+        "type": "string",
+        "pattern": "^credential://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
+        "description": "The brokered ProviderCredentialBinding this version acts through; its contents are never a member."
+      },
+      "credential_custody_profile_ref": {
+        "type": "string",
+        "pattern": "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"
+      },
+      "permitted_audience_classes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "connector",
+            "final_invoker"
+          ]
+        }
+      },
+      "connection_revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000,
+        "description": "Advanced by disconnect, provider revocation, reauthorization expiry and credential rotation; final admission revalidates the exact version, status and epoch."
+      },
+      "reauthorization_required_at": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          }
+        ]
+      },
+      "last_provider_verification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observed_at",
+          "evidence_ref",
+          "status"
+        ],
+        "properties": {
+          "observed_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              }
+            ]
+          },
+          "evidence_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "current",
+              "degraded",
+              "unknown",
+              "provider_revoked"
+            ]
+          }
+        }
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "pending_authorization",
+          "active",
+          "reauthorization_required",
+          "degraded",
+          "provider_revoked",
+          "disconnected",
+          "superseded"
+        ]
+      },
+      "successor_ref": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"
+          }
+        ]
+      },
+      "ceremony_ref": {
+        "type": "string",
+        "pattern": "^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "description": "The ceremony whose completion created this version (a reconnect or reauthorization names its own ceremony)."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "JCS-SHA256 over the flat material map under ioi.wallet.provider-connection-binding-content-commitment-jcs-sha256.v1; server-resolved."
+      },
+      "admitted_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+        "description": "The admission stamp the shared owner-scoped mutation chain assigns; server-resolved, outside the content commitment."
+      },
+      "principal_ref": {
+        "type": "string",
+        "pattern": "^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+        "description": "The authenticated wallet principal the ceremony and every connection version are bound to, as the daemon RESOLVED it — never a body claim."
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -153264,6 +154041,256 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.unlearning_evidence_refs"
       }
     }
+  ],
+  "schema://ioi/components/wallet-network/provider-connection-ceremony/v1": [
+    {
+      "rule_id": "provider_connection_ceremony.content_hash.commits_the_bound_ceremony",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself under the domain separator over a flat canonical-JSON material map, so a redirect, scope set, proof or completion edited after issue fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet.provider-connection-ceremony-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "ceremony_ref": {
+            "path": "$.ceremony_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "connector_ref": {
+            "path": "$.connector_ref"
+          },
+          "provider_profile_ref": {
+            "path": "$.provider_profile_ref"
+          },
+          "redirect": {
+            "path": "$.redirect"
+          },
+          "state": {
+            "path": "$.state"
+          },
+          "nonce": {
+            "path": "$.nonce"
+          },
+          "proof": {
+            "path": "$.proof"
+          },
+          "requested_scopes": {
+            "path": "$.requested_scopes"
+          },
+          "declared_account_subject": {
+            "path": "$.declared_account_subject"
+          },
+          "credential_custody_profile_ref": {
+            "path": "$.credential_custody_profile_ref"
+          },
+          "permitted_audience_classes": {
+            "path": "$.permitted_audience_classes"
+          },
+          "product_session_origin": {
+            "path": "$.product_session_origin"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "completion": {
+            "path": "$.completion"
+          },
+          "refusal": {
+            "path": "$.refusal"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.completion.names_its_connection",
+      "description": "A completed ceremony names the connection version it created; completion without a binding is not completion.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.completion.connection_ref",
+        "when_path": "$.status",
+        "values": [
+          "completed"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.completion.carries_provider_evidence",
+      "description": "A completed ceremony carries the provider evidence its validation observed; a completion asserted without evidence is a claim.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.completion.evidence_ref",
+        "when_path": "$.status",
+        "values": [
+          "completed"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.refusal.names_its_code",
+      "description": "A refused ceremony names why, typed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.refusal.code",
+        "when_path": "$.status",
+        "values": [
+          "refused"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.expiry.declared",
+      "description": "A ceremony always expires; one without a deadline would be reusable for ever.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.expires_at"
+      }
+    }
+  ],
+  "schema://ioi/components/wallet-network/provider-connection-binding/v1": [
+    {
+      "rule_id": "provider_connection_binding.content_hash.commits_the_version",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member of the version except itself, so a scope set, epoch, status or successor edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet.provider-connection-binding-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "connection_ref": {
+            "path": "$.connection_ref"
+          },
+          "connection_version": {
+            "path": "$.connection_version"
+          },
+          "predecessor_ref": {
+            "path": "$.predecessor_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "connector_ref": {
+            "path": "$.connector_ref"
+          },
+          "provider_profile_ref": {
+            "path": "$.provider_profile_ref"
+          },
+          "provider_account_subject_hash": {
+            "path": "$.provider_account_subject_hash"
+          },
+          "provider_tenant_subject_hash": {
+            "path": "$.provider_tenant_subject_hash"
+          },
+          "provider_granted_scopes": {
+            "path": "$.provider_granted_scopes"
+          },
+          "credential_binding_ref": {
+            "path": "$.credential_binding_ref"
+          },
+          "credential_custody_profile_ref": {
+            "path": "$.credential_custody_profile_ref"
+          },
+          "permitted_audience_classes": {
+            "path": "$.permitted_audience_classes"
+          },
+          "connection_revocation_epoch": {
+            "path": "$.connection_revocation_epoch"
+          },
+          "reauthorization_required_at": {
+            "path": "$.reauthorization_required_at"
+          },
+          "last_provider_verification": {
+            "path": "$.last_provider_verification"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "successor_ref": {
+            "path": "$.successor_ref"
+          },
+          "ceremony_ref": {
+            "path": "$.ceremony_ref"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.active.has_granted_scopes",
+      "description": "An active connection names the scopes the provider granted; reachability is recorded, never assumed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.provider_granted_scopes",
+        "when_path": "$.status",
+        "values": [
+          "active"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.verified.carries_evidence",
+      "description": "A connection that claims a current, degraded or provider-revoked verification carries the evidence that observed it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.last_provider_verification.evidence_ref",
+        "when_path": "$.last_provider_verification.status",
+        "values": [
+          "current",
+          "degraded",
+          "provider_revoked"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.superseded.names_its_successor",
+      "description": "A superseded version names the successor that replaced it; predecessor grants do not revive or silently retarget.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.successor_ref",
+        "when_path": "$.status",
+        "values": [
+          "superseded"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.ceremony.bound",
+      "description": "Every version was created by exactly one ceremony it names.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.ceremony_ref"
+      }
+    }
   ]
 };
 
@@ -156007,4 +157034,16 @@ export function validateLearningImpactRecordEnvelopeV1(
   value: unknown,
 ): value is LearningImpactRecordEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/learning-impact-record/v1", value).ok;
+}
+
+export function validateProviderConnectionCeremonyV1(
+  value: unknown,
+): value is ProviderConnectionCeremonyV1 {
+  return validateArchitectureContract("schema://ioi/components/wallet-network/provider-connection-ceremony/v1", value).ok;
+}
+
+export function validateProviderConnectionBindingV1(
+  value: unknown,
+): value is ProviderConnectionBindingV1 {
+  return validateArchitectureContract("schema://ioi/components/wallet-network/provider-connection-binding/v1", value).ok;
 }

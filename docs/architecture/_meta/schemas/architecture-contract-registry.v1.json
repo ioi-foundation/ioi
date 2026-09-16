@@ -17990,6 +17990,138 @@
           "expected_rule_id": "learning_impact_record.content_hash.commits_the_immutable_body"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+      "canonical_name": "ProviderConnectionCeremony",
+      "canonical_owner_ref": "canon://docs/architecture/components/wallet-network/api-authority-scopes.md#provider-connection-binding",
+      "schema_version": "ioi.wallet.provider-connection-ceremony.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "provider-connection-ceremony.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/wallet-network/provider-connection-ceremony/single-use-bound/v1",
+          "path": "invariants/provider-connection-ceremony.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ProviderConnectionCeremonyV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ProviderConnectionCeremonyV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/provider-connection-ceremony-v1/positive-issued.json",
+        "fixtures/provider-connection-ceremony-v1/positive-completed.json",
+        "fixtures/provider-connection-ceremony-v1/positive-refused.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/provider-connection-ceremony-v1/negative-completed-without-connection.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/provider-connection-ceremony-v1/negative-missing-proof.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/provider-connection-ceremony-v1/negative-empty-scopes.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/provider-connection-ceremony-v1/negative-content-hash-drift.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/provider-connection-ceremony-v1/negative-refused-without-code.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+      "canonical_name": "ProviderConnectionBinding",
+      "canonical_owner_ref": "canon://docs/architecture/components/wallet-network/api-authority-scopes.md#provider-connection-binding",
+      "schema_version": "ioi.wallet.provider-connection-binding.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "provider-connection-binding.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/wallet-network/provider-connection-binding/connected-not-authorized/v1",
+          "path": "invariants/provider-connection-binding.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ProviderConnectionBindingV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ProviderConnectionBindingV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/provider-connection-binding-v1/positive-active.json",
+        "fixtures/provider-connection-binding-v1/positive-disconnected.json",
+        "fixtures/provider-connection-binding-v1/positive-superseded.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/provider-connection-binding-v1/negative-active-without-scopes.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/provider-connection-binding-v1/negative-superseded-without-successor.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/provider-connection-binding-v1/negative-bad-status.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/provider-connection-binding-v1/negative-verified-without-evidence.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/provider-connection-binding-v1/negative-content-hash-drift.json",
+          "expected_failure": "invariant"
+        }
+      ]
     }
   ]
 }

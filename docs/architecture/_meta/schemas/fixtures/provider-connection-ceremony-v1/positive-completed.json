@@ -1,0 +1,52 @@
+{
+  "schema_version": "ioi.wallet.provider-connection-ceremony.v1",
+  "ceremony_ref": "connection-ceremony://cer_02",
+  "owner_ref": "org://acme",
+  "connector_ref": "connector://cnx_acme_mail",
+  "provider_profile_ref": "provider-profile://cnx_acme_mail@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "redirect": {
+    "origin": "http://127.0.0.1:4173",
+    "uri": "http://127.0.0.1:4173/__ioi/integrations/oauth/callback"
+  },
+  "state": "st_fedcba9876543210fedc",
+  "nonce": "nn_fedcba9876543210fedc",
+  "proof": {
+    "kind": "pkce_s256",
+    "code_challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    "code_challenge_method": "S256"
+  },
+  "requested_scopes": [
+    "mail.read",
+    "mail.send"
+  ],
+  "credential_custody_profile_ref": "custody-profile://brokered/local@1",
+  "permitted_audience_classes": [
+    "connector"
+  ],
+  "product_session_origin": "session://acme/console/7f2a",
+  "issued_at": "2026-09-16T10:00:00Z",
+  "expires_at": "2026-09-16T10:10:00Z",
+  "status": "completed",
+  "completion": {
+    "completed_at": "2026-09-16T10:03:00Z",
+    "connection_ref": "connection://provider/acme-mail/principal_01/default@1",
+    "provider_account_subject_hash": "sha256:abababababababababababababababababababababababababababababababab",
+    "provider_tenant_subject_hash": null,
+    "provider_granted_scopes": [
+      "mail.read"
+    ],
+    "evidence_ref": "evidence://provider-connection/cer_02/token-response"
+  },
+  "refusal": {
+    "code": null,
+    "refused_at": null
+  },
+  "receipt_refs": [
+    "receipt://wallet/provider-connection/cer_02/issued",
+    "receipt://wallet/provider-connection/cer_02/completed"
+  ],
+  "content_hash": "sha256:a3482683057a0d2426f8249e09958da99cdffbcb49396a9d5051d36948e8c502",
+  "admitted_at": "2026-09-16T10:00:00.250Z",
+  "principal_ref": "user://principal_01",
+  "declared_account_subject": null
+}

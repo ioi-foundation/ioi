@@ -1074,7 +1074,50 @@ missing custody, and a completion not linked to the authenticated initiating
 principal. Provider-specific adapters may add stronger checks; they cannot
 weaken this common floor.
 
-Target `ProviderConnectionBinding`:
+Target `ProviderConnectionCeremony` (registered on this basis, 2026-09-16, M03.16):
+
+```json
+{
+  "schema_version": "ioi.wallet.provider-connection-ceremony.v1",
+  "ceremony_ref": "connection-ceremony://cer_01",
+  "owner_ref": "org://acme",
+  "principal_ref": "user://principal_01",
+  "connector_ref": "connector://cnx_acme_mail",
+  "provider_profile_ref": "provider-profile://cnx_acme_mail@sha256:...",
+  "redirect": { "origin": "http://127.0.0.1:4173", "uri": "http://127.0.0.1:4173/__ioi/integrations/oauth/callback" },
+  "state": "…", "nonce": "…",
+  "proof": { "kind": "pkce_s256 | profile_equivalent", "code_challenge": "…", "code_challenge_method": "S256" },
+  "requested_scopes": ["mail.read", "mail.send"],
+  "declared_account_subject": null,
+  "credential_custody_profile_ref": "custody-profile://brokered/local@1",
+  "permitted_audience_classes": ["connector", "final_invoker"],
+  "product_session_origin": "session://…",
+  "issued_at": "2026-09-16T10:00:00Z",
+  "expires_at": "2026-09-16T10:10:00Z",
+  "status": "issued | completed | expired | refused",
+  "completion": { "completed_at": null, "connection_ref": null, "provider_account_subject_hash": null, "provider_tenant_subject_hash": null, "provider_granted_scopes": [], "evidence_ref": null },
+  "refusal": { "code": null, "refused_at": null },
+  "receipt_refs": ["receipt://wallet/provider-connection/cer_01/issued"],
+  "content_hash": "sha256:...",
+  "admitted_at": "2026-09-16T10:00:00Z"
+}
+```
+
+The PKCE verifier is never a member: it is sealed server-side and only its S256
+challenge is committed. `completion` names the connection version the ceremony
+created, the provider account and tenant subject commitments, the scopes the
+provider actually granted and the evidence its validation observed; a ceremony
+whose `status` is `completed` without them is refused by the registered
+invariant. `provider_profile_ref` is content-addressed over the provider profile
+the connector registered, with sealed members excluded, so a profile edited
+after issue cannot complete the ceremony.
+
+Target `ProviderConnectionBinding` (registered on this basis, 2026-09-16, M03.16;
+`owner_ref` is the owning tenant on the shared chain, `principal_ref` is the
+authenticated wallet principal as the daemon resolves it, `connector_ref` names the product/System connector whose provider profile the
+connection acts through, `ceremony_ref` names the ceremony that created the
+version, and `content_hash` is the server-resolved commitment over every other
+member):
 
 ```json
 {
@@ -1082,8 +1125,10 @@ Target `ProviderConnectionBinding`:
   "connection_ref": "connection://provider/google/user_123/workspace",
   "connection_version": 4,
   "predecessor_ref": "connection://provider/google/user_123/workspace@3",
-  "owner_ref": "wallet://user_123",
-  "provider_profile_ref": "provider-profile://google/workspace@7",
+  "owner_ref": "org://acme",
+  "principal_ref": "user://user_123",
+  "connector_ref": "connector://cnx_google_workspace",
+  "provider_profile_ref": "provider-profile://cnx_google_workspace@sha256:...",
   "provider_account_subject_hash": "sha256:...",
   "provider_tenant_subject_hash": "sha256:... | null",
   "provider_granted_scopes": ["gmail.send", "drive.read"],
@@ -1098,7 +1143,11 @@ Target `ProviderConnectionBinding`:
     "status": "current | degraded | unknown | provider_revoked"
   },
   "status": "pending_authorization | active | reauthorization_required | degraded | provider_revoked | disconnected | superseded",
-  "receipt_refs": ["receipt://wallet/provider-connection/..."]
+  "successor_ref": "connection://provider/google/user_123/workspace@5 | null",
+  "ceremony_ref": "connection-ceremony://...",
+  "receipt_refs": ["receipt://wallet/provider-connection/..."],
+  "content_hash": "sha256:...",
+  "admitted_at": "2026-09-16T10:03:00Z"
 }
 ```
 
@@ -1124,10 +1173,40 @@ imported messages/files, provider operation state, product sessions, or domain
 application state. Product/System integration owners reference the connection
 by ref/version/hash and retain those objects.
 
-This contract family is target canon and remains unregistered/unimplemented
-until its tracked schemas, generated Rust/TypeScript projections, API/SDK/CLI/MCP
-surfaces, offline verifier and lifecycle evidence land. Existing credential
-records or OAuth prototypes do not satisfy the connected-access claim.
+Both shapes are registered on this basis (2026-09-16, M03.16:
+`schema://ioi/components/wallet-network/provider-connection-ceremony/v1` and
+`schema://ioi/components/wallet-network/provider-connection-binding/v1`, with
+generated Rust/TypeScript projections and invariants that re-derive each
+`content_hash`, refuse a completed ceremony without its connection and evidence,
+an active connection without granted scopes, a verification claim without
+evidence and a superseded version without its successor). Served on this basis (2026-09-16, M03.16): the daemon serves the eight verbs
+under `/v1/hypervisor/auth/connections/…` (its wallet.network seam namespace,
+as the device-held principal seam), the agent SDK exposes the same routes as
+`startProviderConnection` … `disconnectProviderConnection` and re-derives every
+commitment offline (`verifyProviderConnectionChain`,
+`providerCredentialIsFenced`), and the driven gate
+`check:provider-connection-lifecycle` proves the lifecycle against a stub
+provider the daemon reaches over the wire. On this basis: the provider profile
+revision is content-addressed over the connector's registered auth profile with
+sealed members excluded; the account subject commitment is
+`sha256(JCS{provider_profile_ref, subject})` with the subject taken from the
+provider's userinfo endpoint, else its `id_token` claims (recorded as decoded,
+not signature-verified), else a top-level `sub`, else the owner's declared
+account subject (recorded as `owner_declared`) — a provider subject that differs
+from a declared one is refused as substitution and no subject at all is
+refused; reauthorization and reconnect are successor versions of the same
+connection family with successor credential bindings, so a predecessor's
+credential never revives; `verify` is a live re-mint through the sealed
+credential, and a provider refusing it is observed as `provider_revoked` with
+the epoch advanced; `disconnect` retires the sealed material and admits durable
+quarantine/revocation obligations over the connector's dependents without
+awaiting cleanup. Not on this basis, typed: a CLI (none exists on the tree);
+more than one principal's connection per connector (the credential store is
+keyed by connector); the `superseded` status (a family is never replaced by
+another); provider-native revocation callbacks; the model-mount catalog's own
+provider OAuth, which stays outside this binding. A credential sealed by the
+legacy `/connectors/{id}/credential` or device-code routes is not a connection
+and is not fenced by one.
 
 ### Provider Credential Binding
 

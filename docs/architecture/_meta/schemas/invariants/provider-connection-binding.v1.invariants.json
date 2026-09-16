@@ -1,0 +1,131 @@
+{
+  "$id": "invariant://ioi/components/wallet-network/provider-connection-binding/connected-not-authorized/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+  "rules": [
+    {
+      "rule_id": "provider_connection_binding.content_hash.commits_the_version",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member of the version except itself, so a scope set, epoch, status or successor edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet.provider-connection-binding-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "connection_ref": {
+            "path": "$.connection_ref"
+          },
+          "connection_version": {
+            "path": "$.connection_version"
+          },
+          "predecessor_ref": {
+            "path": "$.predecessor_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "connector_ref": {
+            "path": "$.connector_ref"
+          },
+          "provider_profile_ref": {
+            "path": "$.provider_profile_ref"
+          },
+          "provider_account_subject_hash": {
+            "path": "$.provider_account_subject_hash"
+          },
+          "provider_tenant_subject_hash": {
+            "path": "$.provider_tenant_subject_hash"
+          },
+          "provider_granted_scopes": {
+            "path": "$.provider_granted_scopes"
+          },
+          "credential_binding_ref": {
+            "path": "$.credential_binding_ref"
+          },
+          "credential_custody_profile_ref": {
+            "path": "$.credential_custody_profile_ref"
+          },
+          "permitted_audience_classes": {
+            "path": "$.permitted_audience_classes"
+          },
+          "connection_revocation_epoch": {
+            "path": "$.connection_revocation_epoch"
+          },
+          "reauthorization_required_at": {
+            "path": "$.reauthorization_required_at"
+          },
+          "last_provider_verification": {
+            "path": "$.last_provider_verification"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "successor_ref": {
+            "path": "$.successor_ref"
+          },
+          "ceremony_ref": {
+            "path": "$.ceremony_ref"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.active.has_granted_scopes",
+      "description": "An active connection names the scopes the provider granted; reachability is recorded, never assumed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.provider_granted_scopes",
+        "when_path": "$.status",
+        "values": [
+          "active"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.verified.carries_evidence",
+      "description": "A connection that claims a current, degraded or provider-revoked verification carries the evidence that observed it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.last_provider_verification.evidence_ref",
+        "when_path": "$.last_provider_verification.status",
+        "values": [
+          "current",
+          "degraded",
+          "provider_revoked"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.superseded.names_its_successor",
+      "description": "A superseded version names the successor that replaced it; predecessor grants do not revive or silently retarget.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.successor_ref",
+        "when_path": "$.status",
+        "values": [
+          "superseded"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_binding.ceremony.bound",
+      "description": "Every version was created by exactly one ceremony it names.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.ceremony_ref"
+      }
+    }
+  ]
+}

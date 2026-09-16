@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+  "title": "ProviderConnectionCeremony",
+  "x-ioi-schema-version": "ioi.wallet.provider-connection-ceremony.v1",
+  "description": "A single-use, expiring provider authorization ceremony bound to the authenticated wallet principal, the exact provider profile revision, redirect origin and URI, state and nonce, PKCE (or the profile's equivalent proof) commitment, requested provider scopes, intended credential custody profile, permitted audience classes and product-session origin. It grants no provider access and no machine authority; completion validates the provider, the exact account and tenant subject commitments, the returned scopes and the credential response, and creates a ProviderConnectionBinding — never a product integration or an authority grant. The PKCE verifier is never a member: it is sealed server-side and only its S256 challenge is committed. Owner: wallet-network/api-authority-scopes.md § Provider Connection Binding (M03.16).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ceremony_ref",
+    "owner_ref",
+    "declared_account_subject",
+    "principal_ref",
+    "connector_ref",
+    "provider_profile_ref",
+    "redirect",
+    "state",
+    "nonce",
+    "proof",
+    "requested_scopes",
+    "credential_custody_profile_ref",
+    "permitted_audience_classes",
+    "product_session_origin",
+    "issued_at",
+    "expires_at",
+    "status",
+    "completion",
+    "refusal",
+    "receipt_refs",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.wallet.provider-connection-ceremony.v1"
+    },
+    "ceremony_ref": {
+      "type": "string",
+      "pattern": "^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "description": "The ceremony's own ref; single-use, never reissued."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+      "description": "The tenant that owns the record on the shared owner-scoped mutation chain (org:// or project://)."
+    },
+    "connector_ref": {
+      "type": "string",
+      "pattern": "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "description": "The registered connector whose provider profile the ceremony binds; the product/System integration handle, not the provider account."
+    },
+    "provider_profile_ref": {
+      "type": "string",
+      "pattern": "^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$",
+      "description": "The exact provider registry/profile revision: content-addressed over the connector's registered auth profile with secrets excluded, so a profile edited after the ceremony was issued cannot complete it."
+    },
+    "redirect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "uri"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "code_challenge",
+        "code_challenge_method"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "pkce_s256",
+            "profile_equivalent"
+          ]
+        },
+        "code_challenge": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 128
+        },
+        "code_challenge_method": {
+          "type": "string",
+          "enum": [
+            "S256"
+          ]
+        }
+      }
+    },
+    "requested_scopes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "credential_custody_profile_ref": {
+      "type": "string",
+      "pattern": "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"
+    },
+    "permitted_audience_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "connector",
+          "final_invoker"
+        ]
+      }
+    },
+    "product_session_origin": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "issued",
+        "completed",
+        "expired",
+        "refused"
+      ]
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completed_at",
+        "connection_ref",
+        "provider_account_subject_hash",
+        "provider_tenant_subject_hash",
+        "provider_granted_scopes",
+        "evidence_ref"
+      ],
+      "description": "Always present; every member is null until the ceremony completes. A completed ceremony names the connection version it created and the evidence its validation observed (registered invariant).",
+      "properties": {
+        "completed_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            }
+          ]
+        },
+        "connection_ref": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"
+            }
+          ]
+        },
+        "provider_account_subject_hash": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          ]
+        },
+        "provider_tenant_subject_hash": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          ]
+        },
+        "provider_granted_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_ref": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "refused_at"
+      ],
+      "description": "Always present; null members until the ceremony is refused, then the typed code and the instant.",
+      "properties": {
+        "code": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "refused_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            }
+          ]
+        }
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "JCS-SHA256 over the flat material map under ioi.wallet.provider-connection-ceremony-content-commitment-jcs-sha256.v1; server-resolved."
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "The admission stamp the shared owner-scoped mutation chain assigns; server-resolved, outside the content commitment."
+    },
+    "principal_ref": {
+      "type": "string",
+      "pattern": "^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+      "description": "The authenticated wallet principal the ceremony and every connection version are bound to, as the daemon RESOLVED it — never a body claim."
+    },
+    "declared_account_subject": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      ],
+      "description": "The provider account the owner intends to connect, when declared at start. A provider-returned subject that differs is refused as substitution; when the provider returns none, the declared subject stands and the evidence records subject_source owner_declared."
+    }
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "$id": "invariant://ioi/components/wallet-network/provider-connection-ceremony/single-use-bound/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1",
+  "rules": [
+    {
+      "rule_id": "provider_connection_ceremony.content_hash.commits_the_bound_ceremony",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself under the domain separator over a flat canonical-JSON material map, so a redirect, scope set, proof or completion edited after issue fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet.provider-connection-ceremony-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "ceremony_ref": {
+            "path": "$.ceremony_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "connector_ref": {
+            "path": "$.connector_ref"
+          },
+          "provider_profile_ref": {
+            "path": "$.provider_profile_ref"
+          },
+          "redirect": {
+            "path": "$.redirect"
+          },
+          "state": {
+            "path": "$.state"
+          },
+          "nonce": {
+            "path": "$.nonce"
+          },
+          "proof": {
+            "path": "$.proof"
+          },
+          "requested_scopes": {
+            "path": "$.requested_scopes"
+          },
+          "declared_account_subject": {
+            "path": "$.declared_account_subject"
+          },
+          "credential_custody_profile_ref": {
+            "path": "$.credential_custody_profile_ref"
+          },
+          "permitted_audience_classes": {
+            "path": "$.permitted_audience_classes"
+          },
+          "product_session_origin": {
+            "path": "$.product_session_origin"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "completion": {
+            "path": "$.completion"
+          },
+          "refusal": {
+            "path": "$.refusal"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.completion.names_its_connection",
+      "description": "A completed ceremony names the connection version it created; completion without a binding is not completion.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.completion.connection_ref",
+        "when_path": "$.status",
+        "values": [
+          "completed"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.completion.carries_provider_evidence",
+      "description": "A completed ceremony carries the provider evidence its validation observed; a completion asserted without evidence is a claim.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.completion.evidence_ref",
+        "when_path": "$.status",
+        "values": [
+          "completed"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.refusal.names_its_code",
+      "description": "A refused ceremony names why, typed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.refusal.code",
+        "when_path": "$.status",
+        "values": [
+          "refused"
+        ]
+      }
+    },
+    {
+      "rule_id": "provider_connection_ceremony.expiry.declared",
+      "description": "A ceremony always expires; one without a deadline would be reusable for ever.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.expires_at"
+      }
+    }
+  ]
+}
