@@ -343,7 +343,7 @@ const PINNED = {
   // probe URL (17 held). Its other absence-worded label (the producer's) closes its call past the
   // 400-character window this walk reads and is not counted, which this comment records rather than
   // hides. Moved in the SAME COMMIT as the gate.
-  verifierAbsenceLabels: 118 /* 2026-09-16 R-172 S3: +1, the collaboration gate's same-system negative is absence-worded; 17/17 probe URLs held */,
+  verifierAbsenceLabels: 119 /* 2026-09-16 R-172 S3: +1, the collaboration gate's same-system negative is absence-worded; M11.2 (R-175): +1, the portable-exit gate's hosted fence is absence-worded; 17/17 probe URLs held on both */,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 
