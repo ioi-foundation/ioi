@@ -906,6 +906,23 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:learning-lineage-retention --workspace=@ioi/hypervisor-app
 
+      # M03.16 — connected is not authorized: a registered single-use ceremony bound to the resolved
+      # principal and the exact provider profile revision, driven against a STUB OAUTH PROVIDER the
+      # daemon reaches over the wire; every completion refusal admitted as the ceremony's own
+      # successor; the binding's commitments re-derived; the raw tokens nowhere in plaintext; the
+      # fence at the single brokered-use gateway (428 vs 403); verify observing revocation;
+      # reauthorize and reconnect as successor versions; disconnect with durable obligations; the
+      # legacy connector oauth routes sharing the lineage; restart; the offline verifier.
+      - name: Verify the provider connection lifecycle (M03.16)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:provider-connection-lifecycle --workspace=@ioi/hypervisor-app
+
+      - name: Drill the provider connection gate's own oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:provider-connection-lifecycle --workspace=@ioi/hypervisor-app
+
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         uses: actions/upload-artifact@v4

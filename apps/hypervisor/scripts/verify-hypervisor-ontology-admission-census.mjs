@@ -206,7 +206,9 @@ const RECORDED_PLANE = {
   "odk-connector-mapping-receipts": { admits: ["hypervisor_daemon_routes/connector_mapping_routes.rs"], touches: ["hypervisor_daemon_routes/connector_mapping_routes.rs"] },
   "odk-connector-mappings": { admits: ["hypervisor_daemon_routes/connector_mapping_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_mapping_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-connector-session-receipts": { admits: ["hypervisor_daemon_routes/connector_session_routes.rs"], touches: ["hypervisor_daemon_routes/connector_session_routes.rs"] },
-  "odk-connector-sessions": { admits: ["hypervisor_daemon_routes/connector_session_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_session_routes.rs"] },
+  // provider_connection_routes.rs (M03.16) READS the sessions over a connector as a connection's
+  // dependents (and records obligations over them on disconnect); it never admits a session.
+  "odk-connector-sessions": { admits: ["hypervisor_daemon_routes/connector_session_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_session_routes.rs", "hypervisor_daemon_routes/provider_connection_routes.rs"] },
   "odk-data-recipes": { admits: [], touches: ["hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-domain-ontologies": { admits: ["hypervisor_daemon_routes/odk_routes.rs"], touches: ["hypervisor_daemon_routes/connector_mapping_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
   "odk-manifest": { admits: [], touches: ["hypervisor_daemon_routes/odk_routes.rs"] },
@@ -633,6 +635,17 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-16 (M03.16): modules 125 -> 126 (`provider_connection_routes.rs`), tokens
+  // 158972 -> 159912 (+940), opaque-initialiser 3534 -> 3640 (+106), foreign-qualified 5073 -> 5118
+  // (+45), family-resolving positions 281 -> 282 and family mentions 285 -> 286 (the new module READS
+  // `odk-connector-sessions` as a connection's dependents — recorded under `touches`, never admits),
+  // non-family-literal writer calls 254 -> 264 (+10: the ceremony's sealed verifier and state index,
+  // the provider evidence, the dependent obligations, the connection index, the connector's auth
+  // posture and the sealed credential — all through `persist_record`; the two registered families
+  // admit through the shared chain, so the family bucket HELD at 57); runtime-parameter writers 311
+  // and production filesystem calls 242 HELD. Attributed by ONE build-safe experiment: with the
+  // unit's two tracked Rust files stashed and the new module parked, this census read exactly
+  // 125 / 158972 / 3534 / 5073 again (see the register), so the whole delta is this unit's.
   // Re-pinned 2026-09-16 (M06.9): modules 124 -> 125 (`learning_lineage_routes.rs`), tokens
   // 158010 -> 158972 (+962), opaque-initialiser 3467 -> 3534 (+67), foreign-qualified 5023 -> 5073
   // (+50); bare-undeclared 541 and EVERY writer bucket HELD — the impact record is a `FamilySpec`
@@ -982,8 +995,8 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 125,
-  familyMentions: 285,
+  modules: 126,
+  familyMentions: 286,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
   // is the `goal_run_collective_topology_unresolved` refusal in goalrun_routes.rs, which now
@@ -1000,9 +1013,9 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 158972,
-  judgedTokenPositions: 281,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
+  tokenMentions: 159912,
+  judgedTokenPositions: 282,
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 264, runtimeParameter: 311 },
   productionFsCalls: 242,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -1021,8 +1034,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 5073,
-    "opaque-initialiser": 3534,
+    "foreign-qualified": 5118,
+    "opaque-initialiser": 3640,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

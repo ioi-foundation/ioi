@@ -1,0 +1,100 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-16-provider-connection-lifecycle",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.16"
+  ],
+  "status": "evidence_ready",
+  "objective": "Make external-account connection a registered, replay-safe ceremony and a versioned ProviderConnectionBinding that grants reachability and nothing else: connected is not authorized. The ceremony is single-use, expiring and bound to the RESOLVED principal and the exact provider profile revision; completion validates the provider, commits the account subject, seals the brokered credential under the connection's coordinates and admits the binding; every brokered use crosses one gateway that resolves no credential whose connection is not active through that exact credential binding at that exact epoch; disconnect, provider revocation and reauthorization expiry fence the next use synchronously and leave durable dependent obligations; reconnect creates successor lineage and never revives a predecessor.",
+  "falsifiable_claim": "schema://ioi/components/wallet-network/provider-connection-ceremony/v1 and schema://ioi/components/wallet-network/provider-connection-binding/v1 are registered (owner api-authority-scopes.md § Provider Connection Binding; registry 313 and 314) with invariants that re-derive each content_hash and refuse a completed ceremony without its connection and evidence, an active connection without granted scopes, a verification claim without evidence and a superseded version without its successor. The daemon serves the eight canon verbs under /v1/hypervisor/auth/connections: authorization/start admits a ceremony bound to the resolved principal, the connector and provider_profile_ref = provider-profile://{connector}@sha256:{JCS of the auth profile with sealed members excluded}, with a server-minted state, nonce and S256 challenge whose verifier is sealed and never a member, and refuses an unknown connector, a profile-less connector, an authored member, a missing redirect, an audience class outside the vocabulary and a missing custody profile; an exact retry replays the same ceremony. authorization/complete names the ceremony by state and refuses an unknown state (404), a completion by another principal (403), a consumed ceremony (409), an expired one (410), redirect drift, profile drift, a code the provider never issued (502), a widened scope set, a substituted account and an unresolvable subject — each admitted as the ceremony's own refused or expired successor. Completion commits provider_account_subject_hash = sha256(JCS{provider_profile_ref, subject}) with the subject from userinfo, else the id_token claims, else a top-level sub, else the owner's declared subject (recorded as owner_declared), seals the credential under connector-credentials with connection_ref, credential_binding_ref and connection_revocation_epoch, and admits version 1 (or a successor on reauthorization and reconnect, refusing a different account or tenant). The capability-lease gateway calls fence_credential before resolving any sealed credential: not active, a different credential binding, a different epoch or a passed reauthorization deadline is 428 connection_fenced with a typed cause, so connector sessions, connector execution (REST and MCP tools/call) and materializing runs share the fence. verify re-mints through the sealed credential and admits a successor version with the observed verification; a provider refusing it is provider_revoked with the epoch advanced. disconnect admits a disconnected successor with the epoch advanced, retires the sealed material, unbinds the connector's auth posture and records quarantine/revocation obligations over the connector's grants and sessions. reauthorize issues a new ceremony under the connection's principal whose completion admits a successor version with a successor credential binding. The legacy /v1/hypervisor/connectors/{id}/oauth/start and /connectors/oauth/callback issue and complete the same ceremony. The agent SDK exposes the eight routes and re-derives the commitments offline. A restart reproduces every projection with the connection index destroyed.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/daemon-runtime/api.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+      "literal": "pub(crate) fn fence_credential",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+      "literal": "pub(crate) async fn handle_connection_complete",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+      "literal": "account_substituted",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+      "literal": "pub(crate) async fn legacy_oauth_start",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "literal": "provider_connection_routes::fence_credential",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "/v1/hypervisor/auth/connections/authorization/start",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "literal": "schema://ioi/components/wallet-network/provider-connection-binding/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+      "literal": "Served on this basis (2026-09-16, M03.16)",
+      "present_when": "merged"
+    },
+    {
+      "path": "packages/agent-sdk/src/provider-connections.ts",
+      "literal": "verifyProviderConnectionChain",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/provider-connection-offline-verifier.mjs",
+      "literal": "credentialIsFenced",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-provider-connection-lifecycle.mjs",
+      "literal": "resolvedThroughToAuthority",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "literal": "provider-connection-lifecycle",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-authority-and-leases.mjs",
+      "literal": "check:provider-connection-lifecycle",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:provider-connection-lifecycle 55/55 against an ISOLATED daemon and a STUB OAUTH PROVIDER the daemon reaches over the wire (authorize, token with PKCE and redirect checks, userinfo, protected-resource and authorization-server metadata, dynamic client registration), drilled 5/5 by mutate:provider-connection-lifecycle, floor-pinned and CI-bound in the Rust-backed verifier job beside its drill; the ACC-3 composed runner executes both for clause 14. THE ACTORS ARE REAL: two principals minted through the daemon's own routes, and the completion by the second is refused. THE ORACLES ARE INDEPENDENT: the provider profile revision, the account subject commitment, both content hashes and the fence are re-derived in JavaScript from the records alone (the offline verifier the SDK also ships, pinned to the registered fixtures by the SDK tests and to the generated Rust by the golden oracle). THE SECRETS ARE PROVEN ABSENT: the raw access and refresh tokens the stub issued appear nowhere in the data directory in plaintext. THE FENCE IS PROVEN AT ITS SITE: the brokered crossing answers 428 credential_required with no credential, the authority stage's own answer once the credential resolves through an active connection, and 428 connection_fenced with a typed cause after provider-observed revocation and after disconnect — without any wallet grant. Writing the gate found four defects: a ceremony id minted at random defeated idempotent replay (derived from the owner and key now); a verification that admits a successor version without rotating anything fenced the unrotated credential (the fence keys on the credential binding and the epoch, not the version); the authority stage answers 501 authority_required on a connector without an authority provider, which is the honest signal that the credential stage passed; the connector estate's tools are objects, not names. Five Rust tests pin the id grammar, the profile revision's exclusion of sealed members, the subject commitment, the redirect origin and the fence's legacy and absent branches.",
+  "remaining_nonclaims": [
+    "No CLI exists on the tree; the CLI path canon names is typed absent (owner M12 packaging). The SDK path is the agent SDK's substrate client; the wallet SDK stays protocol-only.",
+    "One connection per connector: the credential store the gateway resolves from is keyed by connector, so a second principal connecting the same connector is not admitted on this basis (the register queues per-principal credential custody).",
+    "The superseded status is a registered state the daemon does not emit: a connection family is never replaced by another here; reconnect is a successor version of the same family.",
+    "Provider-native revocation callbacks are not consumed; revocation is observed by verify (a live re-mint) or by the next brokered use failing at the provider, and the epoch advances on observation.",
+    "The model-mount catalog's own provider OAuth family (/v1/model-mount/catalog/providers/{id}/oauth/*) is the model-route credential path and stays outside this binding (owner: the catalog unit).",
+    "A credential sealed by the legacy /connectors/{id}/credential or device-code routes is not a connection and is not fenced by one; the fence lets a credential without a connection through unchanged, typed.",
+    "The id_token subject is decoded, not signature-verified, and recorded as such; provider signature verification is owed with the provider registry (M03.x).",
+    "Dependent obligations are recorded durably with receipts; the actual revocation of dependent grants and sessions is the obligation's cleanup and is not awaited — the gateway fence already refuses the next use."
+  ],
+  "source_provenance": "Authored on the main tree 2026-09-16 under rulings R-167 (opened by measurement; the provisional design) and R-168 (closed: the ceremony and binding families, family-derived ceremony ids, the binding-keyed fence, subject resolution order, the legacy alias, the SDK and offline verifier). MVP finish-line program, the 33 → 0 leg.",
+  "last_status_transaction": "2026-09-16"
+}

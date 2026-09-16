@@ -1,3 +1,16 @@
+import {
+  PROVIDER_CONNECTION_ROUTES,
+  type ProviderConnectionCompleteInput,
+  type ProviderConnectionCompleteResult,
+  type ProviderConnectionDependentsResult,
+  type ProviderConnectionListResult,
+  type ProviderConnectionReauthorizeInput,
+  type ProviderConnectionStartInput,
+  type ProviderConnectionStartResult,
+  type ProviderConnectionTransitionInput,
+  type ProviderConnectionTransitionResult,
+  type ProviderConnectionView,
+} from "./provider-connections.js";
 import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
 import {
   evaluateComputerUseTrajectory,
@@ -1536,6 +1549,15 @@ export interface RuntimeSubstrateClient {
   exchangeModelCatalogProviderOAuth(providerId: string, input: ModelMountControlInput): Promise<ModelMountControlResult>;
   refreshModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
   revokeModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
+  /** M03.16 — external-account connections: connected is not authorized. */
+  startProviderConnection(input: ProviderConnectionStartInput): Promise<ProviderConnectionStartResult>;
+  completeProviderConnection(input: ProviderConnectionCompleteInput): Promise<ProviderConnectionCompleteResult>;
+  listProviderConnections(): Promise<ProviderConnectionListResult>;
+  getProviderConnection(connectionId: string): Promise<ProviderConnectionView>;
+  getProviderConnectionDependents(connectionId: string): Promise<ProviderConnectionDependentsResult>;
+  verifyProviderConnection(connectionId: string, input: ProviderConnectionTransitionInput): Promise<ProviderConnectionTransitionResult>;
+  reauthorizeProviderConnection(connectionId: string, input: ProviderConnectionReauthorizeInput): Promise<ProviderConnectionStartResult>;
+  disconnectProviderConnection(connectionId: string, input: ProviderConnectionTransitionInput): Promise<ProviderConnectionTransitionResult>;
   listModelPermissionTokens(): Promise<PermissionToken[]>;
   createModelPermissionToken(input: ModelMountControlInput): Promise<PermissionToken>;
   rerankModel(input: ModelMountControlInput): Promise<ModelMountControlResult>;
@@ -2587,6 +2609,39 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "POST",
       `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/revoke`,
     );
+  }
+
+  // ---- M03.16 — external-account connections (connected is not authorized) ----------------------
+  async startProviderConnection(input: ProviderConnectionStartInput): Promise<ProviderConnectionStartResult> {
+    return this.request("startProviderConnection", "POST", PROVIDER_CONNECTION_ROUTES.start, input);
+  }
+
+  async completeProviderConnection(input: ProviderConnectionCompleteInput): Promise<ProviderConnectionCompleteResult> {
+    return this.request("completeProviderConnection", "POST", PROVIDER_CONNECTION_ROUTES.complete, input);
+  }
+
+  async listProviderConnections(): Promise<ProviderConnectionListResult> {
+    return this.request("listProviderConnections", "GET", PROVIDER_CONNECTION_ROUTES.list);
+  }
+
+  async getProviderConnection(connectionId: string): Promise<ProviderConnectionView> {
+    return this.request("getProviderConnection", "GET", PROVIDER_CONNECTION_ROUTES.get(connectionId));
+  }
+
+  async getProviderConnectionDependents(connectionId: string): Promise<ProviderConnectionDependentsResult> {
+    return this.request("getProviderConnectionDependents", "GET", PROVIDER_CONNECTION_ROUTES.dependents(connectionId));
+  }
+
+  async verifyProviderConnection(connectionId: string, input: ProviderConnectionTransitionInput): Promise<ProviderConnectionTransitionResult> {
+    return this.request("verifyProviderConnection", "POST", PROVIDER_CONNECTION_ROUTES.verify(connectionId), input);
+  }
+
+  async reauthorizeProviderConnection(connectionId: string, input: ProviderConnectionReauthorizeInput): Promise<ProviderConnectionStartResult> {
+    return this.request("reauthorizeProviderConnection", "POST", PROVIDER_CONNECTION_ROUTES.reauthorize(connectionId), input);
+  }
+
+  async disconnectProviderConnection(connectionId: string, input: ProviderConnectionTransitionInput): Promise<ProviderConnectionTransitionResult> {
+    return this.request("disconnectProviderConnection", "POST", PROVIDER_CONNECTION_ROUTES.disconnect(connectionId), input);
   }
 
   async listModelPermissionTokens(): Promise<PermissionToken[]> {

@@ -315,6 +315,11 @@ const PINNED = [
 // not. The pin that would have silenced it was the wrong fix; the sibling comparison is what said
 // so.
 const H_BASELINE = [
+  // 2026-09-16 (M03.16): `handle_connector_oauth_start` and `handle_connector_oauth_callback` left this
+  // baseline. They no longer write anything themselves: both delegate to the registered provider-
+  // connection ceremony (`provider_connection_routes::legacy_oauth_start|callback`), which resolves
+  // the caller through `require_write_caller` before any record is read, so the census no longer
+  // sees a mutating handler without an identity call — it sees an alias.
   // Passkey login finish authenticates the principal through a consumed, server-owned WebAuthn
   // ceremony, verifies user presence/verification and the registered credential, then persists
   // only the authenticator counter and a session. It cannot call the ordinary authenticated-
@@ -412,9 +417,7 @@ const H_BASELINE = [
   // vanishing entry is the ratchet improving, not a stale pin.
   "lifecycle_routes.rs::handle_connector_device_poll",
   "lifecycle_routes.rs::handle_connector_device_start",
-  "lifecycle_routes.rs::handle_connector_oauth_callback",
   "lifecycle_routes.rs::handle_connector_oauth_discover",
-  "lifecycle_routes.rs::handle_connector_oauth_start",
   // "lifecycle_routes.rs::handle_connector_register" — LEFT the baseline 2026-09-10 (R-20/R-22,
   // ADR 0052 § 8): register now resolves its caller with `require_authenticated_principal` as its
   // first statement, records the holder, and refuses an existing id instead of overwriting it. A

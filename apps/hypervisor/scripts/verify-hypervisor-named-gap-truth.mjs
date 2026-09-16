@@ -161,6 +161,13 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 932 -> 940 (2026-09-16, M03.16): external-account connections — EIGHT distinct paths under
+  // `/v1/hypervisor/auth/connections` (`authorization/start`, `authorization/complete`, the
+  // inventory, `:id`, `:id/dependents`, `:id/verify`, `:id/reauthorize`, `:id/disconnect`), each
+  // carrying one method, which is why `verify-hypervisor-environment-owner-source.mjs` moved
+  // 1201 -> 1209 by the same eight in this same commit. 941 `.route(` occurrences, 941 with a
+  // path literal, 940 distinct paths. The absence-worded population HELD at 116: the new gate's
+  // claims are all positive.
   // 929 -> 932 (2026-09-16, M06.9): learning lineage — THREE distinct paths
   // (`/v1/hypervisor/learning-lineage/impact` GET, `/v1/hypervisor/learning-impact-records`
   // carrying GET and POST, `/v1/hypervisor/learning-impact-records/:family` GET), which is why
@@ -261,7 +268,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 932,
+  registeredRoutes: 940,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },

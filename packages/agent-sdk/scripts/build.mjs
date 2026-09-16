@@ -18,6 +18,7 @@ const packageEntryPoints = [
   "src/lifecycle-readiness.ts",
   "src/workbench-integration.ts",
   "src/options.ts",
+  "src/provider-connections.ts",
   "src/errors.ts",
   "src/policy-bound-data-view.ts",
   "src/substrate-client.ts",

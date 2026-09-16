@@ -352,3 +352,30 @@ export interface RuntimeToolContract {
   ownerModule: string;
   version: string;
 }
+export {
+  PROVIDER_CONNECTION_ROUTES,
+  PROVIDER_CONNECTION_BINDING_DOMAIN,
+  PROVIDER_CONNECTION_CEREMONY_DOMAIN,
+  canonicalJson,
+  deriveProviderAccountSubjectHash,
+  deriveProviderConnectionBindingHash,
+  deriveProviderConnectionCeremonyHash,
+  deriveProviderProfileRef,
+  providerCredentialIsFenced,
+  verifyProviderConnectionChain,
+} from "./provider-connections.js";
+export type {
+  ProviderConnectionBinding,
+  ProviderConnectionCeremony,
+  ProviderConnectionCompleteInput,
+  ProviderConnectionCompleteResult,
+  ProviderConnectionDependentsResult,
+  ProviderConnectionListResult,
+  ProviderConnectionReauthorizeInput,
+  ProviderConnectionStartInput,
+  ProviderConnectionStartResult,
+  ProviderConnectionSummary,
+  ProviderConnectionTransitionInput,
+  ProviderConnectionTransitionResult,
+  ProviderConnectionView,
+} from "./provider-connections.js";
