@@ -3372,6 +3372,36 @@ POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
 POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
 ```
 
+### Provider Connection APIs
+
+Served (2026-09-16, M03.16) under the daemon's wallet.network seam namespace,
+mirroring canon's connected-access verbs. Connected is not authorized: a
+completed ceremony creates a versioned `ProviderConnectionBinding` and a
+brokered credential relationship, never a product integration or an authority
+grant. `authorization/start` issues a single-use, expiring
+`ProviderConnectionCeremony` bound to the RESOLVED principal and the exact
+provider profile revision; `authorization/complete` names it by state and
+refuses a completion by another principal, a consumed or expired ceremony,
+redirect drift, a profile edited since issue, an exchange the provider refused,
+a widened scope set and a substituted or unresolvable account subject — every
+refusal admitted as the ceremony's own `refused` successor. Every brokered use
+crosses the capability-lease gateway, which resolves no credential whose
+connection is not active through that exact credential binding at that exact
+epoch (`connection_fenced`, 428). The legacy
+`/v1/hypervisor/connectors/{id}/oauth/start` and `/connectors/oauth/callback`
+routes now issue and complete the same ceremony.
+
+```http
+POST /v1/hypervisor/auth/connections/authorization/start
+POST /v1/hypervisor/auth/connections/authorization/complete
+GET  /v1/hypervisor/auth/connections
+GET  /v1/hypervisor/auth/connections/{id}
+GET  /v1/hypervisor/auth/connections/{id}/dependents
+POST /v1/hypervisor/auth/connections/{id}/verify
+POST /v1/hypervisor/auth/connections/{id}/reauthorize
+POST /v1/hypervisor/auth/connections/{id}/disconnect
+```
+
 ### Learning Lineage And Impact APIs
 
 Served (2026-09-16, M06.9). The impact of an invalidation is DERIVED over the

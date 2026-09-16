@@ -192,6 +192,8 @@ mod portal_session_exchange_routes;
 mod project_discovery_routes;
 #[path = "hypervisor_daemon_routes/provenance_assertion_routes.rs"]
 mod provenance_assertion_routes;
+#[path = "hypervisor_daemon_routes/provider_connection_routes.rs"]
+mod provider_connection_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
 #[path = "hypervisor_daemon_routes/provider_spend_reconciliation_routes.rs"]
@@ -4956,6 +4958,43 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/auth/device-held-principals/:id/binding-state",
             get(device_held_principal_routes::handle_device_held_principal_binding_state),
+        )
+        // M03.16 — external-account connections: a registered, single-use ceremony bound to the
+        // resolved principal and the exact provider profile revision; a versioned
+        // ProviderConnectionBinding whose epoch fences every brokered use at the capability-lease
+        // gateway; verify, reauthorize and disconnect as successor versions with durable dependent
+        // obligations. Connected is not authorized: none of these routes mints action authority.
+        .route(
+            "/v1/hypervisor/auth/connections/authorization/start",
+            post(provider_connection_routes::handle_connection_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections/authorization/complete",
+            post(provider_connection_routes::handle_connection_complete),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections",
+            get(provider_connection_routes::handle_connection_list),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections/:id",
+            get(provider_connection_routes::handle_connection_get),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections/:id/dependents",
+            get(provider_connection_routes::handle_connection_dependents),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections/:id/verify",
+            post(provider_connection_routes::handle_connection_verify),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections/:id/reauthorize",
+            post(provider_connection_routes::handle_connection_reauthorize),
+        )
+        .route(
+            "/v1/hypervisor/auth/connections/:id/disconnect",
+            post(provider_connection_routes::handle_connection_disconnect),
         )
         .route(
             "/v1/hypervisor/auth/portal-session-exchange",

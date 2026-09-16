@@ -15861,6 +15861,23 @@ pub(crate) async fn authorize_capability_lease(
             .into_iter()
             .find(|c| c["connector_id"].as_str() == Some(cid))
         {
+            // THE CONNECTION FENCE (M03.16): a credential bound to a ProviderConnectionBinding
+            // resolves only while that connection is active at the exact version and epoch the
+            // record names and before its reauthorization deadline. One check site, crossed by
+            // every brokered use — sessions, execution, MCP tools/call, materializing runs.
+            if let Err(cause) =
+                super::provider_connection_routes::fence_credential(&st.data_dir, &rec)
+            {
+                return Err((
+                    StatusCode::PRECONDITION_REQUIRED,
+                    json!({
+                        "ok": false, "decision": "blocked", "reason": "connection_fenced",
+                        "cause": cause,
+                        "message": "This lease's backing credential is bound to a provider connection that is not active through this credential binding at this epoch; reconnect or reauthorize the connection.",
+                        "backing_provider": req.backing_provider, "host_mutation": false,
+                    }),
+                ));
+            }
             let (t, src, ks) = resolve_sealed_credential(&rec).await;
             token = t;
             credential_source = src;
@@ -16984,80 +17001,15 @@ pub(crate) async fn handle_connector_oauth_discover(
 /// Stores the PKCE verifier (sealed) keyed by state; no secret leaves the daemon.
 pub(crate) async fn handle_connector_oauth_start(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
-        .into_iter()
-        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
-    else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
-        );
-    };
-    let ap = &connector["auth_profile"];
-    let authorization_endpoint = ap["authorization_endpoint"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
-    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
-    if authorization_endpoint.is_empty() || token_endpoint.is_empty() || client_id.is_empty() {
-        return (
-            StatusCode::CONFLICT,
-            Json(
-                json!({ "ok": false, "reason": "no_oauth_profile", "message": "This integration has no OAuth auth_profile (authorization_endpoint/token_endpoint/client_id)." }),
-            ),
-        );
-    }
-    let scopes = ap["scopes"]
-        .as_array()
-        .map(|a| {
-            a.iter()
-                .filter_map(|s| s.as_str())
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .unwrap_or_default();
-    let redirect_uri = body
-        .get("redirect_uri")
-        .and_then(Value::as_str)
-        .unwrap_or("http://127.0.0.1:4173/__ioi/integrations/oauth/callback")
-        .to_string();
-    let verifier = random_token(64);
-    let challenge = pkce_challenge(&verifier);
-    let state = random_token(32);
-    let Some(sealed_verifier) = seal_scm_token(&verifier) else {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" })),
-        );
-    };
-    let pending = json!({ "state": state, "connector_id": id, "sealed_verifier": sealed_verifier, "redirect_uri": redirect_uri, "created_at": iso_now() });
-    // The sealed PKCE verifier is the only thing that lets the callback complete the exchange.
-    // Handing back an authorize_url over a discarded write sent the operator to the provider to
-    // authorize a flow the daemon had already lost the means to finish.
-    if persist_record(&st.data_dir, "oauth-pending", &state, &pending).is_err() {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": {
-                "code": "oauth_pending_persistence_failed",
-                "message": "the PKCE verifier could not be durably recorded; the authorization was not started"
-            }})),
-        );
-    }
-    let mut authorize_url = format!(
-        "{authorization_endpoint}?response_type=code&client_id={}&redirect_uri={}&state={state}&code_challenge={challenge}&code_challenge_method=S256",
-        pct(&client_id), pct(&redirect_uri)
-    );
-    if !scopes.is_empty() {
-        authorize_url.push_str(&format!("&scope={}", pct(&scopes)));
-    }
-    (
-        StatusCode::OK,
-        Json(json!({ "ok": true, "authorize_url": authorize_url, "state": state })),
-    )
+    // M03.16: the product UI's connect button issues the REGISTERED ProviderConnectionCeremony
+    // (single-use, expiring, bound to the resolved principal and the exact provider profile
+    // revision) and answers in the shape the UI reads. The unregistered `oauth-pending` prototype
+    // this route used to write is gone; one lineage serves the API, the SDK and this alias.
+    super::provider_connection_routes::legacy_oauth_start(&st, &headers, &id, &body).await
 }
 
 /// POST /v1/hypervisor/connectors/oauth/callback — finish the Connect: exchange the authorization
@@ -17065,134 +17017,18 @@ pub(crate) async fn handle_connector_oauth_start(
 /// sees any of it — it gets scoped capability leases minted from this backing material.
 pub(crate) async fn handle_connector_oauth_callback(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let state = body
-        .get("state")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let code = body
-        .get("code")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    if state.is_empty() || code.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "state and code are required" })),
-        );
-    }
-    let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending")
-        .into_iter()
-        .find(|p| p["state"].as_str() == Some(state.as_str()))
-    else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "unknown or expired state" })),
-        );
-    };
-    let connector_id = pending["connector_id"].as_str().unwrap_or("").to_string();
-    let redirect_uri = pending["redirect_uri"].as_str().unwrap_or("").to_string();
-    let Some(verifier) = pending["sealed_verifier"].as_str().and_then(open_scm_token) else {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "reason": "could not open pkce verifier" })),
-        );
-    };
-    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
-        .into_iter()
-        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
-    else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
-        );
-    };
-    let ap = &connector["auth_profile"];
-    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
-    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
-    // Confidential BYOA client (e.g. Slack): the sealed client_secret is sent at the token exchange.
-    let client_secret = ap["sealed_client_secret"]
-        .as_str()
-        .and_then(open_scm_token)
-        .unwrap_or_default();
-    let (access, refresh) = match exchange_oauth_code(
-        &token_endpoint,
-        &client_id,
-        &client_secret,
-        &code,
-        &redirect_uri,
-        &verifier,
-    )
-    .await
-    {
-        Ok(v) => v,
-        Err(e) => {
-            return (
-                StatusCode::BAD_GATEWAY,
-                Json(json!({ "ok": false, "reason": "oauth_exchange_failed", "message": e })),
-            )
-        }
-    };
-    // Prefer a refresh token (daemon mints access per use); else seal the access token as a bearer.
-    let Some(cred) = seal_oauth_result(
-        &connector_id,
-        &token_endpoint,
-        &client_id,
-        &client_secret,
-        &access,
-        refresh.as_deref(),
-    ) else {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "reason": "failed to seal token" })),
-        );
-    };
-    // This response tells the operator `connected: true` at the end of a real provider handshake.
-    // Discarding either write meant the connection was reported complete with no credential to
-    // resolve, or with a posture that never left unbound.
-    if persist_record(&st.data_dir, "connector-credentials", &connector_id, &cred).is_err() {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": {
-                "code": "oauth_credential_persistence_failed",
-                "message": "the exchanged token could not be durably sealed; the connector is not connected"
-            }})),
-        );
-    }
-    if let Some(mut c) = read_record_dir(&st.data_dir, "connectors")
-        .into_iter()
-        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
-    {
-        c["auth_posture"] = json!("token-lease:bound");
-        if persist_record(&st.data_dir, "connectors", &connector_id, &c).is_err() {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "ok": false, "error": {
-                    "code": "connector_auth_posture_persistence_failed",
-                    "message": "the token was sealed but the connector auth posture could not be recorded; re-run connect to converge"
-                }})),
-            );
-        }
-    }
-    // Consuming the pending record is what makes `state` one-time. The exchange has already
-    // happened so this must not fail the call closed, but a silently-failed consume leaves a
-    // replayable state token with its sealed verifier intact, so it is reported rather than
-    // swallowed.
-    let state_consumed = remove_record(&st.data_dir, "oauth-pending", &state);
-    (
-        StatusCode::OK,
-        Json(
-            json!({ "ok": true, "connected": true, "connector_id": connector_id, "credential_kind": cred["kind"],
-                "state_consumed": state_consumed }),
-        ),
-    )
+    // M03.16: completes the ceremony the state names — the provider is validated, the account
+    // subject committed, the credential sealed under the connection's coordinates and the
+    // ProviderConnectionBinding admitted — and answers in the shape the UI reads.
+    super::provider_connection_routes::legacy_oauth_callback(&st, &headers, &body).await
 }
 
 // Seal an OAuth result (access + optional refresh) as a connector credential: oauth-refresh when a
 // refresh token is present (daemon mints access per use), else a static bearer access token.
-fn seal_oauth_result(
+pub(crate) fn seal_oauth_result(
     connector_id: &str,
     token_endpoint: &str,
     client_id: &str,
@@ -21831,7 +21667,7 @@ async fn oidc_discover(issuer: &str) -> Result<(String, String, String, String),
     let j = doc["jwks_uri"].as_str().unwrap_or("").to_string();
     Ok((a, t, u, j))
 }
-async fn oidc_userinfo(userinfo_url: &str, access: &str) -> Result<Value, String> {
+pub(crate) async fn oidc_userinfo(userinfo_url: &str, access: &str) -> Result<Value, String> {
     if userinfo_url.is_empty() {
         return Err("no userinfo_endpoint".into());
     }
@@ -23898,7 +23734,7 @@ async fn mint_github_installation_token(
 /// Integrations surface uses — Gmail/Google/Atlassian/etc.). Standard refresh_token grant; the
 /// refresh token + client secret never leave the daemon, and the short-lived access token is minted
 /// per use. credential_source "oauth-refresh".
-async fn mint_oauth_access_token(
+pub(crate) async fn mint_oauth_access_token(
     token_url: &str,
     client_id: &str,
     client_secret: &str,
@@ -24087,7 +23923,7 @@ async fn mint_token_exchange(
 // Provider-delegated authority: the user authorizes at the provider; the daemon exchanges the code
 // (PKCE, public client) for tokens and seals the refresh token. Agents only ever get scoped leases.
 
-fn random_token(n: usize) -> String {
+pub(crate) fn random_token(n: usize) -> String {
     use rand::Rng;
     rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
@@ -24096,12 +23932,12 @@ fn random_token(n: usize) -> String {
         .collect()
 }
 /// PKCE S256 code challenge from a verifier (base64url-no-pad of SHA-256).
-fn pkce_challenge(verifier: &str) -> String {
+pub(crate) fn pkce_challenge(verifier: &str) -> String {
     use sha2::{Digest, Sha256};
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
 /// Percent-encode a query value (unreserved set per RFC 3986).
-fn pct(s: &str) -> String {
+pub(crate) fn pct(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
@@ -24114,14 +23950,14 @@ fn pct(s: &str) -> String {
 }
 /// Exchange an authorization code for (access_token, optional refresh_token). PKCE always; a
 /// non-empty client_secret makes it a CONFIDENTIAL client (BYOA OAuth app, e.g. Slack).
-async fn exchange_oauth_code(
+pub(crate) async fn exchange_oauth_code(
     token_url: &str,
     client_id: &str,
     client_secret: &str,
     code: &str,
     redirect_uri: &str,
     code_verifier: &str,
-) -> Result<(String, Option<String>), String> {
+) -> Result<(String, Option<String>, Value), String> {
     let mut form = vec![
         ("grant_type", "authorization_code"),
         ("code", code),
@@ -24153,7 +23989,7 @@ async fn exchange_oauth_code(
             .get("refresh_token")
             .and_then(Value::as_str)
             .map(str::to_string);
-        Ok((access, refresh))
+        Ok((access, refresh, body))
     } else {
         Err(format!(
             "oauth code exchange {}: {}",
