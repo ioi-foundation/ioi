@@ -252,6 +252,8 @@ mod system_policy_routes;
 mod system_projection_routes;
 #[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
 mod system_protected_transition_routes;
+#[path = "hypervisor_daemon_routes/system_record_routes.rs"]
+mod system_record_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
 mod system_sequence_zero_routes;
 #[path = "hypervisor_daemon_routes/system_topology_routes.rs"]
@@ -3641,6 +3643,17 @@ async fn async_main() -> anyhow::Result<()> {
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),
+        )
+        // R-172 S1 — the generic contract-typed application-record seam under a bounded System:
+        // the platform admits any registered binding-carrying record as an ordinary operation on
+        // the shared write path; it knows no application vocabulary.
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/records",
+            post(system_record_routes::handle_admit).get(system_record_routes::handle_list),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/records/:contract/:object",
+            get(system_record_routes::handle_get),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/amendments",

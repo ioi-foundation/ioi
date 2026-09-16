@@ -376,6 +376,14 @@
       "note": "First pinned 2026-09-16 (M09.7) at the 39 assertions it executes against an isolated daemon and the REAL wallet.network fixture: the node ladder (temporal profile under the configured estate owner, boot profile and node under the node owner, a planted receipt sealed and signed by the admitted identity key, verified and committed, readiness derived) driven through the plane's own governed routes, then the four assurance classes derived by rank over the daemon's own evidence with every commitment re-derived (separated roles, nonce, freshness, endorsement, measurement, remote custody, owners, audited egress, contract-only promotion, undeclared custody, unavailable appraisal). The drill (D1-D5) is a separate invocation and is not part of this count."
     },
     {
+      "id": "system-record-seam",
+      "npm_script": "check:system-record-seam",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-system-record-seam.mjs",
+      "runtime_assertions": 17,
+      "assertion_names_sha256": "0d08914285fa6350b5e8cb5de930589683a72320368918e651ffc1b4449e7f79",
+      "note": "First pinned 2026-09-16 (register R-172, slice S1) at the 17 assertions it executes against an isolated daemon and the REAL wallet.network fixture: the bounded System admitted and activated through its governed genesis, a registered binding-carrying record admitted through the generic contract-typed record seam with its SystemScopedObjectBinding derived and re-derived offline, a successor on the exact head, a stale head, a replay, every typed refusal (authored binding, unresolved identity, unregistered contract, unscoped contract, invalid record, inactive System, unknown field), a second principal refused by scope, restart, and the structural claim that the seam names no application vocabulary. The drill (D1-D3) is a separate invocation and is not part of this count."
+    },
+    {
       "id": "standalone-conformance",
       "npm_script": "check:standalone-conformance",
       "source": "scripts/check-standalone-conformance.mjs",

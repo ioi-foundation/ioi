@@ -159,7 +159,9 @@
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "soak:m4-room-participation-contribution-wallet-authority": "node scripts/qualify-m4-room-participation-contribution-soak.mjs",
-    "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs"
+    "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
+    "check:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs",
+    "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

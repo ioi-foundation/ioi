@@ -995,7 +995,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 127,
+  modules: 128,
   familyMentions: 286,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -1023,7 +1023,16 @@ const PINNED = {
   // two re-bound sites +6, buckets held; the environment plane's removed constant and re-bound site
   // -5, buckets held. judgedTokenPositions 282, every writer bucket and productionFsCalls HELD on all
   // five runs. Moved in the SAME COMMIT as the daemon change.
-  tokenMentions: 161210,
+  // Re-pinned 2026-09-16 (R-172 slice S1) from 161210, +280, split by EXPERIMENT — the daemon entry and
+  // route_assurance_routes.rs reverted to HEAD and restored one at a time, a census after each: the
+  // baseline reproduced every pin exactly (no inherited drift); the three admit handlers' body
+  // extractor change (caller resolved before the body is parsed) moved NOTHING; the entry with the
+  // new system_record_routes.rs module +280 tokens, +1 module, opaque-initialiser 3706 -> 3708 (+2)
+  // and foreign-qualified 5146 -> 5165 (+19) — every bucket movement is the seam's own constants
+  // (its namespace, op kind, payload schema, code prefix) and the StatusCode/Value qualifiers it
+  // uses. judgedTokenPositions 282, every writer bucket and productionFsCalls HELD on all three
+  // runs. Moved in the SAME COMMIT as the daemon change.
+  tokenMentions: 161490,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 264, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -1044,8 +1053,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 5146,
-    "opaque-initialiser": 3706,
+    "foreign-qualified": 5165,
+    "opaque-initialiser": 3708,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

@@ -3372,6 +3372,38 @@ POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
 POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
 ```
 
+### System-Scoped Application Records
+
+The generic contract-typed record seam under a bounded System (ADR 0030's
+"Agentgres operation-backed admission"; the generalized admitted-record
+contract M04.4 names; register R-172, slice S1). The platform knows no
+application vocabulary here: it validates by registered contract id, derives
+the `SystemScopedObjectBinding` (this System, the parent scope, the resolved
+principal, a payload root over the record with the binding absent) and admits
+the record as an ordinary `event_stream.system_record_admitted` operation on the
+shared owner-scoped write path — exact heads, idempotent replay, receipts, the
+same tenant scope discipline every family uses. An application composes its
+orchestrations from the daemon's primitives (System genesis and its transition
+chain, threads and forks, managed sessions and harness bindings, the
+work-lifecycle plane) and records its own typed vocabulary through this seam.
+
+- `POST /v1/hypervisor/autonomous-systems/:id/records` — `{owner_ref,
+  idempotency_key, contract_id, object_id, parent_scope_ref | null, record,
+  expected_head | null}`. Refused by name: a caller-authored `system_binding`
+  (`system_record_binding_authored`), an `object_id` the record does not carry as
+  its own single `*_id` member (`identity_unresolved`), an unregistered
+  contract (`contract_unknown`), a registered contract whose shape carries no
+  binding (`contract_unscoped`), a record that does not satisfy its contract
+  (`not_registered_valid`), a System that is not active (`system_not_active`),
+  a stale or genesis-over-existing head (`expected_head_conflict`), a reused
+  idempotency key over a different record (`idempotency_key_reused`). An exact
+  retry replays the original admission.
+- `GET /v1/hypervisor/autonomous-systems/:id/records[?contract_id=]` — the
+  current head of every record this identity may read under the System.
+- `GET /v1/hypervisor/autonomous-systems/:id/records/:contract/:object` — one
+  record's chain (revisions, admissions, head); the path carries the seam's
+  slugs of the contract id and the object id.
+
 ### Route Assurance And Node Enforcement APIs
 
 Served (2026-09-16, M09.7). A model route's assurance class is DERIVED from

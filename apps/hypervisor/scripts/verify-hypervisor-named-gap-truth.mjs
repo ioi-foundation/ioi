@@ -274,7 +274,12 @@ const PINNED = {
   // assurance (GET chain + POST admit in one registration). 946 `.route(` occurrences, 946 with a
   // path literal, 945 distinct paths: the one-path-two-registrations reconciliation route still
   // accounts for the single difference. Moved in the SAME COMMIT as the routes.
-  registeredRoutes: 945,
+  // 945 -> 947 (2026-09-16, R-172 slice S1): two registrations in system_record_routes.rs on two distinct
+  // paths — the System-scoped application-record seam (POST admit + GET list in one registration)
+  // and one record's chain by contract and object (GET). 948 `.route(` occurrences, 948 with a path
+  // literal, 947 distinct paths: the reconciliation route still accounts for the single difference.
+  // Moved in the SAME COMMIT as the routes.
+  registeredRoutes: 947,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
