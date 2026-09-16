@@ -165,7 +165,9 @@
     "check:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs",
     "mutate:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs --mutation",
     "check:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs",
-    "mutate:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs --mutation"
+    "mutate:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs --mutation",
+    "check:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs",
+    "mutate:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

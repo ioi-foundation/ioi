@@ -67,6 +67,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", "sha256:98f4d5cb76de13d96d3eaa27f5335aed23c3153ac9cf8c782fd3e12674edb8a9"),
     ("schema://ioi/applications/ioi-ai/room-participation-request/v3", "sha256:081004a6e83c7c9c34b166f20ea669aa0428245c32a1edbecd2db2d910628bd6"),
     ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", "sha256:752d8c064b5fcb19abbfed0262c134e56cb6470c88a8124c0a2d465d55876856"),
+    ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v2", "sha256:c465a5a83308cd79841bfb94e86bb02369d595a189f212b66a4bf5fe1fae3181"),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", "sha256:9b7c215945dacf4a4267b583d7c21484995f652ce79d7c5146d1e2b50d4edaae"),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", "sha256:a9f4260494a490b2a60c3acb437a6b90667a5c7fb3760cb19f7b042d36747588"),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", "sha256:ef718d9b0643a361674b7173bc6b29758bec366f6e5b5b328d2f974e0818f1ca"),
@@ -9827,6 +9828,668 @@ pub enum OrchestrationParticipationRequestV1DecisionStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum OrchestrationParticipationRequestV1Status {
+    #[serde(rename = r#"submitted"#)]
+    Submitted,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV2 {
+    pub schema_version: OrchestrationParticipationRequestV2SchemaVersion,
+    pub participation_request_id: String,
+    pub system_binding: OrchestrationParticipationRequestV2SystemBinding,
+    pub orchestration_ref: String,
+    pub discovery_ref: String,
+    pub coordination_topology: OrchestrationParticipationRequestV2CoordinationTopology,
+    pub admission_owner_ref: String,
+    pub requested_by_ref: String,
+    pub requester_system_ref: String,
+    pub collaboration_terms_ref: String,
+    pub collaboration_terms_root: String,
+    pub terms_response: OrchestrationParticipationRequestV2TermsResponse,
+    pub counterterms_ref: Option<String>,
+    pub capability_offer_refs: Vec<String>,
+    pub eligibility_evidence_refs: Vec<String>,
+    pub requested_role_frontier_and_visibility_refs: Vec<String>,
+    pub privacy_custody_and_context_policy_refs: Vec<String>,
+    pub private_context_included: OrchestrationParticipationRequestV2PrivateContextIncluded,
+    pub requested_at: String,
+    pub request_hash: String,
+    pub signature: OrchestrationParticipationRequestV2Signature,
+    pub decision: Option<OrchestrationParticipationRequestV2Decision>,
+    pub exit: Option<OrchestrationParticipationRequestV2Exit>,
+    pub status: OrchestrationParticipationRequestV2Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","title":"OrchestrationParticipationRequest","description":"A signed participation request from a party outside the host System, answering a discovery projection and naming the exact active terms root; the host's decision is a successor revision of the same record. Refs cross, tables do not; no AIIP path is used inside one system_id Version 2 adds portable exit as a third revision citing its state bundle, and federated admission as a declared mode whose decision the adjudicator party of record co-signs (M11.2, R-175; successor of v1)..","type":"object","additionalProperties":false,"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-participation-request.v2"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"discovery_ref":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$","description":"Always named: the projection the requester answered. Same-system work is a delegation, not a request."},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"requester_system_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$","description":"The requester's own System or domain; never the host's system_binding.system_id."},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"private_context_included":{"const":false},"requested_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"decision":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code","adjudicator_ref","federation_signature"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"},"adjudicator_ref":{"anyOf":[{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},{"type":"null"}],"description":"Under federated_admission: the terms party (role coordinator) whose key of record co-signs the decision; null under hosted_admission."},"federation_signature":{"anyOf":[{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},{"type":"null"}],"description":"Under federated_admission: the adjudicator's signature over ioi.orchestration-participation-decision-jcs-sha256.v1; null under hosted_admission."}}},{"type":"null"}]},"exit":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status_at_exit","bundle_ref","exited_at","reason_code","receipt_ref"],"properties":{"status_at_exit":{"const":"accepted","description":"An exit exists only on an accepted participation; the record's status equals this whenever an exit is present. Acceptance is history, exit is a fact on top of it."},"bundle_ref":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"exited_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the accepted revision the exit leaves from."}}},{"type":"null"}],"description":"Portable exit: a third revision of the same record, produced together with the state bundle it cites; the status stays accepted and the orchestration continues."},"status":{"enum":["submitted","accepted","refused","withdrawn","expired"]}},"required":["schema_version","participation_request_id","system_binding","orchestration_ref","discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","requester_system_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","private_context_included","requested_at","request_hash","signature","decision","exit","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                OrchestrationParticipationRequestV2SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participation_request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participation_request_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participation_request_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<
+                OrchestrationParticipationRequestV2SystemBinding,
+            >(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            discovery_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"discovery_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"discovery_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<
+                OrchestrationParticipationRequestV2CoordinationTopology,
+            >(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requester_system_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requester_system_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requester_system_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"collaboration_terms_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_response: serde_json::from_value::<
+                OrchestrationParticipationRequestV2TermsResponse,
+            >(
+                object
+                    .remove(r#"terms_response"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_response"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            counterterms_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"counterterms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"counterterms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_offer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_offer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_offer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligibility_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligibility_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"eligibility_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_role_frontier_and_visibility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"requested_role_frontier_and_visibility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"requested_role_frontier_and_visibility_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_custody_and_context_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"privacy_custody_and_context_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"privacy_custody_and_context_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            private_context_included: serde_json::from_value::<
+                OrchestrationParticipationRequestV2PrivateContextIncluded,
+            >(
+                object
+                    .remove(r#"private_context_included"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"private_context_included"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<OrchestrationParticipationRequestV2Signature>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision:
+                serde_json::from_value::<Option<OrchestrationParticipationRequestV2Decision>>(
+                    object
+                        .remove(r#"decision"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            exit: serde_json::from_value::<Option<OrchestrationParticipationRequestV2Exit>>(
+                object
+                    .remove(r#"exit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OrchestrationParticipationRequestV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.orchestration-participation-request.v2"#)]
+    IoiApplicationsIoiAiOrchestrationParticipationRequestV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV2SystemBinding {
+    pub schema_version: OrchestrationParticipationRequestV2SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV2SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                OrchestrationParticipationRequestV2SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2TermsResponse {
+    #[serde(rename = r#"accept"#)]
+    Accept,
+    #[serde(rename = r#"counteroffer"#)]
+    Counteroffer,
+    #[serde(rename = r#"decline"#)]
+    Decline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrchestrationParticipationRequestV2PrivateContextIncluded {
+    False,
+}
+
+impl serde::Serialize for OrchestrationParticipationRequestV2PrivateContextIncluded {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV2PrivateContextIncluded {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV2Signature {
+    pub key_suite: OrchestrationParticipationRequestV2SignatureKeySuite,
+    pub signer_ref: String,
+    pub signer_public_key: String,
+    pub signed_material_hash: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV2Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key_suite:
+                serde_json::from_value::<OrchestrationParticipationRequestV2SignatureKeySuite>(
+                    object
+                        .remove(r#"key_suite"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"key_suite"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            signer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signed_material_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signed_material_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signed_material_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2SignatureKeySuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV2Decision {
+    pub status: OrchestrationParticipationRequestV2DecisionStatus,
+    pub decided_by_ref: String,
+    pub decided_at: String,
+    pub receipt_ref: String,
+    pub reason_code: String,
+    pub adjudicator_ref: Option<String>,
+    pub federation_signature:
+        Option<OrchestrationParticipationRequestV2DecisionFederationSignature>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV2Decision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code","adjudicator_ref","federation_signature"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"},"adjudicator_ref":{"anyOf":[{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},{"type":"null"}],"description":"Under federated_admission: the terms party (role coordinator) whose key of record co-signs the decision; null under hosted_admission."},"federation_signature":{"anyOf":[{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},{"type":"null"}],"description":"Under federated_admission: the adjudicator's signature over ioi.orchestration-participation-decision-jcs-sha256.v1; null under hosted_admission."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status: serde_json::from_value::<OrchestrationParticipationRequestV2DecisionStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudicator_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"adjudicator_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudicator_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            federation_signature: serde_json::from_value::<
+                Option<OrchestrationParticipationRequestV2DecisionFederationSignature>,
+            >(
+                object
+                    .remove(r#"federation_signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"federation_signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2DecisionStatus {
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV2DecisionFederationSignature {
+    pub key_suite: OrchestrationParticipationRequestV2DecisionFederationSignatureKeySuite,
+    pub signer_ref: String,
+    pub signer_public_key: String,
+    pub signed_material_hash: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for OrchestrationParticipationRequestV2DecisionFederationSignature
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key_suite: serde_json::from_value::<
+                OrchestrationParticipationRequestV2DecisionFederationSignatureKeySuite,
+            >(
+                object
+                    .remove(r#"key_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signed_material_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signed_material_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signed_material_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2DecisionFederationSignatureKeySuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV2Exit {
+    pub status_at_exit: OrchestrationParticipationRequestV2ExitStatusAtExit,
+    pub bundle_ref: String,
+    pub exited_at: String,
+    pub reason_code: String,
+    pub receipt_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV2Exit {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["status_at_exit","bundle_ref","exited_at","reason_code","receipt_ref"],"properties":{"status_at_exit":{"const":"accepted","description":"An exit exists only on an accepted participation; the record's status equals this whenever an exit is present. Acceptance is history, exit is a fact on top of it."},"bundle_ref":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"exited_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the accepted revision the exit leaves from."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status_at_exit: serde_json::from_value::<
+                OrchestrationParticipationRequestV2ExitStatusAtExit,
+            >(
+                object
+                    .remove(r#"status_at_exit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status_at_exit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exited_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exited_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exited_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2ExitStatusAtExit {
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV2Status {
     #[serde(rename = r#"submitted"#)]
     Submitted,
     #[serde(rename = r#"accepted"#)]
@@ -155969,6 +156632,86 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.exit.only_after_acceptance"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.decision.by_the_admission_owner"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.decision.by_the_admission_owner"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.same_system.never_requests"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.request_hash.commits_request"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
         path: "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
         expected_accept: true,
@@ -171029,6 +171772,116 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -189115,6 +189968,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","title":"RoomParticipantLease","description":"Room participation as an explicit bounded lease rather than ambient membership. The default term is time-bounded; a null expires_at or ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception. Freshness is evaluated against wallet.network resolved_at_ms and receipt:// lease receipts; this contract adds no heartbeat object.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participant-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_lease_id","system_binding","outcome_room_ref","participant_ref","admitted_role","operator_ref","home_domain_ref","join_request_ref","collaboration_terms_ref","accepted_terms_root","terms_acceptance_ref","admission_decision_ref","visibility_scope_ref","capability_advertisement_refs","context_and_authority_lease_refs","runtime_resource_and_budget_lease_refs","current_claim_ref","lease_epoch","revocation_epoch","issued_at","effective_at","expires_at","renew_after","renewal_policy_ref","unbounded_term_exception_decision_ref","heartbeat_policy_ref","heartbeat_ref","ttl_seconds","status"],"$defs":{"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/nullableTimestamp"}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participant-lease.v3"},"participant_lease_id":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$"},"admitted_role":{"enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"operator_ref":{"type":"string","pattern":"^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$"},"home_domain_ref":{"type":"string","pattern":"^(?:domain|system|agentgres)://[^\\s]{1,500}$"},"join_request_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation-request|proposal)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"accepted_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"admission_decision_ref":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,500}$"},"visibility_scope_ref":{"type":"string","pattern":"^(?:policy|restricted_view)://[^\\s]{1,500}$"},"capability_advertisement_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"context_and_authority_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:context_lease|grant|authority)://[^\\s]{1,500}$"}},"runtime_resource_and_budget_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:lease|resource-lease|budget)://[^\\s]{1,500}$"}},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"lease_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"issued_at":{"$ref":"#/$defs/timestamp"},"effective_at":{"$ref":"#/$defs/timestamp"},"expires_at":{"$ref":"#/$defs/nullableTimestamp"},"renew_after":{"$ref":"#/$defs/nullableTimestamp"},"renewal_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"unbounded_term_exception_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,500}$"},{"type":"null"}]},"heartbeat_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"ttl_seconds":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"status":{"enum":["invited","joining","active","sleeping","waiting","suspended","quarantined","retiring","retired","revoked"]}}}"##),
     ("schema://ioi/applications/ioi-ai/room-participation-request/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","title":"RoomParticipationRequest","description":"A typed request to participate in one OutcomeRoom. room_discovery_ref may be null only on the hosted same-system lane, where coordination_topology is hosted_admission and admission_owner_ref is the exact system_binding.system_id; every other request must name the discovery projection it answered. The request creates no membership, authority, work, or contribution eligibility.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participation-request.v3","type":"object","additionalProperties":false,"required":["schema_version","participation_request_id","system_binding","outcome_room_ref","room_discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","request_hash","private_context_included","admission_decision_ref","participant_lease_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participation-request.v3"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"room_discovery_ref":{"anyOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"private_context_included":{"const":false},"admission_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["draft","submitted","evaluating","admitted","rejected","withdrawn","expired"]}}}"##),
     ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1","title":"OrchestrationParticipationRequest","description":"A signed participation request from a party outside the host System, answering a discovery projection and naming the exact active terms root; the host's decision is a successor revision of the same record. Refs cross, tables do not; no AIIP path is used inside one system_id (R-172 slice S3; successor of RoomParticipationRequest v3).","type":"object","additionalProperties":false,"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-participation-request.v1"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"discovery_ref":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$","description":"Always named: the projection the requester answered. Same-system work is a delegation, not a request."},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"requester_system_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$","description":"The requester's own System or domain; never the host's system_binding.system_id."},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"private_context_included":{"const":false},"requested_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"decision":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"}}},{"type":"null"}]},"status":{"enum":["submitted","accepted","refused","withdrawn","expired"]}},"required":["schema_version","participation_request_id","system_binding","orchestration_ref","discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","requester_system_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","private_context_included","requested_at","request_hash","signature","decision","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","title":"OrchestrationParticipationRequest","description":"A signed participation request from a party outside the host System, answering a discovery projection and naming the exact active terms root; the host's decision is a successor revision of the same record. Refs cross, tables do not; no AIIP path is used inside one system_id Version 2 adds portable exit as a third revision citing its state bundle, and federated admission as a declared mode whose decision the adjudicator party of record co-signs (M11.2, R-175; successor of v1)..","type":"object","additionalProperties":false,"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-participation-request.v2"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"discovery_ref":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$","description":"Always named: the projection the requester answered. Same-system work is a delegation, not a request."},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"requester_system_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$","description":"The requester's own System or domain; never the host's system_binding.system_id."},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"private_context_included":{"const":false},"requested_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"decision":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code","adjudicator_ref","federation_signature"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"},"adjudicator_ref":{"anyOf":[{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},{"type":"null"}],"description":"Under federated_admission: the terms party (role coordinator) whose key of record co-signs the decision; null under hosted_admission."},"federation_signature":{"anyOf":[{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},{"type":"null"}],"description":"Under federated_admission: the adjudicator's signature over ioi.orchestration-participation-decision-jcs-sha256.v1; null under hosted_admission."}}},{"type":"null"}]},"exit":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status_at_exit","bundle_ref","exited_at","reason_code","receipt_ref"],"properties":{"status_at_exit":{"const":"accepted","description":"An exit exists only on an accepted participation; the record's status equals this whenever an exit is present. Acceptance is history, exit is a fact on top of it."},"bundle_ref":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"exited_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the accepted revision the exit leaves from."}}},{"type":"null"}],"description":"Portable exit: a third revision of the same record, produced together with the state bundle it cites; the status stays accepted and the orchestration continues."},"status":{"enum":["submitted","accepted","refused","withdrawn","expired"]}},"required":["schema_version","participation_request_id","system_binding","orchestration_ref","discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","requester_system_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","private_context_included","requested_at","request_hash","signature","decision","exit","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","title":"VerifierChallenge","x-ioi-schema-version":"ioi.applications.ioi-ai.verifier-challenge.v3","type":"object","additionalProperties":false,"required":["schema_version","verifier_challenge_id","outcome_room_ref","system_binding","challenger_ref","challenged_ref","challenge_kind","challenge_evidence_refs","adjudicator_policy_ref","prior_rule_version_ref","proposed_rule_version_ref","affected_attempt_refs","reverification_required","adjudication_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.verifier-challenge.v3"},"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"prior_rule_version_ref":{"anyOf":[{"type":"string","pattern":"^(?:rubric|verifier-path)://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_rule_version_ref":{"anyOf":[{"type":"string","pattern":"^(?:rubric|verifier-path)://[^\\s]{1,500}$"},{"type":"null"}]},"affected_attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"reverification_required":{"type":"boolean"},"adjudication_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"##),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","title":"WorkClaimLease","x-ioi-schema-version":"ioi.applications.ioi-ai.work-claim-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","work_claim_id","outcome_room_ref","system_binding","frontier_item_ref","claimant_ref","claimant_participant_lease_ref","eligibility_match_receipt_ref","task_offer_ref","task_acceptance_ref","routing_decision_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","contribution_policy_ref","quote_ref","budget_reservation_ref","settlement_profile_ref","bounded_scope_ref","context_lease_refs","authority_resource_compute_data_budget_and_tool_lease_refs","duplicate_work_policy","issued_at","expires_at","heartbeat_ref","renewal_count","release_or_reassignment_reason","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.work-claim-lease.v3"},"work_claim_id":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"eligibility_match_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"task_offer_ref":{"anyOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"task_acceptance_ref":{"anyOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"routing_decision_ref":{"anyOf":[{"type":"string","pattern":"^routing-decision://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"quote_ref":{"anyOf":[{"type":"string","pattern":"^quote://[^\\s]{1,500}$"},{"type":"null"}]},"budget_reservation_ref":{"anyOf":[{"type":"string","pattern":"^(?:budget|spend|allocation)://[^\\s]{1,500}$"},{"type":"null"}]},"settlement_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^(?:task|task-brief|policy)://[^\\s]{1,500}$"},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^context-lease://[^\\s]{1,500}$"}},"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"}},"duplicate_work_policy":{"enum":["exclusive","allowed","independent_replication","adversarial_replication"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^(?:heartbeat|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"renewal_count":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"release_or_reassignment_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":1000},{"type":"null"}]},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"frontier_item_ref":{"type":"string"},"claimant_participant_lease_ref":{"type":"string"},"eligibility_match_receipt_ref":{"type":"string"}}},"else":{"properties":{"system_binding":{"type":"null"},"claimant_participant_lease_ref":{"type":"null"},"eligibility_match_receipt_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"active"}}},"then":{"properties":{"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","minItems":1}}}}]}"##),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","title":"WorkFrontierItem","x-ioi-schema-version":"ioi.applications.ioi-ai.work-frontier-item.v3","type":"object","additionalProperties":false,"required":["schema_version","frontier_item_id","system_binding","item_kind","objective","dependency_refs","related_attempt_and_finding_refs","required_capability_refs","required_context_resource_authority_and_evidence_refs","expected_value","uncertainty","priority","duplication_policy","claimability","max_concurrency","expires_at","stop_condition_ref","status"],"$defs":{"nullableNumber":{"anyOf":[{"type":"number"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.work-frontier-item.v3"},"frontier_item_id":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1,"maxLength":4000},"dependency_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|attempt|finding)://[^\\s]{1,500}$"}},"related_attempt_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|finding)://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability|worker|tool)://[^\\s]{1,500}$"}},"required_context_resource_authority_and_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:context-profile|resource|evidence)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"expected_value":{"$ref":"#/$defs/nullableNumber"},"uncertainty":{"$ref":"#/$defs/nullableNumber"},"priority":{"$ref":"#/$defs/nullableNumber"},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"max_concurrency":{"anyOf":[{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"null"}]},"expires_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"stop_condition_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"##),
@@ -189440,6 +190294,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", r#"[{"rule_id":"room_participant_lease.room.matches_binding_parent_scope","description":"The lease is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.","expression":{"operator":"fields_equal","paths":["$.system_binding.parent_scope_ref","$.outcome_room_ref"]}},{"rule_id":"room_participant_lease.issuer.is_the_room_system","description":"Admission issues the lease. A participant cannot mint its own membership, so the issuing ref is the exact room System.","expression":{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}},{"rule_id":"room_participant_lease.expiry.requires_governed_unbounded_exception","description":"The default lease is time-bounded. A null expires_at is admissible only when unbounded_term_exception_decision_ref proves the governed exception.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.expires_at"},{"operator":"non_empty","path":"$.unbounded_term_exception_decision_ref"}]}},{"rule_id":"room_participant_lease.ttl.requires_governed_unbounded_exception","description":"The default lease carries a TTL. A null ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.ttl_seconds"},{"operator":"non_empty","path":"$.unbounded_term_exception_decision_ref"}]}}]"#),
     ("schema://ioi/applications/ioi-ai/room-participation-request/v3", r#"[{"rule_id":"room_participation_request.room.matches_binding_parent_scope","description":"The request is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.","expression":{"operator":"fields_equal","paths":["$.system_binding.parent_scope_ref","$.outcome_room_ref"]}},{"rule_id":"room_participation_request.discovery.required_outside_hosted_admission","description":"Federated admission answers a published discovery projection, so room_discovery_ref cannot be null there. Only hosted_admission may omit it.","expression":{"operator":"non_empty_when_in","path":"$.room_discovery_ref","when_path":"$.coordination_topology","values":["federated_admission"]}},{"rule_id":"room_participation_request.hosted_native.requires_same_system_admission_owner","description":"A null discovery ref is admissible only on the hosted same-system lane: whenever room_discovery_ref is null, admission_owner_ref must be the exact system_binding.system_id. A foreign or policy admission owner must name the discovery it answered.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.room_discovery_ref"},{"operator":"fields_equal","paths":["$.admission_owner_ref","$.system_binding.system_id"]}]}},{"rule_id":"room_participation_request.counteroffer.requires_counterterms","description":"A counteroffer is a proposal that must name its own terms; accept and decline carry none.","expression":{"operator":"non_empty_when_in","path":"$.counterterms_ref","when_path":"$.terms_response","values":["counteroffer"]}}]"#),
     ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", r#"[{"rule_id":"orchestration_participation_request.scope.matches_binding_parent_scope","description":"The orchestration the request answers is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"orchestration_participation_request.same_system.never_requests","description":"No AIIP path is used inside one system_id: a request whose requester system is the host System is not a participation request; work inside the System is a delegation of the coordinating thread.","expression":{"operator":"fields_not_equal","paths":["$.requester_system_ref","$.system_binding.system_id"]}},{"rule_id":"orchestration_participation_request.request_hash.commits_request","description":"The request hash commits the request body under its domain; the requester's signature is over this hash, so a body edited after signing does not recompute.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.orchestration-participation-request-hash-jcs-sha256.v1"},"participation_request_id":{"path":"$.participation_request_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"discovery_ref":{"path":"$.discovery_ref"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"requested_by_ref":{"path":"$.requested_by_ref"},"requester_system_ref":{"path":"$.requester_system_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"terms_response":{"path":"$.terms_response"},"counterterms_ref":{"path":"$.counterterms_ref"},"capability_offer_refs":{"path":"$.capability_offer_refs"},"eligibility_evidence_refs":{"path":"$.eligibility_evidence_refs"},"requested_role_frontier_and_visibility_refs":{"path":"$.requested_role_frontier_and_visibility_refs"},"privacy_custody_and_context_policy_refs":{"path":"$.privacy_custody_and_context_policy_refs"},"private_context_included":{"path":"$.private_context_included"},"requested_at":{"path":"$.requested_at"}},"expected_path":"$.request_hash","expected_encoding":"sha256_string"}},{"rule_id":"orchestration_participation_request.signature.by_the_requester","description":"The signer is the requesting party; a request signed by anyone else is not that party's.","expression":{"operator":"fields_equal","paths":["$.signature.signer_ref","$.requested_by_ref"]}},{"rule_id":"orchestration_participation_request.counteroffer.requires_counterterms","description":"A counteroffer names the counterterms it proposes.","expression":{"operator":"non_empty_when_in","path":"$.counterterms_ref","when_path":"$.terms_response","values":["counteroffer"]}},{"rule_id":"orchestration_participation_request.decision.sets_the_status","description":"A present decision sets the record's status to its verdict: a submission carrying a decision, or a decided record whose status contradicts its decision, is not the host's revision. (That an accepted or refused record carries its decision is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.decision","paths":["$.status","$.decision.status"]}}]"#),
+    ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v2", r#"[{"rule_id":"orchestration_participation_request.scope.matches_binding_parent_scope","description":"The orchestration the request answers is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"orchestration_participation_request.same_system.never_requests","description":"No AIIP path is used inside one system_id: a request whose requester system is the host System is not a participation request; work inside the System is a delegation of the coordinating thread.","expression":{"operator":"fields_not_equal","paths":["$.requester_system_ref","$.system_binding.system_id"]}},{"rule_id":"orchestration_participation_request.request_hash.commits_request","description":"The request hash commits the request body under its domain; the requester's signature is over this hash, so a body edited after signing does not recompute.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.orchestration-participation-request-hash-jcs-sha256.v1"},"participation_request_id":{"path":"$.participation_request_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"discovery_ref":{"path":"$.discovery_ref"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"requested_by_ref":{"path":"$.requested_by_ref"},"requester_system_ref":{"path":"$.requester_system_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"terms_response":{"path":"$.terms_response"},"counterterms_ref":{"path":"$.counterterms_ref"},"capability_offer_refs":{"path":"$.capability_offer_refs"},"eligibility_evidence_refs":{"path":"$.eligibility_evidence_refs"},"requested_role_frontier_and_visibility_refs":{"path":"$.requested_role_frontier_and_visibility_refs"},"privacy_custody_and_context_policy_refs":{"path":"$.privacy_custody_and_context_policy_refs"},"private_context_included":{"path":"$.private_context_included"},"requested_at":{"path":"$.requested_at"}},"expected_path":"$.request_hash","expected_encoding":"sha256_string"}},{"rule_id":"orchestration_participation_request.signature.by_the_requester","description":"The signer is the requesting party; a request signed by anyone else is not that party's.","expression":{"operator":"fields_equal","paths":["$.signature.signer_ref","$.requested_by_ref"]}},{"rule_id":"orchestration_participation_request.counteroffer.requires_counterterms","description":"A counteroffer names the counterterms it proposes.","expression":{"operator":"non_empty_when_in","path":"$.counterterms_ref","when_path":"$.terms_response","values":["counteroffer"]}},{"rule_id":"orchestration_participation_request.decision.sets_the_status","description":"A present decision sets the record's status to its verdict: a submission carrying a decision, or a decided record whose status contradicts its decision, is not the host's revision. (That an accepted or refused record carries its decision is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.decision","paths":["$.status","$.decision.status"]}},{"rule_id":"orchestration_participation_request.exit.only_after_acceptance","description":"A present exit sits on an accepted participation and on nothing else: an exit on a submission or on a refusal is not the host's revision. Acceptance is history and the exit is a fact on top of it, so the status stays accepted. (That the exit cites a bundle that verifies is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.exit","paths":["$.status","$.exit.status_at_exit"]}},{"rule_id":"orchestration_participation_request.decision.by_the_admission_owner","description":"The decision is the admission owner's: under hosted_admission the host System's own, under federated_admission the declared federation policy path's. A decision by anyone else is not this orchestration's. (That a federated decision carries the adjudicator's co-signature is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.decision","paths":["$.decision.decided_by_ref","$.admission_owner_ref"]}}]"#),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", r#"[{"rule_id":"verifier_challenge.room.matches_admission","description":"A room-scoped challenge and its room-scoping bind the same room. Challenger-to-participant-lease resolution remains an owner-plane admission check because this portable shape carries no separate challenger lease coordinate.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}}]"#),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", r#"[{"rule_id":"work_claim.room.matches_admission","description":"A room-scoped claim and its room-scoping bind the same room; direct claims carry null on both sides.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"work_claim.participant_lease.matches_admission_issuer","description":"A room claim binds its separate participant-lease coordinate to the CAS issuer; a direct claim carries null room fields. The claimant actor may be a worker, agent, service, organization, domain, system, or the lease itself and remains subject to owner-plane actor-to-lease resolution.","expression":{"operator":"any_of","expressions":[{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"proposed_or_issued_by_ref","expected_path":"$.claimant_participant_lease_ref"},{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"proposed_or_issued_by_ref","expected_path":"$.system_binding.system_id"}]}}]"#),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", r#"[]"#),
@@ -195035,6 +195890,16 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json"))),
     ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json"))),
@@ -196674,6 +197539,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2" => {
+            serde_json::from_value::<OrchestrationParticipationRequestV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/verifier-challenge/v3" => {
             serde_json::from_value::<VerifierChallengeV3>(value.clone())
                 .map(|_| ())
@@ -198287,6 +199157,11 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1" => {
             let projection = serde_json::from_value::<OrchestrationParticipationRequestV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2" => {
+            let projection = serde_json::from_value::<OrchestrationParticipationRequestV2>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -199916,8 +200791,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1635,
-            "the registered golden corpus must remain the explicit 1635-fixture bar",
+            1645,
+            "the registered golden corpus must remain the explicit 1645-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

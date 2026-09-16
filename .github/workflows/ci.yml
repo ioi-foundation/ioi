@@ -959,6 +959,7 @@ jobs:
           - verifier_id: system-record-seam
           - verifier_id: orchestration-composition
           - verifier_id: aiip-collaboration-discovery
+          - verifier_id: aiip-portable-exit
           # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
           # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
           # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
@@ -1194,6 +1195,30 @@ jobs:
       - name: Drill the collaboration gate's own oracles
         if: matrix.verifier_id == 'aiip-collaboration-discovery'
         run: npm run mutate:aiip-collaboration-discovery --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the portable-exit verifier drives
+        if: matrix.verifier_id == 'aiip-portable-exit'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi/ioi-ai-orchestration
+
+      # M11.2 / R-175 — portable exit and federated admission composed over M11.1 (ACC-13 clauses 6
+      # and 7): an accepted participant exits through a third revision citing its least-disclosing
+      # state bundle while the orchestration continues; federated admission is a declared mode whose
+      # decision the adjudicator party of record co-signs, unreachable without terms acceptance; the
+      # mode fences (hosted takes no adjudicator, federated decides never alone); restart.
+      - name: Verify portable exit and federated admission (M11.2)
+        if: matrix.verifier_id == 'aiip-portable-exit'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:aiip-portable-exit --workspace=@ioi/hypervisor-app
+
+      - name: Drill the portable-exit gate's own oracles
+        if: matrix.verifier_id == 'aiip-portable-exit'
+        run: npm run mutate:aiip-portable-exit --workspace=@ioi/hypervisor-app
 
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two

@@ -613,6 +613,51 @@ ParticipantStateBundleEnvelope:
   status: prepared | exported | acknowledged | superseded | revoked
 ```
 
+### OrchestrationParticipationRequest v2 — portable exit and federated admission (M11.2)
+
+`schema://ioi/applications/ioi-ai/orchestration-participation-request/v2`
+succeeds v1 additively (registered 2026-09-16, R-175). Two things a v1 record
+could not say:
+
+**Exit is portable and does not end the orchestration (ACC-13 clause 6).** An
+accepted participant leaves through a third revision of the same record —
+`exit: { status_at_exit: accepted, bundle_ref, exited_at, reason_code,
+receipt_ref }` — produced together with its `ParticipantStateBundle` v4
+(`bundle_reason: voluntary_retirement`), which the exit cites and which verifies
+with nothing but the bundle and the host's key. The status stays `accepted`:
+acceptance is history and the exit is a fact on top of it (invariant
+`orchestration_participation_request.exit.only_after_acceptance` — an exit sits
+on an accepted participation and on nothing else). Nothing else moves: the
+coordinating thread stays active, the orchestration's other records keep their
+heads, new records admit, and a new participant admits. The exited party's
+contribution lineage, receipts, acceptance, settlement and dispute refs are the
+bundle's, filtered by policy class, and their records remain on the chain.
+
+**Federated admission is a declared mode, enforced, and unreachable without
+terms acceptance (ACC-13 clause 7).** Under `coordination_topology:
+federated_admission` the discovery's `admission_owner_ref` names the federation
+policy path, and the decision revision carries `decided_by_ref` equal to it
+(invariant `orchestration_participation_request.decision.by_the_admission_owner`
+holds in both modes: a hosted decision is the host System's own) plus
+`decision.adjudicator_ref` and `decision.federation_signature`: the adjudicator
+is a party of the active terms with role `coordinator` in `party_roles`, and
+signs `ioi.orchestration-participation-decision-jcs-sha256.v1` over the
+decision material with the key it accepted the terms with. The composing
+application refuses a federated decision without that signature, a hosted
+decision that carries one, and a federated request whose adjudicator is not a
+terms acceptor. The portable invariant language cannot condition a member's
+presence on the topology through a nullable object, so the co-signature
+requirement is the application's obligation, proven by its driven gate.
+
+```yaml
+OrchestrationParticipationRequestEnvelope (v2 delta):
+  schema_version: ioi.applications.ioi-ai.orchestration-participation-request.v2
+  decision: null | { status: accepted | refused, decided_by_ref, decided_at, receipt_ref, reason_code,
+                     adjudicator_ref: ... | null, federation_signature: { key_suite, signer_ref, signer_public_key, signed_material_hash, signature } | null }
+  exit: null | { status_at_exit: accepted, bundle_ref: participant-state://..., exited_at: timestamp, reason_code, receipt_ref: receipt://... }
+  status: submitted | accepted | refused | withdrawn | expired   # unchanged: an exited participant is an accepted one with an exit
+```
+
 ### ParticipantStateBundleEnvelope v4 — produced by the composing application, verifiable offline
 
 `schema://ioi/applications/ioi-ai/participant-state-bundle/v4` succeeds v3

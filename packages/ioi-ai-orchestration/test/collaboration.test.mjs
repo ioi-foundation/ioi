@@ -18,12 +18,14 @@ import {
   buildParticipationRequest,
   deriveBundleRoot,
   deriveDiscoveryStateRoot,
+  deriveParticipationDecisionMaterialHash,
   deriveParticipationRequestHash,
   deriveTermsAcceptanceMaterialHash,
   deriveTermsActivation,
   generateSigner,
   signMaterialHash,
   signerFromSeed,
+  verifyParticipationDecision,
   verifySignatureEnvelope,
   verifyStateBundle,
 } from "../dist/index.js";
@@ -115,7 +117,8 @@ test("an external party builds a request whose hash and signature the host can r
   assert.equal(request.request_hash, deriveParticipationRequestHash(request));
   assert.ok(verifySignatureEnvelope(request.signature, request.request_hash, alloy.publicKeyHex));
   assert.equal(request.contract_id, undefined);
-  assert.equal(COLLABORATION_CONTRACTS.participation, "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1");
+  assert.equal(COLLABORATION_CONTRACTS.participation, "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2");
+  assert.equal(request.exit, null);
 
   const host = generateSigner("system://ioi/orchestration/demo");
   const bundle = readJson("fixtures/participant-state-bundle-v4/positive-hosted-export.json");
@@ -128,3 +131,24 @@ test("an external party builds a request whose hash and signature the host can r
   const smuggled = { ...signed, portable_artifact_and_view_refs: [...signed.portable_artifact_and_view_refs, "artifact://smuggled"] };
   assert.ok(verifyStateBundle(smuggled, host.publicKeyHex).findings.some((f) => /bundle_root/u.test(f)));
 });
+
+test("M11.2: a federated decision verifies only with the adjudicator's co-signature over the decision material, a hosted one takes none, and an exit sets the status and cites its bundle", () => {
+  const adjudicator = signerFromSeed("worker://replication-lab-two", "0a".repeat(32));
+  const federated = readJson("fixtures/orchestration-participation-request-v2/positive-accepted-federated.json");
+  assert.equal(deriveParticipationRequestHash(federated), federated.request_hash, "v2 keeps v1's request hash members");
+  const material = deriveParticipationDecisionMaterialHash({ participation_request_id: federated.participation_request_id, request_hash: federated.request_hash, status: federated.decision.status, decided_at: federated.decision.decided_at, admission_owner_ref: federated.admission_owner_ref });
+  const signed = { ...federated, decision: { ...federated.decision, adjudicator_ref: adjudicator.signer_ref, federation_signature: signMaterialHash(adjudicator, material) } };
+  assert.deepEqual(verifyParticipationDecision(signed, adjudicator.publicKeyHex), { ok: true, findings: [] });
+  assert.equal(verifyParticipationDecision(signed, generateSigner("worker://replication-lab-two").publicKeyHex).ok, false, "another key claiming the adjudicator's name does not verify");
+  assert.equal(verifyParticipationDecision(federated, adjudicator.publicKeyHex).ok, false, "the registered fixture's placeholder signature does not verify");
+  assert.ok(verifyParticipationDecision({ ...signed, decision: { ...signed.decision, decided_by_ref: "system://ioi/orchestration/demo" } }, adjudicator.publicKeyHex).findings.some((f) => /admission owner/u.test(f)));
+  const hosted = readJson("fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json");
+  assert.deepEqual(verifyParticipationDecision(hosted), { ok: true, findings: [] });
+  assert.ok(verifyParticipationDecision({ ...hosted, decision: { ...hosted.decision, adjudicator_ref: adjudicator.signer_ref } }).findings.some((f) => /hosted decision carries an adjudicator/u.test(f)));
+  const exited = readJson("fixtures/orchestration-participation-request-v2/positive-exited.json");
+  assert.equal(exited.status, "accepted", "acceptance is history; the exit is a fact on top of it");
+  assert.equal(exited.exit.status_at_exit, "accepted");
+  assert.match(exited.exit.bundle_ref, /^participant-state:\/\//u);
+  assert.equal(deriveParticipationRequestHash(exited), exited.request_hash, "neither the decision nor the exit moves the request hash");
+});
+

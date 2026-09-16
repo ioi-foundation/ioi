@@ -1,0 +1,62 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.orchestration-participation-request.v2",
+  "participation_request_id": "participation-request://ioi/orchestration/demo/alloy-1",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://ioi/orchestration/demo",
+    "parent_scope_ref": "app-scope://ioi-ai/objective/demo",
+    "proposed_or_issued_by_ref": "user://demo-operator",
+    "payload_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at": "2026-09-16T12:00:00Z",
+    "updated_at": null
+  },
+  "orchestration_ref": "app-scope://ioi-ai/objective/demo",
+  "discovery_ref": "discovery://ioi/orchestration/demo/1",
+  "coordination_topology": "hosted_admission",
+  "admission_owner_ref": "system://ioi/orchestration/demo",
+  "requested_by_ref": "worker://independent-alloy-lab",
+  "requester_system_ref": "domain://independent-alloy-lab",
+  "collaboration_terms_ref": "terms://ioi/orchestration/demo/1",
+  "collaboration_terms_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "terms_response": "accept",
+  "counterterms_ref": null,
+  "capability_offer_refs": [
+    "capability-offer://independent-alloy-lab/replication"
+  ],
+  "eligibility_evidence_refs": [
+    "evidence://independent-alloy-lab/conformance/1"
+  ],
+  "requested_role_frontier_and_visibility_refs": [
+    "frontier://ioi/orchestration/demo/a"
+  ],
+  "privacy_custody_and_context_policy_refs": [
+    "policy://ioi/orchestration/demo/privacy"
+  ],
+  "private_context_included": false,
+  "requested_at": "2026-09-16T12:00:00Z",
+  "request_hash": "sha256:2272860b25b5114bf8ca477d6d7d6a3d1106fa4775f27efeec266fff4a2065ea",
+  "signature": {
+    "key_suite": "ed25519",
+    "signer_ref": "worker://independent-alloy-lab",
+    "signer_public_key": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "signed_material_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "signature": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "decision": {
+    "status": "accepted",
+    "decided_by_ref": "system://ioi/orchestration/demo",
+    "decided_at": "2026-09-16T12:30:00Z",
+    "receipt_ref": "receipt://ioi/orchestration/demo/participation/alloy-1/1",
+    "reason_code": "terms_root_active_and_eligible",
+    "adjudicator_ref": null,
+    "federation_signature": null
+  },
+  "exit": {
+    "status_at_exit": "accepted",
+    "bundle_ref": "participant-state://ioi/orchestration/demo/alloy/1",
+    "exited_at": "2026-09-16T13:00:00Z",
+    "reason_code": "voluntary_retirement",
+    "receipt_ref": "receipt://ioi/orchestration/demo/participation/alloy-1/2"
+  },
+  "status": "accepted"
+}

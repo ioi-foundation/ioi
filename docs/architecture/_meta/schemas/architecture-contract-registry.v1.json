@@ -1328,7 +1328,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
         "compatibility": "breaking",
         "migration_policy": "none",
         "predecessor_remains_valid": true,
@@ -1392,6 +1392,82 @@
         },
         {
           "path": "fixtures/orchestration-participation-request-v1/negative-private-context-included.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+      "canonical_name": "OrchestrationParticipationRequest",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#orchestrationparticipationrequest-v2--portable-exit-and-federated-admission-m112",
+      "schema_version": "ioi.applications.ioi-ai.orchestration-participation-request.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "orchestration-participation-request.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/orchestration-participation-request/refs-not-tables/v2",
+          "path": "invariants/orchestration-participation-request.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OrchestrationParticipationRequestV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OrchestrationParticipationRequestV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/orchestration-participation-request-v2/positive-submitted.json",
+        "fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json",
+        "fixtures/orchestration-participation-request-v2/positive-accepted-federated.json",
+        "fixtures/orchestration-participation-request-v2/positive-exited.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.exit.only_after_acceptance"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.decision.by_the_admission_owner"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.decision.by_the_admission_owner"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v2/negative-same-system-request.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.same_system.never_requests"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.request_hash.commits_request"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v2/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]

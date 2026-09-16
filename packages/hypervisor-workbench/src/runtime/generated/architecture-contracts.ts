@@ -915,6 +915,67 @@ export type OrchestrationParticipationRequestV1 = {
   status: "submitted" | "accepted" | "refused" | "withdrawn" | "expired";
 };
 
+export type OrchestrationParticipationRequestV2 = {
+  schema_version: "ioi.applications.ioi-ai.orchestration-participation-request.v2";
+  participation_request_id: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  orchestration_ref: string;
+  discovery_ref: string;
+  coordination_topology: "hosted_admission" | "federated_admission";
+  admission_owner_ref: string;
+  requested_by_ref: string;
+  requester_system_ref: string;
+  collaboration_terms_ref: string;
+  collaboration_terms_root: string;
+  terms_response: "accept" | "counteroffer" | "decline";
+  counterterms_ref: string | null;
+  capability_offer_refs: Array<string>;
+  eligibility_evidence_refs: Array<string>;
+  requested_role_frontier_and_visibility_refs: Array<string>;
+  privacy_custody_and_context_policy_refs: Array<string>;
+  private_context_included: false;
+  requested_at: string;
+  request_hash: string;
+  signature: {
+      key_suite: "ed25519";
+      signer_ref: string;
+      signer_public_key: string;
+      signed_material_hash: string;
+      signature: string;
+    };
+  decision: {
+      status: "accepted" | "refused";
+      decided_by_ref: string;
+      decided_at: string;
+      receipt_ref: string;
+      reason_code: string;
+      adjudicator_ref: string | null;
+      federation_signature: {
+            key_suite: "ed25519";
+            signer_ref: string;
+            signer_public_key: string;
+            signed_material_hash: string;
+            signature: string;
+          } | null;
+    } | null;
+  exit: {
+      status_at_exit: "accepted";
+      bundle_ref: string;
+      exited_at: string;
+      reason_code: string;
+      receipt_ref: string;
+    } | null;
+  status: "submitted" | "accepted" | "refused" | "withdrawn" | "expired";
+};
+
 export type VerifierChallengeV3 = {
   schema_version: "ioi.applications.ioi-ai.verifier-challenge.v3";
   verifier_challenge_id: string;
@@ -14753,6 +14814,86 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "orchestration_participation_request.exit.only_after_acceptance"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "orchestration_participation_request.decision.by_the_admission_owner"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "orchestration_participation_request.decision.by_the_admission_owner"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "orchestration_participation_request.same_system.never_requests"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "orchestration_participation_request.request_hash.commits_request"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -29636,6 +29777,16 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-submitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-hosted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-accepted-federated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/positive-exited.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-exit-on-a-submission.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-decided-by-another-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-federated-decided-by-host.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-same-system-request.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-hash-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
@@ -32390,6 +32541,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/room-participant-lease/v3": "sha256:98f4d5cb76de13d96d3eaa27f5335aed23c3153ac9cf8c782fd3e12674edb8a9",
   "schema://ioi/applications/ioi-ai/room-participation-request/v3": "sha256:081004a6e83c7c9c34b166f20ea669aa0428245c32a1edbecd2db2d910628bd6",
   "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1": "sha256:752d8c064b5fcb19abbfed0262c134e56cb6470c88a8124c0a2d465d55876856",
+  "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2": "sha256:c465a5a83308cd79841bfb94e86bb02369d595a189f212b66a4bf5fe1fae3181",
   "schema://ioi/applications/ioi-ai/verifier-challenge/v3": "sha256:9b7c215945dacf4a4267b583d7c21484995f652ce79d7c5146d1e2b50d4edaae",
   "schema://ioi/applications/ioi-ai/work-claim-lease/v3": "sha256:a9f4260494a490b2a60c3acb437a6b90667a5c7fb3760cb19f7b042d36747588",
   "schema://ioi/applications/ioi-ai/work-frontier-item/v3": "sha256:ef718d9b0643a361674b7173bc6b29758bec366f6e5b5b328d2f974e0818f1ca",
@@ -39878,6 +40030,395 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "request_hash",
       "signature",
       "decision",
+      "status"
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
+    "title": "OrchestrationParticipationRequest",
+    "description": "A signed participation request from a party outside the host System, answering a discovery projection and naming the exact active terms root; the host's decision is a successor revision of the same record. Refs cross, tables do not; no AIIP path is used inside one system_id Version 2 adds portable exit as a third revision citing its state bundle, and federated admission as a declared mode whose decision the adjudicator party of record co-signs (M11.2, R-175; successor of v1)..",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.orchestration-participation-request.v2"
+      },
+      "participation_request_id": {
+        "type": "string",
+        "pattern": "^participation-request://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "Equals system_binding.parent_scope_ref."
+      },
+      "discovery_ref": {
+        "type": "string",
+        "pattern": "^discovery://[^\\s]{1,500}$",
+        "description": "Always named: the projection the requester answered. Same-system work is a delegation, not a request."
+      },
+      "coordination_topology": {
+        "enum": [
+          "hosted_admission",
+          "federated_admission"
+        ]
+      },
+      "admission_owner_ref": {
+        "type": "string",
+        "pattern": "^(?:system|domain|policy)://[^\\s]{1,500}$"
+      },
+      "requested_by_ref": {
+        "type": "string",
+        "pattern": "^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"
+      },
+      "requester_system_ref": {
+        "type": "string",
+        "pattern": "^(?:system|domain)://[^\\s]{1,500}$",
+        "description": "The requester's own System or domain; never the host's system_binding.system_id."
+      },
+      "collaboration_terms_ref": {
+        "type": "string",
+        "pattern": "^terms://[^\\s]{1,500}$"
+      },
+      "collaboration_terms_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "terms_response": {
+        "enum": [
+          "accept",
+          "counteroffer",
+          "decline"
+        ]
+      },
+      "counterterms_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^terms://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "capability_offer_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:capability-offer|ai|package)://[^\\s]{1,500}$"
+        }
+      },
+      "eligibility_evidence_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"
+        }
+      },
+      "requested_role_frontier_and_visibility_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"
+        }
+      },
+      "privacy_custody_and_context_policy_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"
+        }
+      },
+      "private_context_included": {
+        "const": false
+      },
+      "requested_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "request_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "signature": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_suite",
+          "signer_ref",
+          "signer_public_key",
+          "signed_material_hash",
+          "signature"
+        ],
+        "properties": {
+          "key_suite": {
+            "enum": [
+              "ed25519"
+            ]
+          },
+          "signer_ref": {
+            "type": "string",
+            "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+          },
+          "signer_public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "signed_material_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        }
+      },
+      "decision": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "decided_by_ref",
+              "decided_at",
+              "receipt_ref",
+              "reason_code",
+              "adjudicator_ref",
+              "federation_signature"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "accepted",
+                  "refused"
+                ],
+                "description": "The verdict; the record's status equals it whenever a decision is present."
+              },
+              "decided_by_ref": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              },
+              "decided_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,500}$",
+                "description": "The seam's receipt of the revision that carries this decision."
+              },
+              "reason_code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,80}$"
+              },
+              "adjudicator_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Under federated_admission: the terms party (role coordinator) whose key of record co-signs the decision; null under hosted_admission."
+              },
+              "federation_signature": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "key_suite",
+                      "signer_ref",
+                      "signer_public_key",
+                      "signed_material_hash",
+                      "signature"
+                    ],
+                    "properties": {
+                      "key_suite": {
+                        "enum": [
+                          "ed25519"
+                        ]
+                      },
+                      "signer_ref": {
+                        "type": "string",
+                        "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+                      },
+                      "signer_public_key": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "signed_material_hash": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      },
+                      "signature": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{128}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Under federated_admission: the adjudicator's signature over ioi.orchestration-participation-decision-jcs-sha256.v1; null under hosted_admission."
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "exit": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status_at_exit",
+              "bundle_ref",
+              "exited_at",
+              "reason_code",
+              "receipt_ref"
+            ],
+            "properties": {
+              "status_at_exit": {
+                "const": "accepted",
+                "description": "An exit exists only on an accepted participation; the record's status equals this whenever an exit is present. Acceptance is history, exit is a fact on top of it."
+              },
+              "bundle_ref": {
+                "type": "string",
+                "pattern": "^participant-state://[^\\s]{1,500}$"
+              },
+              "exited_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "reason_code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,80}$"
+              },
+              "receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,500}$",
+                "description": "The seam's receipt of the accepted revision the exit leaves from."
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Portable exit: a third revision of the same record, produced together with the state bundle it cites; the status stays accepted and the orchestration continues."
+      },
+      "status": {
+        "enum": [
+          "submitted",
+          "accepted",
+          "refused",
+          "withdrawn",
+          "expired"
+        ]
+      }
+    },
+    "required": [
+      "schema_version",
+      "participation_request_id",
+      "system_binding",
+      "orchestration_ref",
+      "discovery_ref",
+      "coordination_topology",
+      "admission_owner_ref",
+      "requested_by_ref",
+      "requester_system_ref",
+      "collaboration_terms_ref",
+      "collaboration_terms_root",
+      "terms_response",
+      "counterterms_ref",
+      "capability_offer_refs",
+      "eligibility_evidence_refs",
+      "requested_role_frontier_and_visibility_refs",
+      "privacy_custody_and_context_policy_refs",
+      "private_context_included",
+      "requested_at",
+      "request_hash",
+      "signature",
+      "decision",
+      "exit",
       "status"
     ],
     "$defs": {
@@ -140389,6 +140930,155 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2": [
+    {
+      "rule_id": "orchestration_participation_request.scope.matches_binding_parent_scope",
+      "description": "The orchestration the request answers is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.same_system.never_requests",
+      "description": "No AIIP path is used inside one system_id: a request whose requester system is the host System is not a participation request; work inside the System is a delegation of the coordinating thread.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.requester_system_ref",
+          "$.system_binding.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.request_hash.commits_request",
+      "description": "The request hash commits the request body under its domain; the requester's signature is over this hash, so a body edited after signing does not recompute.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.orchestration-participation-request-hash-jcs-sha256.v1"
+          },
+          "participation_request_id": {
+            "path": "$.participation_request_id"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "discovery_ref": {
+            "path": "$.discovery_ref"
+          },
+          "coordination_topology": {
+            "path": "$.coordination_topology"
+          },
+          "admission_owner_ref": {
+            "path": "$.admission_owner_ref"
+          },
+          "requested_by_ref": {
+            "path": "$.requested_by_ref"
+          },
+          "requester_system_ref": {
+            "path": "$.requester_system_ref"
+          },
+          "collaboration_terms_ref": {
+            "path": "$.collaboration_terms_ref"
+          },
+          "collaboration_terms_root": {
+            "path": "$.collaboration_terms_root"
+          },
+          "terms_response": {
+            "path": "$.terms_response"
+          },
+          "counterterms_ref": {
+            "path": "$.counterterms_ref"
+          },
+          "capability_offer_refs": {
+            "path": "$.capability_offer_refs"
+          },
+          "eligibility_evidence_refs": {
+            "path": "$.eligibility_evidence_refs"
+          },
+          "requested_role_frontier_and_visibility_refs": {
+            "path": "$.requested_role_frontier_and_visibility_refs"
+          },
+          "privacy_custody_and_context_policy_refs": {
+            "path": "$.privacy_custody_and_context_policy_refs"
+          },
+          "private_context_included": {
+            "path": "$.private_context_included"
+          },
+          "requested_at": {
+            "path": "$.requested_at"
+          }
+        },
+        "expected_path": "$.request_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.signature.by_the_requester",
+      "description": "The signer is the requesting party; a request signed by anyone else is not that party's.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.signature.signer_ref",
+          "$.requested_by_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.counteroffer.requires_counterterms",
+      "description": "A counteroffer names the counterterms it proposes.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.counterterms_ref",
+        "when_path": "$.terms_response",
+        "values": [
+          "counteroffer"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.decision.sets_the_status",
+      "description": "A present decision sets the record's status to its verdict: a submission carrying a decision, or a decided record whose status contradicts its decision, is not the host's revision. (That an accepted or refused record carries its decision is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.decision",
+        "paths": [
+          "$.status",
+          "$.decision.status"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.exit.only_after_acceptance",
+      "description": "A present exit sits on an accepted participation and on nothing else: an exit on a submission or on a refusal is not the host's revision. Acceptance is history and the exit is a fact on top of it, so the status stays accepted. (That the exit cites a bundle that verifies is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.exit",
+        "paths": [
+          "$.status",
+          "$.exit.status_at_exit"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.decision.by_the_admission_owner",
+      "description": "The decision is the admission owner's: under hosted_admission the host System's own, under federated_admission the declared federation policy path's. A decision by anyone else is not this orchestration's. (That a federated decision carries the adjudicator's co-signature is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.decision",
+        "paths": [
+          "$.decision.decided_by_ref",
+          "$.admission_owner_ref"
+        ]
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/verifier-challenge/v3": [
     {
       "rule_id": "verifier_challenge.room.matches_admission",
@@ -159693,6 +160383,12 @@ export function validateOrchestrationParticipationRequestV1(
   value: unknown,
 ): value is OrchestrationParticipationRequestV1 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", value).ok;
+}
+
+export function validateOrchestrationParticipationRequestV2(
+  value: unknown,
+): value is OrchestrationParticipationRequestV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/orchestration-participation-request/v2", value).ok;
 }
 
 export function validateVerifierChallengeV3(

@@ -25,7 +25,7 @@ import { canonicalJson, type Orchestration, type SystemRecordAdmitResult, type S
 export const COLLABORATION_CONTRACTS = {
   terms: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
   discovery: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
-  participation: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+  participation: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
   bundle: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
 } as const;
 
@@ -33,6 +33,7 @@ export const COLLABORATION_DOMAINS = {
   termsAcceptance: "ioi.collaboration-terms-acceptance-jcs-sha256.v1",
   discoveryStateRoot: "ioi.orchestration-discovery-state-root-jcs-sha256.v1",
   participationRequestHash: "ioi.orchestration-participation-request-hash-jcs-sha256.v1",
+  participationDecision: "ioi.orchestration-participation-decision-jcs-sha256.v1",
   bundleRoot: "ioi.participant-state-bundle-root-jcs-sha256.v1",
 } as const;
 
@@ -159,14 +160,36 @@ export interface ParticipationRequestDraft {
   requested_at?: string;
 }
 
+export interface ParticipationDecision {
+  status: "accepted" | "refused";
+  decided_by_ref: string;
+  decided_at: string;
+  receipt_ref: string;
+  reason_code: string;
+  /** Under federated_admission: the terms party (role coordinator) whose key of record co-signs; null under hosted_admission. */
+  adjudicator_ref: string | null;
+  federation_signature: SignatureEnvelope | null;
+}
+
+export interface ParticipationExit {
+  /** An exit exists only on an accepted participation; the status stays accepted, the exit is a fact on top of it. */
+  status_at_exit: "accepted";
+  bundle_ref: string;
+  exited_at: string;
+  reason_code: string;
+  /** The seam's receipt of the accepted revision the exit leaves from. */
+  receipt_ref: string;
+}
+
 export interface ParticipationRequestRecord extends Required<Omit<ParticipationRequestDraft, "counterterms_ref">> {
-  schema_version: "ioi.applications.ioi-ai.orchestration-participation-request.v1";
+  schema_version: "ioi.applications.ioi-ai.orchestration-participation-request.v2";
   requested_by_ref: string;
   counterterms_ref: string | null;
   private_context_included: false;
   request_hash: string;
   signature: SignatureEnvelope;
-  decision: { status: "accepted" | "refused"; decided_by_ref: string; decided_at: string; receipt_ref: string; reason_code: string } | null;
+  decision: ParticipationDecision | null;
+  exit: ParticipationExit | null;
   status: "submitted" | "accepted" | "refused" | "withdrawn" | "expired";
   system_binding?: Record<string, unknown>;
 }
@@ -233,6 +256,31 @@ export function deriveParticipationRequestHash(request: Record<string, unknown>)
 
 export function deriveBundleRoot(bundle: Record<string, unknown>): string {
   return materialRoot(COLLABORATION_DOMAINS.bundleRoot, bundle, BUNDLE_ROOT_MEMBERS);
+}
+
+/** The material a federated decision is co-signed over: the request it decides, its hash, the verdict, the time and the declared admission owner. */
+export function deriveParticipationDecisionMaterialHash(input: { participation_request_id: string; request_hash: string; status: "accepted" | "refused"; decided_at: string; admission_owner_ref: string }): string {
+  return sha256(canonicalJson({ domain: COLLABORATION_DOMAINS.participationDecision, ...input }));
+}
+
+/** Offline verification of a decision revision: the admission owner decided; under federated_admission the adjudicator's co-signature verifies against the given key of record. */
+export function verifyParticipationDecision(record: ParticipationRequestRecord, adjudicatorPublicKeyHex?: string): { ok: boolean; findings: string[] } {
+  const findings: string[] = [];
+  const decision = record.decision;
+  if (!decision) return { ok: false, findings: ["no decision on the record"] };
+  if (decision.decided_by_ref !== record.admission_owner_ref) findings.push("the decision is not the admission owner's");
+  if (record.status !== decision.status) findings.push("the record's status contradicts the decision");
+  if (record.coordination_topology === "federated_admission") {
+    if (!decision.adjudicator_ref || !decision.federation_signature) findings.push("a federated decision carries no adjudicator co-signature");
+    else {
+      const material = deriveParticipationDecisionMaterialHash({ participation_request_id: record.participation_request_id, request_hash: record.request_hash, status: decision.status, decided_at: decision.decided_at, admission_owner_ref: record.admission_owner_ref });
+      if (decision.federation_signature.signer_ref !== decision.adjudicator_ref) findings.push("the co-signature is not the adjudicator's");
+      if (!verifySignatureEnvelope(decision.federation_signature, material, adjudicatorPublicKeyHex)) findings.push("the adjudicator's co-signature does not verify over the decision material");
+    }
+  } else if (decision.adjudicator_ref !== null || decision.federation_signature !== null) {
+    findings.push("a hosted decision carries an adjudicator");
+  }
+  return { ok: findings.length === 0, findings };
 }
 
 /**
@@ -305,7 +353,7 @@ export function verifySignatureEnvelope(envelope: SignatureEnvelope, expectedMat
 
 export function buildParticipationRequest(draft: ParticipationRequestDraft, requester: Signer, now = new Date().toISOString()): ParticipationRequestRecord {
   const body: Omit<ParticipationRequestRecord, "request_hash" | "signature"> = {
-    schema_version: "ioi.applications.ioi-ai.orchestration-participation-request.v1",
+    schema_version: "ioi.applications.ioi-ai.orchestration-participation-request.v2",
     participation_request_id: draft.participation_request_id,
     orchestration_ref: draft.orchestration_ref,
     discovery_ref: draft.discovery_ref,
@@ -324,6 +372,7 @@ export function buildParticipationRequest(draft: ParticipationRequestDraft, requ
     private_context_included: false,
     requested_at: draft.requested_at ?? now,
     decision: null,
+    exit: null,
     status: "submitted",
   };
   const request_hash = deriveParticipationRequestHash(body as unknown as Record<string, unknown>);
@@ -480,8 +529,14 @@ export class Collaboration {
     if (request.orchestration_ref !== this.orchestration.scope_ref) {
       throw new CollaborationRefusal("participation_orchestration_mismatch", "the request names another orchestration", { named: request.orchestration_ref, this: this.orchestration.scope_ref });
     }
-    if (request.status !== "submitted" || request.decision !== null) {
-      throw new CollaborationRefusal("participation_not_a_submission", "a request is admitted as submitted with no decision; the decision is the host's revision");
+    if (request.status !== "submitted" || request.decision !== null || request.exit !== null) {
+      throw new CollaborationRefusal("participation_not_a_submission", "a request is admitted as submitted with no decision and no exit; both are the host's revisions");
+    }
+    if (request.coordination_topology === "hosted_admission" && request.admission_owner_ref !== systemId) {
+      throw new CollaborationRefusal("hosted_admission_owner_not_the_host", "under hosted_admission the admission owner is the host System itself", { admission_owner_ref: request.admission_owner_ref, system_id: systemId });
+    }
+    if (request.coordination_topology === "federated_admission" && !request.admission_owner_ref.startsWith("policy://")) {
+      throw new CollaborationRefusal("federated_admission_owner_not_a_policy", "under federated_admission the admission owner is the declared federation policy path", { admission_owner_ref: request.admission_owner_ref });
     }
     const terms = await this.requireActiveTerms(request.collaboration_terms_ref, request.collaboration_terms_root);
     const acceptance = terms.acceptances.find((a) => a.party_ref === request.requested_by_ref);
@@ -500,6 +555,9 @@ export class Collaboration {
     if (!published || published.status !== "discoverable" || published.collaboration_terms_root !== terms.terms_body_root) {
       throw new CollaborationRefusal("discovery_not_discoverable", "the request answers no discoverable projection of this orchestration under the active terms", { status: published?.status ?? null });
     }
+    if (published.coordination_topology !== request.coordination_topology || published.admission_owner_ref !== request.admission_owner_ref) {
+      throw new CollaborationRefusal("participation_mode_mismatch", "the request's topology and admission owner are the projection's declared mode, never the requester's choice", { declared: { topology: published.coordination_topology, owner: published.admission_owner_ref }, requested: { topology: request.coordination_topology, owner: request.admission_owner_ref } });
+    }
     return this.orchestration.record({ contract_id: COLLABORATION_CONTRACTS.participation, object_id: request.participation_request_id, record: request as unknown as Record<string, unknown>, expected_head: null });
   }
 
@@ -507,8 +565,14 @@ export class Collaboration {
     return this.orchestration.recordChain(COLLABORATION_CONTRACTS.participation, requestId);
   }
 
-  /** The decision is a successor revision citing the seam receipt of the submission it answers. */
-  async decideParticipation(requestId: string, decision: { accept: boolean; reason_code: string }): Promise<SystemRecordAdmitResult> {
+  /**
+   * The decision is a successor revision citing the seam receipt of the submission it answers, made
+   * by the admission owner the projection declared. Under `federated_admission` the owner is a policy
+   * path and the decision is CO-SIGNED by the adjudicator: a party of the active terms with role
+   * `coordinator`, signing with the key it accepted the terms with. A hosted decision takes no
+   * adjudicator; a federated one is unreachable without one, and without terms acceptance.
+   */
+  async decideParticipation(requestId: string, decision: { accept: boolean; reason_code: string; adjudicator?: Signer }): Promise<SystemRecordAdmitResult> {
     const chain = await this.participation(requestId);
     const current = stripBinding(chain.current) as ParticipationRequestRecord | null;
     if (!current) throw new CollaborationRefusal("participation_absent", `no participation record ${requestId}`);
@@ -518,12 +582,59 @@ export class Collaboration {
     const submission = (chain.admissions ?? [])[0];
     const receipt = typeof submission?.receipt_ref === "string" ? submission.receipt_ref : null;
     if (!receipt) throw new CollaborationRefusal("participation_receipt_unknown", "the submission's seam receipt is not on the chain");
+    const status = decision.accept ? "accepted" : "refused";
+    const decided_at = this.now();
+    let adjudicator_ref: string | null = null;
+    let federation_signature: SignatureEnvelope | null = null;
+    if (current.coordination_topology === "federated_admission") {
+      if (!decision.adjudicator) {
+        throw new CollaborationRefusal("federated_decision_requires_adjudicator", "under federated_admission the host does not decide alone: the declared adjudicator co-signs the decision", { admission_owner_ref: current.admission_owner_ref });
+      }
+      const terms = await this.requireActiveTerms(current.collaboration_terms_ref, current.collaboration_terms_root);
+      const role = (terms.party_roles ?? []).find((r) => r.party_ref === decision.adjudicator?.signer_ref);
+      const acceptance = terms.acceptances.find((a) => a.party_ref === decision.adjudicator?.signer_ref);
+      if (!role || role.role !== "coordinator" || !acceptance) {
+        throw new CollaborationRefusal("federation_adjudicator_not_a_party", "the adjudicator is a party of the active terms with role coordinator that accepted them; federated admission is unreachable without terms acceptance", { adjudicator_ref: decision.adjudicator.signer_ref });
+      }
+      if (acceptance.signature.signer_public_key !== decision.adjudicator.publicKeyHex) {
+        throw new CollaborationRefusal("federation_adjudicator_key_mismatch", "the adjudicator signs with the key it accepted the terms with, and with no other");
+      }
+      adjudicator_ref = decision.adjudicator.signer_ref;
+      federation_signature = signMaterialHash(decision.adjudicator, deriveParticipationDecisionMaterialHash({ participation_request_id: requestId, request_hash: current.request_hash, status, decided_at, admission_owner_ref: current.admission_owner_ref }));
+    } else if (decision.adjudicator) {
+      throw new CollaborationRefusal("hosted_decision_takes_no_adjudicator", "under hosted_admission the host System decides; there is no adjudicator to co-sign");
+    }
     const next: ParticipationRequestRecord = {
       ...current,
-      status: decision.accept ? "accepted" : "refused",
-      decision: { status: decision.accept ? "accepted" : "refused", decided_by_ref: this.orchestration.system_id, decided_at: this.now(), receipt_ref: receipt, reason_code: decision.reason_code },
+      status,
+      decision: { status, decided_by_ref: current.admission_owner_ref, decided_at, receipt_ref: receipt, reason_code: decision.reason_code, adjudicator_ref, federation_signature },
     };
     return this.orchestration.record({ contract_id: COLLABORATION_CONTRACTS.participation, object_id: requestId, record: next as unknown as Record<string, unknown>, expected_head: chain.head });
+  }
+
+  /**
+   * Portable exit (ACC-13 clause 6): the state bundle is produced first, then the exit is a third
+   * revision of the participation citing it and the receipt of the accepted revision it leaves
+   * from. The status stays `accepted` — acceptance is history, the exit is a fact on top of it —
+   * and nothing else moves: the orchestration continues.
+   */
+  async exitParticipation(requestId: string, input: { reason_code: string; bundle: Omit<BundleDraft, "participation_request_id" | "bundle_reason"> }): Promise<{ bundle: SystemRecordAdmitResult; excluded: BundleCandidateRef[]; exit: SystemRecordAdmitResult }> {
+    const before = await this.participation(requestId);
+    const current = stripBinding(before.current) as ParticipationRequestRecord | null;
+    if (!current || current.status !== "accepted" || current.exit !== null) {
+      throw new CollaborationRefusal("participation_not_accepted", "only an accepted participation exits; a submission is withdrawn and an exited one has left", { status: current?.status ?? null });
+    }
+    const acceptedRevision = (before.admissions ?? [])[before.admissions.length - 1];
+    const receipt = typeof acceptedRevision?.receipt_ref === "string" ? acceptedRevision.receipt_ref : null;
+    if (!receipt) throw new CollaborationRefusal("participation_receipt_unknown", "the accepted revision's seam receipt is not on the chain");
+    const produced = await this.produceStateBundle({ ...input.bundle, participation_request_id: requestId, bundle_reason: "voluntary_retirement" });
+    const bundleId = String(produced.admitted.record.participant_state_bundle_id);
+    const next: ParticipationRequestRecord = {
+      ...current,
+      exit: { status_at_exit: "accepted", bundle_ref: bundleId, exited_at: this.now(), reason_code: input.reason_code, receipt_ref: receipt },
+    };
+    const exit = await this.orchestration.record({ contract_id: COLLABORATION_CONTRACTS.participation, object_id: requestId, record: next as unknown as Record<string, unknown>, expected_head: before.head });
+    return { bundle: produced.admitted, excluded: produced.excluded, exit };
   }
 
   // -- the least-disclosing bundle (ACC-13 clause 3) ----------------------------------------------
@@ -531,8 +642,8 @@ export class Collaboration {
   async produceStateBundle(draft: BundleDraft): Promise<{ admitted: SystemRecordAdmitResult; excluded: BundleCandidateRef[] }> {
     const chain = await this.participation(draft.participation_request_id);
     const participation = stripBinding(chain.current) as ParticipationRequestRecord | null;
-    if (!participation || participation.status !== "accepted") {
-      throw new CollaborationRefusal("participation_not_accepted", "a state bundle is produced for an accepted participation only", { status: participation?.status ?? null });
+    if (!participation || participation.status !== "accepted" || participation.exit !== null) {
+      throw new CollaborationRefusal("participation_not_accepted", "a state bundle is produced for an accepted participation that has not left", { status: participation?.status ?? null, exited: participation?.exit !== null && participation?.exit !== undefined });
     }
     const excludedClasses = [...BUNDLE_EXCLUDED_CONTEXT_CLASSES];
     const slots = {} as Record<BundleRefSlot, string[]>;
