@@ -995,7 +995,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 126,
+  modules: 127,
   familyMentions: 286,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -1013,7 +1013,17 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 159912,
+  // Re-pinned 2026-09-16 (M09.7) from 159912, +1298, split by EXPERIMENT — the four tracked Rust files
+  // reverted to HEAD and restored one at a time, a census after each: the baseline reproduced every
+  // pin exactly (no inherited drift); the daemon entry with the new route_assurance_routes.rs module
+  // +1286 tokens, +1 module, opaque-initialiser 3640 -> 3706 (+66) and foreign-qualified 5118 -> 5146
+  // (+28) — every bucket movement is the new module's own constants (its FamilySpecs, domains, refs,
+  // vocabularies) and the StatusCode/Value qualifiers it uses; the shared evidence builder's split in
+  // system_activation_routes.rs +11 tokens, buckets held; the node plane's estate_owner_ref and its
+  // two re-bound sites +6, buckets held; the environment plane's removed constant and re-bound site
+  // -5, buckets held. judgedTokenPositions 282, every writer bucket and productionFsCalls HELD on all
+  // five runs. Moved in the SAME COMMIT as the daemon change.
+  tokenMentions: 161210,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 264, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -1034,8 +1044,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 5118,
-    "opaque-initialiser": 3640,
+    "foreign-qualified": 5146,
+    "opaque-initialiser": 3706,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

@@ -951,6 +951,11 @@ jobs:
           # needs none of the outcome-room lane's apparatus (no Ollama, no agent CLI, no wallet
           # fixture), so it rides this matrix for the daemon build and the census directory alone.
           - verifier_id: context-lease-handoff-lifecycle
+          # M09.7's custody-proven private routes. It drives the node-attestation plane's own
+          # wallet-governed ladder (boot profile, temporal profile, admit, submit receipt, ready)
+          # with grants minted for each challenge's exact hashes, so it rides this matrix for the
+          # prebuilt wallet fixture; no Ollama, no agent CLI.
+          - verifier_id: custody-proven-private-routes
           # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
           # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
           # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
@@ -1088,6 +1093,29 @@ jobs:
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:context-lease-handoff-lifecycle --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon and the grant signer the custody-proven verifier boots
+        if: matrix.verifier_id == 'custody-proven-private-routes'
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+
+      # M09.7 — custody-proven private routes and node integrity: the physical enforcement owner's
+      # observation and the coverage the daemon derives from it (active+verified mediates and
+      # prevents, audit-only never does, measured boot alone discovers and attributes only); the
+      # node-attestation ladder driven through the plane's own wallet-governed routes; a local
+      # private-native route on the ready node deriving custody_proven_no_plaintext with every
+      # commitment re-derived; each downgrade typed by its cause; contractual-to-custody promotion
+      # refused; audited egress never carrying the custody-proven class; restart.
+      - name: Verify custody-proven private routes and node integrity (M09.7)
+        if: matrix.verifier_id == 'custody-proven-private-routes'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:custody-proven-private-routes --workspace=@ioi/hypervisor-app
+
+      - name: Drill the custody-proven gate's own oracles
+        if: matrix.verifier_id == 'custody-proven-private-routes'
+        run: npm run mutate:custody-proven-private-routes --workspace=@ioi/hypervisor-app
 
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two

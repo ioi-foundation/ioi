@@ -66,6 +66,11 @@ const PARTICIPANT_TWO_SEED: [u8; 32] = [0x0a; 32];
 const PARTICIPANT_THREE_SEED: [u8; 32] = [0x0b; 32];
 const SCOPE_LIMITED_PARTICIPANT_SEED: [u8; 32] = [0x0c; 32];
 const SUCCESSOR_AUTHORITY_SEED: [u8; 32] = [0x0d; 32];
+/// The estate operator: the node-attestation plane governs a temporal-verification-profile
+/// declaration under the estate owner the daemon is configured with
+/// (`IOI_HYPERVISOR_ESTATE_OWNER_REF`; no request may choose it), so a gate that declares one names
+/// this principal as the estate owner and needs the fixture to hold its authority (M09.7).
+const ESTATE_OWNER_SEED: [u8; 32] = [0x0e; 32];
 const ROOT_SEED: [u8; 32] = [0x41; 32];
 const CAPABILITY_SEED: [u8; 32] = [0x31; 32];
 const EXPIRES_AT_MS: u64 = 1_850_000_000_000;
@@ -97,7 +102,10 @@ const APPLICATION_GOVERNANCE_APPROVAL_REASON: &str = "Application governed-effec
 const GOAL_RUN_CREATE_APPROVAL_REASON: &str = "GoalRun creation fixture approval";
 const UNKNOWN_GOVERNED_SCOPE_ERROR: &str =
     "record_approval target_scope is not one of the fixture's recognized governed scopes";
-const APPLICATION_GOVERNANCE_SCOPE_PREFIXES: [&str; 9] = [
+const APPLICATION_GOVERNANCE_SCOPE_PREFIXES: [&str; 10] = [
+    // The HypervisorOS node-attestation plane (boot/temporal profiles, node admission, boot receipts,
+    // readiness) — governed under the configured estate owner and the node owner (M09.7's gate).
+    "scope:hypervisoros.node.",
     "room_participation.",
     "resource_offer.",
     "capability_offer.",
@@ -506,6 +514,9 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "finding.*".to_string(),
             "verifier_challenge.*".to_string(),
             "scope:hypervisor.live-route.*".to_string(),
+            // The HypervisorOS node-attestation plane: profile declarations, node admission, boot
+            // receipts and readiness are governed under a principal's approval authority (M09.7).
+            "scope:hypervisoros.node.*".to_string(),
             SYSTEM_GENESIS_SCOPE.to_string(),
             SYSTEM_SEQUENCE_ZERO_SCOPE.to_string(),
             SYSTEM_INITIALIZE_SCOPE.to_string(),
@@ -617,6 +628,7 @@ fn authority_for_principal(principal_ref: &str) -> Result<ApprovalAuthority> {
             vec!["work_frontier.*".to_string()],
         ),
         "org://acme/successor-authority" => approval_authority(&SUCCESSOR_AUTHORITY_SEED),
+        "org://acme/estate-operator" => approval_authority(&ESTATE_OWNER_SEED),
         _ => Err(anyhow!(
             "wallet.network fixture has no approval authority for {principal_ref}"
         )),
@@ -2147,12 +2159,13 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         };
         // Setup below submits exactly this many root-signed transactions:
         // configure_control_root (1) + register_client (1) +
-        // register_approval_authority (host + 5 participants = 6) +
-        // issue_principal_authority_binding (2 host principals + 5
-        // participants = 7). A resumed chain (stable cluster state dir, see
-        // IOI_TESTING_CLUSTER_STATE_DIR) already carries all of them; a
-        // partially set-up chain is refused rather than repaired.
-        const SETUP_ROOT_TRANSACTIONS: u64 = 15;
+        // register_approval_authority (host + 5 participants + the estate
+        // operator = 7) + issue_principal_authority_binding (2 host
+        // principals + 5 participants + the estate operator = 8). A resumed
+        // chain (stable cluster state dir, see IOI_TESTING_CLUSTER_STATE_DIR)
+        // already carries all of them; a partially set-up chain is refused
+        // rather than repaired.
+        const SETUP_ROOT_TRANSACTIONS: u64 = 17;
         let root_nonce = account_nonce(&rpc_addr, &root_record.account_id).await?;
         let setup_initial_nonce = match wallet_control_root(&rpc_addr).await? {
             None => {
@@ -2264,6 +2277,10 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                 (
                     "org://acme/successor-authority",
                     approval_authority(&SUCCESSOR_AUTHORITY_SEED)?,
+                ),
+                (
+                    "org://acme/estate-operator",
+                    approval_authority(&ESTATE_OWNER_SEED)?,
                 ),
             ];
             submit(

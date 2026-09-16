@@ -268,7 +268,13 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 940,
+  // 940 -> 945 (2026-09-16, M09.7): five registrations in route_assurance_routes.rs on five distinct
+  // paths — the node-enforcement observations (GET list + POST admit in one registration), the
+  // observation by profile and node, the coverage read, the assurance inventory, and the per-route
+  // assurance (GET chain + POST admit in one registration). 946 `.route(` occurrences, 946 with a
+  // path literal, 945 distinct paths: the one-path-two-registrations reconciliation route still
+  // accounts for the single difference. Moved in the SAME COMMIT as the routes.
+  registeredRoutes: 945,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
@@ -326,7 +332,13 @@ const PINNED = {
   // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
   // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
   // second stage holds at 17 while the first moves.
-  verifierAbsenceLabels: 116,
+  // 116 -> 117 (2026-09-16, M09.7): ONE absence-worded assertion joined, in the new
+  // verify-hypervisor-custody-proven-private-routes.mjs — its structural drill claim that the daemon
+  // module "holds no route that accepts an authored class" — an honest typed absence that resolves no
+  // probe URL (17 held). Its other absence-worded label (the producer's) closes its call past the
+  // 400-character window this walk reads and is not counted, which this comment records rather than
+  // hides. Moved in the SAME COMMIT as the gate.
+  verifierAbsenceLabels: 117,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

@@ -226,6 +226,11 @@ check("R1_DERIVED_CLOSED_WORLD",
   // the inventory, get, dependents, verify, reauthorize and disconnect — on eight distinct paths
   // (`check:named-gap-truth` 932 -> 940 in this same commit). `workspace` (40) and `candidates`
   // (47) are unchanged: these routes own no environment route and serve no workspace lane.
+  // 1209 -> 1216 (2026-09-16, M09.7): SEVEN handlers of route_assurance_routes.rs — the node-enforcement
+  // observation's admit, list and get, the coverage read, and the assurance claim's admit, get and
+  // inventory — on five distinct paths (`check:named-gap-truth` 940 -> 945 in this same commit: the
+  // observation path and the per-route assurance path each carry a GET and a POST). `workspace` (40)
+  // and `candidates` (47) are unchanged: nothing here is an environment route or a workspace lane.
   // 1197 -> 1201 (2026-09-16, M06.9): FOUR handlers — the lineage walk, the impact record's admit,
   // query and get — on three distinct paths (`check:named-gap-truth` 929 -> 932 in this same
   // commit). `workspace` (40) and `candidates` (47) are unchanged: these routes own no environment
@@ -265,7 +270,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // evidence that only the registered-handler bucket moved. The Systems projection route already
   // existed and gained identity policy in place, so it adds no handler. Moved in the SAME commit as
   // the route, together with `check:named-gap-truth` (878 -> 879 distinct paths).
-  census.registered_route_handlers === 1209 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1216 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

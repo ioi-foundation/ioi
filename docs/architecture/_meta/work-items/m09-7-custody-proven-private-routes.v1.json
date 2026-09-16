@@ -1,0 +1,47 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m09-7-custody-proven-private-routes",
+  "stage_id": "M09",
+  "required_work": [
+    "M09.7"
+  ],
+  "status": "evidence_ready",
+  "objective": "Make a route's assurance class a DERIVED fact over the daemon's own evidence: contractual_privacy from a live rights contract that prohibits every provider use with zero retention, workload_isolation from an admitted isolation binding, confidential_compute_declared from the route's declared custody alone, and custody_proven_no_plaintext only when a measured node's committed boot receipt is appraised under separated attester/verifier/appraiser/relying-party roles with a single-use nonce, a passing appraisal inside its expiry, current endorsements and reference values, a measurement verified against the estate's declared boot profile, named key and protected-data owners, observable paths on which no provider observes plaintext, and the node profile's egress coverage claiming preventable under an active, verified, receipted mechanism. An unavailable, stale, ambiguous, withdrawn or unsupported appraisal downgrades and never rounds up. The physical enforcement owner's NodeEnforcementProfile observation is admitted and the per-class EnforcementCoverageDeclaration producer derives coverage from it without promoting measured boot, encryption, a VM, a provider badge or a self-report into mediated, preventable or receipted coverage.",
+  "falsifiable_claim": "schema://ioi/components/model-router/route-assurance-claim/v1 and schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1 are registered (owners doctrine.md § Route Assurance Classes and hypervisoros.md § Node Enforcement Profile; registry 315 and 316) with invariants that re-derive each content_hash and refuse a derived class the evidence does not support. The daemon serves POST/GET /v1/hypervisor/hypervisoros/node-enforcement/observations (GET …/:profile/:node, GET …/coverage?profile_ref=) and POST/GET /v1/hypervisor/model-routes/:id/assurance with GET /v1/hypervisor/route-assurance: an observation admits as a revision bound to the resolved principal with the measured-boot summary server-resolved from the node plane, and the producer admits one EnforcementCoverageDeclaration per class an observed mechanism names through the enforcement-coverage registry, mediated/preventable/receipted only under an active, verified, receipted mechanism; a claim's effective_class is derived by rank from evidence the daemon resolves (the rights contract through its plane, the isolation binding through the WorkRun, the committed boot receipt through the node plane's record) with twenty-two typed refusal codes, route_custody_undeclared refused before any admission, route_custody_remote and owners_required reported with or without a receipt, the declared posture recorded verbatim, expires_at following the appraisal and the daemon's clock refusing but never extending. The node plane's governed routes admit a temporal profile only under the configured estate owner (IOI_HYPERVISOR_ESTATE_OWNER_REF; a grant from any other principal's authority is refused with the challenge naming the configured owner), and every governed decision's evidence is re-derived under the decision's own policy context and subject (prepare_node_evidence_under). A restart reproduces every projection.",
+  "canon_owners": [
+    "docs/architecture/components/model-router/doctrine.md",
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/architecture/components/daemon-runtime/api.md"
+  ],
+  "contracts": [
+    "schema://ioi/components/model-router/route-assurance-claim/v1",
+    "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+    "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1 (consumed and produced)"
+  ],
+  "implementation": [
+    "crates/node/src/bin/hypervisor_daemon_routes/route_assurance_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/hypervisoros_node_routes.rs (estate_owner_ref; evidence under the node context)",
+    "crates/node/src/bin/hypervisor_daemon_routes/hypervisor_environment_routes.rs (evidence under the environment context)",
+    "crates/node/src/bin/hypervisor_daemon_routes/system_activation_routes.rs (prepare_node_evidence_under / AuthorityDecisionBinding)",
+    "crates/node/src/bin/hypervisor-daemon.rs",
+    "crates/cli/tests/hypervisor_wallet_network_fixture.rs (the estate operator; the node plane's scope family)",
+    "apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs"
+  ],
+  "verification": {
+    "check": "npm run check:custody-proven-private-routes --workspace=@ioi/hypervisor-app",
+    "drill": "npm run mutate:custody-proven-private-routes --workspace=@ioi/hypervisor-app",
+    "run_of_record": "2026-09-16: check 39/39 against an isolated daemon and the real wallet.network fixture (the node ladder driven through the plane's governed routes under two real approving principals); drill 5/5; 6 Rust unit tests over synthetic receipts; floor row custody-proven-private-routes 39.",
+    "nonclaims": [
+      "No real appraiser service, TPM or TEE is invoked: the boot receipt and its appraisal are planted as durable node evidence and the PLANE verifies them (signature by the admitted identity key, floors, temporal binding); the appraisal rules are proven over synthetic receipts and the live derivation over the plane's committed receipt.",
+      "workload_isolation's positive path is unit-level: M09.8's non-live lane is a source scan and no live WorkRun carries an admitted isolation binding in this gate.",
+      "The model-route posture vocabulary (six kernel postures against the vocabulary's four) is recorded verbatim here and its reconciliation is queued to the model-route plane's owner.",
+      "A caller's invalid temporal profile is answered 500 system_lifecycle_artifact_invalid by the node plane (a 422 shape); queued to that plane's owner."
+    ]
+  },
+  "register": [
+    "R-169",
+    "R-170"
+  ],
+  "ledger": "Journey verification XCIII",
+  "closed_at": "2026-09-16"
+}

@@ -35,6 +35,10 @@ const seeds = new Map([
   ["worker://replication-lab-three", "0b".repeat(32)],
   ["worker://frontier-only-lab", "0c".repeat(32)],
   ["org://acme/successor-authority", "0d".repeat(32)],
+  // The node-attestation plane governs a temporal-verification-profile declaration under the
+  // estate owner the daemon is configured with (no request may choose it), so M09.7's gate names
+  // this principal as the estate owner and the fixture holds its authority.
+  ["org://acme/estate-operator", "0e".repeat(32)],
 ]);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
