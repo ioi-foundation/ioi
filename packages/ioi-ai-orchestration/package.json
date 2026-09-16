@@ -16,6 +16,11 @@
       "types": "./dist/collaboration.d.ts",
       "import": "./dist/collaboration.js",
       "require": "./dist/collaboration.cjs"
+    },
+    "./bindings": {
+      "types": "./dist/bindings.d.ts",
+      "import": "./dist/bindings.js",
+      "require": "./dist/bindings.cjs"
     }
   },
   "files": [

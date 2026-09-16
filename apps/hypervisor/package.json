@@ -167,7 +167,9 @@
     "check:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs",
     "mutate:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs --mutation",
     "check:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs",
-    "mutate:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs --mutation"
+    "mutate:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs --mutation",
+    "check:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs",
+    "mutate:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

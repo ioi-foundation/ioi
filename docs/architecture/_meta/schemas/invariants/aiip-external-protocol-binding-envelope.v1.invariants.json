@@ -1,0 +1,38 @@
+{
+  "$id": "invariant://ioi/foundations/objects/aiip-external-protocol-binding-envelope/transport-not-authority/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "aiip_external_protocol_binding.non_native.records_non_equivalences",
+      "description": "A binding to any protocol but native AIIP names at least one assurance non-equivalence: what a remote completion, task state, tool response, registry entry or evaluator decision does NOT mean in IOI terms. A binding that records nothing as non-equivalent is claiming an equivalence the estate never grants.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.assurance_non_equivalences",
+        "when_path": "$.protocol_kind",
+        "values": [
+          "a2a",
+          "mcp",
+          "http_json_rpc",
+          "grpc",
+          "oasf_directory",
+          "erc_8004",
+          "erc_8183",
+          "other"
+        ]
+      }
+    },
+    {
+      "rule_id": "aiip_external_protocol_binding.active.declares_lifecycle_mapping",
+      "description": "An active binding declares how the protocol's lifecycle and status map (or explicitly that they do not): an active transport with an undeclared status mapping would let a remote state be read as an IOI state by default.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.lifecycle_and_status_mapping_ref",
+        "when_path": "$.status",
+        "values": [
+          "active"
+        ]
+      }
+    }
+  ]
+}

@@ -364,6 +364,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", "sha256:c1e2b2a9471e78dafe2a7e3fcc32eeecdfc195d938e8da134a34eb29980bc2d9"),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v2", "sha256:bbc2d8bfe6cd80ddff17dfac70cbf061defc0da0f86620a42fa219e3b0702919"),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", "sha256:9deaf91a1feac222b701953b8a6a961e50d3b27aba6fa269b35a6379dd29edc6"),
+    ("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", "sha256:246178377ca60c7d74cf072dbd456403bf3be7c2dac13b5569fc879b60d648d6"),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", "sha256:4f180dec8f4e5a6280ec6f83fda7ec5d80a6ce6a10432a58f3b969eac2a54ad2"),
     ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", "sha256:e83849fc04673f4731ab603c5c8a75322c3a702051eba31fd8f65876f6290b82"),
 ];
@@ -154621,6 +154622,217 @@ pub enum CollaborationTermsEnvelopeV3AcceptancesItemSignatureKeySuite {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AIIPExternalProtocolBindingEnvelopeV1 {
+    pub schema_version: AIIPExternalProtocolBindingEnvelopeV1SchemaVersion,
+    pub binding_id: String,
+    pub aiip_profile_ref: String,
+    pub protocol_kind: AIIPExternalProtocolBindingEnvelopeV1ProtocolKind,
+    pub protocol_name: String,
+    pub protocol_version_or_commitment: String,
+    pub specification_ref: String,
+    pub identity_mapping_ref: String,
+    pub lifecycle_and_status_mapping_ref: Option<String>,
+    pub message_and_artifact_mapping_ref: Option<String>,
+    pub error_and_retry_mapping_ref: Option<String>,
+    pub extension_profile_refs: Vec<String>,
+    pub required_runtime_tool_contract_refs: Vec<String>,
+    pub required_authority_scope_refs: Vec<String>,
+    pub assurance_non_equivalences: Vec<String>,
+    pub conformance_profile_refs: Vec<String>,
+    pub compatibility_range: String,
+    pub status: AIIPExternalProtocolBindingEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AIIPExternalProtocolBindingEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","title":"AIIPExternalProtocolBindingEnvelope","description":"A versioned binding of an AIIP profile to an external protocol (A2A, MCP, directory, HTTP/RPC, chain/escrow): a TRANSPORT that preserves protocol-version drift and records what does not map. A remote task completion, tool response, registry entry, reputation record or evaluator decision never becomes an IOI verification, acceptance, authority grant, adjudication or settlement state (M11.3, R-176).","type":"object","additionalProperties":false,"required":["schema_version","binding_id","aiip_profile_ref","protocol_kind","protocol_name","protocol_version_or_commitment","specification_ref","identity_mapping_ref","lifecycle_and_status_mapping_ref","message_and_artifact_mapping_ref","error_and_retry_mapping_ref","extension_profile_refs","required_runtime_tool_contract_refs","required_authority_scope_refs","assurance_non_equivalences","conformance_profile_refs","compatibility_range","status"],"properties":{"schema_version":{"const":"ioi.aiip-external-protocol-binding.v1"},"binding_id":{"type":"string","pattern":"^aiip-binding://[^\\s]{1,500}$"},"aiip_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"protocol_kind":{"enum":["native_aiip","a2a","mcp","http_json_rpc","grpc","oasf_directory","erc_8004","erc_8183","other"]},"protocol_name":{"type":"string","minLength":1,"maxLength":200},"protocol_version_or_commitment":{"type":"string","minLength":1,"maxLength":200},"specification_ref":{"type":"string","pattern":"^(?:https://[^\\s]{1,500}|artifact://[^\\s]{1,500}|cid://[^\\s]{1,500})$"},"identity_mapping_ref":{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},"lifecycle_and_status_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"message_and_artifact_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"error_and_retry_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"extension_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_runtime_tool_contract_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_authority_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:scope:[^\\s]{1,200}|policy://[^\\s]{1,500})$"}},"assurance_non_equivalences":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":400},"description":"What this protocol's states do NOT mean in IOI terms — recorded explicitly, never implied. Every non-native binding names at least one."},"conformance_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatibility_range":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["draft","active","deprecated","revoked"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AIIPExternalProtocolBindingEnvelopeV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            aiip_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"aiip_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"aiip_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protocol_kind: serde_json::from_value::<
+                AIIPExternalProtocolBindingEnvelopeV1ProtocolKind,
+            >(
+                object
+                    .remove(r#"protocol_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protocol_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protocol_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"protocol_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protocol_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protocol_version_or_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"protocol_version_or_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"protocol_version_or_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            specification_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"specification_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"specification_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_mapping_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"identity_mapping_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_mapping_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_and_status_mapping_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"lifecycle_and_status_mapping_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_and_status_mapping_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            message_and_artifact_mapping_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"message_and_artifact_mapping_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"message_and_artifact_mapping_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            error_and_retry_mapping_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"error_and_retry_mapping_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"error_and_retry_mapping_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            extension_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"extension_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"extension_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_runtime_tool_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_runtime_tool_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_runtime_tool_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_authority_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_authority_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_non_equivalences: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"assurance_non_equivalences"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"assurance_non_equivalences"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_range: serde_json::from_value::<String>(
+                object
+                    .remove(r#"compatibility_range"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility_range"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AIIPExternalProtocolBindingEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AIIPExternalProtocolBindingEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.aiip-external-protocol-binding.v1"#)]
+    IoiAiipExternalProtocolBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AIIPExternalProtocolBindingEnvelopeV1ProtocolKind {
+    #[serde(rename = r#"native_aiip"#)]
+    NativeAiip,
+    #[serde(rename = r#"a2a"#)]
+    A2a,
+    #[serde(rename = r#"mcp"#)]
+    Mcp,
+    #[serde(rename = r#"http_json_rpc"#)]
+    HttpJsonRpc,
+    #[serde(rename = r#"grpc"#)]
+    Grpc,
+    #[serde(rename = r#"oasf_directory"#)]
+    OasfDirectory,
+    #[serde(rename = r#"erc_8004"#)]
+    Erc8004,
+    #[serde(rename = r#"erc_8183"#)]
+    Erc8183,
+    #[serde(rename = r#"other"#)]
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AIIPExternalProtocolBindingEnvelopeV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OutcomeRoomDiscoveryV1 {
     pub schema_version: OutcomeRoomDiscoveryV1SchemaVersion,
     pub room_discovery_id: String,
@@ -168714,6 +168926,62 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
         path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("aiip_external_protocol_binding.non_native.records_non_equivalences"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("aiip_external_protocol_binding.active.declares_lifecycle_mapping"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -188400,6 +188668,83 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
         source_fixture_path: Some(
@@ -190265,6 +190610,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1","title":"NodeEnforcementProfileObservationEnvelope","x-ioi-schema-version":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1","description":"The physical enforcement owner's admitted observation of one NodeEnforcementProfile on one node: per mechanism (daemon gates, sandbox profiles, seccomp, LSM/eBPF hooks, egress policy, executable policy, hash/signature/path policy, datawall, log redaction, cTEE custody checks, TEE attestation) the mode it was OBSERVED in, the action classes it covers, its verification evidence and receipt contracts, and its privilege. The node-profile coverage producer derives EnforcementCoverageDeclarations from it and claims mediated, preventable or receipted coverage only where an active mechanism with verification evidence covers the class; a measured-boot receipt contributes discovered and attributable facts only. Owner: daemon-runtime/hypervisoros.md § Node Enforcement Profile (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","observation_ref","revision","predecessor_ref","owner_ref","principal_ref","node_enforcement_profile_ref","node_ref","platform","observed_at","mechanisms","measured_boot","known_gaps","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1"},"observation_ref":{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The physical enforcement owner that observed the node, as the daemon resolved it."},"node_enforcement_profile_ref":{"type":"string","pattern":"^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"node_ref":{"type":"string","pattern":"^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"platform":{"type":"object","additionalProperties":false,"required":["os","kernel","arch"],"properties":{"os":{"type":"string","minLength":1},"kernel":{"type":"string","minLength":1},"arch":{"type":"string","minLength":1}}},"observed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"mechanisms":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["mechanism","mode","action_classes","verification_evidence_refs","receipt_contract_refs","required_privilege"],"properties":{"mechanism":{"type":"string","enum":["daemon_gate","sandbox_profile","seccomp","lsm_ebpf","egress_policy","executable_policy","hash_signature_path_policy","datawall","log_redaction","ctee_custody_check","tee_attestation"]},"mode":{"type":"string","enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["egress","process_launch","filesystem","credential_access","model_mount","network_listen","support_bundle","daemon_bypass"]}},"verification_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"required_privilege":{"type":"string","enum":["user","elevated","os_privileged","kernel","hardware_backed"]}}}},"measured_boot":{"type":"object","additionalProperties":false,"required":["boot_receipt_root","effective_posture"],"properties":{"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"known_gaps":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"status":{"type":"string","enum":["observed","superseded","revoked"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v2","title":"CollaborationTermsEnvelope","description":"Minimal registered projection of the canonical CollaborationTermsEnvelope: terms identity, the exact immutable body root, one bounded scope, and lifecycle status. The bargain body itself is hashed under ioi.collaboration-terms-body.v1 and stays outside this shape. This contract asserts no legal-person binding, no settlement, no payout, and no external federation. v2 (M11.1): the envelope names its parties and its activation rule — the members canon already lists — and `active` is DERIVED from exact-root acceptance under that rule. A record with party_roles and activation null is the thin proposer-declared profile the hosted same-system lane keeps serving; the cross-domain lane refuses it.","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status","party_roles","activation"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v2"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","outcome_room_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]},"party_roles":{"anyOf":[{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","role","acceptance_required"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|wallet|service|provider)://[^\\s]{1,500}$"},"role":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]},"acceptance_required":{"type":"boolean"}}}},{"type":"null"}]},"activation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["rule","threshold","required_role_set","activation_policy_ref","activation_decision_ref","acceptance_receipt_refs"],"properties":{"rule":{"enum":["bilateral","unanimous_required_parties","required_roles","threshold"]},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"type":"integer","minimum":0,"maximum":1000000},"eligible":{"type":"integer","minimum":0,"maximum":1000000}}},"required_role_set":{"type":"array","maxItems":16,"items":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]}},"activation_policy_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy)://[^\\s]{1,500}$"},{"type":"null"}]},"activation_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision)://[^\\s]{1,500}$"},{"type":"null"}]},"acceptance_receipt_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:receipt)://[^\\s]{1,500}$"}}}},{"type":"null"}]}}}"#),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v3","title":"CollaborationTermsEnvelope","description":"The exact ex-ante bargain, admitted as a System-scoped record through the generic record seam; activation is derived from exact-root acceptances and never authored ahead of them (R-172 slice S3).","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status","party_roles","activation","system_binding","required_party_refs","acceptances"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v3"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","orchestration_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"The composing application's own scope for the orchestration these terms govern; when non-null it is the parent_scope_ref the seam derives into the binding."}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]},"party_roles":{"anyOf":[{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","role","acceptance_required"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$"},"role":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]},"acceptance_required":{"type":"boolean"}}}},{"type":"null"}]},"activation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["rule","status_when_activated","accepted_root","accepted_party_refs","acceptance_receipt_refs","activated_at"],"properties":{"rule":{"enum":["unanimous_required_parties"]},"status_when_activated":{"const":"active","description":"The status this activation entails; the envelope's status equals it whenever an activation is present."},"accepted_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"}},"acceptance_receipt_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"}},"activated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}},{"type":"null"}],"description":"DERIVED by the composing application from the acceptances on record; null until every required party has accepted the exact root."},"system_binding":{"$ref":"#/$defs/systemBinding"},"required_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"description":"Every party whose exact-root acceptance activation requires."},"acceptances":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","terms_body_root","accepted_at","signature"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}}},"description":"Append-only: one exact-root acceptance per party, signed by that party over ioi.collaboration-terms-acceptance-jcs-sha256.v1."}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","title":"AIIPExternalProtocolBindingEnvelope","description":"A versioned binding of an AIIP profile to an external protocol (A2A, MCP, directory, HTTP/RPC, chain/escrow): a TRANSPORT that preserves protocol-version drift and records what does not map. A remote task completion, tool response, registry entry, reputation record or evaluator decision never becomes an IOI verification, acceptance, authority grant, adjudication or settlement state (M11.3, R-176).","type":"object","additionalProperties":false,"required":["schema_version","binding_id","aiip_profile_ref","protocol_kind","protocol_name","protocol_version_or_commitment","specification_ref","identity_mapping_ref","lifecycle_and_status_mapping_ref","message_and_artifact_mapping_ref","error_and_retry_mapping_ref","extension_profile_refs","required_runtime_tool_contract_refs","required_authority_scope_refs","assurance_non_equivalences","conformance_profile_refs","compatibility_range","status"],"properties":{"schema_version":{"const":"ioi.aiip-external-protocol-binding.v1"},"binding_id":{"type":"string","pattern":"^aiip-binding://[^\\s]{1,500}$"},"aiip_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"protocol_kind":{"enum":["native_aiip","a2a","mcp","http_json_rpc","grpc","oasf_directory","erc_8004","erc_8183","other"]},"protocol_name":{"type":"string","minLength":1,"maxLength":200},"protocol_version_or_commitment":{"type":"string","minLength":1,"maxLength":200},"specification_ref":{"type":"string","pattern":"^(?:https://[^\\s]{1,500}|artifact://[^\\s]{1,500}|cid://[^\\s]{1,500})$"},"identity_mapping_ref":{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},"lifecycle_and_status_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"message_and_artifact_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"error_and_retry_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"extension_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_runtime_tool_contract_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_authority_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:scope:[^\\s]{1,200}|policy://[^\\s]{1,500})$"}},"assurance_non_equivalences":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":400},"description":"What this protocol's states do NOT mean in IOI terms — recorded explicitly, never implied. Every non-native binding names at least one."},"conformance_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatibility_range":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["draft","active","deprecated","revoked"]}}}"#),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1","title":"OutcomeRoomDiscovery","description":"The policy-bound discovery PROJECTION of one OutcomeRoom (canonical owner: docs/architecture/domains/ioi-ai/collaborative-pursuit.md § OutcomeRoomDiscoveryEnvelope). Produced by the room's own plane from the admitted room record under the room's discovery policy — never authored by a caller and never a view of the room database: it carries the public objective, categories, declared requirements, topology, admission owner, the terms it answers to, and nothing private (the six excluded context classes are exact and private_context_included is always false). discovery_state_root commits the publication body; status is the lifecycle outside that root.","type":"object","additionalProperties":false,"required":["schema_version","room_discovery_id","outcome_room_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room-discovery.v1"},"room_discovery_id":{"type":"string","pattern":"^(?:room-discovery)://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^(?:outcome-room)://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"anyOf":[{"type":"string","pattern":"^(?:terms)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-discovery/v1","title":"OrchestrationDiscovery","description":"A policy-bound discovery projection the ioi.ai application derives from an orchestration's records and its active collaboration terms; refs and public projections only, never database access (R-172 slice S3; successor of OutcomeRoomDiscovery v1).","type":"object","additionalProperties":false,"required":["schema_version","discovery_id","orchestration_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-discovery.v1"},"discovery_id":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_orchestration_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
 ];
@@ -190591,6 +190937,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", r#"[{"rule_id":"node_enforcement_profile_observation.content_hash.commits_the_observation","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every mechanism, mode and evidence ref, so an observation edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.components.daemon-runtime.node-enforcement-profile-observation-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"observation_ref":{"path":"$.observation_ref"},"revision":{"path":"$.revision"},"predecessor_ref":{"path":"$.predecessor_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"node_enforcement_profile_ref":{"path":"$.node_enforcement_profile_ref"},"node_ref":{"path":"$.node_ref"},"platform":{"path":"$.platform"},"observed_at":{"path":"$.observed_at"},"mechanisms":{"path":"$.mechanisms"},"measured_boot":{"path":"$.measured_boot"},"known_gaps":{"path":"$.known_gaps"},"status":{"path":"$.status"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"node_enforcement_profile_observation.mechanisms.observed","description":"An observation observes at least one mechanism; an empty observation is not a profile.","expression":{"operator":"non_empty","path":"$.mechanisms"}},{"rule_id":"node_enforcement_profile_observation.profile.named","description":"Every observation names the node enforcement profile it observed.","expression":{"operator":"non_empty","path":"$.node_enforcement_profile_ref"}}]"#),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v2", r#"[{"rule_id":"collaboration_terms.scope.at_least_one_ref","description":"At least one scope ref must be non-null. Terms without a bounded subject are not an ex-ante bargain.","expression":{"operator":"any_non_empty","paths":["$.scope.collaboration_ref","$.scope.outcome_room_ref"]}}]"#),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", r#"[{"rule_id":"collaboration_terms.scope.at_least_one_ref","description":"At least one scope ref is non-null.","expression":{"operator":"any_non_empty","paths":["$.scope.collaboration_ref","$.scope.orchestration_ref"]}},{"rule_id":"collaboration_terms.activation.implies_active_status","description":"A present activation entails the active status: a record carrying an activation while still proposed, suspended or otherwise is not this bargain's projection. (That an active record carries its activation is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.activation","paths":["$.status","$.activation.status_when_activated"]}},{"rule_id":"collaboration_terms.activation.accepted_root_is_the_terms_root","description":"What activated is the envelope's own exact terms root; an activation over another root is not this bargain's.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.activation","paths":["$.activation.accepted_root","$.terms_body_root"]}},{"rule_id":"collaboration_terms.acceptances.bind_the_exact_root","description":"Every acceptance on record binds the envelope's exact terms root; an acceptance over a predecessor or a draft root does not count toward activation.","expression":{"operator":"array_field_equals","array_path":"$.acceptances","field":"terms_body_root","expected_path":"$.terms_body_root"}}]"#),
+    ("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", r#"[{"rule_id":"aiip_external_protocol_binding.non_native.records_non_equivalences","description":"A binding to any protocol but native AIIP names at least one assurance non-equivalence: what a remote completion, task state, tool response, registry entry or evaluator decision does NOT mean in IOI terms. A binding that records nothing as non-equivalent is claiming an equivalence the estate never grants.","expression":{"operator":"non_empty_when_in","path":"$.assurance_non_equivalences","when_path":"$.protocol_kind","values":["a2a","mcp","http_json_rpc","grpc","oasf_directory","erc_8004","erc_8183","other"]}},{"rule_id":"aiip_external_protocol_binding.active.declares_lifecycle_mapping","description":"An active binding declares how the protocol's lifecycle and status map (or explicitly that they do not): an active transport with an undeclared status mapping would let a remote state be read as an IOI state by default.","expression":{"operator":"non_empty_when_in","path":"$.lifecycle_and_status_mapping_ref","when_path":"$.status","values":["active"]}}]"#),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", r#"[{"rule_id":"outcome_room_discovery.state_root.commits_publication","description":"The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status and updated_at) under its domain; a publication whose root does not recompute is not the plane's projection.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.outcome-room-discovery-state-root-jcs-sha256.v1"},"room_discovery_id":{"path":"$.room_discovery_id"},"outcome_room_ref":{"path":"$.outcome_room_ref"},"system_binding":{"path":"$.system_binding"},"publication_version":{"path":"$.publication_version"},"published_by_ref":{"path":"$.published_by_ref"},"public_goal_ref":{"path":"$.public_goal_ref"},"public_objective":{"path":"$.public_objective"},"public_category_refs":{"path":"$.public_category_refs"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"participation_channel_ref":{"path":"$.participation_channel_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"semantic_and_action_profile_refs":{"path":"$.semantic_and_action_profile_refs"},"required_capability_and_worker_profile_refs":{"path":"$.required_capability_and_worker_profile_refs"},"eligibility_and_affiliation_policy_refs":{"path":"$.eligibility_and_affiliation_policy_refs"},"visibility_and_privacy_policy_refs":{"path":"$.visibility_and_privacy_policy_refs"},"public_frontier_and_context_projection_refs":{"path":"$.public_frontier_and_context_projection_refs"},"budget_quote_and_capacity_refs":{"path":"$.budget_quote_and_capacity_refs"},"verifier_and_acceptance_posture_refs":{"path":"$.verifier_and_acceptance_posture_refs"},"settlement_dispute_and_contribution_policy_refs":{"path":"$.settlement_dispute_and_contribution_policy_refs"},"license_retention_and_export_policy_refs":{"path":"$.license_retention_and_export_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"private_context_included":{"path":"$.private_context_included"},"published_at":{"path":"$.published_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.discovery_state_root","expected_encoding":"sha256_string"}},{"rule_id":"outcome_room_discovery.publication.names_its_objective","description":"A discoverable projection names a public objective and at least one category; discovery is a projection of declared public facts, never an empty advertisement.","expression":{"operator":"non_empty","path":"$.public_objective"}}]"#),
     ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", r#"[{"rule_id":"orchestration_discovery.state_root.commits_publication","description":"The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status, updated_at and the seam-derived system_binding, whose payload root would otherwise contain this root) under its domain; a publication whose root does not recompute is not the application's projection.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.orchestration-discovery-state-root-jcs-sha256.v1"},"discovery_id":{"path":"$.discovery_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"publication_version":{"path":"$.publication_version"},"published_by_ref":{"path":"$.published_by_ref"},"public_goal_ref":{"path":"$.public_goal_ref"},"public_objective":{"path":"$.public_objective"},"public_category_refs":{"path":"$.public_category_refs"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"participation_channel_ref":{"path":"$.participation_channel_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"semantic_and_action_profile_refs":{"path":"$.semantic_and_action_profile_refs"},"required_capability_and_worker_profile_refs":{"path":"$.required_capability_and_worker_profile_refs"},"eligibility_and_affiliation_policy_refs":{"path":"$.eligibility_and_affiliation_policy_refs"},"visibility_and_privacy_policy_refs":{"path":"$.visibility_and_privacy_policy_refs"},"public_frontier_and_context_projection_refs":{"path":"$.public_frontier_and_context_projection_refs"},"budget_quote_and_capacity_refs":{"path":"$.budget_quote_and_capacity_refs"},"verifier_and_acceptance_posture_refs":{"path":"$.verifier_and_acceptance_posture_refs"},"settlement_dispute_and_contribution_policy_refs":{"path":"$.settlement_dispute_and_contribution_policy_refs"},"license_retention_and_export_policy_refs":{"path":"$.license_retention_and_export_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"private_context_included":{"path":"$.private_context_included"},"published_at":{"path":"$.published_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.discovery_state_root","expected_encoding":"sha256_string"}},{"rule_id":"orchestration_discovery.publication.names_its_objective","description":"A publication names the public objective it advertises.","expression":{"operator":"non_empty","path":"$.public_objective"}},{"rule_id":"orchestration_discovery.scope.matches_binding_parent_scope","description":"The orchestration the publication belongs to is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}}]"#),
 ];
@@ -191110,6 +191457,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:heartbeat|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:https://[^\s]{1,500}|artifact://[^\s]{1,500}|cid://[^\s]{1,500})$"#,
+        r#"^(?:https://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|cid://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
+    ),
+    (
         r#"^(?:intent|prompt)://[^\s]{1,500}$"#,
         r#"^(?:intent|prompt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -191576,6 +191927,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:schema|profile)://[^\s]{1,500}$"#,
         r#"^(?:schema|profile)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:scope:[^\s]{1,200}|policy://[^\s]{1,500})$"#,
+        r#"^(?:scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,200}|policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
     ),
     (
         r#"^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$"#,
@@ -192260,6 +192615,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^agentgres://trace/[^\s]{1,240}$"#,
         r#"^agentgres://trace/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^aiip-binding://[^\s]{1,500}$"#,
+        r#"^aiip-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^aiip://channel/[^\s]{1,500}$"#,
@@ -194054,6 +194413,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^schema://[^\s]{1,400}$"#,
         r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
+        r#"^schema://[^\s]{1,500}$"#,
+        r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^schema://runtime-tool-contract/input/sha256:[0-9a-f]{64}$"#,
@@ -197401,6 +197764,13 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json"))),
@@ -199021,6 +199391,11 @@ mod tests {
         },
         "schema://ioi/foundations/objects/collaboration-terms-envelope/v3" => {
             serde_json::from_value::<CollaborationTermsEnvelopeV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1" => {
+            serde_json::from_value::<AIIPExternalProtocolBindingEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -200645,6 +201020,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1" => {
+            let projection = serde_json::from_value::<AIIPExternalProtocolBindingEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1" => {
             let projection = serde_json::from_value::<OutcomeRoomDiscoveryV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -200791,8 +201171,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1645,
-            "the registered golden corpus must remain the explicit 1645-fixture bar",
+            1652,
+            "the registered golden corpus must remain the explicit 1652-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -201034,7 +201414,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1050,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1054,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

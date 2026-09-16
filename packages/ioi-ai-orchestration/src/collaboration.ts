@@ -550,6 +550,17 @@ export class Collaboration {
     if (request.signature.signer_ref !== request.requested_by_ref || !verifySignatureEnvelope(request.signature, expectedHash, acceptance.signature.signer_public_key)) {
       throw new CollaborationRefusal("participation_signature_invalid", "the request is not signed by the requesting party's key of record over its hash");
     }
+    // A CROSSING MAY ARRIVE MORE THAN ONCE — over another binding, or retried by a transport. The
+    // same submission (same id, same request hash) is recognized as the record already on the chain
+    // and changes nothing; a different request under the same id is a conflict, never an overwrite.
+    const existing = await this.participationIfPresent(request.participation_request_id);
+    if (existing) {
+      const current = stripBinding(existing.current) as ParticipationRequestRecord | null;
+      if (current?.request_hash === request.request_hash) {
+        return { ...(existing.admitted), replayed: true } as SystemRecordAdmitResult;
+      }
+      throw new CollaborationRefusal("participation_request_conflict", "a different request already holds this participation id; a crossing never overwrites a record", { participation_request_id: request.participation_request_id });
+    }
     const discovery = await this.discovery(request.discovery_ref);
     const published = stripBinding(discovery.current);
     if (!published || published.status !== "discoverable" || published.collaboration_terms_root !== terms.terms_body_root) {
@@ -563,6 +574,20 @@ export class Collaboration {
 
   async participation(requestId: string): Promise<SystemRecordChainResult> {
     return this.orchestration.recordChain(COLLABORATION_CONTRACTS.participation, requestId);
+  }
+
+  /** The chain if the record exists, else null; the seam's scope fence (no binding under the caller's scope) reads as absence here. */
+  private async participationIfPresent(requestId: string): Promise<{ current: Record<string, unknown> | null; admitted: Partial<SystemRecordAdmitResult> } | null> {
+    try {
+      const chain = await this.participation(requestId);
+      if (!chain.current) return null;
+      const last = (chain.admissions ?? [])[chain.admissions.length - 1] ?? {};
+      return { current: chain.current, admitted: { ok: true, replayed: true, system_id: this.orchestration.system_id, contract_id: COLLABORATION_CONTRACTS.participation, resource_ref: String(last.resource_ref ?? ""), record: chain.current as SystemRecordAdmitResult["record"], admission: last, expected_head_for_successor: String(chain.head ?? ""), receipt_ref: typeof last.receipt_ref === "string" ? last.receipt_ref : undefined, operation_ref: typeof last.operation_ref === "string" ? last.operation_ref : undefined } };
+    } catch (error) {
+      const status = (error as { status?: number })?.status;
+      if (status === 403 || status === 404) return null;
+      throw error;
+    }
   }
 
   /**

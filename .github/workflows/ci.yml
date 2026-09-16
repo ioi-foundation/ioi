@@ -960,6 +960,7 @@ jobs:
           - verifier_id: orchestration-composition
           - verifier_id: aiip-collaboration-discovery
           - verifier_id: aiip-portable-exit
+          - verifier_id: aiip-binding-replaceability
           # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
           # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
           # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
@@ -1219,6 +1220,29 @@ jobs:
       - name: Drill the portable-exit gate's own oracles
         if: matrix.verifier_id == 'aiip-portable-exit'
         run: npm run mutate:aiip-portable-exit --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the binding-replaceability verifier drives
+        if: matrix.verifier_id == 'aiip-binding-replaceability'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi/ioi-ai-orchestration
+
+      # M11.3 / R-176 — standards bindings as replaceable transports (ACC-13 clause 5): the same
+      # signed request crosses A2A-, MCP- and JSON-RPC-shaped peers byte-identically and is one
+      # record; transport completion is not acceptance; an altering peer is not a binding; a
+      # deprecated profile carries nothing; a registry entry is not authority; restart.
+      - name: Verify standards bindings as replaceable transports (M11.3)
+        if: matrix.verifier_id == 'aiip-binding-replaceability'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:aiip-binding-replaceability --workspace=@ioi/hypervisor-app
+
+      - name: Drill the binding-replaceability gate's own oracles
+        if: matrix.verifier_id == 'aiip-binding-replaceability'
+        run: npm run mutate:aiip-binding-replaceability --workspace=@ioi/hypervisor-app
 
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two

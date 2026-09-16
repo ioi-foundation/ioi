@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.aiip-external-protocol-binding.v1",
+  "binding_id": "aiip-binding://ioi/a2a/v1",
+  "aiip_profile_ref": "profile://ioi/aiip/collaboration/v1",
+  "protocol_kind": "a2a",
+  "protocol_name": "A2A",
+  "protocol_version_or_commitment": "1.0",
+  "specification_ref": "https://example.invalid/spec/a2a",
+  "identity_mapping_ref": "schema://ioi/applications/ioi-ai/aiip-binding-mapping/a2a/identity/v1",
+  "lifecycle_and_status_mapping_ref": "schema://ioi/applications/ioi-ai/aiip-binding-mapping/a2a/lifecycle/v1",
+  "message_and_artifact_mapping_ref": "schema://ioi/applications/ioi-ai/aiip-binding-mapping/a2a/message/v1",
+  "error_and_retry_mapping_ref": null,
+  "extension_profile_refs": [],
+  "required_runtime_tool_contract_refs": [],
+  "required_authority_scope_refs": [],
+  "assurance_non_equivalences": [],
+  "conformance_profile_refs": [
+    "conformance_profile://ioi/aiip/binding/v1"
+  ],
+  "compatibility_range": ">=1.0 <2.0",
+  "status": "active"
+}

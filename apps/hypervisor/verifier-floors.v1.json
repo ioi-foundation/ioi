@@ -408,6 +408,14 @@
       "note": "First pinned 2026-09-16 (register R-175; M11.2; ACC-13 clauses 6 and 7) at the 16 assertions it executes through the built agent SDK and the built @ioi/ioi-ai-orchestration package against an isolated daemon and the REAL wallet.network fixture: the bounded System activated through its governed genesis; terms with three required parties (host, worker, adjudicator with role coordinator) activated; a hosted and a federated discovery published; the hosted fence (a hosted decision takes no adjudicator); two hosted acceptances verifying offline; the exit as a third revision citing its bundle and the accepted revision's receipt with the status staying accepted, a never-submitted exit refused by the seam's scope fence; lineage, receipts and dispute history leaving in a least-disclosing bundle verified offline; continuity (thread active, a new record admits, the other participant's head unmoved, a new participation admits); a second exit and an exit of a submission refused; the mode fences (the projection's mode, the host as hosted owner, a policy path as federated owner); a federated request admitted and its decision unreachable by the host alone, by a non-party adjudicator and by a wrong key; the co-signed federated decision verifying offline; unreachable without terms acceptance; restart; the hosted fence after restart; structure. The drill (D1-D3) is a separate invocation and is not part of this count."
     },
     {
+      "id": "aiip-binding-replaceability",
+      "npm_script": "check:aiip-binding-replaceability",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-aiip-binding-replaceability.mjs",
+      "runtime_assertions": 11,
+      "assertion_names_sha256": "536aee2171290ab6961e89d113505f16b59875c5b26bdd9851e758bf512adf4e",
+      "note": "First pinned 2026-09-16 (register R-176; M11.3; ACC-13 clause 5) at the 11 assertions it executes through the built agent SDK and the built @ioi/ioi-ai-orchestration package against an isolated daemon, the REAL wallet.network fixture and three in-process peers speaking the A2A, MCP and HTTP/JSON-RPC wire shapes: the bounded System activated; active terms and a hosted discovery; the registered binding profiles (the contract's own fixtures) each naming non-equivalences; the same signed request crossing all three bindings byte-identically into one record with one revision; transport completion leaving the record submitted; an altering peer refused as not a binding with nothing admitted; a deprecated profile and an equivalence-claiming profile refused; a registry entry granting no authority; acceptance from the host's own decision with no transport member on the chain; restart with a re-delivery recognized; structure. The drill (D1-D3) is a separate invocation and is not part of this count."
+    },
+    {
       "id": "standalone-conformance",
       "npm_script": "check:standalone-conformance",
       "source": "scripts/check-standalone-conformance.mjs",

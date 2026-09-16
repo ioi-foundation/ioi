@@ -39,3 +39,16 @@ export type {
   TermsActivation,
   TermsProposal,
 } from "./collaboration.js";
+export {
+  A2aBinding,
+  BINDING_CONTRACT,
+  BindingRefusal,
+  CROSSING_ENVELOPE_DOMAIN,
+  HttpJsonRpcBinding,
+  McpBinding,
+  deriveCrossingEnvelopeHash,
+  requireActiveProfile,
+  selectBinding,
+} from "./bindings.js";
+export type { Binding, BindingProfile, CrossingEnvelope, ProtocolKind, TransportReceipt } from "./bindings.js";
+

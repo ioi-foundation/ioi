@@ -13737,6 +13737,27 @@ export type CollaborationTermsEnvelopeV3 = {
       }>;
 };
 
+export type AIIPExternalProtocolBindingEnvelopeV1 = {
+  schema_version: "ioi.aiip-external-protocol-binding.v1";
+  binding_id: string;
+  aiip_profile_ref: string;
+  protocol_kind: "native_aiip" | "a2a" | "mcp" | "http_json_rpc" | "grpc" | "oasf_directory" | "erc_8004" | "erc_8183" | "other";
+  protocol_name: string;
+  protocol_version_or_commitment: string;
+  specification_ref: string;
+  identity_mapping_ref: string;
+  lifecycle_and_status_mapping_ref: string | null;
+  message_and_artifact_mapping_ref: string | null;
+  error_and_retry_mapping_ref: string | null;
+  extension_profile_refs: Array<string>;
+  required_runtime_tool_contract_refs: Array<string>;
+  required_authority_scope_refs: Array<string>;
+  assurance_non_equivalences: Array<string>;
+  conformance_profile_refs: Array<string>;
+  compatibility_range: string;
+  status: "draft" | "active" | "deprecated" | "revoked";
+};
+
 export type OutcomeRoomDiscoveryV1 = {
   schema_version: "ioi.applications.ioi-ai.outcome-room-discovery.v1";
   room_discovery_id: string;
@@ -26908,6 +26929,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "aiip_external_protocol_binding.non_native.records_non_equivalences"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "aiip_external_protocol_binding.active.declares_lifecycle_mapping"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json",
     "expected": "accept",
@@ -31288,6 +31365,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json","mutation_id":null,"value_json":null}),
@@ -31593,6 +31677,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$",
   "^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$",
   "^(?:heartbeat|receipt)://[^\\s]{1,500}$",
+  "^(?:https://[^\\s]{1,500}|artifact://[^\\s]{1,500}|cid://[^\\s]{1,500})$",
   "^(?:intent|prompt)://[^\\s]{1,500}$",
   "^(?:learning-boundary|policy)://[^\\s]{1,500}$",
   "^(?:lease|resource-lease|budget)://[^\\s]{1,500}$",
@@ -31710,6 +31795,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:schema|policy)://[^\\s]{1,500}$",
   "^(?:schema|profile)://[^\\s]{1,500}$",
+  "^(?:scope:[^\\s]{1,200}|policy://[^\\s]{1,500})$",
   "^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$",
   "^(?:sha256:[0-9a-f]{64}|commitment://[^\\s]{1,400})$",
   "^(?:skill|skill-entry)://[^\\s]{1,500}$",
@@ -31899,6 +31985,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://state-root/goal-run/[^/\\s]{1,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://storage-receipt/stc_[0-9a-f]+$",
   "^agentgres://trace/[^\\s]{1,240}$",
+  "^aiip-binding://[^\\s]{1,500}$",
   "^aiip://channel/[^\\s]{1,500}$",
   "^akash1[02-9ac-hj-np-z]{38}$",
   "^api://[^\\s]{1,240}$",
@@ -32364,6 +32451,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
   "^schema://[^\\s]{1,400}$",
+  "^schema://[^\\s]{1,500}$",
   "^schema://runtime-tool-contract/input/sha256:[0-9a-f]{64}$",
   "^schema://runtime-tool-contract/output/sha256:[0-9a-f]{64}$",
   "^scm-destination-binding://[^\\s]{1,248}$",
@@ -32838,6 +32926,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1": "sha256:c1e2b2a9471e78dafe2a7e3fcc32eeecdfc195d938e8da134a34eb29980bc2d9",
   "schema://ioi/foundations/objects/collaboration-terms-envelope/v2": "sha256:bbc2d8bfe6cd80ddff17dfac70cbf061defc0da0f86620a42fa219e3b0702919",
   "schema://ioi/foundations/objects/collaboration-terms-envelope/v3": "sha256:9deaf91a1feac222b701953b8a6a961e50d3b27aba6fa269b35a6379dd29edc6",
+  "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1": "sha256:246178377ca60c7d74cf072dbd456403bf3be7c2dac13b5569fc879b60d648d6",
   "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1": "sha256:4f180dec8f4e5a6280ec6f83fda7ec5d80a6ce6a10432a58f3b969eac2a54ad2",
   "schema://ioi/applications/ioi-ai/orchestration-discovery/v1": "sha256:e83849fc04673f4731ab603c5c8a75322c3a702051eba31fd8f65876f6290b82"
 } as const;
@@ -139132,6 +139221,171 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+    "title": "AIIPExternalProtocolBindingEnvelope",
+    "description": "A versioned binding of an AIIP profile to an external protocol (A2A, MCP, directory, HTTP/RPC, chain/escrow): a TRANSPORT that preserves protocol-version drift and records what does not map. A remote task completion, tool response, registry entry, reputation record or evaluator decision never becomes an IOI verification, acceptance, authority grant, adjudication or settlement state (M11.3, R-176).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "binding_id",
+      "aiip_profile_ref",
+      "protocol_kind",
+      "protocol_name",
+      "protocol_version_or_commitment",
+      "specification_ref",
+      "identity_mapping_ref",
+      "lifecycle_and_status_mapping_ref",
+      "message_and_artifact_mapping_ref",
+      "error_and_retry_mapping_ref",
+      "extension_profile_refs",
+      "required_runtime_tool_contract_refs",
+      "required_authority_scope_refs",
+      "assurance_non_equivalences",
+      "conformance_profile_refs",
+      "compatibility_range",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.aiip-external-protocol-binding.v1"
+      },
+      "binding_id": {
+        "type": "string",
+        "pattern": "^aiip-binding://[^\\s]{1,500}$"
+      },
+      "aiip_profile_ref": {
+        "type": "string",
+        "pattern": "^profile://[^\\s]{1,500}$"
+      },
+      "protocol_kind": {
+        "enum": [
+          "native_aiip",
+          "a2a",
+          "mcp",
+          "http_json_rpc",
+          "grpc",
+          "oasf_directory",
+          "erc_8004",
+          "erc_8183",
+          "other"
+        ]
+      },
+      "protocol_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "protocol_version_or_commitment": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "specification_ref": {
+        "type": "string",
+        "pattern": "^(?:https://[^\\s]{1,500}|artifact://[^\\s]{1,500}|cid://[^\\s]{1,500})$"
+      },
+      "identity_mapping_ref": {
+        "type": "string",
+        "pattern": "^schema://[^\\s]{1,500}$"
+      },
+      "lifecycle_and_status_mapping_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^schema://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "message_and_artifact_mapping_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^schema://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "error_and_retry_mapping_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^schema://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "extension_profile_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "required_runtime_tool_contract_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "required_authority_scope_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:scope:[^\\s]{1,200}|policy://[^\\s]{1,500})$"
+        }
+      },
+      "assurance_non_equivalences": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "description": "What this protocol's states do NOT mean in IOI terms — recorded explicitly, never implied. Every non-native binding names at least one."
+      },
+      "conformance_profile_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "compatibility_range": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    }
+  },
   "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
@@ -159155,6 +159409,39 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1": [
+    {
+      "rule_id": "aiip_external_protocol_binding.non_native.records_non_equivalences",
+      "description": "A binding to any protocol but native AIIP names at least one assurance non-equivalence: what a remote completion, task state, tool response, registry entry or evaluator decision does NOT mean in IOI terms. A binding that records nothing as non-equivalent is claiming an equivalence the estate never grants.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.assurance_non_equivalences",
+        "when_path": "$.protocol_kind",
+        "values": [
+          "a2a",
+          "mcp",
+          "http_json_rpc",
+          "grpc",
+          "oasf_directory",
+          "erc_8004",
+          "erc_8183",
+          "other"
+        ]
+      }
+    },
+    {
+      "rule_id": "aiip_external_protocol_binding.active.declares_lifecycle_mapping",
+      "description": "An active binding declares how the protocol's lifecycle and status map (or explicitly that they do not): an active transport with an undeclared status mapping would let a remote state be read as an IOI state by default.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.lifecycle_and_status_mapping_ref",
+        "when_path": "$.status",
+        "values": [
+          "active"
+        ]
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1": [
     {
       "rule_id": "outcome_room_discovery.state_root.commits_publication",
@@ -162165,6 +162452,12 @@ export function validateCollaborationTermsEnvelopeV3(
   value: unknown,
 ): value is CollaborationTermsEnvelopeV3 {
   return validateArchitectureContract("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", value).ok;
+}
+
+export function validateAIIPExternalProtocolBindingEnvelopeV1(
+  value: unknown,
+): value is AIIPExternalProtocolBindingEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", value).ok;
 }
 
 export function validateOutcomeRoomDiscoveryV1(

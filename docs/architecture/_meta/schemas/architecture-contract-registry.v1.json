@@ -18597,6 +18597,67 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+      "canonical_name": "AIIPExternalProtocolBindingEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/interop-and-collaboration-terms.md#aiip-and-bounded-execution-domain-envelopes",
+      "schema_version": "ioi.aiip-external-protocol-binding.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "aiip-external-protocol-binding-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/aiip-external-protocol-binding-envelope/transport-not-authority/v1",
+          "path": "invariants/aiip-external-protocol-binding-envelope.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AIIPExternalProtocolBindingEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AIIPExternalProtocolBindingEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/aiip-external-protocol-binding-envelope-v1/positive-native-aiip.json",
+        "fixtures/aiip-external-protocol-binding-envelope-v1/positive-a2a-transport.json",
+        "fixtures/aiip-external-protocol-binding-envelope-v1/positive-mcp-transport.json",
+        "fixtures/aiip-external-protocol-binding-envelope-v1/positive-http-json-rpc-transport.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/aiip-external-protocol-binding-envelope-v1/negative-a2a-claims-equivalence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "aiip_external_protocol_binding.non_native.records_non_equivalences"
+        },
+        {
+          "path": "fixtures/aiip-external-protocol-binding-envelope-v1/negative-active-without-lifecycle-mapping.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "aiip_external_protocol_binding.active.declares_lifecycle_mapping"
+        },
+        {
+          "path": "fixtures/aiip-external-protocol-binding-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
       "canonical_name": "OutcomeRoomDiscovery",
       "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope",

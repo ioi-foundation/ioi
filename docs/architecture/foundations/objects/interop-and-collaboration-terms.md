@@ -64,6 +64,22 @@ not map. A remote task completion, tool response, registry entry, reputation
 record, or evaluator decision never silently becomes an IOI verification,
 acceptance, authority grant, adjudication, or settlement state.
 
+Registered 2026-09-16 as
+`schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1`
+(M11.3, R-176) with two invariants: every non-native binding names at least one
+assurance non-equivalence
+(`aiip_external_protocol_binding.non_native.records_non_equivalences` — a
+binding that records nothing as non-equivalent is claiming an equivalence the
+estate never grants), and an active binding declares its lifecycle and status
+mapping (`aiip_external_protocol_binding.active.declares_lifecycle_mapping`).
+The bindings themselves are application-layer transport adapters over the
+collaboration crossing (`packages/ioi-ai-orchestration/src/bindings.ts`): each
+carries the same registered envelope byte-identically, checked by the envelope's
+own hash, and hands back a transport receipt whose state word means nothing to
+IOI; the receiving application admits the envelope through its own composer and
+decides as the admission owner. A binding that cannot carry the envelope
+unchanged is refused as not a binding; an inactive profile carries nothing.
+
 ### Shared Settlement Selection Contract
 
 Every concrete settlement intent, obligation, resolution, or mirror uses the

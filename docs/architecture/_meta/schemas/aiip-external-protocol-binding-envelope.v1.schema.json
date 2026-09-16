@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1",
+  "title": "AIIPExternalProtocolBindingEnvelope",
+  "description": "A versioned binding of an AIIP profile to an external protocol (A2A, MCP, directory, HTTP/RPC, chain/escrow): a TRANSPORT that preserves protocol-version drift and records what does not map. A remote task completion, tool response, registry entry, reputation record or evaluator decision never becomes an IOI verification, acceptance, authority grant, adjudication or settlement state (M11.3, R-176).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "binding_id",
+    "aiip_profile_ref",
+    "protocol_kind",
+    "protocol_name",
+    "protocol_version_or_commitment",
+    "specification_ref",
+    "identity_mapping_ref",
+    "lifecycle_and_status_mapping_ref",
+    "message_and_artifact_mapping_ref",
+    "error_and_retry_mapping_ref",
+    "extension_profile_refs",
+    "required_runtime_tool_contract_refs",
+    "required_authority_scope_refs",
+    "assurance_non_equivalences",
+    "conformance_profile_refs",
+    "compatibility_range",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.aiip-external-protocol-binding.v1"
+    },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^aiip-binding://[^\\s]{1,500}$"
+    },
+    "aiip_profile_ref": {
+      "type": "string",
+      "pattern": "^profile://[^\\s]{1,500}$"
+    },
+    "protocol_kind": {
+      "enum": [
+        "native_aiip",
+        "a2a",
+        "mcp",
+        "http_json_rpc",
+        "grpc",
+        "oasf_directory",
+        "erc_8004",
+        "erc_8183",
+        "other"
+      ]
+    },
+    "protocol_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "protocol_version_or_commitment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "specification_ref": {
+      "type": "string",
+      "pattern": "^(?:https://[^\\s]{1,500}|artifact://[^\\s]{1,500}|cid://[^\\s]{1,500})$"
+    },
+    "identity_mapping_ref": {
+      "type": "string",
+      "pattern": "^schema://[^\\s]{1,500}$"
+    },
+    "lifecycle_and_status_mapping_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^schema://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "message_and_artifact_mapping_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^schema://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error_and_retry_mapping_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^schema://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "extension_profile_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "required_runtime_tool_contract_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "required_authority_scope_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:scope:[^\\s]{1,200}|policy://[^\\s]{1,500})$"
+      }
+    },
+    "assurance_non_equivalences": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "description": "What this protocol's states do NOT mean in IOI terms — recorded explicitly, never implied. Every non-native binding names at least one."
+    },
+    "conformance_profile_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "compatibility_range": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "active",
+        "deprecated",
+        "revoked"
+      ]
+    }
+  }
+}
