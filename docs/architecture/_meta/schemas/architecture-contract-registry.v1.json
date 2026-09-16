@@ -11816,7 +11816,8 @@
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/data-retention-disposition-v1/positive-declared-held.json"
+        "fixtures/data-retention-disposition-v1/positive-declared-held.json",
+        "fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json"
       ],
       "negative_fixture_refs": [
         {
@@ -17920,6 +17921,73 @@
           "path": "fixtures/improvement-role-binding-v1/negative-stale-content-hash.json",
           "expected_failure": "invariant",
           "expected_rule_id": "improvement_role_binding.content_hash.commits_the_immutable_body"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+      "canonical_name": "LearningImpactRecordEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#learningimpactrecordenvelope",
+      "schema_version": "ioi.learning-impact-record.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "learning-impact-record.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/learning-impact-record/derived-not-rewritten/v1",
+          "path": "invariants/learning-impact-record.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LearningImpactRecordEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LearningImpactRecordEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/learning-impact-record-v1/positive-source-right-revoked.json",
+        "fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/learning-impact-record-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_impact_record.unlearning_claim.names_its_evidence"
+        },
+        {
+          "path": "fixtures/learning-impact-record-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_impact_record.content_hash.commits_the_immutable_body"
         }
       ]
     }

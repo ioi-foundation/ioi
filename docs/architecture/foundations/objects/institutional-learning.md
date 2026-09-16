@@ -450,6 +450,62 @@ admission.
 Training pipelines may still declare a separate `training_data_posture`; that
 run configuration cannot widen the canonical learning-evidence decision.
 
+## LearningImpactRecordEnvelope
+
+When a source right, consent, eligibility decision, route contract, boundary
+profile, retention disposition or label becomes invalid, the impact is a DERIVED
+record over the graph, never a rewrite of it
+([`../institutional-learning-boundary.md`](../institutional-learning-boundary.md)
+§ Derived Rights, Revocation, And Honest Unlearning). The trigger's subject is
+resolved through its owner; the daemon traverses its own lineage refs — views by
+their bound claims and consents, transformation runs by their views and recipes,
+Foundry recipe runs, dataset snapshots, programs, checkpoints, qualification
+proposals and artifact intents by theirs, media snapshots through their existing
+erasure-impact seam — and derives one disposition per affected record from the
+family it belongs to: `fenced` for a view whose read already refuses at the read
+instant, `quarantined` for a run, `rebuild_required` for a dataset snapshot,
+`retrain_required` for a checkpoint or proposal, `recall_required` for an
+artifact intent or route binding whose terms support recall, and
+`residual_exposure` for anything already delivered outside the boundary. A
+record does not prove a trained model forgot: `unlearning_claim` is `none`
+unless the named evidence exists — a retention deletion's evidence for
+`deletion`, a Foundry recipe run receipt for `clean_retraining`, a passing
+evaluation result under a `formal_verifier` or `reproduction_harness` evaluator
+for `verified_unlearning` — and a claim without its evidence is refused
+`false_unlearning_claim`. Registered as
+`schema://ioi/foundations/objects/learning-impact-record/v1` (2026-09-16, M06.9).
+
+```yaml
+LearningImpactRecordEnvelope:
+  schema_version: ioi.learning-impact-record.v1
+  learning_impact_record_id: learning-impact://...
+  owner_ref: org://... | user://... | project://... | system://...
+  trigger:
+    kind: source_right_revoked | consent_withdrawn | eligibility_excluded | route_contract_revoked |
+      boundary_profile_superseded | retention_deleted | legal_hold_placed | label_corrected
+    subject_ref: string                       # the invalidated subject, resolved through its owner
+    subject_revision_ref: string | null
+    decision_ref: decision://...
+  impact_graph_root: hash                     # over the traversed edges, under ioi.learning-impact-graph-root-jcs-sha256.v1
+  affected:
+    - ref: string
+      family: policy_bound_data_view | transformation_run | foundry_recipe_run | foundry_dataset_snapshot |
+        foundry_program | foundry_checkpoint | foundry_qualification_proposal | foundry_artifact_intent |
+        media_episode | media_split_manifest
+      edge: string                            # the ref through which the record was reached
+      disposition: fenced | quarantined | rebuild_required | retrain_required | recall_required | residual_exposure
+      basis: string
+  residual_exposure:
+    - ref: string
+      recipient_class: external_recipient | public_disclosure | installed_artifact | delivered_export
+      reason: string
+  minimum_audit_commitment_ref: policy://...
+  unlearning_claim: none | removal_from_future_datasets | clean_retraining | verified_unlearning | deletion
+  unlearning_evidence_refs: [string]          # non-empty for any claim above none; resolved before admission
+  content_hash: hash                          # every member except itself and admitted_at
+  admitted_at: timestamp
+```
+
 ## InstitutionalIntelligenceExportBundleEnvelope
 
 The institutional-intelligence export bundle is a governed portability

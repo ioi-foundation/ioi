@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+  "title": "LearningImpactRecordEnvelope",
+  "description": "THE DERIVED IMPACT OF ONE INVALIDATION OVER THE LEARNING LINEAGE (institutional-learning.md § LearningImpactRecordEnvelope; doctrine institutional-learning-boundary.md § Derived Rights, Revocation, And Honest Unlearning). The trigger's subject is resolved through its owner, the daemon traverses its own lineage refs, and each affected record carries the disposition its family earns — fenced, quarantined, rebuild_required, retrain_required, recall_required or residual_exposure — with residual exposure LISTED rather than erased. A record never proves a trained model forgot: `unlearning_claim` is `none` unless the evidence its kind names exists, and a registered invariant refuses a claim above `none` with no evidence. `impact_graph_root` commits the traversed edges under `ioi.learning-impact-graph-root-jcs-sha256.v1`; `content_hash` commits the body and excludes only itself and the admission stamp.",
+  "x-ioi-schema-version": "ioi.learning-impact-record.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "decisionRef": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "impactRecordRef": {
+      "type": "string",
+      "pattern": "^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "anyRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    }
+  },
+  "required": [
+    "schema_version",
+    "learning_impact_record_id",
+    "owner_ref",
+    "trigger",
+    "impact_graph_root",
+    "affected",
+    "residual_exposure",
+    "minimum_audit_commitment_ref",
+    "unlearning_claim",
+    "unlearning_evidence_refs",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.learning-impact-record.v1"
+    },
+    "learning_impact_record_id": {
+      "$ref": "#/$defs/impactRecordRef"
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef"
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "subject_ref",
+        "subject_revision_ref",
+        "decision_ref"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "source_right_revoked",
+            "consent_withdrawn",
+            "eligibility_excluded",
+            "route_contract_revoked",
+            "boundary_profile_superseded",
+            "retention_deleted",
+            "legal_hold_placed",
+            "label_corrected"
+          ]
+        },
+        "subject_ref": {
+          "$ref": "#/$defs/anyRef"
+        },
+        "subject_revision_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/anyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decision_ref": {
+          "$ref": "#/$defs/decisionRef"
+        }
+      }
+    },
+    "impact_graph_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "affected": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "family",
+          "edge",
+          "disposition",
+          "basis"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/anyRef"
+          },
+          "family": {
+            "enum": [
+              "policy_bound_data_view",
+              "transformation_run",
+              "foundry_recipe_run",
+              "foundry_dataset_snapshot",
+              "foundry_program",
+              "foundry_checkpoint",
+              "foundry_qualification_proposal",
+              "foundry_artifact_intent",
+              "media_episode",
+              "media_split_manifest"
+            ]
+          },
+          "edge": {
+            "$ref": "#/$defs/anyRef"
+          },
+          "disposition": {
+            "enum": [
+              "fenced",
+              "quarantined",
+              "rebuild_required",
+              "retrain_required",
+              "recall_required",
+              "residual_exposure"
+            ]
+          },
+          "basis": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    },
+    "residual_exposure": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "recipient_class",
+          "reason"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/anyRef"
+          },
+          "recipient_class": {
+            "enum": [
+              "external_recipient",
+              "public_disclosure",
+              "installed_artifact",
+              "delivered_export"
+            ]
+          },
+          "reason": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    },
+    "minimum_audit_commitment_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "unlearning_claim": {
+      "enum": [
+        "none",
+        "removal_from_future_datasets",
+        "clean_retraining",
+        "verified_unlearning",
+        "deletion"
+      ]
+    },
+    "unlearning_evidence_refs": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/anyRef"
+      }
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp"
+    }
+  }
+}

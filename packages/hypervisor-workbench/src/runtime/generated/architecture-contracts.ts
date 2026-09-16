@@ -9419,7 +9419,7 @@ export type DataRetentionDispositionV1 = {
   schema_version: "ioi.foundations.data_retention_disposition.v1";
   disposition_id: string;
   subject: {
-      subject_kind: "managed_backup_export" | "environment_workspace_capture";
+      subject_kind: "managed_backup_export" | "environment_workspace_capture" | "policy_bound_media_snapshot" | "foundry_dataset_snapshot" | "foundry_checkpoint_artifact";
       subject_ref: string;
       payload_state_root?: string | null;
     };
@@ -13282,6 +13282,36 @@ export type ImprovementRoleBindingEnvelopeV1 = {
     };
   independence: "separately_identifiable" | "distinct_principals";
   binding_decision_ref: string;
+  admitted_at: string;
+};
+
+export type LearningImpactRecordEnvelopeV1 = {
+  schema_version: "ioi.learning-impact-record.v1";
+  learning_impact_record_id: string;
+  owner_ref: string;
+  trigger: {
+      kind: "source_right_revoked" | "consent_withdrawn" | "eligibility_excluded" | "route_contract_revoked" | "boundary_profile_superseded" | "retention_deleted" | "legal_hold_placed" | "label_corrected";
+      subject_ref: string;
+      subject_revision_ref: string | null;
+      decision_ref: string;
+    };
+  impact_graph_root: string;
+  affected: Array<{
+        ref: string;
+        family: "policy_bound_data_view" | "transformation_run" | "foundry_recipe_run" | "foundry_dataset_snapshot" | "foundry_program" | "foundry_checkpoint" | "foundry_qualification_proposal" | "foundry_artifact_intent" | "media_episode" | "media_split_manifest";
+        edge: string;
+        disposition: "fenced" | "quarantined" | "rebuild_required" | "retrain_required" | "recall_required" | "residual_exposure";
+        basis: string;
+      }>;
+  residual_exposure: Array<{
+        ref: string;
+        recipient_class: "external_recipient" | "public_disclosure" | "installed_artifact" | "delivered_export";
+        reason: string;
+      }>;
+  minimum_audit_commitment_ref: string;
+  unlearning_claim: "none" | "removal_from_future_datasets" | "clean_retraining" | "verified_unlearning" | "deletion";
+  unlearning_evidence_refs: Array<string>;
+  content_hash: string;
   admitted_at: string;
 };
 
@@ -20017,6 +20047,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -25758,6 +25796,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "improvement_role_binding.content_hash.commits_the_immutable_body"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_impact_record.unlearning_claim.names_its_evidence"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_impact_record.content_hash.commits_the_immutable_body"
   }
 ] as const;
 
@@ -29251,6 +29345,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json","contract_id":"schema://ioi/foundations/download-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json","contract_id":"schema://ioi/foundations/download-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json","contract_id":"schema://ioi/foundations/data-retention-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json","contract_id":"schema://ioi/foundations/data-retention-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json","contract_id":"schema://ioi/foundations/data-retention-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json","contract_id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json","contract_id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json","mutation_id":null,"value_json":null}),
@@ -29969,6 +30064,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/improvement-role-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/learning-impact-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -30787,6 +30889,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^learning-boundary://[^\\s]{1,240}$",
   "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}$",
   "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$",
   "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}$",
   "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^lease://[^\\s]{1,248}$",
@@ -31370,7 +31473,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1": "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c",
   "schema://ioi/foundations/runtime-assignment/v1": "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54",
   "schema://ioi/foundations/download-intent/v1": "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917",
-  "schema://ioi/foundations/data-retention-disposition/v1": "sha256:72a411978fd2958d9de618ce8addfc768da04fade4d54d728227c8dae323f315",
+  "schema://ioi/foundations/data-retention-disposition/v1": "sha256:c4722a8dec02f5a06f037da8d6f8a35b66e14bb1a6c978f6e8f225da5809fa8e",
   "schema://ioi/components/daemon-runtime/support-incident-link/v1": "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3",
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8",
   "schema://ioi/components/wallet-network/authority-review-receipt/v1": "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c",
@@ -31455,7 +31558,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/evaluation-run/v1": "sha256:92bd9f0c1c8ddd0fd77f076c2c2cb1a22ef5a2453ef085e5001c5c4a6770446e",
   "schema://ioi/components/hypervisor/evaluation-result/v1": "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987",
   "schema://ioi/components/hypervisor/model-swap-continuity-report/v1": "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33",
-  "schema://ioi/foundations/objects/improvement-role-binding/v1": "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd"
+  "schema://ioi/foundations/objects/improvement-role-binding/v1": "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd",
+  "schema://ioi/foundations/objects/learning-impact-record/v1": "sha256:42f059a812dc4a67edbe0c542440d03b9107e18ab434cbfe28b835348acb1222"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -101593,9 +101697,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "enum": [
               "managed_backup_export",
-              "environment_workspace_capture"
+              "environment_workspace_capture",
+              "policy_bound_media_snapshot",
+              "foundry_dataset_snapshot",
+              "foundry_checkpoint_artifact"
             ],
-            "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."
+            "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane. `policy_bound_media_snapshot` was bound 2026-08-31 (M05.9) through this plane's module and is registered here 2026-09-16; `foundry_dataset_snapshot` and `foundry_checkpoint_artifact` were bound 2026-09-16 (M06.9): the payload is Foundry's content-addressed blob, `payload_state_root` is its content hash, and a blob another admitted referent still names is refused (`retention_subject_shared`) rather than destroyed under it."
           },
           "subject_ref": {
             "type": "string",
@@ -134490,6 +134597,228 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/canonicalTimestamp"
       }
     }
+  },
+  "schema://ioi/foundations/objects/learning-impact-record/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+    "title": "LearningImpactRecordEnvelope",
+    "description": "THE DERIVED IMPACT OF ONE INVALIDATION OVER THE LEARNING LINEAGE (institutional-learning.md § LearningImpactRecordEnvelope; doctrine institutional-learning-boundary.md § Derived Rights, Revocation, And Honest Unlearning). The trigger's subject is resolved through its owner, the daemon traverses its own lineage refs, and each affected record carries the disposition its family earns — fenced, quarantined, rebuild_required, retrain_required, recall_required or residual_exposure — with residual exposure LISTED rather than erased. A record never proves a trained model forgot: `unlearning_claim` is `none` unless the evidence its kind names exists, and a registered invariant refuses a claim above `none` with no evidence. `impact_graph_root` commits the traversed edges under `ioi.learning-impact-graph-root-jcs-sha256.v1`; `content_hash` commits the body and excludes only itself and the admission stamp.",
+    "x-ioi-schema-version": "ioi.learning-impact-record.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "impactRecordRef": {
+        "type": "string",
+        "pattern": "^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "anyRef": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "required": [
+      "schema_version",
+      "learning_impact_record_id",
+      "owner_ref",
+      "trigger",
+      "impact_graph_root",
+      "affected",
+      "residual_exposure",
+      "minimum_audit_commitment_ref",
+      "unlearning_claim",
+      "unlearning_evidence_refs",
+      "content_hash",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.learning-impact-record.v1"
+      },
+      "learning_impact_record_id": {
+        "$ref": "#/$defs/impactRecordRef"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "trigger": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "subject_ref",
+          "subject_revision_ref",
+          "decision_ref"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "source_right_revoked",
+              "consent_withdrawn",
+              "eligibility_excluded",
+              "route_contract_revoked",
+              "boundary_profile_superseded",
+              "retention_deleted",
+              "legal_hold_placed",
+              "label_corrected"
+            ]
+          },
+          "subject_ref": {
+            "$ref": "#/$defs/anyRef"
+          },
+          "subject_revision_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/anyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/decisionRef"
+          }
+        }
+      },
+      "impact_graph_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "affected": {
+        "type": "array",
+        "minItems": 0,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ref",
+            "family",
+            "edge",
+            "disposition",
+            "basis"
+          ],
+          "properties": {
+            "ref": {
+              "$ref": "#/$defs/anyRef"
+            },
+            "family": {
+              "enum": [
+                "policy_bound_data_view",
+                "transformation_run",
+                "foundry_recipe_run",
+                "foundry_dataset_snapshot",
+                "foundry_program",
+                "foundry_checkpoint",
+                "foundry_qualification_proposal",
+                "foundry_artifact_intent",
+                "media_episode",
+                "media_split_manifest"
+              ]
+            },
+            "edge": {
+              "$ref": "#/$defs/anyRef"
+            },
+            "disposition": {
+              "enum": [
+                "fenced",
+                "quarantined",
+                "rebuild_required",
+                "retrain_required",
+                "recall_required",
+                "residual_exposure"
+              ]
+            },
+            "basis": {
+              "$ref": "#/$defs/label"
+            }
+          }
+        }
+      },
+      "residual_exposure": {
+        "type": "array",
+        "minItems": 0,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ref",
+            "recipient_class",
+            "reason"
+          ],
+          "properties": {
+            "ref": {
+              "$ref": "#/$defs/anyRef"
+            },
+            "recipient_class": {
+              "enum": [
+                "external_recipient",
+                "public_disclosure",
+                "installed_artifact",
+                "delivered_export"
+              ]
+            },
+            "reason": {
+              "$ref": "#/$defs/label"
+            }
+          }
+        }
+      },
+      "minimum_audit_commitment_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "unlearning_claim": {
+        "enum": [
+          "none",
+          "removal_from_future_datasets",
+          "clean_retraining",
+          "verified_unlearning",
+          "deletion"
+        ]
+      },
+      "unlearning_evidence_refs": {
+        "type": "array",
+        "minItems": 0,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/anyRef"
+        }
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -152873,6 +153202,68 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         }
       }
     }
+  ],
+  "schema://ioi/foundations/objects/learning-impact-record/v1": [
+    {
+      "rule_id": "learning_impact_record.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp under the domain separator `ioi.learning-impact-record-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so an affected list or a claim edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-impact-record-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "learning_impact_record_id": {
+            "path": "$.learning_impact_record_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "trigger": {
+            "path": "$.trigger"
+          },
+          "impact_graph_root": {
+            "path": "$.impact_graph_root"
+          },
+          "affected": {
+            "path": "$.affected"
+          },
+          "residual_exposure": {
+            "path": "$.residual_exposure"
+          },
+          "minimum_audit_commitment_ref": {
+            "path": "$.minimum_audit_commitment_ref"
+          },
+          "unlearning_claim": {
+            "path": "$.unlearning_claim"
+          },
+          "unlearning_evidence_refs": {
+            "path": "$.unlearning_evidence_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "learning_impact_record.unlearning_claim.names_its_evidence",
+      "description": "NO UNLEARNING CLAIM WITHOUT ITS EVIDENCE: a claim above `none` names at least one evidence ref; a revocation or impact record does not prove that a trained model has forgotten the source.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.unlearning_claim",
+        "values": [
+          "removal_from_future_datasets",
+          "clean_retraining",
+          "verified_unlearning",
+          "deletion"
+        ],
+        "path": "$.unlearning_evidence_refs"
+      }
+    }
   ]
 };
 
@@ -155610,4 +156001,10 @@ export function validateImprovementRoleBindingEnvelopeV1(
   value: unknown,
 ): value is ImprovementRoleBindingEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/improvement-role-binding/v1", value).ok;
+}
+
+export function validateLearningImpactRecordEnvelopeV1(
+  value: unknown,
+): value is LearningImpactRecordEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/learning-impact-record/v1", value).ok;
 }

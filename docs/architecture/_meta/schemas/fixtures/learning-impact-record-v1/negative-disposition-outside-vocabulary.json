@@ -1,0 +1,48 @@
+{
+  "schema_version": "ioi.learning-impact-record.v1",
+  "learning_impact_record_id": "learning-impact://acme.intake-records.revoked-1",
+  "owner_ref": "org://acme-clinic",
+  "trigger": {
+    "kind": "source_right_revoked",
+    "subject_ref": "learning-source-rights://acme.intake-records",
+    "subject_revision_ref": "learning-source-rights://acme.intake-records/revision/1",
+    "decision_ref": "decision://acme/rights/intake-records/revoke/1"
+  },
+  "impact_graph_root": "sha256:9e546025b927757e5b5ec3673ac5ea5d8a1eee2ab611026dbf4b83ebf36716c7",
+  "affected": [
+    {
+      "ref": "view://acme.intake-minimised/revision/1",
+      "family": "policy_bound_data_view",
+      "edge": "learning-source-rights://acme.intake-records/revision/1",
+      "disposition": "forgotten",
+      "basis": "the view's read revalidates the claim at the read instant and refuses"
+    },
+    {
+      "ref": "transform://trun_0123456789abcdef0123456789abcdef",
+      "family": "transformation_run",
+      "edge": "view://acme.intake-minimised/revision/1",
+      "disposition": "quarantined",
+      "basis": "a run over a fenced view feeds nothing further"
+    },
+    {
+      "ref": "dataset-snapshot://foundry/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family": "foundry_dataset_snapshot",
+      "edge": "transform://trun_0123456789abcdef0123456789abcdef",
+      "disposition": "rebuild_required",
+      "basis": "the snapshot materialized rows the source no longer permits"
+    },
+    {
+      "ref": "checkpoint://foundry/prog_1/1/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "family": "foundry_checkpoint",
+      "edge": "dataset-snapshot://foundry/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "disposition": "retrain_required",
+      "basis": "parameters trained on the snapshot cannot be attributed or revoked"
+    }
+  ],
+  "residual_exposure": [],
+  "minimum_audit_commitment_ref": "policy://acme/retention/intake/v3",
+  "unlearning_claim": "none",
+  "unlearning_evidence_refs": [],
+  "admitted_at": "2026-09-16T00:00:00Z",
+  "content_hash": "sha256:194166beee81de4a23d01b89bdb202f84f581d6d70cf9871ba237b0cbaaedff6"
+}

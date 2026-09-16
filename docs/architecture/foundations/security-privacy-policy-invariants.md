@@ -663,6 +663,9 @@ DataRetentionDisposition:
   subject:
     subject_kind: managed_backup_export      # extensible only by owner ruling HERE
                 | environment_workspace_capture
+                | policy_bound_media_snapshot
+                | foundry_dataset_snapshot
+                | foundry_checkpoint_artifact
     subject_ref: string                      # one exact subject, never a class pattern
     payload_state_root: sha256:... | null
   policy_basis_ref: canonical ref            # the governing policy; no basis, no disposition
@@ -712,6 +715,25 @@ two subjects: destroying one does not remove the other's tar, though the shared
 destroyed-content fact does refuse restoring it and refuses re-capturing that
 content. Deleting a capture also does not delete the LIVE workspace the
 environment still holds — the same boundary the managed lane already carries.
+
+**Owner ruling, 2026-09-16 (owner-reversible) — `foundry_dataset_snapshot` and
+`foundry_checkpoint_artifact` bind as the fourth and fifth subject kinds, and
+`policy_bound_media_snapshot` (bound 2026-08-31, M05.9, through this plane's own
+module) is registered in the contract it had been missing from.** The learning
+lineage runs from a governed source through views and transformation runs into
+Foundry's content-addressed blobs — a materialized dataset snapshot and a
+program checkpoint are the derived artifacts an erasure duty must be able to
+reach, and they were the two custody stores this plane could not. The ruling
+binds the kinds and nothing else: the one delete route, the one answer to legal
+hold, the one server-built evidence object. A Foundry blob may be shared by
+more than one admitted referent, so a deletion names the blob's content hash as
+its `payload_state_root` and is refused `retention_subject_shared` while any
+OTHER referent still names those bytes — destruction is never a side effect on
+another record's custody. The destroyed-content fact is written to the same
+estate-wide stream, so a backup taken before the deletion cannot re-establish
+the bytes and a later hash-verified fetch refuses. Deleting a checkpoint does
+not un-train anything: the impact record, not the deletion, says what the
+erasure means downstream (M06.9).
 
 **And the reach is not retroactive.** A capture taken BEFORE this kind was bound
 carries no owner scope pin, and every path here resolves its subject through the

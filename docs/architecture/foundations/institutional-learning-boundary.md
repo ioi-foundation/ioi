@@ -271,6 +271,19 @@ verified unlearning, or deletion only when the corresponding evidence exists.
 Past recipients and irreversible public disclosures must remain visible as
 residual exposure, not be erased from the ledger narrative.
 
+Implemented on this basis (2026-09-16, M06.9): a
+[`LearningImpactRecordEnvelope`](./objects/institutional-learning.md#learningimpactrecordenvelope)
+is DERIVED by the daemon over its own lineage refs from a resolved trigger, one
+disposition per affected family, with residual exposure listed rather than
+erased; a read-only walker serves the same graph on demand; a transformation
+run, a Foundry recipe run, a program or a qualification proposal over a
+quarantined input is refused `learning_source_quarantined`; the retention owner
+reaches Foundry dataset snapshots and checkpoint artifacts as content-addressed
+subjects; and no unlearning claim is admitted without the evidence its kind
+names. Embeddings, models, workers, packages, releases, exports and public
+commitments have no daemon families on this basis — the graph stops at the
+artifact intent and the route binding, typed as its frontier.
+
 ## Cross-Tenant And Ecosystem Learning
 
 Seller, provider, marketplace, network, and cross-customer improvement are

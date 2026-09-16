@@ -268,7 +268,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c"),
     ("schema://ioi/foundations/runtime-assignment/v1", "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54"),
     ("schema://ioi/foundations/download-intent/v1", "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917"),
-    ("schema://ioi/foundations/data-retention-disposition/v1", "sha256:72a411978fd2958d9de618ce8addfc768da04fade4d54d728227c8dae323f315"),
+    ("schema://ioi/foundations/data-retention-disposition/v1", "sha256:c4722a8dec02f5a06f037da8d6f8a35b66e14bb1a6c978f6e8f225da5809fa8e"),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3"),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8"),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c"),
@@ -354,6 +354,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/evaluation-result/v1", "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987"),
     ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33"),
     ("schema://ioi/foundations/objects/improvement-role-binding/v1", "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd"),
+    ("schema://ioi/foundations/objects/learning-impact-record/v1", "sha256:42f059a812dc4a67edbe0c542440d03b9107e18ab434cbfe28b835348acb1222"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -101903,7 +101904,7 @@ impl<'de> serde::Deserialize<'de> for DataRetentionDispositionV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/data-retention-disposition/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture","policy_bound_media_snapshot","foundry_dataset_snapshot","foundry_checkpoint_artifact"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane. `policy_bound_media_snapshot` was bound 2026-08-31 (M05.9) through this plane's module and is registered here 2026-09-16; `foundry_dataset_snapshot` and `foundry_checkpoint_artifact` were bound 2026-09-16 (M06.9): the payload is Foundry's content-addressed blob, `payload_state_root` is its content hash, and a blob another admitted referent still names is refused (`retention_subject_shared`) rather than destroyed under it."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -102007,7 +102008,7 @@ impl<'de> serde::Deserialize<'de> for DataRetentionDispositionV1Subject {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/data-retention-disposition/v1"#,
-            r#"{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            r#"{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture","policy_bound_media_snapshot","foundry_dataset_snapshot","foundry_checkpoint_artifact"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane. `policy_bound_media_snapshot` was bound 2026-08-31 (M05.9) through this plane's module and is registered here 2026-09-16; `foundry_dataset_snapshot` and `foundry_checkpoint_artifact` were bound 2026-09-16 (M06.9): the payload is Foundry's content-addressed blob, `payload_state_root` is its content hash, and a blob another admitted referent still names is refused (`retention_subject_shared`) rather than destroyed under it."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -102043,6 +102044,12 @@ pub enum DataRetentionDispositionV1SubjectSubjectKind {
     ManagedBackupExport,
     #[serde(rename = r#"environment_workspace_capture"#)]
     EnvironmentWorkspaceCapture,
+    #[serde(rename = r#"policy_bound_media_snapshot"#)]
+    PolicyBoundMediaSnapshot,
+    #[serde(rename = r#"foundry_dataset_snapshot"#)]
+    FoundryDatasetSnapshot,
+    #[serde(rename = r#"foundry_checkpoint_artifact"#)]
+    FoundryCheckpointArtifact,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -149513,6 +149520,379 @@ pub enum ImprovementRoleBindingEnvelopeV1Independence {
     DistinctPrincipals,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LearningImpactRecordEnvelopeV1 {
+    pub schema_version: LearningImpactRecordEnvelopeV1SchemaVersion,
+    pub learning_impact_record_id: String,
+    pub owner_ref: String,
+    pub trigger: LearningImpactRecordEnvelopeV1Trigger,
+    pub impact_graph_root: String,
+    pub affected: Vec<LearningImpactRecordEnvelopeV1AffectedItem>,
+    pub residual_exposure: Vec<LearningImpactRecordEnvelopeV1ResidualExposureItem>,
+    pub minimum_audit_commitment_ref: String,
+    pub unlearning_claim: LearningImpactRecordEnvelopeV1UnlearningClaim,
+    pub unlearning_evidence_refs: Vec<String>,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LearningImpactRecordEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/learning-impact-record/v1","title":"LearningImpactRecordEnvelope","description":"THE DERIVED IMPACT OF ONE INVALIDATION OVER THE LEARNING LINEAGE (institutional-learning.md § LearningImpactRecordEnvelope; doctrine institutional-learning-boundary.md § Derived Rights, Revocation, And Honest Unlearning). The trigger's subject is resolved through its owner, the daemon traverses its own lineage refs, and each affected record carries the disposition its family earns — fenced, quarantined, rebuild_required, retrain_required, recall_required or residual_exposure — with residual exposure LISTED rather than erased. A record never proves a trained model forgot: `unlearning_claim` is `none` unless the evidence its kind names exists, and a registered invariant refuses a claim above `none` with no evidence. `impact_graph_root` commits the traversed edges under `ioi.learning-impact-graph-root-jcs-sha256.v1`; `content_hash` commits the body and excludes only itself and the admission stamp.","x-ioi-schema-version":"ioi.learning-impact-record.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"impactRecordRef":{"type":"string","pattern":"^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"},"anyRef":{"type":"string","minLength":1,"maxLength":512},"label":{"type":"string","minLength":1,"maxLength":240}},"required":["schema_version","learning_impact_record_id","owner_ref","trigger","impact_graph_root","affected","residual_exposure","minimum_audit_commitment_ref","unlearning_claim","unlearning_evidence_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.learning-impact-record.v1"},"learning_impact_record_id":{"$ref":"#/$defs/impactRecordRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"trigger":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_revision_ref","decision_ref"],"properties":{"kind":{"enum":["source_right_revoked","consent_withdrawn","eligibility_excluded","route_contract_revoked","boundary_profile_superseded","retention_deleted","legal_hold_placed","label_corrected"]},"subject_ref":{"$ref":"#/$defs/anyRef"},"subject_revision_ref":{"anyOf":[{"$ref":"#/$defs/anyRef"},{"type":"null"}]},"decision_ref":{"$ref":"#/$defs/decisionRef"}}},"impact_graph_root":{"$ref":"#/$defs/sha256"},"affected":{"type":"array","minItems":0,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["ref","family","edge","disposition","basis"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"family":{"enum":["policy_bound_data_view","transformation_run","foundry_recipe_run","foundry_dataset_snapshot","foundry_program","foundry_checkpoint","foundry_qualification_proposal","foundry_artifact_intent","media_episode","media_split_manifest"]},"edge":{"$ref":"#/$defs/anyRef"},"disposition":{"enum":["fenced","quarantined","rebuild_required","retrain_required","recall_required","residual_exposure"]},"basis":{"$ref":"#/$defs/label"}}}},"residual_exposure":{"type":"array","minItems":0,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["ref","recipient_class","reason"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"recipient_class":{"enum":["external_recipient","public_disclosure","installed_artifact","delivered_export"]},"reason":{"$ref":"#/$defs/label"}}}},"minimum_audit_commitment_ref":{"$ref":"#/$defs/policyRef"},"unlearning_claim":{"enum":["none","removal_from_future_datasets","clean_retraining","verified_unlearning","deletion"]},"unlearning_evidence_refs":{"type":"array","minItems":0,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/anyRef"}},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<LearningImpactRecordEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_impact_record_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"learning_impact_record_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"learning_impact_record_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trigger: serde_json::from_value::<LearningImpactRecordEnvelopeV1Trigger>(
+                object
+                    .remove(r#"trigger"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trigger"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            impact_graph_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"impact_graph_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"impact_graph_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected: serde_json::from_value::<Vec<LearningImpactRecordEnvelopeV1AffectedItem>>(
+                object
+                    .remove(r#"affected"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            residual_exposure: serde_json::from_value::<
+                Vec<LearningImpactRecordEnvelopeV1ResidualExposureItem>,
+            >(
+                object
+                    .remove(r#"residual_exposure"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"residual_exposure"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_audit_commitment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"minimum_audit_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"minimum_audit_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unlearning_claim:
+                serde_json::from_value::<LearningImpactRecordEnvelopeV1UnlearningClaim>(
+                    object
+                        .remove(r#"unlearning_claim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"unlearning_claim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            unlearning_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"unlearning_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"unlearning_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LearningImpactRecordEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.learning-impact-record.v1"#)]
+    IoiLearningImpactRecordV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LearningImpactRecordEnvelopeV1Trigger {
+    pub kind: LearningImpactRecordEnvelopeV1TriggerKind,
+    pub subject_ref: String,
+    pub subject_revision_ref: Option<String>,
+    pub decision_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LearningImpactRecordEnvelopeV1Trigger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_revision_ref","decision_ref"],"properties":{"kind":{"enum":["source_right_revoked","consent_withdrawn","eligibility_excluded","route_contract_revoked","boundary_profile_superseded","retention_deleted","legal_hold_placed","label_corrected"]},"subject_ref":{"$ref":"#/$defs/anyRef"},"subject_revision_ref":{"anyOf":[{"$ref":"#/$defs/anyRef"},{"type":"null"}]},"decision_ref":{"$ref":"#/$defs/decisionRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<LearningImpactRecordEnvelopeV1TriggerKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"subject_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LearningImpactRecordEnvelopeV1TriggerKind {
+    #[serde(rename = r#"source_right_revoked"#)]
+    SourceRightRevoked,
+    #[serde(rename = r#"consent_withdrawn"#)]
+    ConsentWithdrawn,
+    #[serde(rename = r#"eligibility_excluded"#)]
+    EligibilityExcluded,
+    #[serde(rename = r#"route_contract_revoked"#)]
+    RouteContractRevoked,
+    #[serde(rename = r#"boundary_profile_superseded"#)]
+    BoundaryProfileSuperseded,
+    #[serde(rename = r#"retention_deleted"#)]
+    RetentionDeleted,
+    #[serde(rename = r#"legal_hold_placed"#)]
+    LegalHoldPlaced,
+    #[serde(rename = r#"label_corrected"#)]
+    LabelCorrected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LearningImpactRecordEnvelopeV1AffectedItem {
+    pub r#ref: String,
+    pub family: LearningImpactRecordEnvelopeV1AffectedItemFamily,
+    pub edge: String,
+    pub disposition: LearningImpactRecordEnvelopeV1AffectedItemDisposition,
+    pub basis: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LearningImpactRecordEnvelopeV1AffectedItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","family","edge","disposition","basis"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"family":{"enum":["policy_bound_data_view","transformation_run","foundry_recipe_run","foundry_dataset_snapshot","foundry_program","foundry_checkpoint","foundry_qualification_proposal","foundry_artifact_intent","media_episode","media_split_manifest"]},"edge":{"$ref":"#/$defs/anyRef"},"disposition":{"enum":["fenced","quarantined","rebuild_required","retrain_required","recall_required","residual_exposure"]},"basis":{"$ref":"#/$defs/label"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            family: serde_json::from_value::<LearningImpactRecordEnvelopeV1AffectedItemFamily>(
+                object
+                    .remove(r#"family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            edge: serde_json::from_value::<String>(
+                object
+                    .remove(r#"edge"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"edge"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                LearningImpactRecordEnvelopeV1AffectedItemDisposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            basis: serde_json::from_value::<String>(
+                object
+                    .remove(r#"basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LearningImpactRecordEnvelopeV1AffectedItemFamily {
+    #[serde(rename = r#"policy_bound_data_view"#)]
+    PolicyBoundDataView,
+    #[serde(rename = r#"transformation_run"#)]
+    TransformationRun,
+    #[serde(rename = r#"foundry_recipe_run"#)]
+    FoundryRecipeRun,
+    #[serde(rename = r#"foundry_dataset_snapshot"#)]
+    FoundryDatasetSnapshot,
+    #[serde(rename = r#"foundry_program"#)]
+    FoundryProgram,
+    #[serde(rename = r#"foundry_checkpoint"#)]
+    FoundryCheckpoint,
+    #[serde(rename = r#"foundry_qualification_proposal"#)]
+    FoundryQualificationProposal,
+    #[serde(rename = r#"foundry_artifact_intent"#)]
+    FoundryArtifactIntent,
+    #[serde(rename = r#"media_episode"#)]
+    MediaEpisode,
+    #[serde(rename = r#"media_split_manifest"#)]
+    MediaSplitManifest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LearningImpactRecordEnvelopeV1AffectedItemDisposition {
+    #[serde(rename = r#"fenced"#)]
+    Fenced,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"rebuild_required"#)]
+    RebuildRequired,
+    #[serde(rename = r#"retrain_required"#)]
+    RetrainRequired,
+    #[serde(rename = r#"recall_required"#)]
+    RecallRequired,
+    #[serde(rename = r#"residual_exposure"#)]
+    ResidualExposure,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LearningImpactRecordEnvelopeV1ResidualExposureItem {
+    pub r#ref: String,
+    pub recipient_class: LearningImpactRecordEnvelopeV1ResidualExposureItemRecipientClass,
+    pub reason: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LearningImpactRecordEnvelopeV1ResidualExposureItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ref","recipient_class","reason"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"recipient_class":{"enum":["external_recipient","public_disclosure","installed_artifact","delivered_export"]},"reason":{"$ref":"#/$defs/label"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipient_class: serde_json::from_value::<
+                LearningImpactRecordEnvelopeV1ResidualExposureItemRecipientClass,
+            >(
+                object
+                    .remove(r#"recipient_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipient_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LearningImpactRecordEnvelopeV1ResidualExposureItemRecipientClass {
+    #[serde(rename = r#"external_recipient"#)]
+    ExternalRecipient,
+    #[serde(rename = r#"public_disclosure"#)]
+    PublicDisclosure,
+    #[serde(rename = r#"installed_artifact"#)]
+    InstalledArtifact,
+    #[serde(rename = r#"delivered_export"#)]
+    DeliveredExport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LearningImpactRecordEnvelopeV1UnlearningClaim {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"removal_from_future_datasets"#)]
+    RemovalFromFutureDatasets,
+    #[serde(rename = r#"clean_retraining"#)]
+    CleanRetraining,
+    #[serde(rename = r#"verified_unlearning"#)]
+    VerifiedUnlearning,
+    #[serde(rename = r#"deletion"#)]
+    Deletion,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -156246,6 +156626,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/data-retention-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/data-retention-disposition/v1",
         path: "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
         expected_accept: false,
         expected_schema_accept: false,
@@ -161987,6 +162375,62 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("improvement_role_binding.content_hash.commits_the_immutable_body"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("learning_impact_record.unlearning_claim.names_its_evidence"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/learning-impact-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("learning_impact_record.content_hash.commits_the_immutable_body"),
     },
 ];
 
@@ -172850,6 +173294,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json"#,
+        contract_id: r#"schema://ioi/foundations/data-retention-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json"#,
         contract_id: r#"schema://ioi/foundations/data-retention-disposition/v1"#,
         source_fixture_path: Some(
@@ -180748,6 +181203,83 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/learning-impact-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -182385,7 +182917,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1","title":"ManagedWorkerInstanceState","description":"The bounded daemon-admitted managed-worker aggregate: exact runtime policy, optional placement/session, backup and state commitments, and replay-safe proposal/commit/rejection evidence. Agentgres projection metadata is deliberately outside these canonical bytes.","x-ioi-schema-version":"ioi.managed-worker-instance-state.v1","type":"object","additionalProperties":false,"required":["schema_version","instance_id","lifecycle_id","owner_ref","worker_package_ref","config_revision_ref","revision","state","runtime_policy","runtime_policy_hash","authority_grant_refs","runtime_assignment","compute_session","latest_verified_backup_ref","latest_state_root","pending_transition","last_transition"],"properties":{"schema_version":{"const":"ioi.managed-worker-instance-state.v1"},"instance_id":{"type":"string","pattern":"^agent://[^\\s]{1,500}$"},"lifecycle_id":{"type":"string","pattern":"^lifecycle:[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"worker_package_ref":{"type":"string","pattern":"^(?:worker-package|package)://[^\\s]{1,500}$"},"config_revision_ref":{"type":"string","pattern":"^(?:config-revision|artifact)://[^\\s]{1,500}$"},"revision":{"$ref":"#/$defs/positiveInteger"},"state":{"$ref":"#/$defs/lifecycleState"},"runtime_policy":{"$ref":"#/$defs/runtimePolicy"},"runtime_policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"runtime_assignment":{"anyOf":[{"$ref":"#/$defs/runtimeAssignment"},{"type":"null"}]},"compute_session":{"anyOf":[{"$ref":"#/$defs/computeSession"},{"type":"null"}]},"latest_verified_backup_ref":{"$ref":"#/$defs/nullableRef"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"pending_transition":{"anyOf":[{"$ref":"#/$defs/pendingTransition"},{"type":"null"}]},"last_transition":{"anyOf":[{"$ref":"#/$defs/lastTransition"},{"type":"null"}]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"nonempty":{"type":"string","minLength":1},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"lifecycleState":{"enum":["discover","installed","initializing","active","idle","zero_to_idle","suspended","payment_past_due","archived","restoring","migrated","exported","deleted","forgotten"]},"paymentStatus":{"enum":["current","past_due","canceled","settled","not_applicable"]},"runtimePolicy":{"type":"object","additionalProperties":false,"required":["persistence_profile","idle_threshold_seconds","minimum_warm_seconds","wake_sources","maximum_cold_start_seconds","maximum_restore_age_seconds","checkpoint_cadence_seconds","pre_stop_checkpoint_required","provider_idle_semantics","fallback_placement_refs","privacy_floor_ref","spend_ceiling_ref","archive_retention_policy_ref","minimum_backup_replicas"],"properties":{"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"idle_threshold_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"minimum_warm_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"wake_sources":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["user","schedule","webhook","queue","approved_event","recovery"]}},"maximum_cold_start_seconds":{"$ref":"#/$defs/positiveInteger"},"maximum_restore_age_seconds":{"$ref":"#/$defs/positiveInteger"},"checkpoint_cadence_seconds":{"$ref":"#/$defs/positiveInteger"},"pre_stop_checkpoint_required":{"type":"boolean"},"provider_idle_semantics":{"enum":["stop","close"]},"fallback_placement_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"privacy_floor_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"spend_ceiling_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,500}$"},"archive_retention_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"minimum_backup_replicas":{"type":"integer","minimum":1,"maximum":65535}}},"placement":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","daemon_profile_ref","environment_ref","provider_ref","quote_ref","budget_reservation_ref","assignment_lease_ref","isolation_binding_ref","readiness_evidence_refs"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"daemon_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"quote_ref":{"$ref":"#/$defs/nullableRef"},"budget_reservation_ref":{"$ref":"#/$defs/nullableRef"},"assignment_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,500}$"},"isolation_binding_ref":{"type":"string","pattern":"^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}},"runtimeAssignment":{"type":"object","additionalProperties":false,"required":["schema_version","runtime_assignment_id","assignment_epoch","placement","assignment_hash","status"],"properties":{"schema_version":{"const":"ioi.runtime-assignment.v1"},"runtime_assignment_id":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"assignment_epoch":{"$ref":"#/$defs/positiveInteger"},"placement":{"$ref":"#/$defs/placement"},"assignment_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["admitted","active","closed","completed"]}}},"computeSession":{"type":"object","additionalProperties":false,"required":["schema_version","compute_session_ref","runtime_assignment_ref","environment_ref","provider_ref","status","readiness_evidence_refs"],"properties":{"schema_version":{"const":"ioi.compute-session.v1"},"compute_session_ref":{"type":"string","pattern":"^compute://[^\\s]{1,500}$"},"runtime_assignment_ref":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"status":{"enum":["ready","ended"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"provider_close_receipt_ref":{"$ref":"#/$defs/nullableRef"}}},"archivePolicy":{"type":"object","additionalProperties":false,"required":["archive_after","retain_for","storage_policy_ref"],"properties":{"archive_after":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"retain_for":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"storage_policy_ref":{"type":"string","pattern":"^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$"}}},"restorePolicy":{"type":"object","additionalProperties":false,"required":["restore_requires","restore_receipt_required"],"properties":{"restore_requires":{"$ref":"#/$defs/stepUpMode"},"restore_receipt_required":{"const":true}}},"exportPolicy":{"type":"object","additionalProperties":false,"required":["export_requires"],"properties":{"export_requires":{"$ref":"#/$defs/stepUpMode"}}},"deletionPolicy":{"type":"object","additionalProperties":false,"required":["delete_runtime_state","delete_archives","forget_semantic_memory"],"properties":{"delete_runtime_state":{"type":"boolean"},"delete_archives":{"type":"boolean"},"forget_semantic_memory":{"type":"boolean"}}},"stepUpMode":{"enum":["authority_step_up","wallet_step_up","org_quorum","admin_policy"]},"nullableArchivePolicy":{"anyOf":[{"$ref":"#/$defs/archivePolicy"},{"type":"null"}]},"nullableRestorePolicy":{"anyOf":[{"$ref":"#/$defs/restorePolicy"},{"type":"null"}]},"nullableExportPolicy":{"anyOf":[{"$ref":"#/$defs/exportPolicy"},{"type":"null"}]},"nullableDeletionPolicy":{"anyOf":[{"$ref":"#/$defs/deletionPolicy"},{"type":"null"}]},"transitionRequest":{"type":"object","additionalProperties":false,"required":["expected_head","idempotency_key","to_state","transition_reason","payment_status","authority_scope_refs","authority_grant_refs","policy_refs","required_controls","wallet_approval_ref","latest_state_root","backup_ref","restore_import_ref","migration_target_ref","provider_close_receipt_ref","high_risk_orders_paused","new_billable_work_blocked","archive_policy","restore_policy","export_policy","deletion_policy","placement"],"properties":{"expected_head":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"to_state":{"$ref":"#/$defs/lifecycleState"},"transition_reason":{"type":"string","minLength":1,"maxLength":500},"payment_status":{"anyOf":[{"$ref":"#/$defs/paymentStatus"},{"type":"null"}]},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"policy_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"required_controls":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"wallet_approval_ref":{"$ref":"#/$defs/nullableRef"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"backup_ref":{"$ref":"#/$defs/nullableRef"},"restore_import_ref":{"$ref":"#/$defs/nullableRef"},"migration_target_ref":{"$ref":"#/$defs/nullableRef"},"provider_close_receipt_ref":{"$ref":"#/$defs/nullableRef"},"high_risk_orders_paused":{"anyOf":[{"type":"boolean"},{"type":"null"}]},"new_billable_work_blocked":{"anyOf":[{"type":"boolean"},{"type":"null"}]},"archive_policy":{"$ref":"#/$defs/nullableArchivePolicy"},"restore_policy":{"$ref":"#/$defs/nullableRestorePolicy"},"export_policy":{"$ref":"#/$defs/nullableExportPolicy"},"deletion_policy":{"$ref":"#/$defs/nullableDeletionPolicy"},"placement":{"anyOf":[{"$ref":"#/$defs/placement"},{"type":"null"}]}}},"pendingTransition":{"type":"object","additionalProperties":false,"required":["request_hash","idempotency_key","to_state","request"],"properties":{"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"to_state":{"$ref":"#/$defs/lifecycleState"},"request":{"$ref":"#/$defs/transitionRequest"}}},"lifecycleAdmission":{"type":"object","additionalProperties":false,"required":["schema_version","transition_id","lifecycle_id","worker_instance_id","worker_package_ref","owner_ref","from_state","to_state","state","persistence_profile","payment_status","transition_reason","freezes_new_billable_work","pauses_high_risk_standing_orders","latest_state_root","archive_policy","restore_policy","export_policy","deletion_policy","archive_refs","artifact_refs","authority_scope_refs","authority_grant_refs","policy_refs","wallet_approval_ref","restore_import_ref","migration_target_ref","agentgres_operation_refs","receipt_refs","runtimeTruthSource"],"properties":{"schema_version":{"const":"ioi.runtime.managed_worker_instance_lifecycle_admission.v1"},"transition_id":{"type":"string","minLength":1,"maxLength":500},"lifecycle_id":{"type":"string","pattern":"^lifecycle:[^\\s]{1,500}$"},"worker_instance_id":{"type":"string","pattern":"^agent://[^\\s]{1,500}$"},"worker_package_ref":{"$ref":"#/$defs/nullableRef"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"from_state":{"$ref":"#/$defs/lifecycleState"},"to_state":{"$ref":"#/$defs/lifecycleState"},"state":{"$ref":"#/$defs/lifecycleState"},"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"payment_status":{"$ref":"#/$defs/paymentStatus"},"transition_reason":{"type":"string","minLength":1,"maxLength":500},"freezes_new_billable_work":{"type":"boolean"},"pauses_high_risk_standing_orders":{"type":"boolean"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"archive_policy":{"$ref":"#/$defs/nullableArchivePolicy"},"restore_policy":{"$ref":"#/$defs/nullableRestorePolicy"},"export_policy":{"$ref":"#/$defs/nullableExportPolicy"},"deletion_policy":{"$ref":"#/$defs/nullableDeletionPolicy"},"archive_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"policy_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"wallet_approval_ref":{"$ref":"#/$defs/nullableRef"},"restore_import_ref":{"$ref":"#/$defs/nullableRef"},"migration_target_ref":{"$ref":"#/$defs/nullableRef"},"agentgres_operation_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"receipt_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"runtimeTruthSource":{"const":"daemon-runtime"}}},"errorResponse":{"type":"object","additionalProperties":false,"required":["ok","error"],"properties":{"ok":{"const":false},"error":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","minLength":1,"maxLength":500},"message":{"type":"string","minLength":1}}}}},"lastTransition":{"type":"object","additionalProperties":false,"required":["status","request_hash","idempotency_key","proposal_operation_ref","proposal_receipt_ref","admission","error_status","error_response"],"properties":{"status":{"enum":["committed","rejected"]},"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"proposal_operation_ref":{"$ref":"#/$defs/ref"},"proposal_receipt_ref":{"$ref":"#/$defs/ref"},"admission":{"anyOf":[{"$ref":"#/$defs/lifecycleAdmission"},{"type":"null"}]},"error_status":{"anyOf":[{"type":"integer","minimum":100,"maximum":599},{"type":"null"}]},"error_response":{"anyOf":[{"$ref":"#/$defs/errorResponse"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"committed"}},"required":["status"]},"then":{"properties":{"admission":{"$ref":"#/$defs/lifecycleAdmission"},"error_status":{"type":"null"},"error_response":{"type":"null"}}},"else":{"properties":{"admission":{"type":"null"},"error_status":{"type":"integer","minimum":100,"maximum":599},"error_response":{"$ref":"#/$defs/errorResponse"}}}}]}}}"##),
     ("schema://ioi/foundations/runtime-assignment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/runtime-assignment/v1","title":"RuntimeAssignment","description":"The bounded managed-runtime placement commitment currently admitted by the daemon. It is placement evidence, not work authority, provider execution proof, or the broader planned cross-domain assignment family.","x-ioi-schema-version":"ioi.runtime-assignment.v1","type":"object","additionalProperties":false,"required":["schema_version","runtime_assignment_id","assignment_epoch","placement","assignment_hash","status"],"properties":{"schema_version":{"const":"ioi.runtime-assignment.v1"},"runtime_assignment_id":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"assignment_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"placement":{"$ref":"#/$defs/placement"},"assignment_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["admitted","active","closed","completed"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"placement":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","daemon_profile_ref","environment_ref","provider_ref","quote_ref","budget_reservation_ref","assignment_lease_ref","isolation_binding_ref","readiness_evidence_refs"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"daemon_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"quote_ref":{"$ref":"#/$defs/nullableRef"},"budget_reservation_ref":{"$ref":"#/$defs/nullableRef"},"assignment_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,500}$"},"isolation_binding_ref":{"type":"string","pattern":"^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}}}}"##),
     ("schema://ioi/foundations/download-intent/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/download-intent/v1","title":"DownloadIntent","x-ioi-schema-version":"ioi.foundations.download_intent.v1","description":"Short-lived, rights-bound authorization to fetch one exact artifact payload. Composes with ArtifactEnvelope identity: the intent commits to the exact payload_sha256 and delivery re-verifies the bytes against that commitment before serving. The intent id is NOT a bearer token — delivery re-resolves request identity and re-checks principal binding, owner scope, expiry, and revocation on every fetch. Revocation stops all future deliveries; every content delivery is admitted to the intent's owner-scoped stream BEFORE bytes are served, so the audit trail cannot claim less than what was delivered. Expiry is derived from expires_at_ms at read time, never stored as a status.","type":"object","additionalProperties":false,"required":["schema_version","intent_id","artifact","principal_ref","owner_ref","rights","expires_at_ms","status","delivery"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.download_intent.v1"},"intent_id":{"type":"string","pattern":"^download-intent://[A-Za-z0-9._:-]+$"},"artifact":{"type":"object","additionalProperties":false,"required":["artifact_kind","artifact_ref","payload_sha256","media_type"],"properties":{"artifact_kind":{"type":"string","enum":["managed_backup_export"],"description":"The artifact family this intent delivers from. Extensible only by an owner ruling in evidence-and-delivery.md — an unlisted kind is refused at mint, not interpreted."},"artifact_ref":{"type":"string","minLength":1,"description":"The exact owning resource the payload belongs to, e.g. backup://..."},"payload_sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Exact bytes commitment. Delivery re-hashes the payload against this before serving; a mismatch is a typed conflict, never a silent substitution."},"media_type":{"type":"string","minLength":1}}},"principal_ref":{"type":"string","minLength":1,"description":"The principal the intent is bound to. Delivery refuses any other authenticated principal."},"owner_ref":{"type":"string","minLength":1,"description":"The owning org:// or project:// scope the intent was admitted under."},"rights":{"type":"object","additionalProperties":false,"required":["scope_kind","resource_ref"],"properties":{"scope_kind":{"type":"string","minLength":1,"description":"The admission scope kind that authorized minting — the same scope the underlying artifact family enforces."},"resource_ref":{"type":"string","minLength":1,"description":"The resource that scope was checked against."}}},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"Epoch milliseconds. Delivery compares against the live clock; expiry is never stored as a status because a stored status goes stale."},"status":{"type":"string","enum":["active","revoked"],"description":"Lifecycle. Revocation stops future deliveries; it never rewrites the admitted delivery history."},"revocation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["revoked_at","revoked_by"],"properties":{"revoked_at":{"type":"string","minLength":1},"revoked_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37), never caller-supplied."}}},{"type":"null"}]},"delivery":{"type":"object","additionalProperties":false,"required":["supports_ranges","delivery_admissions"],"properties":{"supports_ranges":{"type":"boolean","description":"HTTP Range / resume posture. Ranges serve from the same hash-verified payload; a completed range grants nothing about the whole."},"delivery_admissions":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Count of admitted content deliveries. Admitted BEFORE bytes are served."}}},"created_at":{"type":"string","description":"Projection of the admitted mint transition's own timestamp — never the wall clock."},"updated_at":{"type":"string","description":"Projection of the latest admitted transition's timestamp."},"admitted_head":{"type":"string","description":"Head of the intent's owner-scoped admission stream, projected for CAS on successors."}}}"#),
-    ("schema://ioi/foundations/data-retention-disposition/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
+    ("schema://ioi/foundations/data-retention-disposition/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture","policy_bound_media_snapshot","foundry_dataset_snapshot","foundry_checkpoint_artifact"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane. `policy_bound_media_snapshot` was bound 2026-08-31 (M05.9) through this plane's module and is registered here 2026-09-16; `foundry_dataset_snapshot` and `foundry_checkpoint_artifact` were bound 2026-09-16 (M06.9): the payload is Foundry's content-addressed blob, `payload_state_root` is its content hash, and a blob another admitted referent still names is refused (`retention_subject_shared`) rather than destroyed under it."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","title":"AuthorityReviewReceipt","description":"Portable wallet/policy decision receipt over one exact authority request, reviewed representation, ceremony context, and independently recorded presentation and authenticator evidence.","x-ioi-schema-version":"ioi.components.wallet-network.authority-review-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.wallet-network.authority-review-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/reviewBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_review"},"receipt_profile_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"$ref":"#/$defs/decisionActorRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"type":"null"},"primitive_capabilities":{"type":"array","maxItems":0},"authority_scopes":{"type":"array","maxItems":0},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"reviewBody":{"type":"object","additionalProperties":false,"required":["authority_review_ref","authority_review_body_hash","authority_request_ref","authority_request_body_hash","principal_ref","product_session_ref","origin_binding_ref","acting_subject_ref","decision_actor_ref","authorization_subject","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","presentation_dimensions","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","auth_factor_evidence_refs","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","interaction_mode","authentication_posture","receipt_timing","decision","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_at","expires_at"],"properties":{"authority_review_ref":{"type":"string","pattern":"^review://[^\\s]{1,500}$"},"authority_review_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_ref":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"acting_subject_ref":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"decision_actor_ref":{"$ref":"#/$defs/decisionActorRef"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"presentation_dimensions":{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"$ref":"#/$defs/postureEvaluation"}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"auth_factor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"decision":{"enum":["approved","denied","edit_required","expired"]},"predecessor_authority_review_ref":{"oneOf":[{"type":"string","pattern":"^review://[^\\s]{1,500}$"},{"type":"null"}]},"predecessor_authority_review_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_request_ref":{"oneOf":[{"$ref":"#/$defs/authorityRequestRef"},{"type":"null"}]},"predecessor_authority_request_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_review_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"predecessor_authority_review_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"decision":{"const":"approved"}}},"then":{"properties":{"posture_satisfaction_evaluations":{"type":"array","items":{"allOf":[{"$ref":"#/$defs/postureEvaluation"},{"type":"object","properties":{"decision":{"const":"satisfied"}}}]}}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"presentationDimension":{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}},"postureEvaluation":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"enum":["satisfied","unsatisfied","unknown"]}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"}}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"}}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"decisionActorRef":{"type":"string","pattern":"^(?:wallet|policy|system|org)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
@@ -182471,6 +183003,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/evaluation-result/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/evaluation-result/v1","title":"EvaluationResult","description":"AN IMMUTABLE OBSERVATION AND ITS INTERPRETATION UNDER THE EPOCH — the result and the scorecard as one record: per-case observations bound to their case commitments and evidence, a verdict from the closed set pass | fail | inconclusive | blocked | invalid with the BASIS the daemon derived it on (a missing required lane is at most inconclusive; a mutable input, an inactive evaluator or undeclared nondeterminism is invalid; unavailable protected input or exhausted exposure is blocked), and the scorecard members canon says one aggregate score cannot erase: uncertainty, guardrails, applicability, cost, failures and evaluator versions. A sealed-lane result names the exposure entry its protected access appended. It carries no promotion, nomination or activation member: Evaluations emits evidence and decides nothing.","x-ioi-schema-version":"ioi.evaluation-result.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","evaluation_result_id","content_hash","owner_ref","evaluation_run_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","evaluator_revision_ref","lane","observations","verdict","verdict_basis","uncertainty","guardrail_findings","applicability_scope","cost_units","cost_unit","failures","evaluator_versions","exposure_entry_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.evaluation-result.v1"},"evaluation_result_id":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_run_ref":{"type":"string","pattern":"^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"evaluator_revision_ref":{"$ref":"#/$defs/evaluatorRevisionRef"},"lane":{"$ref":"#/$defs/lane"},"observations":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["observation_id","case_commitment","outcome","score_milli","evidence_refs"],"properties":{"observation_id":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"case_commitment":{"$ref":"#/$defs/sha256"},"outcome":{"enum":["pass","fail","error","skipped"]},"score_milli":{"$ref":"#/$defs/milli"},"evidence_refs":{"type":"array","minItems":0,"maxItems":16,"items":{"$ref":"#/$defs/evidenceRef"}}}}},"verdict":{"enum":["pass","fail","inconclusive","blocked","invalid"]},"verdict_basis":{"enum":["observed","required_lane_missing","mutable_input_refused","protected_input_unavailable","exposure_exhausted","evaluator_not_active","nondeterminism_undeclared"]},"uncertainty":{"type":"object","additionalProperties":false,"required":["method","interval_low_milli","interval_high_milli","sample_size"],"properties":{"method":{"enum":["fixed_test","sequential","anytime_valid","bayesian","frequentist","ranking","human_judgment","simulation","formal_verification","domain_acceptance"]},"interval_low_milli":{"$ref":"#/$defs/milli"},"interval_high_milli":{"$ref":"#/$defs/milli"},"sample_size":{"$ref":"#/$defs/boundedCount"}}},"guardrail_findings":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"applicability_scope":{"$ref":"#/$defs/label"},"cost_units":{"$ref":"#/$defs/boundedCount"},"cost_unit":{"enum":["tokens","usd_micros","seconds","units"]},"failures":{"type":"array","minItems":0,"maxItems":1024,"items":{"$ref":"#/$defs/label"}},"evaluator_versions":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/evaluatorRevisionRef"}},"exposure_entry_ref":{"$ref":"#/$defs/optionalExposureEntryRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","title":"ModelSwapContinuityReport","description":"THE MODEL-INDEPENDENCE TEST'S REPORT (foundry.md § Model-Swap Continuity; institutional-learning-boundary.md's five steps): the frozen snapshot — epoch, suite revision, institutional state root, policy-bound view revision, learning-boundary profile — both route contracts by record hash, the REGISTRY evidence that the incumbent was disabled before candidate evidence was admitted, the baseline and candidate results under the same epoch, the declared equivalence envelope, the observed deltas across semantic, safety, cost, latency and failure posture, unsupported dependencies, and the threshold verdict. It is a comparison and continuity proof for the declared envelope only: it grants no authority and makes no general model-equivalence claim.","x-ioi-schema-version":"ioi.model-swap-continuity-report.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"optionalDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"optionalPolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"optionalOwnerRef":{"anyOf":[{"$ref":"#/$defs/ownerRef"},{"type":"null"}]},"suiteFamilyRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}$"},"suiteRevisionRef":{"type":"string","pattern":"^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalSuiteRevisionRef":{"anyOf":[{"$ref":"#/$defs/suiteRevisionRef"},{"type":"null"}]},"evaluatorFamilyRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}$"},"evaluatorRevisionRef":{"type":"string","pattern":"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"optionalEvaluatorRevisionRef":{"anyOf":[{"$ref":"#/$defs/evaluatorRevisionRef"},{"type":"null"}]},"epochRef":{"type":"string","pattern":"^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"exposureEntryRef":{"type":"string","pattern":"^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"},"optionalExposureEntryRef":{"anyOf":[{"$ref":"#/$defs/exposureEntryRef"},{"type":"null"}]},"evidenceRef":{"type":"string","pattern":"^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"},"lane":{"enum":["visible","sealed","transfer_ood","adversarial","cross_play_ablation","external_reality","production_acceptance","independent_reproduction"]},"nondeterminismClass":{"enum":["deterministic","seeded","declared_nondeterministic"]},"label":{"type":"string","minLength":1,"maxLength":240},"milli":{"type":"integer","minimum":0,"maximum":1000},"ratioMilli":{"type":"integer","minimum":0,"maximum":100000},"signedMilli":{"type":"integer","minimum":-1000,"maximum":1000},"boundedCount":{"type":"integer","minimum":0,"maximum":1000000000},"modelRouteRef":{"type":"string","pattern":"^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"receiptOrDecisionRef":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,248}$"}},"required":["schema_version","model_swap_continuity_report_id","content_hash","owner_ref","evaluation_epoch_ref","epoch_frozen_root","suite_revision_ref","institutional_state_root","policy_bound_data_view_revision_ref","learning_boundary_profile_ref","incumbent_route_ref","incumbent_route_record_hash","incumbent_disabled_evidence","candidate_route_ref","candidate_route_record_hash","baseline_result_refs","candidate_result_refs","equivalence_envelope","observed_deltas","unsupported_dependencies","threshold_verdict","canary_refs","rollback_refs","authority_note","admitted_at"],"properties":{"schema_version":{"const":"ioi.model-swap-continuity-report.v1"},"model_swap_continuity_report_id":{"type":"string","pattern":"^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"evaluation_epoch_ref":{"$ref":"#/$defs/epochRef"},"epoch_frozen_root":{"$ref":"#/$defs/sha256"},"suite_revision_ref":{"$ref":"#/$defs/suiteRevisionRef"},"institutional_state_root":{"$ref":"#/$defs/sha256"},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"learning_boundary_profile_ref":{"anyOf":[{"type":"string","pattern":"^learning-boundary://[^\\s]{1,240}$"},{"type":"null"}]},"incumbent_route_ref":{"$ref":"#/$defs/modelRouteRef"},"incumbent_route_record_hash":{"$ref":"#/$defs/sha256"},"incumbent_disabled_evidence":{"type":"object","additionalProperties":false,"required":["lifecycle_status","observed_at","registry_record_hash"],"properties":{"lifecycle_status":{"const":"disabled"},"observed_at":{"$ref":"#/$defs/canonicalTimestamp"},"registry_record_hash":{"$ref":"#/$defs/sha256"}}},"candidate_route_ref":{"$ref":"#/$defs/modelRouteRef"},"candidate_route_record_hash":{"$ref":"#/$defs/sha256"},"baseline_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"candidate_result_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"string","pattern":"^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"}},"equivalence_envelope":{"type":"object","additionalProperties":false,"required":["semantic_rule","semantic_floor_milli","safety_floor_milli","cost_ceiling_ratio_milli","latency_ceiling_ratio_milli","failure_posture_rule"],"properties":{"semantic_rule":{"enum":["exact_match","rubric_scored","declared_equivalence_class"]},"semantic_floor_milli":{"$ref":"#/$defs/milli"},"safety_floor_milli":{"$ref":"#/$defs/milli"},"cost_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ceiling_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"failure_posture_rule":{"enum":["identical","no_new_failure_classes","declared"]}}},"observed_deltas":{"type":"object","additionalProperties":false,"required":["semantic_delta_milli","safety_delta_milli","cost_ratio_milli","latency_ratio_milli","new_failure_classes"],"properties":{"semantic_delta_milli":{"$ref":"#/$defs/signedMilli"},"safety_delta_milli":{"$ref":"#/$defs/signedMilli"},"cost_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"latency_ratio_milli":{"$ref":"#/$defs/ratioMilli"},"new_failure_classes":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/label"}}}},"unsupported_dependencies":{"type":"array","minItems":0,"maxItems":256,"items":{"$ref":"#/$defs/label"}},"threshold_verdict":{"enum":["continuity_proven_for_declared_envelope","not_proven"]},"canary_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"rollback_refs":{"type":"array","minItems":0,"maxItems":64,"items":{"$ref":"#/$defs/receiptOrDecisionRef"}},"authority_note":{"const":"grants no authority; proves continuity only for the declared task and eval envelope; a matching model name or a single score is not model independence"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/foundations/objects/improvement-role-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/improvement-role-binding/v1","title":"ImprovementRoleBindingEnvelope","description":"THE THREE TRUST FUNCTIONS OF ONE CAMPAIGN BOUND TO ACCOUNTABLE PRINCIPALS (bounded-improvement.md § ImprovementRoleBindingEnvelope; doctrine in bounded-recursive-improvement.md § Search, Judgment, And Authority). A binding names, for one campaign, which admitted deployment principals hold Search (propose candidates and investigations), Judgment (freeze and apply evaluation contracts, account for exposure) and Authority (admit, approve, activate, stop, recover). The campaign's declared `improvement_assurance_profile` is COPIED at admission and decides the checkable independence obligation the daemon derives into `independence`: `local_lightweight` requires the three functions to be separately identifiable and permits one accountable principal to hold them all (`separately_identifiable`); `independent_review` and every tier above require judgment and authority under distinct principals and search disjoint from judgment (`distinct_principals`). The daemon keys every role-separated seam on the RESOLVED caller principal against the campaign's current binding — never on a role a body declares. `content_hash` commits the body and excludes only itself and the admission stamp.","x-ioi-schema-version":"ioi.improvement-role-binding.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"campaignFamilyRef":{"type":"string","pattern":"^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingFamilyRef":{"type":"string","pattern":"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingRevisionRef":{"type":"string","pattern":"^improvement-role-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"principalRef":{"type":"string","pattern":"^user://[^\\s/?#\\\\]{1,480}$"},"principalRefs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/principalRef"}}},"required":["schema_version","improvement_role_binding_id","revision_ref","revision","predecessor_revision_ref","content_hash","owner_ref","campaign_ref","improvement_assurance_profile","bindings","independence","binding_decision_ref","admitted_at"],"properties":{"schema_version":{"const":"ioi.improvement-role-binding.v1"},"improvement_role_binding_id":{"$ref":"#/$defs/bindingFamilyRef"},"revision_ref":{"$ref":"#/$defs/bindingRevisionRef"},"revision":{"type":"integer","minimum":1,"maximum":1000000000},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/bindingRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"campaign_ref":{"$ref":"#/$defs/campaignFamilyRef"},"improvement_assurance_profile":{"enum":["local_lightweight","independent_review","protected_build","adversarial_control","threshold_recovery","failure_domain_independent"]},"bindings":{"type":"object","additionalProperties":false,"required":["search","judgment","authority"],"properties":{"search":{"$ref":"#/$defs/principalRefs"},"judgment":{"$ref":"#/$defs/principalRefs"},"authority":{"$ref":"#/$defs/principalRefs"}}},"independence":{"enum":["separately_identifiable","distinct_principals"]},"binding_decision_ref":{"$ref":"#/$defs/decisionRef"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
+    ("schema://ioi/foundations/objects/learning-impact-record/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/learning-impact-record/v1","title":"LearningImpactRecordEnvelope","description":"THE DERIVED IMPACT OF ONE INVALIDATION OVER THE LEARNING LINEAGE (institutional-learning.md § LearningImpactRecordEnvelope; doctrine institutional-learning-boundary.md § Derived Rights, Revocation, And Honest Unlearning). The trigger's subject is resolved through its owner, the daemon traverses its own lineage refs, and each affected record carries the disposition its family earns — fenced, quarantined, rebuild_required, retrain_required, recall_required or residual_exposure — with residual exposure LISTED rather than erased. A record never proves a trained model forgot: `unlearning_claim` is `none` unless the evidence its kind names exists, and a registered invariant refuses a claim above `none` with no evidence. `impact_graph_root` commits the traversed edges under `ioi.learning-impact-graph-root-jcs-sha256.v1`; `content_hash` commits the body and excludes only itself and the admission stamp.","x-ioi-schema-version":"ioi.learning-impact-record.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"impactRecordRef":{"type":"string","pattern":"^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"},"anyRef":{"type":"string","minLength":1,"maxLength":512},"label":{"type":"string","minLength":1,"maxLength":240}},"required":["schema_version","learning_impact_record_id","owner_ref","trigger","impact_graph_root","affected","residual_exposure","minimum_audit_commitment_ref","unlearning_claim","unlearning_evidence_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.learning-impact-record.v1"},"learning_impact_record_id":{"$ref":"#/$defs/impactRecordRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"trigger":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_revision_ref","decision_ref"],"properties":{"kind":{"enum":["source_right_revoked","consent_withdrawn","eligibility_excluded","route_contract_revoked","boundary_profile_superseded","retention_deleted","legal_hold_placed","label_corrected"]},"subject_ref":{"$ref":"#/$defs/anyRef"},"subject_revision_ref":{"anyOf":[{"$ref":"#/$defs/anyRef"},{"type":"null"}]},"decision_ref":{"$ref":"#/$defs/decisionRef"}}},"impact_graph_root":{"$ref":"#/$defs/sha256"},"affected":{"type":"array","minItems":0,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["ref","family","edge","disposition","basis"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"family":{"enum":["policy_bound_data_view","transformation_run","foundry_recipe_run","foundry_dataset_snapshot","foundry_program","foundry_checkpoint","foundry_qualification_proposal","foundry_artifact_intent","media_episode","media_split_manifest"]},"edge":{"$ref":"#/$defs/anyRef"},"disposition":{"enum":["fenced","quarantined","rebuild_required","retrain_required","recall_required","residual_exposure"]},"basis":{"$ref":"#/$defs/label"}}}},"residual_exposure":{"type":"array","minItems":0,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["ref","recipient_class","reason"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"recipient_class":{"enum":["external_recipient","public_disclosure","installed_artifact","delivered_export"]},"reason":{"$ref":"#/$defs/label"}}}},"minimum_audit_commitment_ref":{"$ref":"#/$defs/policyRef"},"unlearning_claim":{"enum":["none","removal_from_future_datasets","clean_retraining","verified_unlearning","deletion"]},"unlearning_evidence_refs":{"type":"array","minItems":0,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/anyRef"}},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -182785,6 +183318,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/evaluation-result/v1", r#"[{"rule_id":"evaluation_result.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.evaluation-result-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.evaluation-result-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"evaluation_result_id":{"path":"$.evaluation_result_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_run_ref":{"path":"$.evaluation_run_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"evaluator_revision_ref":{"path":"$.evaluator_revision_ref"},"lane":{"path":"$.lane"},"observations":{"path":"$.observations"},"verdict":{"path":"$.verdict"},"verdict_basis":{"path":"$.verdict_basis"},"uncertainty":{"path":"$.uncertainty"},"guardrail_findings":{"path":"$.guardrail_findings"},"applicability_scope":{"path":"$.applicability_scope"},"cost_units":{"path":"$.cost_units"},"cost_unit":{"path":"$.cost_unit"},"failures":{"path":"$.failures"},"evaluator_versions":{"path":"$.evaluator_versions"},"exposure_entry_ref":{"path":"$.exposure_entry_ref"}}}},{"rule_id":"evaluation_result.sealed_lane.names_its_exposure_entry","description":"A SEALED-LANE RESULT NAMES THE EXPOSURE ENTRY ITS PROTECTED ACCESS APPENDED; remaining exposure is derived from the admitted ledger head, never from an unreceipted counter.","expression":{"operator":"non_empty_when_in","when_path":"$.lane","values":["sealed"],"path":"$.exposure_entry_ref"}}]"#),
     ("schema://ioi/components/hypervisor/model-swap-continuity-report/v1", r#"[{"rule_id":"model_swap_continuity_report.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp, under `ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1`.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.model-swap-continuity-report-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"model_swap_continuity_report_id":{"path":"$.model_swap_continuity_report_id"},"owner_ref":{"path":"$.owner_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"epoch_frozen_root":{"path":"$.epoch_frozen_root"},"suite_revision_ref":{"path":"$.suite_revision_ref"},"institutional_state_root":{"path":"$.institutional_state_root"},"policy_bound_data_view_revision_ref":{"path":"$.policy_bound_data_view_revision_ref"},"learning_boundary_profile_ref":{"path":"$.learning_boundary_profile_ref"},"incumbent_route_ref":{"path":"$.incumbent_route_ref"},"incumbent_route_record_hash":{"path":"$.incumbent_route_record_hash"},"incumbent_disabled_evidence":{"path":"$.incumbent_disabled_evidence"},"candidate_route_ref":{"path":"$.candidate_route_ref"},"candidate_route_record_hash":{"path":"$.candidate_route_record_hash"},"baseline_result_refs":{"path":"$.baseline_result_refs"},"candidate_result_refs":{"path":"$.candidate_result_refs"},"equivalence_envelope":{"path":"$.equivalence_envelope"},"observed_deltas":{"path":"$.observed_deltas"},"unsupported_dependencies":{"path":"$.unsupported_dependencies"},"threshold_verdict":{"path":"$.threshold_verdict"},"canary_refs":{"path":"$.canary_refs"},"rollback_refs":{"path":"$.rollback_refs"},"authority_note":{"path":"$.authority_note"}}}}]"#),
     ("schema://ioi/foundations/objects/improvement-role-binding/v1", r#"[{"rule_id":"improvement_role_binding.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES: the revision ref begins with the binding id and the `/revision/` segment, which also refuses a family head in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.improvement_role_binding_id","prefix":"improvement-role-binding://","strip_prefix":"improvement-role-binding://","suffix":"/revision/"}},{"rule_id":"improvement_role_binding.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp — the campaign, the copied profile, the three principal sets, the derived independence verdict and the decision — under the domain separator `ioi.improvement-role-binding-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so a binding whose principal set was edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.improvement-role-binding-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"improvement_role_binding_id":{"path":"$.improvement_role_binding_id"},"revision_ref":{"path":"$.revision_ref"},"revision":{"path":"$.revision"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"owner_ref":{"path":"$.owner_ref"},"campaign_ref":{"path":"$.campaign_ref"},"improvement_assurance_profile":{"path":"$.improvement_assurance_profile"},"bindings":{"path":"$.bindings"},"independence":{"path":"$.independence"},"binding_decision_ref":{"path":"$.binding_decision_ref"}}}}]"#),
+    ("schema://ioi/foundations/objects/learning-impact-record/v1", r#"[{"rule_id":"learning_impact_record.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp under the domain separator `ioi.learning-impact-record-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so an affected list or a claim edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.learning-impact-record-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"learning_impact_record_id":{"path":"$.learning_impact_record_id"},"owner_ref":{"path":"$.owner_ref"},"trigger":{"path":"$.trigger"},"impact_graph_root":{"path":"$.impact_graph_root"},"affected":{"path":"$.affected"},"residual_exposure":{"path":"$.residual_exposure"},"minimum_audit_commitment_ref":{"path":"$.minimum_audit_commitment_ref"},"unlearning_claim":{"path":"$.unlearning_claim"},"unlearning_evidence_refs":{"path":"$.unlearning_evidence_refs"}}}},{"rule_id":"learning_impact_record.unlearning_claim.names_its_evidence","description":"NO UNLEARNING CLAIM WITHOUT ITS EVIDENCE: a claim above `none` names at least one evidence ref; a revocation or impact record does not prove that a trained model has forgotten the source.","expression":{"operator":"non_empty_when_in","when_path":"$.unlearning_claim","values":["removal_from_future_datasets","clean_retraining","verified_unlearning","deletion"],"path":"$.unlearning_evidence_refs"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -185304,6 +185838,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
         r#"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"#,
     ),
     (
         r#"^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}$"#,
@@ -188639,6 +189177,7 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json"))),
     ("docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json"))),
     ("docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-foundry-checkpoint-declared.json"))),
     ("docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json"))),
     ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json"))),
     ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"))),
@@ -189357,6 +189896,13 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-binding-not-a-principal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-revision-of-another-family.json"))),
     ("docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-role-binding-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-source-right-revoked.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/positive-deletion-with-evidence-and-residual-exposure.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-disposition-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-trigger-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-unlearning-claim-without-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/learning-impact-record-v1/negative-stale-content-hash.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -190915,6 +191461,11 @@ mod tests {
         },
         "schema://ioi/foundations/objects/improvement-role-binding/v1" => {
             serde_json::from_value::<ImprovementRoleBindingEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/learning-impact-record/v1" => {
+            serde_json::from_value::<LearningImpactRecordEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -192479,6 +193030,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/learning-impact-record/v1" => {
+            let projection = serde_json::from_value::<LearningImpactRecordEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -192615,8 +193171,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1558,
-            "the registered golden corpus must remain the explicit 1558-fixture bar",
+            1566,
+            "the registered golden corpus must remain the explicit 1566-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -192858,7 +193414,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1009,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1010,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

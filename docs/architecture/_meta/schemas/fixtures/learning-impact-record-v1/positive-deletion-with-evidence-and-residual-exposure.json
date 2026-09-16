@@ -1,0 +1,56 @@
+{
+  "schema_version": "ioi.learning-impact-record.v1",
+  "learning_impact_record_id": "learning-impact://acme.intake-records.deleted-1",
+  "owner_ref": "org://acme-clinic",
+  "trigger": {
+    "kind": "retention_deleted",
+    "subject_ref": "retention-disposition://rdsp_01",
+    "subject_revision_ref": null,
+    "decision_ref": "decision://acme/retention/intake/delete/1"
+  },
+  "impact_graph_root": "sha256:9e546025b927757e5b5ec3673ac5ea5d8a1eee2ab611026dbf4b83ebf36716c7",
+  "affected": [
+    {
+      "ref": "view://acme.intake-minimised/revision/1",
+      "family": "policy_bound_data_view",
+      "edge": "learning-source-rights://acme.intake-records/revision/1",
+      "disposition": "fenced",
+      "basis": "the view's read revalidates the claim at the read instant and refuses"
+    },
+    {
+      "ref": "transform://trun_0123456789abcdef0123456789abcdef",
+      "family": "transformation_run",
+      "edge": "view://acme.intake-minimised/revision/1",
+      "disposition": "quarantined",
+      "basis": "a run over a fenced view feeds nothing further"
+    },
+    {
+      "ref": "dataset-snapshot://foundry/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family": "foundry_dataset_snapshot",
+      "edge": "transform://trun_0123456789abcdef0123456789abcdef",
+      "disposition": "rebuild_required",
+      "basis": "the snapshot materialized rows the source no longer permits"
+    },
+    {
+      "ref": "checkpoint://foundry/prog_1/1/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "family": "foundry_checkpoint",
+      "edge": "dataset-snapshot://foundry/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "disposition": "retrain_required",
+      "basis": "parameters trained on the snapshot cannot be attributed or revoked"
+    }
+  ],
+  "residual_exposure": [
+    {
+      "ref": "foundry-artifact-intent://package/prog_1/9",
+      "recipient_class": "installed_artifact",
+      "reason": "an artifact delivered before the deletion; recall is a separate governed act"
+    }
+  ],
+  "minimum_audit_commitment_ref": "policy://acme/retention/intake/v3",
+  "unlearning_claim": "deletion",
+  "unlearning_evidence_refs": [
+    "retention-disposition://rdsp_01"
+  ],
+  "admitted_at": "2026-09-16T00:00:00Z",
+  "content_hash": "sha256:66feb66c238e4d89c74d8dca523ced88e757202e96f87150fcb5fc4905eb12a5"
+}

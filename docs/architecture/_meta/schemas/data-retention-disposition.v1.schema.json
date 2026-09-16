@@ -38,9 +38,12 @@
           "type": "string",
           "enum": [
             "managed_backup_export",
-            "environment_workspace_capture"
+            "environment_workspace_capture",
+            "policy_bound_media_snapshot",
+            "foundry_dataset_snapshot",
+            "foundry_checkpoint_artifact"
           ],
-          "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."
+          "description": "Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane. `policy_bound_media_snapshot` was bound 2026-08-31 (M05.9) through this plane's module and is registered here 2026-09-16; `foundry_dataset_snapshot` and `foundry_checkpoint_artifact` were bound 2026-09-16 (M06.9): the payload is Foundry's content-addressed blob, `payload_state_root` is its content hash, and a blob another admitted referent still names is refused (`retention_subject_shared`) rather than destroyed under it."
         },
         "subject_ref": {
           "type": "string",

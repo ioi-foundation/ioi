@@ -1,0 +1,67 @@
+{
+  "$id": "invariant://ioi/foundations/objects/learning-impact-record/derived-not-rewritten/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/learning-impact-record/v1",
+  "rules": [
+    {
+      "rule_id": "learning_impact_record.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp under the domain separator `ioi.learning-impact-record-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so an affected list or a claim edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-impact-record-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "learning_impact_record_id": {
+            "path": "$.learning_impact_record_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "trigger": {
+            "path": "$.trigger"
+          },
+          "impact_graph_root": {
+            "path": "$.impact_graph_root"
+          },
+          "affected": {
+            "path": "$.affected"
+          },
+          "residual_exposure": {
+            "path": "$.residual_exposure"
+          },
+          "minimum_audit_commitment_ref": {
+            "path": "$.minimum_audit_commitment_ref"
+          },
+          "unlearning_claim": {
+            "path": "$.unlearning_claim"
+          },
+          "unlearning_evidence_refs": {
+            "path": "$.unlearning_evidence_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "learning_impact_record.unlearning_claim.names_its_evidence",
+      "description": "NO UNLEARNING CLAIM WITHOUT ITS EVIDENCE: a claim above `none` names at least one evidence ref; a revocation or impact record does not prove that a trained model has forgotten the source.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.unlearning_claim",
+        "values": [
+          "removal_from_future_datasets",
+          "clean_retraining",
+          "verified_unlearning",
+          "deletion"
+        ],
+        "path": "$.unlearning_evidence_refs"
+      }
+    }
+  ]
+}
