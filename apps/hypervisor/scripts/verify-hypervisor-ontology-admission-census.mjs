@@ -633,6 +633,15 @@ const PINNED = {
   // daemon gained is one recomputed-roots field on the stage evidence and one family-root literal
   // in the legacy managed lane. A unit whose weight is in a kernel the daemon calls should barely
   // move a census of the daemon's own literals, and this one does not.
+  // Re-pinned 2026-09-16 (M06.9): modules 124 -> 125 (`learning_lineage_routes.rs`), tokens
+  // 158010 -> 158972 (+962), opaque-initialiser 3467 -> 3534 (+67), foreign-qualified 5023 -> 5073
+  // (+50); bare-undeclared 541 and EVERY writer bucket HELD — the impact record is a `FamilySpec`
+  // family on the shared chain, the fence and the walker only READ admitted streams, and the
+  // retention arms admit through the existing owner-scoped write, so no writer joined. Attributed
+  // by ONE build-safe experiment rather than per file: the new module is referenced from four
+  // others (the fences and the lineage readers), so no per-file revert builds; with the unit's
+  // seven tracked Rust files stashed and the new module parked, this census read exactly
+  // 124 / 158010 / 3467 / 5023 again, so the whole delta is this unit's.
   // Re-pinned 2026-09-15 (M10.2): tokens 157545 -> 158010 (+465), opaque-initialiser 3403 -> 3467
   // (+64), foreign-qualified 4995 -> 5023 (+28); modules 124, bare-undeclared 541 and EVERY writer
   // bucket HELD — the role binding is a `FamilySpec` family on the shared chain and the substrate's
@@ -973,7 +982,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 124,
+  modules: 125,
   familyMentions: 285,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -991,7 +1000,7 @@ const PINNED = {
   // every other pin here held on the same run, which is the evidence for that rather than an
   // assertion of it. Moved in the SAME COMMIT as the daemon change, for the third time in this
   // program's leg — the discipline M08.8 skipped and this census caught.
-  tokenMentions: 158010,
+  tokenMentions: 158972,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 254, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -1012,8 +1021,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 5023,
-    "opaque-initialiser": 3467,
+    "foreign-qualified": 5073,
+    "opaque-initialiser": 3534,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

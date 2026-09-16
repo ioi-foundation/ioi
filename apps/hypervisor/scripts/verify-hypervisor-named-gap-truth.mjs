@@ -161,6 +161,11 @@ const PINNED = {
   // hint that the other needs moving. On 2026-09-12 exactly that happened: M04.10's route moved
   // both populations, only this pin followed, and CI caught the other. Adding a route should
   // expect BOTH to move; each pin names the other so finding one leads to the second.
+  // 929 -> 932 (2026-09-16, M06.9): learning lineage — THREE distinct paths
+  // (`/v1/hypervisor/learning-lineage/impact` GET, `/v1/hypervisor/learning-impact-records`
+  // carrying GET and POST, `/v1/hypervisor/learning-impact-records/:family` GET), which is why
+  // `verify-hypervisor-environment-owner-source.mjs` moved 1197 -> 1201 in this same commit while
+  // this pin moved by three. 933 `.route(` occurrences, 933 with a path literal, 932 distinct paths.
   // 927 -> 929 (2026-09-15, M10.2): the improvement role binding and the candidate archive — TWO
   // distinct paths under `/v1/hypervisor/improvement-campaigns/:campaign_ref/` (`role-bindings`,
   // carrying GET and POST, and `candidates`, GET only), which is why
@@ -256,7 +261,7 @@ const PINNED = {
   // 867 distinct paths, and the reconciliation route carries two methods on one path, which is why
   // the occurrence count and the distinct-path count differ by one exactly as before. Moved in the
   // SAME COMMIT as the routes, which is the discipline this pin exists to enforce.
-  registeredRoutes: 929,
+  registeredRoutes: 932,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
   atlasRouteMentions: { decided: 235, unchecked: 49 },
@@ -271,6 +276,11 @@ const PINNED = {
   // standing-lease consumer loop and the standing-lease population drills among them — and two of
   // them resolve a probe URL. Every one is an honest typed absence; the pin moves because a
   // coverage count that lags its population stops being a closed world.
+  // 115 -> 116 (2026-09-16, M06.9): ONE absence-worded assertion joined, in the new
+  // `check:learning-lineage-retention` — the gate's own claim that `retention_subject_shared` was
+  // NOT observed live (one Foundry record per blob on this basis; the branch is unit-tested over
+  // planted heads) — an honest typed absence resolving no probe URL (17/17 held). Attribution is
+  // exact: with the unit's Rust files reverted and only the verifier present, this stage read 116.
   // 114 -> 115 (2026-09-15, M10.2): ONE absence-worded assertion joined, in the new
   // `check:improvement-role-separation` — a binding on a campaign that does not exist is refused —
   // an honest typed absence resolving no probe URL (17/17 held).
@@ -309,7 +319,7 @@ const PINNED = {
   // label regex, applied to the same `verify-hypervisor-*.mjs` population at the previous basis and
   // at HEAD, differs in that one file and in no other. It resolves no probe URL, which is why the
   // second stage holds at 17 while the first moves.
-  verifierAbsenceLabels: 115,
+  verifierAbsenceLabels: 116,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

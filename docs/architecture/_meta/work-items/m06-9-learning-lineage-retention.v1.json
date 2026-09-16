@@ -1,0 +1,110 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-9-learning-lineage-retention",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.9"
+  ],
+  "status": "evidence_ready",
+  "objective": "Make retention, hold, erasure and residual exposure DERIVED facts over the daemon's own lineage refs: an impact walker from a resolved invalidation through views, data recipes, transformation runs, Foundry recipes, dataset snapshots, programs, checkpoints, qualification proposals and artifact intents that derives one governed disposition per family and never rewrites an admitted record; a registered LearningImpactRecord admitted on the shared owner-scoped mutation chain that follows an invalidation the owner already admitted and refuses any unlearning claim its evidence does not support; a quarantine fence that refuses further learning over a quarantined input estate-wide; and the canonical retention owner extended to Foundry dataset snapshots and checkpoints so that destruction is a governed act whose content-keyed fact refuses restore, backup resurrection and re-materialization, while the admitted streams and receipts survive.",
+  "falsifiable_claim": "schema://ioi/foundations/objects/learning-impact-record/v1 is registered (owner institutional-learning.md § LearningImpactRecordEnvelope; doctrine institutional-learning-boundary.md § Derived Rights, Revocation, And Honest Unlearning) with invariants that re-derive its content_hash under ioi.learning-impact-record-content-commitment-jcs-sha256.v1 and require an unlearning claim other than none to name its evidence; the daemon serves GET /v1/hypervisor/learning-lineage/impact and admits POST /v1/hypervisor/learning-impact-records as a family on the shared chain (GET the inventory and GET /:family). A trigger is RESOLVED through its owner before anything binds: source_right_revoked requires a claim whose current revision is revoked, route_contract_revoked a contract whose revocation_state is revoked, boundary_profile_superseded a revision that is no longer the family head, retention_deleted and legal_hold_placed a disposition in that state (impact_trigger_not_invalid 409 otherwise; consent_withdrawn, eligibility_excluded and label_corrected are impact_trigger_unsupported 422 on this basis; an unknown subject is impact_trigger_unresolvable). A revocation seeds the walk on the FAMILY (every bound revision is invalidated); a supersession is exact to the revision. The walk derives fenced for views, quarantined for data recipes, transformation runs and Foundry recipes, rebuild_required for snapshots, retrain_required for programs, checkpoints and qualification proposals, recall_required for artifact intents, lists a delivered, exported, published or installed intent as residual exposure, commits the edges as impact_graph_root under ioi.learning-impact-graph-root-jcs-sha256.v1, and names the frontier (embeddings, models, workers, packages, releases, exports and public commitments have no daemon families). affected, residual_exposure, impact_graph_root and content_hash are server-resolved and refused when authored; minimum_audit_commitment_ref is a policy:// and required. An unlearning claim is refused false_unlearning_claim unless its evidence exists: deletion names an executed disposition, clean_retraining a program whose snapshot the invalidation does not affect, removal_from_future_datasets a Foundry recipe that no longer binds the revoked family, verified_unlearning a passing evaluation result from a formal_verifier or reproduction_harness. refuse_if_quarantined reads admitted records estate-wide and refuses learning_source_quarantined at transformation-run admission, Foundry recipe runs, program creation and qualification. DataRetentionDisposition gains foundry_dataset_snapshot and foundry_checkpoint_artifact (payload_state_root = the served content or artifact hash; a checkpoint coordinate is the program stream's hashed tail resolved from the admitted payload — a spelled program id is foundry_checkpoint_ref_invalid, an absent coordinate foundry_checkpoint_absent); delete destroys the blob once, records the content-keyed destroyed fact under the custodian's scope, keeps the admitted stream and receipts, and the same content refuses verify-restore, a backup copy put back, and re-materialization under a new run key (foundry_content_destroyed before any admission). On this basis one Foundry record owns one blob (a snapshot's ref IS its content hash; a checkpoint's bytes commit to its program), so retention_subject_shared guards a custodian the API cannot mint and is proven by a unit test over planted heads. A retention projection absent over an admitted stream answers retention_disposition_projection_missing (503) naming the chain head, never a 404. A restart reproduces every record, walk, inventory and disposition byte for byte, and the fence still holds.",
+  "canon_owners": [
+    "docs/architecture/foundations/institutional-learning-boundary.md",
+    "docs/architecture/foundations/objects/institutional-learning.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/components/daemon-runtime/api.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/learning_lineage_routes.rs",
+      "literal": "pub(crate) fn refuse_if_quarantined",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/learning_lineage_routes.rs",
+      "literal": "pub(crate) async fn handle_impact_record_admit",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/learning_lineage_routes.rs",
+      "literal": "false_unlearning_claim",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/learning_lineage_routes.rs",
+      "literal": "impact_trigger_not_invalid",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "literal": "pub(crate) fn tombstone_foundry_artifact",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "literal": "fn refuse_if_destroyed_content",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "literal": "pub(crate) fn authorized_checkpoint",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/retention_routes.rs",
+      "literal": "SUBJECT_KIND_FOUNDRY_CHECKPOINT",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/retention_routes.rs",
+      "literal": "fn missing_projection",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs",
+      "literal": "refuse_if_quarantined",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "literal": "/v1/hypervisor/learning-lineage/impact",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "literal": "schema://ioi/foundations/objects/learning-impact-record/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/objects/institutional-learning.md",
+      "literal": "LearningImpactRecordEnvelope",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-learning-lineage-retention.mjs",
+      "literal": "deriveGraphRoot",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "literal": "learning-lineage-retention",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:learning-lineage-retention 61/61 against an ISOLATED daemon, drilled 5/5 by mutate:learning-lineage-retention, floor-pinned and CI-bound in the Rust-backed verifier job beside its drill; seven Rust tests pin the pure graph logic (a revoked family reaches every bound revision and never a sibling family; a superseded boundary is exact; reach dedupes and caps; the root commits the edges; unknown members refused by name) and the two branches the API cannot reach (a spelled or absent checkpoint coordinate; shared custody over two planted heads refused until every custodian is excused, then destroyed once with one estate-wide fact). THE LINEAGE IS REAL: every hook the walker follows is an admitted revision of another plane (M10.3, M05.1, M05.7, M05.8, M06.4), the invalidation is a successor revision admitted through M10.3's own route, and each disposition is re-derived by the gate from the family rather than read back. THE ORACLES ARE INDEPENDENT: the graph root and the record's content hash are re-derived in JavaScript under canon's domain separators; the de-identification assertion is a payload scan the drill proves can go red. WRITING THE GATE FOUND SEVEN DAEMON DEFECTS the unit tests could not reach: (1) the trigger seeded the walk on the revoked REVISION while views bind the revision they read, so a revocation reached nothing — a revocation is a family fact; (2) a checkpoint's bytes commit to its program_id and a snapshot's ref IS its content hash, so the 'two custodians of one blob' premise was false on this basis — the gate now proves the honest shapes and the shared-custody branch is unit-tested over planted heads; (3) the checkpoint coordinate carries the program stream's hashed tail, not the program id, so retention could never resolve a checkpoint's scope; (4) the destroyed-content fact was admitted under the retention subject kind rather than the custodian scope's own kind and ref, which the substrate refuses; (5) the same bytes under a NEW run key hit a head conflict on the content-keyed intent stream before the destroyed-content check in durable_write could answer — the check now runs before any admission and answers foundry_content_destroyed; (6) transformation runs stream per recipe family and a successor names the exact head; (7) the retention read model was a JSON cache with no chain awareness, answering 404 'no disposition exists' over an admitted stream — it now answers 503 retention_disposition_projection_missing naming the head.",
+  "remaining_nonclaims": [
+    "The graph stops at the artifact intent: embeddings, models, workers, packages, releases, exports and public commitments have no daemon families on this basis; the walker names them as the frontier and a delivered, exported, published or installed intent reads as residual exposure. Their owners (M06.11, M08.x, M14.x) extend the walk when their families exist.",
+    "consent_withdrawn, eligibility_excluded and label_corrected are impact_trigger_unsupported: no daemon family records a consent withdrawal, an eligibility exclusion or a label correction as an admitted invalidation the walker could resolve through its owner; the walk from those kinds is owed with the families (M05.8 consent successors, M10.3 eligibility, M06.7 corrections).",
+    "verified_unlearning is evidenced by a passing evaluation result from a formal_verifier or reproduction_harness evaluator under the governed evaluation plane; the unlearning property, method and assurance result canon's Parameter And Gradient Egress section names as their own declared objects are not registered here (owner M10.4/M12.5).",
+    "A retention disposition is not rebuilt from its chain: the admitted payloads are deltas (the declare payload carries no payload state root — resolved at declaration), so a fold could not reproduce the record byte for byte; an absent projection over an admitted stream answers typed and retryable rather than inventing. The rebuild is queued as a retention-plane unit (register R-166).",
+    "policy_bound_media_snapshot is listed as a retention subject kind and resolved by no arm (a pre-existing gap of the media plane, M05.9); M06.9 neither widened nor narrowed it.",
+    "Custody is one record per content by construction today; if a future plane mints a second custodian over one blob, blob_shared_by_others and the excused-custodian rule already refuse destruction under another record's custody, proven by the unit test, not by a live run.",
+    "ACC-16 clause 12 and ACC-18 clause 12 have no composed runner on this tree; the unit's own driven gate is the evidence those clauses cite until the journeys are composed."
+  ],
+  "source_provenance": "Authored on the main tree 2026-09-16 under rulings R-165 (opened by measurement: canon owns the impact graph, the record and the residual-exposure duty in prose; the daemon held lineage refs and no walker) and R-166 (the walker, the registered record, the fence, the Foundry retention subject kinds, family-seeded revocation, one custodian per content on this basis, destroyed content refused before any admission, the chain-aware retention answer). MVP finish-line program, the 33 → 0 leg.",
+  "last_status_transaction": "2026-09-16"
+}

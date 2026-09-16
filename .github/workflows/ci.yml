@@ -886,6 +886,26 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:improvement-role-separation --workspace=@ioi/hypervisor-app
 
+      # M06.9 — learning lineage as DERIVED facts: from a revoked source right the walker reaches
+      # the view (fenced), the data recipe and its run (quarantined), the Foundry recipe
+      # (quarantined), the snapshot (rebuild_required), the programs, checkpoints and proposal
+      # (retrain_required) and the artifact intents (recall_required, residual exposure when
+      # delivered); the impact record admits on the shared chain with its graph root and content
+      # hash re-derived by the gate; every fence refuses a quarantined input; a false unlearning
+      # claim is refused by the evidence its kind names; retention declares, holds, refuses under
+      # hold, destroys the blob once, keeps the evidence, and the destroyed bytes refuse restore,
+      # a backup put back, and re-materialization under a new key; a restart reproduces every
+      # projection and a destroyed retention projection answers typed, never with a 404.
+      - name: Verify learning lineage, retention and honest unlearning (M06.9)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:learning-lineage-retention --workspace=@ioi/hypervisor-app
+
+      - name: Drill the learning lineage gate's own oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:learning-lineage-retention --workspace=@ioi/hypervisor-app
+
       - name: Publish the Rust-backed verifier census
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         uses: actions/upload-artifact@v4
