@@ -575,8 +575,14 @@ fn measured_boot_summary(data_dir: &str, node_ref: &str) -> Value {
 pub(crate) async fn handle_observation_admit(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    body: axum::body::Bytes,
 ) -> Reply {
+    // The caller is resolved before the body is parsed: an anonymous request answers 401 whether
+    // or not it carried JSON, the same answer every mutation on this surface gives.
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    if let Err(response) = require_write_caller(&st.data_dir, &headers, &body) {
+        return response;
+    }
     let profile_ref = body_str(&body, "node_enforcement_profile_ref");
     let node_ref = body_str(&body, "node_ref");
     if !profile_ref.starts_with("node-enforcement://") || !node_ref.starts_with("runtime://") {
@@ -1539,8 +1545,15 @@ pub(crate) async fn handle_route_assurance_admit(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(body): Json<Value>,
+    body: axum::body::Bytes,
 ) -> Reply {
+    // The caller is resolved before the body is parsed and before the route is looked up: an
+    // anonymous request answers 401 whether or not it carried JSON or named a route, the same
+    // answer every mutation on the model-route surface gives.
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    if let Err(response) = require_write_caller(&st.data_dir, &headers, &body) {
+        return response;
+    }
     let Some(route) = load_route_record(&st.data_dir, &id) else {
         return bad(
             StatusCode::NOT_FOUND,
