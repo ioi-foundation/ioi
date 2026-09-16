@@ -1032,7 +1032,14 @@ const PINNED = {
   // (its namespace, op kind, payload schema, code prefix) and the StatusCode/Value qualifiers it
   // uses. judgedTokenPositions 282, every writer bucket and productionFsCalls HELD on all three
   // runs. Moved in the SAME COMMIT as the daemon change.
-  tokenMentions: 161490,
+  // Re-pinned 2026-09-16 (R-172 slice S2) from 161490, +65 tokens and foreign-qualified 5165 -> 5166
+  // (+1), every other bucket HELD: the movement is work_lifecycle_routes.rs alone — the
+  // RESERVATION_GENESIS_HEAD constant (a real genesis head served for an empty reservation stream),
+  // the ReservationStream.observed_head member and its plan_reservation call, and the canonical
+  // reservation tail spelling — the two driven-run findings the S2 gate made reachable; no module
+  // added, judgedTokenPositions 282 held. Moved in the commit that follows the daemon change, after
+  // the pre-push sweep named the drift.
+  tokenMentions: 161555,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 264, runtimeParameter: 311 },
   productionFsCalls: 242,
@@ -1053,7 +1060,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 5165,
+    "foreign-qualified": 5166,
     "opaque-initialiser": 3708,
     "bare-undeclared": 541,
     "ambiguous-module": 0,
