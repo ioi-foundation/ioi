@@ -1,0 +1,74 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.outcome-room-discovery.v1",
+  "room_discovery_id": "room-discovery://acme/estate-1/rooms/alpha/1",
+  "outcome_room_ref": "outcome-room://acme/estate-1/alpha",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://acme/estate-1",
+    "parent_scope_ref": "outcome-room://acme/estate-1/alpha",
+    "proposed_or_issued_by_ref": "system://acme/estate-1",
+    "payload_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "created_at": "2026-09-16T10:00:00Z",
+    "updated_at": null
+  },
+  "publication_version": "1",
+  "published_by_ref": "system://acme/estate-1",
+  "public_goal_ref": "goal://acme/alpha/summarise-corpus",
+  "public_objective": "Summarise the public research corpus into a verified digest.",
+  "public_category_refs": [
+    "ontology://acme/research/summaries",
+    "capability://text/summarise"
+  ],
+  "coordination_topology": "hosted_admission",
+  "admission_owner_ref": "system://acme/estate-1",
+  "participation_channel_ref": "aiip://channel/acme/estate-1/alpha",
+  "collaboration_terms_ref": "terms://acme/estate-1/alpha/v1",
+  "collaboration_terms_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "semantic_and_action_profile_refs": [
+    "ontology://acme/research/summaries"
+  ],
+  "required_capability_and_worker_profile_refs": [
+    "capability://text/summarise"
+  ],
+  "eligibility_and_affiliation_policy_refs": [
+    "policy://acme/estate-1/eligibility/external-workers"
+  ],
+  "visibility_and_privacy_policy_refs": [
+    "policy://acme/estate-1/visibility/public-objective"
+  ],
+  "public_frontier_and_context_projection_refs": [
+    "projection://acme/estate-1/alpha/frontier/public"
+  ],
+  "budget_quote_and_capacity_refs": [
+    "goal-budget://acme/estate-1/alpha"
+  ],
+  "verifier_and_acceptance_posture_refs": [
+    "rubric://acme/research/digest-quality"
+  ],
+  "settlement_dispute_and_contribution_policy_refs": [
+    "policy://acme/estate-1/contribution/default"
+  ],
+  "license_retention_and_export_policy_refs": [
+    "license://acme/research/digest-cc-by"
+  ],
+  "excluded_context_classes": [
+    "raw_secret",
+    "protected_plaintext",
+    "unauthorized_connector_payload",
+    "unrelated_private_memory",
+    "private_room_database_state"
+  ],
+  "private_context_included": false,
+  "published_at": "2026-09-16T10:00:00Z",
+  "updated_at": null,
+  "valid_until": "2026-10-16T10:00:00Z",
+  "discovery_state_root": "sha256:17f20072ef70b6cc656d8a8a9343b1f6081623999de7e7c30ce448de0a49fdd0",
+  "signature": {
+    "key_suite": "ed25519",
+    "signer_ref": "system://acme/estate-1",
+    "signer_public_key": "abababababababababababababababababababababababababababababababab",
+    "signed_material_hash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "signature": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+  },
+  "status": "discoverable"
+}

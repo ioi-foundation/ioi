@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
+  "title": "OutcomeRoomDiscovery",
+  "description": "The policy-bound discovery PROJECTION of one OutcomeRoom (canonical owner: docs/architecture/domains/ioi-ai/collaborative-pursuit.md § OutcomeRoomDiscoveryEnvelope). Produced by the room's own plane from the admitted room record under the room's discovery policy — never authored by a caller and never a view of the room database: it carries the public objective, categories, declared requirements, topology, admission owner, the terms it answers to, and nothing private (the six excluded context classes are exact and private_context_included is always false). discovery_state_root commits the publication body; status is the lifecycle outside that root.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "room_discovery_id",
+    "outcome_room_ref",
+    "system_binding",
+    "publication_version",
+    "published_by_ref",
+    "public_goal_ref",
+    "public_objective",
+    "public_category_refs",
+    "coordination_topology",
+    "admission_owner_ref",
+    "participation_channel_ref",
+    "collaboration_terms_ref",
+    "collaboration_terms_root",
+    "semantic_and_action_profile_refs",
+    "required_capability_and_worker_profile_refs",
+    "eligibility_and_affiliation_policy_refs",
+    "visibility_and_privacy_policy_refs",
+    "public_frontier_and_context_projection_refs",
+    "budget_quote_and_capacity_refs",
+    "verifier_and_acceptance_posture_refs",
+    "settlement_dispute_and_contribution_policy_refs",
+    "license_retention_and_export_policy_refs",
+    "excluded_context_classes",
+    "private_context_included",
+    "published_at",
+    "updated_at",
+    "valid_until",
+    "discovery_state_root",
+    "signature",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.applications.ioi-ai.outcome-room-discovery.v1"
+    },
+    "room_discovery_id": {
+      "type": "string",
+      "pattern": "^(?:room-discovery)://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "type": "string",
+      "pattern": "^(?:outcome-room)://[^\\s]{1,500}$"
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
+    },
+    "publication_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"
+    },
+    "published_by_ref": {
+      "type": "string",
+      "pattern": "^(?:system|domain|org|service)://[^\\s]{1,500}$"
+    },
+    "public_goal_ref": {
+      "type": "string",
+      "pattern": "^(?:goal|task|service)://[^\\s]{1,500}$"
+    },
+    "public_objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "public_category_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"
+      }
+    },
+    "coordination_topology": {
+      "enum": [
+        "hosted_admission",
+        "federated_admission"
+      ]
+    },
+    "admission_owner_ref": {
+      "type": "string",
+      "pattern": "^(?:system|domain|policy)://[^\\s]{1,500}$"
+    },
+    "participation_channel_ref": {
+      "type": "string",
+      "pattern": "^aiip://channel/[^\\s]{1,500}$"
+    },
+    "collaboration_terms_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:terms)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "collaboration_terms_root": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "semantic_and_action_profile_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"
+      }
+    },
+    "required_capability_and_worker_profile_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"
+      }
+    },
+    "eligibility_and_affiliation_policy_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"
+      }
+    },
+    "visibility_and_privacy_policy_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"
+      }
+    },
+    "public_frontier_and_context_projection_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"
+      }
+    },
+    "budget_quote_and_capacity_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"
+      }
+    },
+    "verifier_and_acceptance_posture_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"
+      }
+    },
+    "settlement_dispute_and_contribution_policy_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"
+      }
+    },
+    "license_retention_and_export_policy_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:license|policy)://[^\\s]{1,500}$"
+      }
+    },
+    "excluded_context_classes": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "raw_secret",
+          "protected_plaintext",
+          "unauthorized_connector_payload",
+          "unrelated_private_memory",
+          "private_room_database_state",
+          "non_opted_in_training_trace"
+        ]
+      }
+    },
+    "private_context_included": {
+      "const": false
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "valid_until": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discovery_state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_suite",
+        "signer_ref",
+        "signer_public_key",
+        "signed_material_hash",
+        "signature"
+      ],
+      "properties": {
+        "key_suite": {
+          "enum": [
+            "ed25519"
+          ]
+        },
+        "signer_ref": {
+          "type": "string",
+          "pattern": "^(?:system|domain|org|service)://[^\\s]{1,500}$"
+        },
+        "signer_public_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "signed_material_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{128}$"
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "discoverable",
+        "paused",
+        "filled",
+        "expired",
+        "withdrawn",
+        "revoked"
+      ]
+    }
+  },
+  "$defs": {
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

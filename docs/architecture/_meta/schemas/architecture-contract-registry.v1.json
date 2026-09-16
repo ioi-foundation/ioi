@@ -11548,7 +11548,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -18243,6 +18243,137 @@
         {
           "path": "fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json",
           "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
+      "canonical_name": "CollaborationTermsEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/interop-and-collaboration-terms.md#collaborationtermsenvelope",
+      "schema_version": "ioi.collaboration-terms.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "collaboration-terms-envelope.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/collaboration-terms-envelope/bounded-scope/v2",
+          "path": "invariants/collaboration-terms-envelope.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CollaborationTermsEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CollaborationTermsEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json",
+        "fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collaboration_terms.scope.at_least_one_ref"
+        },
+        {
+          "path": "fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
+      "canonical_name": "OutcomeRoomDiscovery",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope",
+      "schema_version": "ioi.applications.ioi-ai.outcome-room-discovery.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "outcome-room-discovery.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/outcome-room-discovery/projection-not-database/v1",
+          "path": "invariants/outcome-room-discovery.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OutcomeRoomDiscoveryV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OutcomeRoomDiscoveryV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json",
+        "fixtures/room-participation-request-v3/positive-federated-discovered.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/room-participation-request-v3/negative-federated-null-discovery.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "room_participation_request.discovery.required_outside_hosted_admission"
+        },
+        {
+          "path": "fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "room_participation_request.hosted_native.requires_same_system_admission_owner"
+        },
+        {
+          "path": "fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "room_participation_request.counteroffer.requires_counterterms"
+        },
+        {
+          "path": "fixtures/room-participation-request-v3/negative-room-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "room_participation_request.room.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/room-participation-request-v3/negative-private-context-included.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/room-participation-request-v3/negative-unknown-field.json",
+          "expected_failure": "schema"
         }
       ]
     }

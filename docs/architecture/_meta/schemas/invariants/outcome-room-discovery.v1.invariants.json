@@ -1,0 +1,108 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/outcome-room-discovery/projection-not-database/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
+  "rules": [
+    {
+      "rule_id": "outcome_room_discovery.state_root.commits_publication",
+      "description": "The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status and updated_at) under its domain; a publication whose root does not recompute is not the plane's projection.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.outcome-room-discovery-state-root-jcs-sha256.v1"
+          },
+          "room_discovery_id": {
+            "path": "$.room_discovery_id"
+          },
+          "outcome_room_ref": {
+            "path": "$.outcome_room_ref"
+          },
+          "system_binding": {
+            "path": "$.system_binding"
+          },
+          "publication_version": {
+            "path": "$.publication_version"
+          },
+          "published_by_ref": {
+            "path": "$.published_by_ref"
+          },
+          "public_goal_ref": {
+            "path": "$.public_goal_ref"
+          },
+          "public_objective": {
+            "path": "$.public_objective"
+          },
+          "public_category_refs": {
+            "path": "$.public_category_refs"
+          },
+          "coordination_topology": {
+            "path": "$.coordination_topology"
+          },
+          "admission_owner_ref": {
+            "path": "$.admission_owner_ref"
+          },
+          "participation_channel_ref": {
+            "path": "$.participation_channel_ref"
+          },
+          "collaboration_terms_ref": {
+            "path": "$.collaboration_terms_ref"
+          },
+          "collaboration_terms_root": {
+            "path": "$.collaboration_terms_root"
+          },
+          "semantic_and_action_profile_refs": {
+            "path": "$.semantic_and_action_profile_refs"
+          },
+          "required_capability_and_worker_profile_refs": {
+            "path": "$.required_capability_and_worker_profile_refs"
+          },
+          "eligibility_and_affiliation_policy_refs": {
+            "path": "$.eligibility_and_affiliation_policy_refs"
+          },
+          "visibility_and_privacy_policy_refs": {
+            "path": "$.visibility_and_privacy_policy_refs"
+          },
+          "public_frontier_and_context_projection_refs": {
+            "path": "$.public_frontier_and_context_projection_refs"
+          },
+          "budget_quote_and_capacity_refs": {
+            "path": "$.budget_quote_and_capacity_refs"
+          },
+          "verifier_and_acceptance_posture_refs": {
+            "path": "$.verifier_and_acceptance_posture_refs"
+          },
+          "settlement_dispute_and_contribution_policy_refs": {
+            "path": "$.settlement_dispute_and_contribution_policy_refs"
+          },
+          "license_retention_and_export_policy_refs": {
+            "path": "$.license_retention_and_export_policy_refs"
+          },
+          "excluded_context_classes": {
+            "path": "$.excluded_context_classes"
+          },
+          "private_context_included": {
+            "path": "$.private_context_included"
+          },
+          "published_at": {
+            "path": "$.published_at"
+          },
+          "valid_until": {
+            "path": "$.valid_until"
+          }
+        },
+        "expected_path": "$.discovery_state_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "outcome_room_discovery.publication.names_its_objective",
+      "description": "A discoverable projection names a public objective and at least one category; discovery is a projection of declared public facts, never an empty advertisement.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.public_objective"
+      }
+    }
+  ]
+}

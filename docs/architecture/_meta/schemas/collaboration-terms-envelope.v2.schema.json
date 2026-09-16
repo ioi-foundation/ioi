@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
+  "title": "CollaborationTermsEnvelope",
+  "description": "Minimal registered projection of the canonical CollaborationTermsEnvelope: terms identity, the exact immutable body root, one bounded scope, and lifecycle status. The bargain body itself is hashed under ioi.collaboration-terms-body.v1 and stays outside this shape. This contract asserts no legal-person binding, no settlement, no payout, and no external federation. v2 (M11.1): the envelope names its parties and its activation rule — the members canon already lists — and `active` is DERIVED from exact-root acceptance under that rule. A record with party_roles and activation null is the thin proposer-declared profile the hosted same-system lane keeps serving; the cross-domain lane refuses it.",
+  "x-ioi-schema-version": "ioi.collaboration-terms.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "collaboration_terms_id",
+    "version",
+    "predecessor_terms_ref",
+    "terms_body_hash_profile",
+    "terms_body_root",
+    "scope",
+    "proposed_by_ref",
+    "status",
+    "party_roles",
+    "activation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.collaboration-terms.v2"
+    },
+    "collaboration_terms_id": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "predecessor_terms_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^terms://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "terms_body_hash_profile": {
+      "const": "ioi.collaboration-terms-body.v1"
+    },
+    "terms_body_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collaboration_ref",
+        "outcome_room_ref"
+      ],
+      "properties": {
+        "collaboration_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^collaboration://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome_room_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^outcome-room://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "proposed_by_ref": {
+      "type": "string",
+      "pattern": "^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "proposed",
+        "active",
+        "suspended",
+        "superseded",
+        "expired",
+        "terminated",
+        "revoked"
+      ]
+    },
+    "party_roles": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "party_ref",
+              "role",
+              "acceptance_required"
+            ],
+            "properties": {
+              "party_ref": {
+                "type": "string",
+                "pattern": "^(?:system|domain|org|wallet|service|provider)://[^\\s]{1,500}$"
+              },
+              "role": {
+                "enum": [
+                  "data_owner",
+                  "worker_provider",
+                  "compute_provider",
+                  "coordinator",
+                  "customer",
+                  "auditor",
+                  "regulator",
+                  "insurer",
+                  "verifier",
+                  "settlement_counterparty"
+                ]
+              },
+              "acceptance_required": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "activation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule",
+            "threshold",
+            "required_role_set",
+            "activation_policy_ref",
+            "activation_decision_ref",
+            "acceptance_receipt_refs"
+          ],
+          "properties": {
+            "rule": {
+              "enum": [
+                "bilateral",
+                "unanimous_required_parties",
+                "required_roles",
+                "threshold"
+              ]
+            },
+            "threshold": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "required",
+                "eligible"
+              ],
+              "properties": {
+                "required": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "eligible": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
+              }
+            },
+            "required_role_set": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "enum": [
+                  "data_owner",
+                  "worker_provider",
+                  "compute_provider",
+                  "coordinator",
+                  "customer",
+                  "auditor",
+                  "regulator",
+                  "insurer",
+                  "verifier",
+                  "settlement_counterparty"
+                ]
+              }
+            },
+            "activation_policy_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:policy)://[^\\s]{1,500}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "activation_decision_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:decision)://[^\\s]{1,500}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "acceptance_receipt_refs": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "string",
+                "pattern": "^(?:receipt)://[^\\s]{1,500}$"
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
