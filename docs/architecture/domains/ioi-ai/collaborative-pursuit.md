@@ -173,6 +173,111 @@ before any authority exists. Publishing an `OutcomeRoomDiscovery` and consuming
 a `ParticipantStateBundle` remain externally owned producers and are out of
 scope for this contract family.
 
+## OrchestrationDiscoveryEnvelope and OrchestrationParticipationRequestEnvelope
+
+These are the successors of `OutcomeRoomDiscovery` v1 and `RoomParticipationRequest`
+v3 above (registered 2026-09-16, R-172 slice S3; the predecessors remain
+registered and valid until slice S4 retires the room-hosted spine). The
+composition they belong to is not a Hypervisor plane: it is an orchestration the
+ioi.ai application composes from thread orchestration primitives — a
+coordinating thread, delegations as subagents of it, reservations on the
+work-lifecycle plane, and typed records admitted under the bounded System through
+the generic record seam (ADR 0022, ADR 0030, ADR 0031, ADR 0034). The application
+names its composition by `orchestration_ref`, which is exactly the
+`parent_scope_ref` the seam derives into every record's `SystemScopedObjectBinding`.
+The platform interprets neither.
+
+**Discovery is a policy-bound projection, never database access.** An
+`OrchestrationDiscovery` is derived by the composing application from the
+orchestration's own records and an `active` `CollaborationTerms` v3; it carries
+public projections and refs only, `private_context_included` is constantly
+false, and `discovery_state_root` commits the publication body under
+`ioi.orchestration-discovery-state-root-jcs-sha256.v1`. A publication that names
+a terms root whose record is not active is refused by the application before
+admission (ACC-13 clauses 1 and 2).
+
+```yaml
+OrchestrationDiscoveryEnvelope:
+  discovery_id: discovery://...
+  orchestration_ref: string                      # the application's composition scope; equals system_binding.parent_scope_ref
+  system_binding: SystemScopedObjectBinding
+  publication_version: semver_or_hash
+  published_by_ref: system://... | domain://... | org://... | service://...
+  public_goal_ref: goal://... | task://... | service://...
+  public_objective: string
+  public_category_refs: [...]
+  coordination_topology: hosted_admission | federated_admission
+  admission_owner_ref: system://... | domain://... | policy://...
+  participation_channel_ref: aiip://channel/...
+  collaboration_terms_ref: terms://...
+  collaboration_terms_root: hash
+  semantic_and_action_profile_refs: [...]
+  required_capability_and_worker_profile_refs: [...]
+  eligibility_and_affiliation_policy_refs: [...]
+  visibility_and_privacy_policy_refs: [...]
+  public_frontier_and_context_projection_refs: [...]
+  budget_quote_and_capacity_refs: [...]
+  verifier_and_acceptance_posture_refs: [...]
+  settlement_dispute_and_contribution_policy_refs: [...]
+  license_retention_and_export_policy_refs: [...]
+  excluded_context_classes:
+    - raw_secret
+    - protected_plaintext
+    - unauthorized_connector_payload
+    - unrelated_private_memory
+    - private_orchestration_state
+    - non_opted_in_training_trace
+  private_context_included: false
+  published_at: timestamp
+  updated_at: timestamp | null
+  valid_until: timestamp | null
+  discovery_state_root: hash
+  signature: { key_suite, signer_ref, signer_public_key, signed_material_hash, signature }
+  status: draft | discoverable | paused | filled | expired | withdrawn | revoked
+```
+
+**Participation is a signed request that carries refs, not tables; the decision
+is a revision of it.** An independently operated party outside the host
+`system_id` signs an `OrchestrationParticipationRequest` over `request_hash`
+(`ioi.orchestration-participation-request-hash-jcs-sha256.v1`), naming the
+discovery it answered and the exact active terms root. The host application
+verifies the signature and the root, refuses a request whose
+`requester_system_ref` is the host's own `system_binding.system_id` — no AIIP
+path is used inside one system (ACC-13 N1); work inside the System is a
+delegation, a subagent of the coordinating thread — and admits the request as a
+record. Its decision is a successor revision of the same record (`status`
+`submitted` → `accepted` | `refused`) whose `decision.receipt_ref` is the seam's
+receipt of the submission it answers, and whose `decision.status` is the verdict
+the record's status must equal. No participant lease, roster or membership object is
+minted anywhere; what an accepted participant holds is the accepted revision and
+its receipt (ACC-13 clause 3).
+
+```yaml
+OrchestrationParticipationRequestEnvelope:
+  participation_request_id: participation-request://...
+  system_binding: SystemScopedObjectBinding
+  orchestration_ref: string                      # equals system_binding.parent_scope_ref
+  discovery_ref: discovery://...                 # always named: the projection the requester answered
+  coordination_topology: hosted_admission | federated_admission
+  admission_owner_ref: system://... | domain://... | policy://...
+  requested_by_ref: worker://... | service://... | org://... | domain://... | system://...
+  requester_system_ref: system://... | domain://...   # never the host's own system_id
+  collaboration_terms_ref: terms://...
+  collaboration_terms_root: hash
+  terms_response: accept | counteroffer | decline
+  counterterms_ref: terms://... | null
+  capability_offer_refs: [...]
+  eligibility_evidence_refs: [...]
+  requested_role_frontier_and_visibility_refs: [...]
+  privacy_custody_and_context_policy_refs: [...]
+  private_context_included: false
+  requested_at: timestamp
+  request_hash: hash
+  signature: { key_suite, signer_ref, signer_public_key, signed_material_hash, signature }   # signer_ref = requested_by_ref
+  decision: null | { status: accepted | refused, decided_by_ref, decided_at, receipt_ref, reason_code }   # the record's status equals decision.status whenever a decision is present
+  status: submitted | accepted | refused | withdrawn | expired
+```
+
 ## OutcomeRoomEnvelope
 
 `OutcomeRoomEnvelope` is the shared collaborative-pursuit profile above one or
@@ -507,6 +612,22 @@ ParticipantStateBundleEnvelope:
   signature: required
   status: prepared | exported | acknowledged | superseded | revoked
 ```
+
+### ParticipantStateBundleEnvelope v4 — produced by the composing application, verifiable offline
+
+`schema://ioi/applications/ioi-ai/participant-state-bundle/v4` succeeds v3
+(registered 2026-09-16, R-172 slice S3). The composing application produces it
+from the orchestration's records for one accepted participation, filtering every
+ref whose context class is in `excluded_context_classes`; `bundle_root` commits
+the bundle body under `ioi.participant-state-bundle-root-jcs-sha256.v1`; the
+host System signs it; and `hosted_database_access_required` is constantly false.
+A relying party verifies the root and the signature with nothing but the bundle
+and the host's declared key. Members are v3's with `orchestration_ref` for
+`outcome_room_ref`, `participation_ref` (the accepted participation record) for
+`participant_lease_ref`, `hosted_database_access_required` for
+`room_database_access_required`, `orchestration_close` and `participation_expiry`
+in `bundle_reason`, `private_orchestration_state` among the excluded classes, and
+the structured `signature` object every S3 shape carries.
 
 ## ResourceOfferEnvelope and CapabilityOfferEnvelope
 

@@ -62,9 +62,11 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0"),
     ("schema://ioi/applications/ioi-ai/outcome-room/v2", "sha256:c422433e7cd1c76780075b3eed5b1b55e0e517daf6774d7cd99d29ed9cfe6246"),
     ("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", "sha256:c833dd239224d3d9c12f7daf39c9a05c3645b498f7ddef1dd286fd057670ec89"),
+    ("schema://ioi/applications/ioi-ai/participant-state-bundle/v4", "sha256:d8a24d7c3e6c238ad6a7d88969c4bd9c08a9f7d644e670206d075e7da88b30d1"),
     ("schema://ioi/applications/ioi-ai/resource-offer/v3", "sha256:56552f2ee0d5d7e6ef015514a2901776624befc86634b19b7bc8322e87b0ef09"),
     ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", "sha256:98f4d5cb76de13d96d3eaa27f5335aed23c3153ac9cf8c782fd3e12674edb8a9"),
     ("schema://ioi/applications/ioi-ai/room-participation-request/v3", "sha256:081004a6e83c7c9c34b166f20ea669aa0428245c32a1edbecd2db2d910628bd6"),
+    ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", "sha256:752d8c064b5fcb19abbfed0262c134e56cb6470c88a8124c0a2d465d55876856"),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", "sha256:9b7c215945dacf4a4267b583d7c21484995f652ce79d7c5146d1e2b50d4edaae"),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", "sha256:a9f4260494a490b2a60c3acb437a6b90667a5c7fb3760cb19f7b042d36747588"),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", "sha256:ef718d9b0643a361674b7173bc6b29758bec366f6e5b5b328d2f974e0818f1ca"),
@@ -360,7 +362,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/model-router/route-assurance-claim/v1", "sha256:0d906df6f2a5771b14f125fd7784dc47944289343b88da687c7c8b63f4ecd72b"),
     ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", "sha256:c1e2b2a9471e78dafe2a7e3fcc32eeecdfc195d938e8da134a34eb29980bc2d9"),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v2", "sha256:bbc2d8bfe6cd80ddff17dfac70cbf061defc0da0f86620a42fa219e3b0702919"),
+    ("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", "sha256:9deaf91a1feac222b701953b8a6a961e50d3b27aba6fa269b35a6379dd29edc6"),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", "sha256:4f180dec8f4e5a6280ec6f83fda7ec5d80a6ce6a10432a58f3b969eac2a54ad2"),
+    ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", "sha256:e83849fc04673f4731ab603c5c8a75322c3a702051eba31fd8f65876f6290b82"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -7827,6 +7831,502 @@ pub enum ParticipantStateBundleV3Status {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ParticipantStateBundleV4 {
+    pub schema_version: ParticipantStateBundleV4SchemaVersion,
+    pub participant_state_bundle_id: String,
+    pub orchestration_ref: String,
+    pub system_binding: ParticipantStateBundleV4SystemBinding,
+    pub participation_ref: String,
+    pub participant_and_home_domain_refs: Vec<String>,
+    pub coordination_topology: ParticipantStateBundleV4CoordinationTopology,
+    pub bundle_reason: ParticipantStateBundleV4BundleReason,
+    pub source_admission_watermark_ref: String,
+    pub released_or_reassigned_claim_refs: Vec<String>,
+    pub preserved_contribution_attempt_finding_and_result_refs: Vec<String>,
+    pub preserved_receipt_acceptance_settlement_and_dispute_refs: Vec<String>,
+    pub portable_artifact_and_view_refs: Vec<String>,
+    pub lineage_and_supersession_refs: Vec<String>,
+    pub export_license_retention_and_recall_policy_refs: Vec<String>,
+    pub excluded_context_classes: Vec<ParticipantStateBundleV4ExcludedContextClassesItem>,
+    pub released_future_access_refs: Vec<String>,
+    pub revocation_or_supersession_refs: Vec<String>,
+    pub revocation_effect: ParticipantStateBundleV4RevocationEffect,
+    pub bundle_artifact_ref: String,
+    pub bundle_root: String,
+    pub hosted_database_access_required: ParticipantStateBundleV4HostedDatabaseAccessRequired,
+    pub issued_at: String,
+    pub signature: ParticipantStateBundleV4Signature,
+    pub status: ParticipantStateBundleV4Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV4 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v4","title":"ParticipantStateBundle","x-ioi-schema-version":"ioi.applications.ioi-ai.participant-state-bundle.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_state_bundle_id","orchestration_ref","system_binding","participation_ref","participant_and_home_domain_refs","coordination_topology","bundle_reason","source_admission_watermark_ref","released_or_reassigned_claim_refs","preserved_contribution_attempt_finding_and_result_refs","preserved_receipt_acceptance_settlement_and_dispute_refs","portable_artifact_and_view_refs","lineage_and_supersession_refs","export_license_retention_and_recall_policy_refs","excluded_context_classes","released_future_access_refs","revocation_or_supersession_refs","revocation_effect","bundle_artifact_ref","bundle_root","hosted_database_access_required","issued_at","signature","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.participant-state-bundle.v4"},"participant_state_bundle_id":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"system_binding":{"$ref":"#/$defs/systemBinding"},"participation_ref":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$","description":"The accepted participation record this bundle is the state of."},"participant_and_home_domain_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"bundle_reason":{"enum":["checkpoint","voluntary_retirement","participation_expiry","revocation","quarantine","orchestration_close"]},"source_admission_watermark_ref":{"type":"string","pattern":"^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"},"released_or_reassigned_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"}},"preserved_contribution_attempt_finding_and_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"}},"preserved_receipt_acceptance_settlement_and_dispute_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"}},"portable_artifact_and_view_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$"}},"lineage_and_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"}},"export_license_retention_and_recall_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license|revocation)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_orchestration_state","revoked_restricted_view","non_opted_in_training_trace"]},"minItems":7,"maxItems":7,"description":"Every excluded context class, pinned exactly: least-disclosing means all of them, every time."},"released_future_access_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$"}},"revocation_or_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"}},"revocation_effect":{"enum":["none","future_access_only","restricted_view_keys_revoked","erroneous_export_superseded"]},"bundle_artifact_ref":{"type":"string","pattern":"^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},"bundle_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"hosted_database_access_required":{"const":false},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["prepared","exported","acknowledged","superseded","revoked"]}},"description":"The receipted, least-disclosing portable state of one accepted participation, produced by the composing application from the orchestration's records and verifiable with nothing but the bundle and the host's declared key (R-172 slice S3; successor of v3)."}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ParticipantStateBundleV4SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_state_bundle_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_state_bundle_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participant_state_bundle_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<ParticipantStateBundleV4SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_and_home_domain_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"participant_and_home_domain_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participant_and_home_domain_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<
+                ParticipantStateBundleV4CoordinationTopology,
+            >(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_reason: serde_json::from_value::<ParticipantStateBundleV4BundleReason>(
+                object
+                    .remove(r#"bundle_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_admission_watermark_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_admission_watermark_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_admission_watermark_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            released_or_reassigned_claim_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"released_or_reassigned_claim_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"released_or_reassigned_claim_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preserved_contribution_attempt_finding_and_result_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"preserved_contribution_attempt_finding_and_result_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"preserved_contribution_attempt_finding_and_result_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preserved_receipt_acceptance_settlement_and_dispute_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"preserved_receipt_acceptance_settlement_and_dispute_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"preserved_receipt_acceptance_settlement_and_dispute_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            portable_artifact_and_view_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"portable_artifact_and_view_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"portable_artifact_and_view_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lineage_and_supersession_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"lineage_and_supersession_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lineage_and_supersession_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            export_license_retention_and_recall_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"export_license_retention_and_recall_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"export_license_retention_and_recall_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            excluded_context_classes: serde_json::from_value::<
+                Vec<ParticipantStateBundleV4ExcludedContextClassesItem>,
+            >(
+                object
+                    .remove(r#"excluded_context_classes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"excluded_context_classes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            released_future_access_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"released_future_access_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"released_future_access_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_or_supersession_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"revocation_or_supersession_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"revocation_or_supersession_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_effect: serde_json::from_value::<ParticipantStateBundleV4RevocationEffect>(
+                object
+                    .remove(r#"revocation_effect"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_effect"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hosted_database_access_required: serde_json::from_value::<
+                ParticipantStateBundleV4HostedDatabaseAccessRequired,
+            >(
+                object
+                    .remove(r#"hosted_database_access_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"hosted_database_access_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<ParticipantStateBundleV4Signature>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ParticipantStateBundleV4Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.participant-state-bundle.v4"#)]
+    IoiApplicationsIoiAiParticipantStateBundleV4,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ParticipantStateBundleV4SystemBinding {
+    pub schema_version: ParticipantStateBundleV4SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV4SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                ParticipantStateBundleV4SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4BundleReason {
+    #[serde(rename = r#"checkpoint"#)]
+    Checkpoint,
+    #[serde(rename = r#"voluntary_retirement"#)]
+    VoluntaryRetirement,
+    #[serde(rename = r#"participation_expiry"#)]
+    ParticipationExpiry,
+    #[serde(rename = r#"revocation"#)]
+    Revocation,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"orchestration_close"#)]
+    OrchestrationClose,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4ExcludedContextClassesItem {
+    #[serde(rename = r#"raw_secret"#)]
+    RawSecret,
+    #[serde(rename = r#"protected_plaintext"#)]
+    ProtectedPlaintext,
+    #[serde(rename = r#"unauthorized_connector_payload"#)]
+    UnauthorizedConnectorPayload,
+    #[serde(rename = r#"unrelated_private_memory"#)]
+    UnrelatedPrivateMemory,
+    #[serde(rename = r#"private_orchestration_state"#)]
+    PrivateOrchestrationState,
+    #[serde(rename = r#"revoked_restricted_view"#)]
+    RevokedRestrictedView,
+    #[serde(rename = r#"non_opted_in_training_trace"#)]
+    NonOptedInTrainingTrace,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4RevocationEffect {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"future_access_only"#)]
+    FutureAccessOnly,
+    #[serde(rename = r#"restricted_view_keys_revoked"#)]
+    RestrictedViewKeysRevoked,
+    #[serde(rename = r#"erroneous_export_superseded"#)]
+    ErroneousExportSuperseded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParticipantStateBundleV4HostedDatabaseAccessRequired {
+    False,
+}
+
+impl serde::Serialize for ParticipantStateBundleV4HostedDatabaseAccessRequired {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV4HostedDatabaseAccessRequired {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ParticipantStateBundleV4Signature {
+    pub key_suite: ParticipantStateBundleV4SignatureKeySuite,
+    pub signer_ref: String,
+    pub signer_public_key: String,
+    pub signed_material_hash: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV4Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key_suite: serde_json::from_value::<ParticipantStateBundleV4SignatureKeySuite>(
+                object
+                    .remove(r#"key_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signed_material_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signed_material_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signed_material_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4SignatureKeySuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV4Status {
+    #[serde(rename = r#"prepared"#)]
+    Prepared,
+    #[serde(rename = r#"exported"#)]
+    Exported,
+    #[serde(rename = r#"acknowledged"#)]
+    Acknowledged,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ResourceOfferV3 {
     pub schema_version: ResourceOfferV3SchemaVersion,
     pub resource_offer_id: String,
@@ -8833,6 +9333,506 @@ pub enum RoomParticipationRequestV3Status {
     Admitted,
     #[serde(rename = r#"rejected"#)]
     Rejected,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV1 {
+    pub schema_version: OrchestrationParticipationRequestV1SchemaVersion,
+    pub participation_request_id: String,
+    pub system_binding: OrchestrationParticipationRequestV1SystemBinding,
+    pub orchestration_ref: String,
+    pub discovery_ref: String,
+    pub coordination_topology: OrchestrationParticipationRequestV1CoordinationTopology,
+    pub admission_owner_ref: String,
+    pub requested_by_ref: String,
+    pub requester_system_ref: String,
+    pub collaboration_terms_ref: String,
+    pub collaboration_terms_root: String,
+    pub terms_response: OrchestrationParticipationRequestV1TermsResponse,
+    pub counterterms_ref: Option<String>,
+    pub capability_offer_refs: Vec<String>,
+    pub eligibility_evidence_refs: Vec<String>,
+    pub requested_role_frontier_and_visibility_refs: Vec<String>,
+    pub privacy_custody_and_context_policy_refs: Vec<String>,
+    pub private_context_included: OrchestrationParticipationRequestV1PrivateContextIncluded,
+    pub requested_at: String,
+    pub request_hash: String,
+    pub signature: OrchestrationParticipationRequestV1Signature,
+    pub decision: Option<OrchestrationParticipationRequestV1Decision>,
+    pub status: OrchestrationParticipationRequestV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1","title":"OrchestrationParticipationRequest","description":"A signed participation request from a party outside the host System, answering a discovery projection and naming the exact active terms root; the host's decision is a successor revision of the same record. Refs cross, tables do not; no AIIP path is used inside one system_id (R-172 slice S3; successor of RoomParticipationRequest v3).","type":"object","additionalProperties":false,"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-participation-request.v1"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"discovery_ref":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$","description":"Always named: the projection the requester answered. Same-system work is a delegation, not a request."},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"requester_system_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$","description":"The requester's own System or domain; never the host's system_binding.system_id."},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"private_context_included":{"const":false},"requested_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"decision":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"}}},{"type":"null"}]},"status":{"enum":["submitted","accepted","refused","withdrawn","expired"]}},"required":["schema_version","participation_request_id","system_binding","orchestration_ref","discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","requester_system_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","private_context_included","requested_at","request_hash","signature","decision","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                OrchestrationParticipationRequestV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participation_request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participation_request_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participation_request_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<
+                OrchestrationParticipationRequestV1SystemBinding,
+            >(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            discovery_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"discovery_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"discovery_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<
+                OrchestrationParticipationRequestV1CoordinationTopology,
+            >(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requester_system_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requester_system_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requester_system_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"collaboration_terms_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_response: serde_json::from_value::<
+                OrchestrationParticipationRequestV1TermsResponse,
+            >(
+                object
+                    .remove(r#"terms_response"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_response"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            counterterms_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"counterterms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"counterterms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_offer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_offer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_offer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligibility_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligibility_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"eligibility_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_role_frontier_and_visibility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"requested_role_frontier_and_visibility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"requested_role_frontier_and_visibility_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_custody_and_context_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"privacy_custody_and_context_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"privacy_custody_and_context_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            private_context_included: serde_json::from_value::<
+                OrchestrationParticipationRequestV1PrivateContextIncluded,
+            >(
+                object
+                    .remove(r#"private_context_included"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"private_context_included"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<OrchestrationParticipationRequestV1Signature>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision:
+                serde_json::from_value::<Option<OrchestrationParticipationRequestV1Decision>>(
+                    object
+                        .remove(r#"decision"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OrchestrationParticipationRequestV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.orchestration-participation-request.v1"#)]
+    IoiApplicationsIoiAiOrchestrationParticipationRequestV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV1SystemBinding {
+    pub schema_version: OrchestrationParticipationRequestV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                OrchestrationParticipationRequestV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1TermsResponse {
+    #[serde(rename = r#"accept"#)]
+    Accept,
+    #[serde(rename = r#"counteroffer"#)]
+    Counteroffer,
+    #[serde(rename = r#"decline"#)]
+    Decline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrchestrationParticipationRequestV1PrivateContextIncluded {
+    False,
+}
+
+impl serde::Serialize for OrchestrationParticipationRequestV1PrivateContextIncluded {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV1PrivateContextIncluded {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV1Signature {
+    pub key_suite: OrchestrationParticipationRequestV1SignatureKeySuite,
+    pub signer_ref: String,
+    pub signer_public_key: String,
+    pub signed_material_hash: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV1Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key_suite:
+                serde_json::from_value::<OrchestrationParticipationRequestV1SignatureKeySuite>(
+                    object
+                        .remove(r#"key_suite"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"key_suite"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            signer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signed_material_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signed_material_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signed_material_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1SignatureKeySuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationParticipationRequestV1Decision {
+    pub status: OrchestrationParticipationRequestV1DecisionStatus,
+    pub decided_by_ref: String,
+    pub decided_at: String,
+    pub receipt_ref: String,
+    pub reason_code: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationParticipationRequestV1Decision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status: serde_json::from_value::<OrchestrationParticipationRequestV1DecisionStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1DecisionStatus {
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationParticipationRequestV1Status {
+    #[serde(rename = r#"submitted"#)]
+    Submitted,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"refused"#)]
+    Refused,
     #[serde(rename = r#"withdrawn"#)]
     Withdrawn,
     #[serde(rename = r#"expired"#)]
@@ -152402,6 +153402,562 @@ pub enum CollaborationTermsEnvelopeV2ActivationRequiredRoleSetItem {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3 {
+    pub schema_version: CollaborationTermsEnvelopeV3SchemaVersion,
+    pub collaboration_terms_id: String,
+    pub version: String,
+    pub predecessor_terms_ref: Option<String>,
+    pub terms_body_hash_profile: CollaborationTermsEnvelopeV3TermsBodyHashProfile,
+    pub terms_body_root: String,
+    pub scope: CollaborationTermsEnvelopeV3Scope,
+    pub proposed_by_ref: String,
+    pub status: CollaborationTermsEnvelopeV3Status,
+    pub party_roles: Option<Vec<CollaborationTermsEnvelopeV3PartyRolesItem>>,
+    pub activation: Option<CollaborationTermsEnvelopeV3Activation>,
+    pub system_binding: CollaborationTermsEnvelopeV3SystemBinding,
+    pub required_party_refs: Vec<String>,
+    pub acceptances: Vec<CollaborationTermsEnvelopeV3AcceptancesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v3","title":"CollaborationTermsEnvelope","description":"The exact ex-ante bargain, admitted as a System-scoped record through the generic record seam; activation is derived from exact-root acceptances and never authored ahead of them (R-172 slice S3).","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status","party_roles","activation","system_binding","required_party_refs","acceptances"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v3"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","orchestration_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"The composing application's own scope for the orchestration these terms govern; when non-null it is the parent_scope_ref the seam derives into the binding."}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]},"party_roles":{"anyOf":[{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","role","acceptance_required"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$"},"role":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]},"acceptance_required":{"type":"boolean"}}}},{"type":"null"}]},"activation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["rule","status_when_activated","accepted_root","accepted_party_refs","acceptance_receipt_refs","activated_at"],"properties":{"rule":{"enum":["unanimous_required_parties"]},"status_when_activated":{"const":"active","description":"The status this activation entails; the envelope's status equals it whenever an activation is present."},"accepted_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"}},"acceptance_receipt_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"}},"activated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}},{"type":"null"}],"description":"DERIVED by the composing application from the acceptances on record; null until every required party has accepted the exact root."},"system_binding":{"$ref":"#/$defs/systemBinding"},"required_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"description":"Every party whose exact-root acceptance activation requires."},"acceptances":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","terms_body_root","accepted_at","signature"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}}},"description":"Append-only: one exact-root acceptance per party, signed by that party over ioi.collaboration-terms-acceptance-jcs-sha256.v1."}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<CollaborationTermsEnvelopeV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_terms_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_body_hash_profile: serde_json::from_value::<
+                CollaborationTermsEnvelopeV3TermsBodyHashProfile,
+            >(
+                object
+                    .remove(r#"terms_body_hash_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_body_hash_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_body_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_body_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_body_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope: serde_json::from_value::<CollaborationTermsEnvelopeV3Scope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<CollaborationTermsEnvelopeV3Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            party_roles: serde_json::from_value::<
+                Option<Vec<CollaborationTermsEnvelopeV3PartyRolesItem>>,
+            >(
+                object
+                    .remove(r#"party_roles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"party_roles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation: serde_json::from_value::<Option<CollaborationTermsEnvelopeV3Activation>>(
+                object
+                    .remove(r#"activation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<CollaborationTermsEnvelopeV3SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_party_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_party_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_party_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptances:
+                serde_json::from_value::<Vec<CollaborationTermsEnvelopeV3AcceptancesItem>>(
+                    object
+                        .remove(r#"acceptances"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"acceptances"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3SchemaVersion {
+    #[serde(rename = r#"ioi.collaboration-terms.v3"#)]
+    IoiCollaborationTermsV3,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3TermsBodyHashProfile {
+    #[serde(rename = r#"ioi.collaboration-terms-body.v1"#)]
+    IoiCollaborationTermsBodyV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3Scope {
+    pub collaboration_ref: Option<String>,
+    pub orchestration_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3Scope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collaboration_ref","orchestration_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"The composing application's own scope for the orchestration these terms govern; when non-null it is the parent_scope_ref the seam derives into the binding."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collaboration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"collaboration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"terminated"#)]
+    Terminated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3PartyRolesItem {
+    pub party_ref: String,
+    pub role: CollaborationTermsEnvelopeV3PartyRolesItemRole,
+    pub acceptance_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3PartyRolesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["party_ref","role","acceptance_required"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$"},"role":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]},"acceptance_required":{"type":"boolean"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            party_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"party_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"party_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role: serde_json::from_value::<CollaborationTermsEnvelopeV3PartyRolesItemRole>(
+                object
+                    .remove(r#"role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"acceptance_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3PartyRolesItemRole {
+    #[serde(rename = r#"data_owner"#)]
+    DataOwner,
+    #[serde(rename = r#"worker_provider"#)]
+    WorkerProvider,
+    #[serde(rename = r#"compute_provider"#)]
+    ComputeProvider,
+    #[serde(rename = r#"coordinator"#)]
+    Coordinator,
+    #[serde(rename = r#"customer"#)]
+    Customer,
+    #[serde(rename = r#"auditor"#)]
+    Auditor,
+    #[serde(rename = r#"regulator"#)]
+    Regulator,
+    #[serde(rename = r#"insurer"#)]
+    Insurer,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"settlement_counterparty"#)]
+    SettlementCounterparty,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3Activation {
+    pub rule: CollaborationTermsEnvelopeV3ActivationRule,
+    pub status_when_activated: CollaborationTermsEnvelopeV3ActivationStatusWhenActivated,
+    pub accepted_root: String,
+    pub accepted_party_refs: Vec<String>,
+    pub acceptance_receipt_refs: Vec<String>,
+    pub activated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3Activation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["rule","status_when_activated","accepted_root","accepted_party_refs","acceptance_receipt_refs","activated_at"],"properties":{"rule":{"enum":["unanimous_required_parties"]},"status_when_activated":{"const":"active","description":"The status this activation entails; the envelope's status equals it whenever an activation is present."},"accepted_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"}},"acceptance_receipt_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"}},"activated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            rule: serde_json::from_value::<CollaborationTermsEnvelopeV3ActivationRule>(
+                object
+                    .remove(r#"rule"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rule"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status_when_activated: serde_json::from_value::<
+                CollaborationTermsEnvelopeV3ActivationStatusWhenActivated,
+            >(
+                object
+                    .remove(r#"status_when_activated"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status_when_activated"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accepted_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_party_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"accepted_party_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_party_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"acceptance_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"activated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3ActivationRule {
+    #[serde(rename = r#"unanimous_required_parties"#)]
+    UnanimousRequiredParties,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3ActivationStatusWhenActivated {
+    #[serde(rename = r#"active"#)]
+    Active,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3SystemBinding {
+    pub schema_version: CollaborationTermsEnvelopeV3SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                CollaborationTermsEnvelopeV3SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3AcceptancesItem {
+    pub party_ref: String,
+    pub terms_body_root: String,
+    pub accepted_at: String,
+    pub signature: CollaborationTermsEnvelopeV3AcceptancesItemSignature,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3AcceptancesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["party_ref","terms_body_root","accepted_at","signature"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            party_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"party_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"party_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_body_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_body_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_body_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accepted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature:
+                serde_json::from_value::<CollaborationTermsEnvelopeV3AcceptancesItemSignature>(
+                    object
+                        .remove(r#"signature"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV3AcceptancesItemSignature {
+    pub key_suite: CollaborationTermsEnvelopeV3AcceptancesItemSignatureKeySuite,
+    pub signer_ref: String,
+    pub signer_public_key: String,
+    pub signed_material_hash: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV3AcceptancesItemSignature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key_suite: serde_json::from_value::<
+                CollaborationTermsEnvelopeV3AcceptancesItemSignatureKeySuite,
+            >(
+                object
+                    .remove(r#"key_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signed_material_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signed_material_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signed_material_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV3AcceptancesItemSignatureKeySuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OutcomeRoomDiscoveryV1 {
     pub schema_version: OutcomeRoomDiscoveryV1SchemaVersion,
     pub room_discovery_id: String,
@@ -152897,6 +154453,518 @@ pub enum OutcomeRoomDiscoveryV1SignatureKeySuite {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum OutcomeRoomDiscoveryV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"discoverable"#)]
+    Discoverable,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"filled"#)]
+    Filled,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationDiscoveryV1 {
+    pub schema_version: OrchestrationDiscoveryV1SchemaVersion,
+    pub discovery_id: String,
+    pub orchestration_ref: String,
+    pub system_binding: OrchestrationDiscoveryV1SystemBinding,
+    pub publication_version: String,
+    pub published_by_ref: String,
+    pub public_goal_ref: String,
+    pub public_objective: String,
+    pub public_category_refs: Vec<String>,
+    pub coordination_topology: OrchestrationDiscoveryV1CoordinationTopology,
+    pub admission_owner_ref: String,
+    pub participation_channel_ref: String,
+    pub collaboration_terms_ref: String,
+    pub collaboration_terms_root: String,
+    pub semantic_and_action_profile_refs: Vec<String>,
+    pub required_capability_and_worker_profile_refs: Vec<String>,
+    pub eligibility_and_affiliation_policy_refs: Vec<String>,
+    pub visibility_and_privacy_policy_refs: Vec<String>,
+    pub public_frontier_and_context_projection_refs: Vec<String>,
+    pub budget_quote_and_capacity_refs: Vec<String>,
+    pub verifier_and_acceptance_posture_refs: Vec<String>,
+    pub settlement_dispute_and_contribution_policy_refs: Vec<String>,
+    pub license_retention_and_export_policy_refs: Vec<String>,
+    pub excluded_context_classes: Vec<OrchestrationDiscoveryV1ExcludedContextClassesItem>,
+    pub private_context_included: OrchestrationDiscoveryV1PrivateContextIncluded,
+    pub published_at: String,
+    pub updated_at: Option<String>,
+    pub valid_until: Option<String>,
+    pub discovery_state_root: String,
+    pub signature: OrchestrationDiscoveryV1Signature,
+    pub status: OrchestrationDiscoveryV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationDiscoveryV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-discovery/v1","title":"OrchestrationDiscovery","description":"A policy-bound discovery projection the ioi.ai application derives from an orchestration's records and its active collaboration terms; refs and public projections only, never database access (R-172 slice S3; successor of OutcomeRoomDiscovery v1).","type":"object","additionalProperties":false,"required":["schema_version","discovery_id","orchestration_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-discovery.v1"},"discovery_id":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_orchestration_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OrchestrationDiscoveryV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            discovery_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"discovery_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"discovery_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<OrchestrationDiscoveryV1SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            publication_version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"publication_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"publication_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            published_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"published_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"published_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_goal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"public_goal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_goal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_objective: serde_json::from_value::<String>(
+                object
+                    .remove(r#"public_objective"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_objective"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_category_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"public_category_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_category_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<
+                OrchestrationDiscoveryV1CoordinationTopology,
+            >(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participation_channel_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participation_channel_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participation_channel_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"collaboration_terms_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_and_action_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"semantic_and_action_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_and_action_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_capability_and_worker_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_capability_and_worker_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"required_capability_and_worker_profile_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligibility_and_affiliation_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligibility_and_affiliation_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"eligibility_and_affiliation_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visibility_and_privacy_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"visibility_and_privacy_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"visibility_and_privacy_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_frontier_and_context_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"public_frontier_and_context_projection_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"public_frontier_and_context_projection_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_quote_and_capacity_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"budget_quote_and_capacity_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"budget_quote_and_capacity_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_and_acceptance_posture_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_and_acceptance_posture_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"verifier_and_acceptance_posture_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            settlement_dispute_and_contribution_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"settlement_dispute_and_contribution_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"settlement_dispute_and_contribution_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            license_retention_and_export_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"license_retention_and_export_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"license_retention_and_export_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            excluded_context_classes: serde_json::from_value::<
+                Vec<OrchestrationDiscoveryV1ExcludedContextClassesItem>,
+            >(
+                object
+                    .remove(r#"excluded_context_classes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"excluded_context_classes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            private_context_included: serde_json::from_value::<
+                OrchestrationDiscoveryV1PrivateContextIncluded,
+            >(
+                object
+                    .remove(r#"private_context_included"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"private_context_included"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            published_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"published_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"published_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_until: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"valid_until"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_until"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            discovery_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"discovery_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"discovery_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<OrchestrationDiscoveryV1Signature>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OrchestrationDiscoveryV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationDiscoveryV1SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.orchestration-discovery.v1"#)]
+    IoiApplicationsIoiAiOrchestrationDiscoveryV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationDiscoveryV1SystemBinding {
+    pub schema_version: OrchestrationDiscoveryV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationDiscoveryV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                OrchestrationDiscoveryV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationDiscoveryV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationDiscoveryV1CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationDiscoveryV1ExcludedContextClassesItem {
+    #[serde(rename = r#"raw_secret"#)]
+    RawSecret,
+    #[serde(rename = r#"protected_plaintext"#)]
+    ProtectedPlaintext,
+    #[serde(rename = r#"unauthorized_connector_payload"#)]
+    UnauthorizedConnectorPayload,
+    #[serde(rename = r#"unrelated_private_memory"#)]
+    UnrelatedPrivateMemory,
+    #[serde(rename = r#"private_orchestration_state"#)]
+    PrivateOrchestrationState,
+    #[serde(rename = r#"non_opted_in_training_trace"#)]
+    NonOptedInTrainingTrace,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrchestrationDiscoveryV1PrivateContextIncluded {
+    False,
+}
+
+impl serde::Serialize for OrchestrationDiscoveryV1PrivateContextIncluded {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationDiscoveryV1PrivateContextIncluded {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationDiscoveryV1Signature {
+    pub key_suite: OrchestrationDiscoveryV1SignatureKeySuite,
+    pub signer_ref: String,
+    pub signer_public_key: String,
+    pub signed_material_hash: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationDiscoveryV1Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key_suite: serde_json::from_value::<OrchestrationDiscoveryV1SignatureKeySuite>(
+                object
+                    .remove(r#"key_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signer_public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signed_material_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signed_material_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signed_material_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationDiscoveryV1SignatureKeySuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationDiscoveryV1Status {
     #[serde(rename = r#"draft"#)]
     Draft,
     #[serde(rename = r#"discoverable"#)]
@@ -153621,6 +155689,62 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-hosted-export.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-superseded-root-unchanged.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("participant_state_bundle.bundle_root.commits_bundle"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-foreign-issuer.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("participant_state_bundle.issuer.is_the_host_system"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-scope-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("participant_state_bundle.scope.matches_binding_parent_scope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-database-access-required.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-excluded-class-missing.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/resource-offer/v3",
         path: "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json",
         expected_accept: true,
@@ -153767,6 +155891,78 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
         path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-submitted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-accepted-revision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-same-system-request.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.same_system.never_requests"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-hash-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.request_hash.commits_request"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-signed-by-another-party.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.signature.by_the_requester"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-counteroffer-without-counterterms.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.counteroffer.requires_counterterms"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.decision.sets_the_status"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_participation_request.scope.matches_binding_parent_scope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -165686,7 +167882,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
-        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-room-scoped.json",
         expected_accept: true,
         expected_schema_accept: true,
         expected_failure: None,
@@ -165694,7 +167890,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
-        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-collaboration-scoped-successor.json",
         expected_accept: true,
         expected_schema_accept: true,
         expected_failure: None,
@@ -165702,7 +167898,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
-        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unscoped-terms.json",
         expected_accept: false,
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
@@ -165710,7 +167906,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
-        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unregistered-settlement-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -165718,7 +167914,63 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
-        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-wrong-body-hash-profile.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-proposed-awaiting-acceptance.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-active-unanimous.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-before-active-status.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("collaboration_terms.activation.implies_active_status"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-root-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("collaboration_terms.activation.accepted_root_is_the_terms_root"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("collaboration_terms.acceptances.bind_the_exact_root"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("collaboration_terms.scope.at_least_one_ref"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -165726,7 +167978,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json",
         expected_accept: true,
         expected_schema_accept: true,
         expected_failure: None,
@@ -165734,7 +167986,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json",
         expected_accept: true,
         expected_schema_accept: true,
         expected_failure: None,
@@ -165742,39 +167994,23 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json",
-        expected_accept: false,
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json",
+        expected_accept: true,
         expected_schema_accept: true,
-        expected_failure: Some("invariant"),
-        expected_rule_id: Some("room_participation_request.discovery.required_outside_hosted_admission"),
+        expected_failure: None,
+        expected_rule_id: None,
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-root-does-not-recompute.json",
         expected_accept: false,
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
-        expected_rule_id: Some("room_participation_request.hosted_native.requires_same_system_admission_owner"),
+        expected_rule_id: Some("outcome_room_discovery.state_root.commits_publication"),
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json",
-        expected_accept: false,
-        expected_schema_accept: true,
-        expected_failure: Some("invariant"),
-        expected_rule_id: Some("room_participation_request.counteroffer.requires_counterterms"),
-    },
-    GoldenFixture {
-        contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json",
-        expected_accept: false,
-        expected_schema_accept: true,
-        expected_failure: Some("invariant"),
-        expected_rule_id: Some("room_participation_request.room.matches_binding_parent_scope"),
-    },
-    GoldenFixture {
-        contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-private-context-included.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -165782,7 +168018,55 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
-        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-excluded-class-missing.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-hosted-discoverable.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-withdrawn-root-unchanged.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_discovery.state_root.commits_publication"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration_discovery.scope.matches_binding_parent_scope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -168367,6 +170651,83 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-hosted-export.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-hosted-export.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-superseded-root-unchanged.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-superseded-root-unchanged.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-foreign-issuer.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-foreign-issuer.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-scope-mismatch.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-scope-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-database-access-required.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-database-access-required.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-excluded-class-missing.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v4"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-excluded-class-missing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
         source_fixture_path: Some(
@@ -168569,6 +170930,105 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-submitted.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-submitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-accepted-revision.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-accepted-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-same-system-request.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-same-system-request.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-hash-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-hash-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-signed-by-another-party.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-signed-by-another-party.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-counteroffer-without-counterterms.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-counteroffer-without-counterterms.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -184955,43 +187415,43 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-room-scoped.json"#,
         contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v2"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-room-scoped.json"#,
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-collaboration-scoped-successor.json"#,
         contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v2"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-collaboration-scoped-successor.json"#,
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unscoped-terms.json"#,
         contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v2"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unscoped-terms.json"#,
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unregistered-settlement-field.json"#,
         contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v2"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unregistered-settlement-field.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -184999,10 +187459,10 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-wrong-body-hash-profile.json"#,
         contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v2"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-wrong-body-hash-profile.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -185010,10 +187470,76 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"#,
-        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-proposed-awaiting-acceptance.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-proposed-awaiting-acceptance.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-active-unanimous.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-active-unanimous.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-before-active-status.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-before-active-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-root-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-root-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -185021,10 +187547,54 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-private-context-included.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-private-context-included.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -185032,10 +187602,10 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-excluded-class-missing.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-excluded-class-missing.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -185043,10 +187613,54 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json"#,
-        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-hosted-discoverable.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-hosted-discoverable.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-withdrawn-root-unchanged.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-withdrawn-root-unchanged.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -185054,43 +187668,10 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json"#,
-        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration-discovery/v1"#,
         source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json"#,
-        ),
-        mutation_id: None,
-        value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
-    },
-    ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"#,
-        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
-        source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"#,
-        ),
-        mutation_id: None,
-        value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
-    },
-    ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"#,
-        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
-        source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"#,
-        ),
-        mutation_id: None,
-        value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
-    },
-    ArchitectureContractDifferentialCase {
-        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"#,
-        contract_id: r#"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1"#,
-        source_fixture_path: Some(
-            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"#,
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -186529,9 +189110,11 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1","title":"OutcomeRoomDiscussionProjection","x-ioi-schema-version":"ioi.applications.ioi-ai.outcome-room-discussion-projection.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","source_admission_receipt_refs","visibility_policy_ref","information_flow_label_refs","permitted_subject_refs","message_refs","redaction_summary_refs","replay_cursor","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room-discussion-projection.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_admission_receipt_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"visibility_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"permitted_subject_refs":{"type":"array","maxItems":67,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"message_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"redaction_summary_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"replay_cursor":{"type":"string","minLength":1,"maxLength":500},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#),
     ("schema://ioi/applications/ioi-ai/outcome-room/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room/v2","title":"OutcomeRoom","x-ioi-schema-version":"ioi.applications.ioi-ai.outcome-room.v2","type":"object","additionalProperties":false,"required":["schema_version","outcome_room_id","system_id","genesis_ref","package_id","manifest_ref","constitution_ref","active_profile_refs","autonomous_system_state_ref","owner_or_sponsor_ref","objective_ref","objective","constraint_refs","acceptance_criteria_refs","stop_policy_ref","room_mode","visibility_policy_ref","participation_policy_ref","privacy_policy_ref","contribution_policy_ref","cooperation_surplus_policy_ref","collaboration_terms_refs","discovery_and_external_admission_policy_refs","artifact_license_rights_retention_and_export_policy_refs","coordination_topology","coordination_policy_ref","host_domain_ref","ordering_and_merge_policy_ref","conflict_and_failover_policy_ref","multi_party_collaboration_ref","ontology_profile_refs","scorecard_and_guardrail_refs","verifier_path_refs","resource_and_budget_refs","settlement_policy_ref","participant_lease_refs","member_goal_run_refs","participation_request_refs","resource_offer_refs","capability_offer_refs","frontier_item_refs","attempt_refs","finding_refs","verifier_challenge_refs","discussion_projection_refs","admission_and_replay_refs","contribution_refs","participant_state_bundle_refs","latest_sequence","latest_transition_commitment_ref","room_state_root","room_receipt_root","status"],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room.v2"},"outcome_room_id":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"genesis_ref":{"anyOf":[{"type":"string","pattern":"^genesis://[^\\s]{1,500}$"},{"type":"null"}]},"package_id":{"type":"string","pattern":"^package://[^\\s]{1,500}$"},"manifest_ref":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/[^\\s?#\\\\]{1,160}$"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,500}$"},"active_profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"},"ordering_admission_finality_profile_ref":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,500}$"},"oracle_evidence_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,500}$"}},"lifecycle_continuity_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,500}$"},"network_enrollment_ref":{"anyOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,500}$"},{"type":"null"}]}}},"autonomous_system_state_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,500}$"},"owner_or_sponsor_ref":{"type":"string","pattern":"^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$"},"objective_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"objective":{"type":"string","minLength":1,"maxLength":4096},"constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:constraint|policy|budget)://[^\\s]{1,500}$"}},"acceptance_criteria_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:rubric|gate|policy)://[^\\s]{1,500}$"}},"stop_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"room_mode":{"enum":["private_goal","permissioned_team","cross_org","open_challenge"]},"visibility_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"participation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"privacy_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"cooperation_surplus_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"collaboration_terms_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"}},"discovery_and_external_admission_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|room-discovery|aiip)://[^\\s]{1,500}$"}},"artifact_license_rights_retention_and_export_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"coordination_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"host_domain_ref":{"anyOf":[{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$"},{"type":"null"}]},"ordering_and_merge_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"conflict_and_failover_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"multi_party_collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"ontology_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$"}},"scorecard_and_guardrail_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$"}},"verifier_path_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-path://[^\\s]{1,500}$"}},"resource_and_budget_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-pool|budget|goal-budget|order)://[^\\s]{1,500}$"}},"settlement_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"}},"member_goal_run_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"}},"participation_request_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"}},"resource_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^resource-offer://[^\\s]{1,500}$"}},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^capability-offer://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"}},"discussion_projection_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:projection|message)://[^\\s]{1,500}$"}},"admission_and_replay_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:receipt|replay|agentgres)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"participant_state_bundle_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"}},"latest_sequence":{"type":"integer","minimum":0,"maximum":127},"latest_transition_commitment_ref":{"type":"string","pattern":"^commitment://[^\\s]{1,500}$"},"room_state_root":{"$ref":"#/$defs/hash"},"room_receipt_root":{"$ref":"#/$defs/hash"},"status":{"enum":["proposed","open","active","paused","blocked","verifying","accepted","disputed","settled","closed","revoked","archived"]}}}"##),
     ("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","title":"ParticipantStateBundle","x-ioi-schema-version":"ioi.applications.ioi-ai.participant-state-bundle.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_state_bundle_id","outcome_room_ref","system_binding","participant_lease_ref","participant_and_home_domain_refs","coordination_topology","bundle_reason","source_admission_watermark_ref","released_or_reassigned_claim_refs","preserved_contribution_attempt_finding_and_result_refs","preserved_receipt_acceptance_settlement_and_dispute_refs","portable_artifact_and_view_refs","lineage_and_supersession_refs","export_license_retention_and_recall_policy_refs","excluded_context_classes","released_future_access_refs","revocation_or_supersession_refs","revocation_effect","bundle_artifact_ref","bundle_root","room_database_access_required","issued_at","signature","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.participant-state-bundle.v3"},"participant_state_bundle_id":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"participant_and_home_domain_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"bundle_reason":{"enum":["checkpoint","voluntary_retirement","lease_expiry","revocation","quarantine","room_close"]},"source_admission_watermark_ref":{"type":"string","pattern":"^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"},"released_or_reassigned_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"}},"preserved_contribution_attempt_finding_and_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"}},"preserved_receipt_acceptance_settlement_and_dispute_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"}},"portable_artifact_and_view_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$"}},"lineage_and_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"}},"export_license_retention_and_recall_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license|revocation)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","revoked_restricted_view","non_opted_in_training_trace"]}},"released_future_access_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$"}},"revocation_or_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"}},"revocation_effect":{"enum":["none","future_access_only","restricted_view_keys_revoked","erroneous_export_superseded"]},"bundle_artifact_ref":{"type":"string","pattern":"^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},"bundle_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"room_database_access_required":{"const":false},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"string","minLength":1,"maxLength":16000},"status":{"enum":["prepared","exported","acknowledged","superseded","revoked"]}}}"##),
+    ("schema://ioi/applications/ioi-ai/participant-state-bundle/v4", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v4","title":"ParticipantStateBundle","x-ioi-schema-version":"ioi.applications.ioi-ai.participant-state-bundle.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_state_bundle_id","orchestration_ref","system_binding","participation_ref","participant_and_home_domain_refs","coordination_topology","bundle_reason","source_admission_watermark_ref","released_or_reassigned_claim_refs","preserved_contribution_attempt_finding_and_result_refs","preserved_receipt_acceptance_settlement_and_dispute_refs","portable_artifact_and_view_refs","lineage_and_supersession_refs","export_license_retention_and_recall_policy_refs","excluded_context_classes","released_future_access_refs","revocation_or_supersession_refs","revocation_effect","bundle_artifact_ref","bundle_root","hosted_database_access_required","issued_at","signature","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.participant-state-bundle.v4"},"participant_state_bundle_id":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"system_binding":{"$ref":"#/$defs/systemBinding"},"participation_ref":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$","description":"The accepted participation record this bundle is the state of."},"participant_and_home_domain_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"bundle_reason":{"enum":["checkpoint","voluntary_retirement","participation_expiry","revocation","quarantine","orchestration_close"]},"source_admission_watermark_ref":{"type":"string","pattern":"^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"},"released_or_reassigned_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"}},"preserved_contribution_attempt_finding_and_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"}},"preserved_receipt_acceptance_settlement_and_dispute_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"}},"portable_artifact_and_view_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$"}},"lineage_and_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"}},"export_license_retention_and_recall_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license|revocation)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_orchestration_state","revoked_restricted_view","non_opted_in_training_trace"]},"minItems":7,"maxItems":7,"description":"Every excluded context class, pinned exactly: least-disclosing means all of them, every time."},"released_future_access_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$"}},"revocation_or_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"}},"revocation_effect":{"enum":["none","future_access_only","restricted_view_keys_revoked","erroneous_export_superseded"]},"bundle_artifact_ref":{"type":"string","pattern":"^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},"bundle_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"hosted_database_access_required":{"const":false},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["prepared","exported","acknowledged","superseded","revoked"]}},"description":"The receipted, least-disclosing portable state of one accepted participation, produced by the composing application from the orchestration's records and verifiable with nothing but the bundle and the host's declared key (R-172 slice S3; successor of v3)."}"##),
     ("schema://ioi/applications/ioi-ai/resource-offer/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/resource-offer/v3","title":"ResourceOffer","description":"A room-scoped typed profile over existing provider inventory and resource-allocation objects. An offer is not a second marketplace and grants no allocation by itself. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","x-ioi-schema-version":"ioi.applications.ioi-ai.resource-offer.v3","type":"object","additionalProperties":false,"required":["schema_version","resource_offer_id","system_binding","provider_participant_lease_ref","backing_provider_ref","resource_profile_ref","capacity_and_availability_ref","locality_and_custody_refs","trust_and_assurance_refs","cost_ref","eligible_work_classes","policy_constraint_refs","allocation_policy_ref","queue_preemption_and_fairness_policy_ref","expires_at","allocation_decision_refs","spend_and_contribution_refs","usage_and_consumption_refs","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.resource-offer.v3"},"resource_offer_id":{"type":"string","pattern":"^resource-offer://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"provider_participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"backing_provider_ref":{"type":"string","pattern":"^(?:provider|org|domain|system)://[^\\s]{1,500}$"},"resource_profile_ref":{"type":"string","pattern":"^(?:resource|runtime|node)://[^\\s]{1,500}$"},"capacity_and_availability_ref":{"type":"string","pattern":"^(?:capacity|schedule)://[^\\s]{1,500}$"},"locality_and_custody_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:region|custody|privacy_posture)://[^\\s]{1,500}$"}},"trust_and_assurance_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|certification_claim|receipt)://[^\\s]{1,500}$"}},"cost_ref":{"anyOf":[{"type":"string","pattern":"^(?:quote|budget)://[^\\s]{1,500}$"},{"type":"null"}]},"eligible_work_classes":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"policy_constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}},"allocation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"queue_preemption_and_fairness_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"expires_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"allocation_decision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:allocation|receipt)://[^\\s]{1,500}$"}},"spend_and_contribution_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:spend|contribution|receipt)://[^\\s]{1,500}$"}},"usage_and_consumption_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ledger|receipt|work-credit)://[^\\s]{1,500}$"}},"status":{"enum":["offered","queued","allocated","exhausted","withdrawn","expired","revoked"]}}}"##),
     ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","title":"RoomParticipantLease","description":"Room participation as an explicit bounded lease rather than ambient membership. The default term is time-bounded; a null expires_at or ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception. Freshness is evaluated against wallet.network resolved_at_ms and receipt:// lease receipts; this contract adds no heartbeat object.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participant-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_lease_id","system_binding","outcome_room_ref","participant_ref","admitted_role","operator_ref","home_domain_ref","join_request_ref","collaboration_terms_ref","accepted_terms_root","terms_acceptance_ref","admission_decision_ref","visibility_scope_ref","capability_advertisement_refs","context_and_authority_lease_refs","runtime_resource_and_budget_lease_refs","current_claim_ref","lease_epoch","revocation_epoch","issued_at","effective_at","expires_at","renew_after","renewal_policy_ref","unbounded_term_exception_decision_ref","heartbeat_policy_ref","heartbeat_ref","ttl_seconds","status"],"$defs":{"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/nullableTimestamp"}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participant-lease.v3"},"participant_lease_id":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$"},"admitted_role":{"enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"operator_ref":{"type":"string","pattern":"^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$"},"home_domain_ref":{"type":"string","pattern":"^(?:domain|system|agentgres)://[^\\s]{1,500}$"},"join_request_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation-request|proposal)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"accepted_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"admission_decision_ref":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,500}$"},"visibility_scope_ref":{"type":"string","pattern":"^(?:policy|restricted_view)://[^\\s]{1,500}$"},"capability_advertisement_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"context_and_authority_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:context_lease|grant|authority)://[^\\s]{1,500}$"}},"runtime_resource_and_budget_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:lease|resource-lease|budget)://[^\\s]{1,500}$"}},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"lease_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"issued_at":{"$ref":"#/$defs/timestamp"},"effective_at":{"$ref":"#/$defs/timestamp"},"expires_at":{"$ref":"#/$defs/nullableTimestamp"},"renew_after":{"$ref":"#/$defs/nullableTimestamp"},"renewal_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"unbounded_term_exception_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,500}$"},{"type":"null"}]},"heartbeat_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"ttl_seconds":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"status":{"enum":["invited","joining","active","sleeping","waiting","suspended","quarantined","retiring","retired","revoked"]}}}"##),
     ("schema://ioi/applications/ioi-ai/room-participation-request/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","title":"RoomParticipationRequest","description":"A typed request to participate in one OutcomeRoom. room_discovery_ref may be null only on the hosted same-system lane, where coordination_topology is hosted_admission and admission_owner_ref is the exact system_binding.system_id; every other request must name the discovery projection it answered. The request creates no membership, authority, work, or contribution eligibility.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participation-request.v3","type":"object","additionalProperties":false,"required":["schema_version","participation_request_id","system_binding","outcome_room_ref","room_discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","request_hash","private_context_included","admission_decision_ref","participant_lease_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participation-request.v3"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"room_discovery_ref":{"anyOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"private_context_included":{"const":false},"admission_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["draft","submitted","evaluating","admitted","rejected","withdrawn","expired"]}}}"##),
+    ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-participation-request/v1","title":"OrchestrationParticipationRequest","description":"A signed participation request from a party outside the host System, answering a discovery projection and naming the exact active terms root; the host's decision is a successor revision of the same record. Refs cross, tables do not; no AIIP path is used inside one system_id (R-172 slice S3; successor of RoomParticipationRequest v3).","type":"object","additionalProperties":false,"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-participation-request.v1"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"Equals system_binding.parent_scope_ref."},"discovery_ref":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$","description":"Always named: the projection the requester answered. Same-system work is a delegation, not a request."},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"requester_system_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$","description":"The requester's own System or domain; never the host's system_binding.system_id."},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"private_context_included":{"const":false},"requested_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"decision":{"anyOf":[{"type":"object","additionalProperties":false,"required":["status","decided_by_ref","decided_at","receipt_ref","reason_code"],"properties":{"status":{"enum":["accepted","refused"],"description":"The verdict; the record's status equals it whenever a decision is present."},"decided_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$","description":"The seam's receipt of the revision that carries this decision."},"reason_code":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,80}$"}}},{"type":"null"}]},"status":{"enum":["submitted","accepted","refused","withdrawn","expired"]}},"required":["schema_version","participation_request_id","system_binding","orchestration_ref","discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","requester_system_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","private_context_included","requested_at","request_hash","signature","decision","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","title":"VerifierChallenge","x-ioi-schema-version":"ioi.applications.ioi-ai.verifier-challenge.v3","type":"object","additionalProperties":false,"required":["schema_version","verifier_challenge_id","outcome_room_ref","system_binding","challenger_ref","challenged_ref","challenge_kind","challenge_evidence_refs","adjudicator_policy_ref","prior_rule_version_ref","proposed_rule_version_ref","affected_attempt_refs","reverification_required","adjudication_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.verifier-challenge.v3"},"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"prior_rule_version_ref":{"anyOf":[{"type":"string","pattern":"^(?:rubric|verifier-path)://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_rule_version_ref":{"anyOf":[{"type":"string","pattern":"^(?:rubric|verifier-path)://[^\\s]{1,500}$"},{"type":"null"}]},"affected_attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"reverification_required":{"type":"boolean"},"adjudication_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"##),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","title":"WorkClaimLease","x-ioi-schema-version":"ioi.applications.ioi-ai.work-claim-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","work_claim_id","outcome_room_ref","system_binding","frontier_item_ref","claimant_ref","claimant_participant_lease_ref","eligibility_match_receipt_ref","task_offer_ref","task_acceptance_ref","routing_decision_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","contribution_policy_ref","quote_ref","budget_reservation_ref","settlement_profile_ref","bounded_scope_ref","context_lease_refs","authority_resource_compute_data_budget_and_tool_lease_refs","duplicate_work_policy","issued_at","expires_at","heartbeat_ref","renewal_count","release_or_reassignment_reason","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.work-claim-lease.v3"},"work_claim_id":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"eligibility_match_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"task_offer_ref":{"anyOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"task_acceptance_ref":{"anyOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"routing_decision_ref":{"anyOf":[{"type":"string","pattern":"^routing-decision://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"quote_ref":{"anyOf":[{"type":"string","pattern":"^quote://[^\\s]{1,500}$"},{"type":"null"}]},"budget_reservation_ref":{"anyOf":[{"type":"string","pattern":"^(?:budget|spend|allocation)://[^\\s]{1,500}$"},{"type":"null"}]},"settlement_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^(?:task|task-brief|policy)://[^\\s]{1,500}$"},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^context-lease://[^\\s]{1,500}$"}},"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"}},"duplicate_work_policy":{"enum":["exclusive","allowed","independent_replication","adversarial_replication"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^(?:heartbeat|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"renewal_count":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"release_or_reassignment_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":1000},{"type":"null"}]},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"frontier_item_ref":{"type":"string"},"claimant_participant_lease_ref":{"type":"string"},"eligibility_match_receipt_ref":{"type":"string"}}},"else":{"properties":{"system_binding":{"type":"null"},"claimant_participant_lease_ref":{"type":"null"},"eligibility_match_receipt_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"active"}}},"then":{"properties":{"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","minItems":1}}}}]}"##),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","title":"WorkFrontierItem","x-ioi-schema-version":"ioi.applications.ioi-ai.work-frontier-item.v3","type":"object","additionalProperties":false,"required":["schema_version","frontier_item_id","system_binding","item_kind","objective","dependency_refs","related_attempt_and_finding_refs","required_capability_refs","required_context_resource_authority_and_evidence_refs","expected_value","uncertainty","priority","duplication_policy","claimability","max_concurrency","expires_at","stop_condition_ref","status"],"$defs":{"nullableNumber":{"anyOf":[{"type":"number"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.work-frontier-item.v3"},"frontier_item_id":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1,"maxLength":4000},"dependency_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|attempt|finding)://[^\\s]{1,500}$"}},"related_attempt_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|finding)://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability|worker|tool)://[^\\s]{1,500}$"}},"required_context_resource_authority_and_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:context-profile|resource|evidence)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"expected_value":{"$ref":"#/$defs/nullableNumber"},"uncertainty":{"$ref":"#/$defs/nullableNumber"},"priority":{"$ref":"#/$defs/nullableNumber"},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"max_concurrency":{"anyOf":[{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"null"}]},"expires_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"stop_condition_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"##),
@@ -186827,7 +189410,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/model-router/route-assurance-claim/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/model-router/route-assurance-claim/v1","title":"RouteAssuranceClaimEnvelope","x-ioi-schema-version":"ioi.model-router.route-assurance-claim.v1","description":"The DERIVED assurance class (or unevidenced) of one model route, never authored: contractual_privacy (the provider promises, in a rights contract), workload_isolation (an admitted immutable workload isolation binding), confidential_compute_declared (the route declares a posture nobody appraised) or custody_proven_no_plaintext (a verified measured-boot receipt with a nonce-fresh appraisal under separated attester/verifier/appraiser/relying-party roles, current endorsements, the key and protected-data owners, an observable-path table on which no provider observes plaintext, and physical egress coverage). An unavailable, stale, ambiguous, withdrawn or unsupported appraisal downgrades to the strongest class the remaining evidence supports and never falls back to a stronger label; the downgrade names its reason. Owner: model-router/doctrine.md § Route Assurance Classes (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","revision","predecessor_ref","owner_ref","principal_ref","route_ref","route_custody_hash","requested_class","effective_class","downgrade_reason","declared_posture","evidence","refusals","appraised_at","expires_at","revocation_epoch","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.model-router.route-assurance-claim.v1"},"claim_ref":{"type":"string","pattern":"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The relying party: the resolved principal that asked for the class."},"route_ref":{"type":"string","pattern":"^model-route://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"route_custody_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"JCS-SHA256 over the route's custody block and provider binding as the daemon served them at derivation; a route edited afterwards no longer matches its claim."},"requested_class":{"type":"string","enum":["contractual_privacy","workload_isolation","confidential_compute_declared","custody_proven_no_plaintext"]},"effective_class":{"type":"string","enum":["contractual_privacy","workload_isolation","confidential_compute_declared","custody_proven_no_plaintext","unevidenced"],"description":"The class the evidence supports; unevidenced when nothing supports any class — a refused or evidence-less claim never names a class it lacks."},"downgrade_reason":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"declared_posture":{"type":"object","additionalProperties":false,"required":["execution_privacy_posture","weight_class","mount_target","remote_provider_can_read_weights"],"properties":{"execution_privacy_posture":{"type":"string","minLength":1,"pattern":"^[a-z][a-z0-9_]*$","description":"The route's declared execution privacy posture exactly as the model-route plane serves it (its custody admission serves private_native, ctee_split, encrypted_storage_only, confidential_compute, remote_api_provider_trust and unsafe_plaintext_mount; canon's ExecutionPrivacyPosture names the four public classes). The label is recorded, never promoted: the effective class is derived from the custody facts beside it."},"weight_class":{"type":"string","enum":["public_open_weight","user_local_private_weight","remote_api_private_weight","provider_trust_remote_mount","tee_or_customer_cloud_mount","forbidden_plaintext_mount"]},"mount_target":{"type":"string","enum":["local_device","user_owned_node","rented_gpu","customer_cloud","provider_api","tee_session","none"]},"remote_provider_can_read_weights":{"type":"boolean"}}},"evidence":{"type":"object","additionalProperties":false,"required":["contractual","isolation","custody"],"properties":{"contractual":{"type":"object","additionalProperties":false,"required":["rights_contract_revision_ref","provider_use_terms_hash","retention_posture"],"properties":{"rights_contract_revision_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"provider_use_terms_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"retention_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"isolation":{"type":"object","additionalProperties":false,"required":["binding_ref","binding_hash"],"properties":{"binding_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"binding_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]}}},"custody":{"type":"object","additionalProperties":false,"required":["node_ref","boot_receipt_root","boot_epoch","measurement_method","effective_posture","appraisal","key_owner_ref","protected_data_owner_ref","observable_paths","egress_coverage_declaration_ref","egress_preventable"],"properties":{"node_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"boot_epoch":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0,"maximum":1000000000}]},"measurement_method":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal":{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","appraisal_status","appraised_at","appraisal_expires_at","endorsement_refs","reference_value_refs","revocation_status"],"properties":{"attester_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"verifier_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraiser_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"relying_party_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce_single_use_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraised_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"appraisal_expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"endorsement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"reference_value_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"revocation_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"key_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"protected_data_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"observable_paths":{"type":"object","additionalProperties":false,"required":["storage","model","tool","egress"],"properties":{"storage":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"model":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"tool":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"egress":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}}},"egress_coverage_declaration_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"egress_preventable":{"type":"boolean"}}}}},"refusals":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["code","detail"],"properties":{"code":{"type":"string","minLength":1},"detail":{"type":"string","minLength":1}}}},"appraised_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"revocation_epoch":{"type":"integer","minimum":0,"maximum":1000000},"status":{"type":"string","enum":["current","stale","revoked","refused"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
     ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1","title":"NodeEnforcementProfileObservationEnvelope","x-ioi-schema-version":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1","description":"The physical enforcement owner's admitted observation of one NodeEnforcementProfile on one node: per mechanism (daemon gates, sandbox profiles, seccomp, LSM/eBPF hooks, egress policy, executable policy, hash/signature/path policy, datawall, log redaction, cTEE custody checks, TEE attestation) the mode it was OBSERVED in, the action classes it covers, its verification evidence and receipt contracts, and its privilege. The node-profile coverage producer derives EnforcementCoverageDeclarations from it and claims mediated, preventable or receipted coverage only where an active mechanism with verification evidence covers the class; a measured-boot receipt contributes discovered and attributable facts only. Owner: daemon-runtime/hypervisoros.md § Node Enforcement Profile (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","observation_ref","revision","predecessor_ref","owner_ref","principal_ref","node_enforcement_profile_ref","node_ref","platform","observed_at","mechanisms","measured_boot","known_gaps","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1"},"observation_ref":{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The physical enforcement owner that observed the node, as the daemon resolved it."},"node_enforcement_profile_ref":{"type":"string","pattern":"^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"node_ref":{"type":"string","pattern":"^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"platform":{"type":"object","additionalProperties":false,"required":["os","kernel","arch"],"properties":{"os":{"type":"string","minLength":1},"kernel":{"type":"string","minLength":1},"arch":{"type":"string","minLength":1}}},"observed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"mechanisms":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["mechanism","mode","action_classes","verification_evidence_refs","receipt_contract_refs","required_privilege"],"properties":{"mechanism":{"type":"string","enum":["daemon_gate","sandbox_profile","seccomp","lsm_ebpf","egress_policy","executable_policy","hash_signature_path_policy","datawall","log_redaction","ctee_custody_check","tee_attestation"]},"mode":{"type":"string","enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["egress","process_launch","filesystem","credential_access","model_mount","network_listen","support_bundle","daemon_bypass"]}},"verification_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"required_privilege":{"type":"string","enum":["user","elevated","os_privileged","kernel","hardware_backed"]}}}},"measured_boot":{"type":"object","additionalProperties":false,"required":["boot_receipt_root","effective_posture"],"properties":{"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"known_gaps":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"status":{"type":"string","enum":["observed","superseded","revoked"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v2","title":"CollaborationTermsEnvelope","description":"Minimal registered projection of the canonical CollaborationTermsEnvelope: terms identity, the exact immutable body root, one bounded scope, and lifecycle status. The bargain body itself is hashed under ioi.collaboration-terms-body.v1 and stays outside this shape. This contract asserts no legal-person binding, no settlement, no payout, and no external federation. v2 (M11.1): the envelope names its parties and its activation rule — the members canon already lists — and `active` is DERIVED from exact-root acceptance under that rule. A record with party_roles and activation null is the thin proposer-declared profile the hosted same-system lane keeps serving; the cross-domain lane refuses it.","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status","party_roles","activation"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v2"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","outcome_room_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]},"party_roles":{"anyOf":[{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","role","acceptance_required"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|wallet|service|provider)://[^\\s]{1,500}$"},"role":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]},"acceptance_required":{"type":"boolean"}}}},{"type":"null"}]},"activation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["rule","threshold","required_role_set","activation_policy_ref","activation_decision_ref","acceptance_receipt_refs"],"properties":{"rule":{"enum":["bilateral","unanimous_required_parties","required_roles","threshold"]},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"type":"integer","minimum":0,"maximum":1000000},"eligible":{"type":"integer","minimum":0,"maximum":1000000}}},"required_role_set":{"type":"array","maxItems":16,"items":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]}},"activation_policy_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy)://[^\\s]{1,500}$"},{"type":"null"}]},"activation_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision)://[^\\s]{1,500}$"},{"type":"null"}]},"acceptance_receipt_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:receipt)://[^\\s]{1,500}$"}}}},{"type":"null"}]}}}"#),
+    ("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v3","title":"CollaborationTermsEnvelope","description":"The exact ex-ante bargain, admitted as a System-scoped record through the generic record seam; activation is derived from exact-root acceptances and never authored ahead of them (R-172 slice S3).","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status","party_roles","activation","system_binding","required_party_refs","acceptances"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v3"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","orchestration_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"The composing application's own scope for the orchestration these terms govern; when non-null it is the parent_scope_ref the seam derives into the binding."}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]},"party_roles":{"anyOf":[{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","role","acceptance_required"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$"},"role":{"enum":["data_owner","worker_provider","compute_provider","coordinator","customer","auditor","regulator","insurer","verifier","settlement_counterparty"]},"acceptance_required":{"type":"boolean"}}}},{"type":"null"}]},"activation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["rule","status_when_activated","accepted_root","accepted_party_refs","acceptance_receipt_refs","activated_at"],"properties":{"rule":{"enum":["unanimous_required_parties"]},"status_when_activated":{"const":"active","description":"The status this activation entails; the envelope's status equals it whenever an activation is present."},"accepted_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"}},"acceptance_receipt_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"}},"activated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}},{"type":"null"}],"description":"DERIVED by the composing application from the acceptances on record; null until every required party has accepted the exact root."},"system_binding":{"$ref":"#/$defs/systemBinding"},"required_party_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"description":"Every party whose exact-root acceptance activation requires."},"acceptances":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["party_ref","terms_body_root","accepted_at","signature"],"properties":{"party_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"accepted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}}},"description":"Append-only: one exact-root acceptance per party, signed by that party over ioi.collaboration-terms-acceptance-jcs-sha256.v1."}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1","title":"OutcomeRoomDiscovery","description":"The policy-bound discovery PROJECTION of one OutcomeRoom (canonical owner: docs/architecture/domains/ioi-ai/collaborative-pursuit.md § OutcomeRoomDiscoveryEnvelope). Produced by the room's own plane from the admitted room record under the room's discovery policy — never authored by a caller and never a view of the room database: it carries the public objective, categories, declared requirements, topology, admission owner, the terms it answers to, and nothing private (the six excluded context classes are exact and private_context_included is always false). discovery_state_root commits the publication body; status is the lifecycle outside that root.","type":"object","additionalProperties":false,"required":["schema_version","room_discovery_id","outcome_room_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room-discovery.v1"},"room_discovery_id":{"type":"string","pattern":"^(?:room-discovery)://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^(?:outcome-room)://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"anyOf":[{"type":"string","pattern":"^(?:terms)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-discovery/v1","title":"OrchestrationDiscovery","description":"A policy-bound discovery projection the ioi.ai application derives from an orchestration's records and its active collaboration terms; refs and public projections only, never database access (R-172 slice S3; successor of OutcomeRoomDiscovery v1).","type":"object","additionalProperties":false,"required":["schema_version","discovery_id","orchestration_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-discovery.v1"},"discovery_id":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_orchestration_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -186850,9 +189435,11 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/outcome-room/v2", r#"[{"rule_id":"outcome_room.genesis.required_when_live","description":"A room beyond proposal binds its admitted genesis.","expression":{"operator":"non_empty_when_in","path":"$.genesis_ref","when_path":"$.status","values":["open","active","paused","blocked","verifying","accepted","disputed","settled","closed","revoked","archived"]}},{"rule_id":"outcome_room.host.required_for_hosted_admission","description":"Hosted admission names the governed host domain.","expression":{"operator":"non_empty_when_in","path":"$.host_domain_ref","when_path":"$.coordination_topology","values":["hosted_admission"]}},{"rule_id":"outcome_room.profile.deployment.required","description":"Every room binds an active deployment profile.","expression":{"operator":"non_empty","path":"$.active_profile_refs.deployment_profile_ref"}},{"rule_id":"outcome_room.profile.ordering.required","description":"Every room binds an ordering/admission/finality profile.","expression":{"operator":"non_empty","path":"$.active_profile_refs.ordering_admission_finality_profile_ref"}},{"rule_id":"outcome_room.profile.lifecycle.required","description":"Every room binds lifecycle continuity policy.","expression":{"operator":"non_empty","path":"$.active_profile_refs.lifecycle_continuity_profile_ref"}}]"#),
     ("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", r#"[{"rule_id":"participant_state_bundle.room.matches_admission","description":"The portable bundle and its room-scoping bind the same room.","expression":{"operator":"fields_equal","paths":["$.outcome_room_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"participant_state_bundle.issuer.matches_lease_or_room_system","description":"A participant-requested export binds the exact lease; scheduling, expiry, revocation, quarantine, or room-close policy transitions may instead be issued by the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.participant_lease_ref","$.system_binding.proposed_or_issued_by_ref"]},{"operator":"fields_equal","paths":["$.system_binding.system_id","$.system_binding.proposed_or_issued_by_ref"]}]}}]"#),
+    ("schema://ioi/applications/ioi-ai/participant-state-bundle/v4", r#"[{"rule_id":"participant_state_bundle.scope.matches_binding_parent_scope","description":"The orchestration the bundle belongs to is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"participant_state_bundle.bundle_root.commits_bundle","description":"The bundle root commits the bundle body (every member but the root, the signature, the lifecycle status and the seam-derived system_binding) under its domain; a relying party recomputes it with nothing but the bundle.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.participant-state-bundle-root-jcs-sha256.v1"},"participant_state_bundle_id":{"path":"$.participant_state_bundle_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"participation_ref":{"path":"$.participation_ref"},"participant_and_home_domain_refs":{"path":"$.participant_and_home_domain_refs"},"coordination_topology":{"path":"$.coordination_topology"},"bundle_reason":{"path":"$.bundle_reason"},"source_admission_watermark_ref":{"path":"$.source_admission_watermark_ref"},"released_or_reassigned_claim_refs":{"path":"$.released_or_reassigned_claim_refs"},"preserved_contribution_attempt_finding_and_result_refs":{"path":"$.preserved_contribution_attempt_finding_and_result_refs"},"preserved_receipt_acceptance_settlement_and_dispute_refs":{"path":"$.preserved_receipt_acceptance_settlement_and_dispute_refs"},"portable_artifact_and_view_refs":{"path":"$.portable_artifact_and_view_refs"},"lineage_and_supersession_refs":{"path":"$.lineage_and_supersession_refs"},"export_license_retention_and_recall_policy_refs":{"path":"$.export_license_retention_and_recall_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"released_future_access_refs":{"path":"$.released_future_access_refs"},"revocation_or_supersession_refs":{"path":"$.revocation_or_supersession_refs"},"revocation_effect":{"path":"$.revocation_effect"},"bundle_artifact_ref":{"path":"$.bundle_artifact_ref"},"hosted_database_access_required":{"path":"$.hosted_database_access_required"},"issued_at":{"path":"$.issued_at"}},"expected_path":"$.bundle_root","expected_encoding":"sha256_string"}},{"rule_id":"participant_state_bundle.issuer.is_the_host_system","description":"The host System signs the bundle it produced; a bundle signed by anyone else is not the host's export.","expression":{"operator":"fields_equal","paths":["$.signature.signer_ref","$.system_binding.system_id"]}}]"#),
     ("schema://ioi/applications/ioi-ai/resource-offer/v3", r#"[{"rule_id":"resource_offer.issuer.resolves_through_provider_lease_or_room_system","description":"A provider acts in a room only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.provider_participant_lease_ref"]},{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}}]"#),
     ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", r#"[{"rule_id":"room_participant_lease.room.matches_binding_parent_scope","description":"The lease is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.","expression":{"operator":"fields_equal","paths":["$.system_binding.parent_scope_ref","$.outcome_room_ref"]}},{"rule_id":"room_participant_lease.issuer.is_the_room_system","description":"Admission issues the lease. A participant cannot mint its own membership, so the issuing ref is the exact room System.","expression":{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}},{"rule_id":"room_participant_lease.expiry.requires_governed_unbounded_exception","description":"The default lease is time-bounded. A null expires_at is admissible only when unbounded_term_exception_decision_ref proves the governed exception.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.expires_at"},{"operator":"non_empty","path":"$.unbounded_term_exception_decision_ref"}]}},{"rule_id":"room_participant_lease.ttl.requires_governed_unbounded_exception","description":"The default lease carries a TTL. A null ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.ttl_seconds"},{"operator":"non_empty","path":"$.unbounded_term_exception_decision_ref"}]}}]"#),
     ("schema://ioi/applications/ioi-ai/room-participation-request/v3", r#"[{"rule_id":"room_participation_request.room.matches_binding_parent_scope","description":"The request is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.","expression":{"operator":"fields_equal","paths":["$.system_binding.parent_scope_ref","$.outcome_room_ref"]}},{"rule_id":"room_participation_request.discovery.required_outside_hosted_admission","description":"Federated admission answers a published discovery projection, so room_discovery_ref cannot be null there. Only hosted_admission may omit it.","expression":{"operator":"non_empty_when_in","path":"$.room_discovery_ref","when_path":"$.coordination_topology","values":["federated_admission"]}},{"rule_id":"room_participation_request.hosted_native.requires_same_system_admission_owner","description":"A null discovery ref is admissible only on the hosted same-system lane: whenever room_discovery_ref is null, admission_owner_ref must be the exact system_binding.system_id. A foreign or policy admission owner must name the discovery it answered.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.room_discovery_ref"},{"operator":"fields_equal","paths":["$.admission_owner_ref","$.system_binding.system_id"]}]}},{"rule_id":"room_participation_request.counteroffer.requires_counterterms","description":"A counteroffer is a proposal that must name its own terms; accept and decline carry none.","expression":{"operator":"non_empty_when_in","path":"$.counterterms_ref","when_path":"$.terms_response","values":["counteroffer"]}}]"#),
+    ("schema://ioi/applications/ioi-ai/orchestration-participation-request/v1", r#"[{"rule_id":"orchestration_participation_request.scope.matches_binding_parent_scope","description":"The orchestration the request answers is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"orchestration_participation_request.same_system.never_requests","description":"No AIIP path is used inside one system_id: a request whose requester system is the host System is not a participation request; work inside the System is a delegation of the coordinating thread.","expression":{"operator":"fields_not_equal","paths":["$.requester_system_ref","$.system_binding.system_id"]}},{"rule_id":"orchestration_participation_request.request_hash.commits_request","description":"The request hash commits the request body under its domain; the requester's signature is over this hash, so a body edited after signing does not recompute.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.orchestration-participation-request-hash-jcs-sha256.v1"},"participation_request_id":{"path":"$.participation_request_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"discovery_ref":{"path":"$.discovery_ref"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"requested_by_ref":{"path":"$.requested_by_ref"},"requester_system_ref":{"path":"$.requester_system_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"terms_response":{"path":"$.terms_response"},"counterterms_ref":{"path":"$.counterterms_ref"},"capability_offer_refs":{"path":"$.capability_offer_refs"},"eligibility_evidence_refs":{"path":"$.eligibility_evidence_refs"},"requested_role_frontier_and_visibility_refs":{"path":"$.requested_role_frontier_and_visibility_refs"},"privacy_custody_and_context_policy_refs":{"path":"$.privacy_custody_and_context_policy_refs"},"private_context_included":{"path":"$.private_context_included"},"requested_at":{"path":"$.requested_at"}},"expected_path":"$.request_hash","expected_encoding":"sha256_string"}},{"rule_id":"orchestration_participation_request.signature.by_the_requester","description":"The signer is the requesting party; a request signed by anyone else is not that party's.","expression":{"operator":"fields_equal","paths":["$.signature.signer_ref","$.requested_by_ref"]}},{"rule_id":"orchestration_participation_request.counteroffer.requires_counterterms","description":"A counteroffer names the counterterms it proposes.","expression":{"operator":"non_empty_when_in","path":"$.counterterms_ref","when_path":"$.terms_response","values":["counteroffer"]}},{"rule_id":"orchestration_participation_request.decision.sets_the_status","description":"A present decision sets the record's status to its verdict: a submission carrying a decision, or a decided record whose status contradicts its decision, is not the host's revision. (That an accepted or refused record carries its decision is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.decision","paths":["$.status","$.decision.status"]}}]"#),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", r#"[{"rule_id":"verifier_challenge.room.matches_admission","description":"A room-scoped challenge and its room-scoping bind the same room. Challenger-to-participant-lease resolution remains an owner-plane admission check because this portable shape carries no separate challenger lease coordinate.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}}]"#),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", r#"[{"rule_id":"work_claim.room.matches_admission","description":"A room-scoped claim and its room-scoping bind the same room; direct claims carry null on both sides.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"work_claim.participant_lease.matches_admission_issuer","description":"A room claim binds its separate participant-lease coordinate to the CAS issuer; a direct claim carries null room fields. The claimant actor may be a worker, agent, service, organization, domain, system, or the lease itself and remains subject to owner-plane actor-to-lease resolution.","expression":{"operator":"any_of","expressions":[{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"proposed_or_issued_by_ref","expected_path":"$.claimant_participant_lease_ref"},{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"proposed_or_issued_by_ref","expected_path":"$.system_binding.system_id"}]}}]"#),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", r#"[]"#),
@@ -187148,7 +189735,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/model-router/route-assurance-claim/v1", r#"[{"rule_id":"route_assurance_claim.content_hash.commits_the_derivation","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits the requested and effective classes, the evidence and every refusal, so a class edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.model-router.route-assurance-claim-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"claim_ref":{"path":"$.claim_ref"},"revision":{"path":"$.revision"},"predecessor_ref":{"path":"$.predecessor_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"route_ref":{"path":"$.route_ref"},"route_custody_hash":{"path":"$.route_custody_hash"},"requested_class":{"path":"$.requested_class"},"effective_class":{"path":"$.effective_class"},"downgrade_reason":{"path":"$.downgrade_reason"},"declared_posture":{"path":"$.declared_posture"},"evidence":{"path":"$.evidence"},"refusals":{"path":"$.refusals"},"appraised_at":{"path":"$.appraised_at"},"expires_at":{"path":"$.expires_at"},"revocation_epoch":{"path":"$.revocation_epoch"},"status":{"path":"$.status"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"route_assurance_claim.custody_proven.names_its_receipt","description":"A custody-proven class names the verified boot receipt it stands on; measurement is never implied.","expression":{"operator":"non_empty_when_in","path":"$.evidence.custody.boot_receipt_root","when_path":"$.effective_class","values":["custody_proven_no_plaintext"]}},{"rule_id":"route_assurance_claim.custody_proven.names_its_appraiser","description":"A custody-proven class names the appraiser that passed it; the attester's self-report is not an appraisal.","expression":{"operator":"non_empty_when_in","path":"$.evidence.custody.appraisal.appraiser_ref","when_path":"$.effective_class","values":["custody_proven_no_plaintext"]}},{"rule_id":"route_assurance_claim.custody_proven.names_its_egress_coverage","description":"A custody-proven class names the physical egress coverage declaration that prevents provider-readable egress.","expression":{"operator":"non_empty_when_in","path":"$.evidence.custody.egress_coverage_declaration_ref","when_path":"$.effective_class","values":["custody_proven_no_plaintext"]}},{"rule_id":"route_assurance_claim.workload_isolation.names_its_binding","description":"A workload-isolation class names the admitted immutable isolation binding.","expression":{"operator":"non_empty_when_in","path":"$.evidence.isolation.binding_ref","when_path":"$.effective_class","values":["workload_isolation"]}},{"rule_id":"route_assurance_claim.contractual.names_its_contract","description":"A contractual-privacy class names the rights contract revision whose terms it rests on.","expression":{"operator":"non_empty_when_in","path":"$.evidence.contractual.rights_contract_revision_ref","when_path":"$.effective_class","values":["contractual_privacy"]}},{"rule_id":"route_assurance_claim.refused.names_its_refusals","description":"A refused claim names why, typed.","expression":{"operator":"non_empty_when_in","path":"$.refusals","when_path":"$.status","values":["refused"]}}]"#),
     ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", r#"[{"rule_id":"node_enforcement_profile_observation.content_hash.commits_the_observation","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every mechanism, mode and evidence ref, so an observation edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.components.daemon-runtime.node-enforcement-profile-observation-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"observation_ref":{"path":"$.observation_ref"},"revision":{"path":"$.revision"},"predecessor_ref":{"path":"$.predecessor_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"node_enforcement_profile_ref":{"path":"$.node_enforcement_profile_ref"},"node_ref":{"path":"$.node_ref"},"platform":{"path":"$.platform"},"observed_at":{"path":"$.observed_at"},"mechanisms":{"path":"$.mechanisms"},"measured_boot":{"path":"$.measured_boot"},"known_gaps":{"path":"$.known_gaps"},"status":{"path":"$.status"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"node_enforcement_profile_observation.mechanisms.observed","description":"An observation observes at least one mechanism; an empty observation is not a profile.","expression":{"operator":"non_empty","path":"$.mechanisms"}},{"rule_id":"node_enforcement_profile_observation.profile.named","description":"Every observation names the node enforcement profile it observed.","expression":{"operator":"non_empty","path":"$.node_enforcement_profile_ref"}}]"#),
     ("schema://ioi/foundations/objects/collaboration-terms-envelope/v2", r#"[{"rule_id":"collaboration_terms.scope.at_least_one_ref","description":"At least one scope ref must be non-null. Terms without a bounded subject are not an ex-ante bargain.","expression":{"operator":"any_non_empty","paths":["$.scope.collaboration_ref","$.scope.outcome_room_ref"]}}]"#),
+    ("schema://ioi/foundations/objects/collaboration-terms-envelope/v3", r#"[{"rule_id":"collaboration_terms.scope.at_least_one_ref","description":"At least one scope ref is non-null.","expression":{"operator":"any_non_empty","paths":["$.scope.collaboration_ref","$.scope.orchestration_ref"]}},{"rule_id":"collaboration_terms.activation.implies_active_status","description":"A present activation entails the active status: a record carrying an activation while still proposed, suspended or otherwise is not this bargain's projection. (That an active record carries its activation is the composing application's obligation, proven by its driven gate.)","expression":{"operator":"optional_fields_equal","optional_object_path":"$.activation","paths":["$.status","$.activation.status_when_activated"]}},{"rule_id":"collaboration_terms.activation.accepted_root_is_the_terms_root","description":"What activated is the envelope's own exact terms root; an activation over another root is not this bargain's.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.activation","paths":["$.activation.accepted_root","$.terms_body_root"]}},{"rule_id":"collaboration_terms.acceptances.bind_the_exact_root","description":"Every acceptance on record binds the envelope's exact terms root; an acceptance over a predecessor or a draft root does not count toward activation.","expression":{"operator":"array_field_equals","array_path":"$.acceptances","field":"terms_body_root","expected_path":"$.terms_body_root"}}]"#),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", r#"[{"rule_id":"outcome_room_discovery.state_root.commits_publication","description":"The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status and updated_at) under its domain; a publication whose root does not recompute is not the plane's projection.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.outcome-room-discovery-state-root-jcs-sha256.v1"},"room_discovery_id":{"path":"$.room_discovery_id"},"outcome_room_ref":{"path":"$.outcome_room_ref"},"system_binding":{"path":"$.system_binding"},"publication_version":{"path":"$.publication_version"},"published_by_ref":{"path":"$.published_by_ref"},"public_goal_ref":{"path":"$.public_goal_ref"},"public_objective":{"path":"$.public_objective"},"public_category_refs":{"path":"$.public_category_refs"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"participation_channel_ref":{"path":"$.participation_channel_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"semantic_and_action_profile_refs":{"path":"$.semantic_and_action_profile_refs"},"required_capability_and_worker_profile_refs":{"path":"$.required_capability_and_worker_profile_refs"},"eligibility_and_affiliation_policy_refs":{"path":"$.eligibility_and_affiliation_policy_refs"},"visibility_and_privacy_policy_refs":{"path":"$.visibility_and_privacy_policy_refs"},"public_frontier_and_context_projection_refs":{"path":"$.public_frontier_and_context_projection_refs"},"budget_quote_and_capacity_refs":{"path":"$.budget_quote_and_capacity_refs"},"verifier_and_acceptance_posture_refs":{"path":"$.verifier_and_acceptance_posture_refs"},"settlement_dispute_and_contribution_policy_refs":{"path":"$.settlement_dispute_and_contribution_policy_refs"},"license_retention_and_export_policy_refs":{"path":"$.license_retention_and_export_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"private_context_included":{"path":"$.private_context_included"},"published_at":{"path":"$.published_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.discovery_state_root","expected_encoding":"sha256_string"}},{"rule_id":"outcome_room_discovery.publication.names_its_objective","description":"A discoverable projection names a public objective and at least one category; discovery is a projection of declared public facts, never an empty advertisement.","expression":{"operator":"non_empty","path":"$.public_objective"}}]"#),
+    ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", r#"[{"rule_id":"orchestration_discovery.state_root.commits_publication","description":"The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status, updated_at and the seam-derived system_binding, whose payload root would otherwise contain this root) under its domain; a publication whose root does not recompute is not the application's projection.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.orchestration-discovery-state-root-jcs-sha256.v1"},"discovery_id":{"path":"$.discovery_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"publication_version":{"path":"$.publication_version"},"published_by_ref":{"path":"$.published_by_ref"},"public_goal_ref":{"path":"$.public_goal_ref"},"public_objective":{"path":"$.public_objective"},"public_category_refs":{"path":"$.public_category_refs"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"participation_channel_ref":{"path":"$.participation_channel_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"semantic_and_action_profile_refs":{"path":"$.semantic_and_action_profile_refs"},"required_capability_and_worker_profile_refs":{"path":"$.required_capability_and_worker_profile_refs"},"eligibility_and_affiliation_policy_refs":{"path":"$.eligibility_and_affiliation_policy_refs"},"visibility_and_privacy_policy_refs":{"path":"$.visibility_and_privacy_policy_refs"},"public_frontier_and_context_projection_refs":{"path":"$.public_frontier_and_context_projection_refs"},"budget_quote_and_capacity_refs":{"path":"$.budget_quote_and_capacity_refs"},"verifier_and_acceptance_posture_refs":{"path":"$.verifier_and_acceptance_posture_refs"},"settlement_dispute_and_contribution_policy_refs":{"path":"$.settlement_dispute_and_contribution_policy_refs"},"license_retention_and_export_policy_refs":{"path":"$.license_retention_and_export_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"private_context_included":{"path":"$.private_context_included"},"published_at":{"path":"$.published_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.discovery_state_root","expected_encoding":"sha256_string"}},{"rule_id":"orchestration_discovery.publication.names_its_objective","description":"A publication names the public objective it advertises.","expression":{"operator":"non_empty","path":"$.public_objective"}},{"rule_id":"orchestration_discovery.scope.matches_binding_parent_scope","description":"The orchestration the publication belongs to is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -188206,6 +190795,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:system|domain|org|wallet|service|provider)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:system|domain|org|worker|service|wallet|provider)://[^\s]{1,500}$"#,
+        r#"^(?:system|domain|org|worker|service|wallet|provider)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:system|domain|org|worker|wallet|service|provider)://[^\s]{1,500}$"#,
+        r#"^(?:system|domain|org|worker|wallet|service|provider)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:system|domain|policy)://[^\s]{1,500}$"#,
         r#"^(?:system|domain|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -188648,6 +191245,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"#,
         r#"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"#,
     ),
+    (r#"^[a-z][a-z0-9_]{0,80}$"#, r#"^[a-z][a-z0-9_]{0,80}$"#),
     (r#"^[a-z][a-z0-9_]{1,80}$"#, r#"^[a-z][a-z0-9_]{1,80}$"#),
     (r#"^[a-z][a-z0-9_]{2,63}$"#, r#"^[a-z][a-z0-9_]{2,63}$"#),
     (r#"^aai_[0-9a-f]+$"#, r#"^aai_[0-9a-f]+$"#),
@@ -189261,6 +191859,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^development-environment-recipe://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^development-environment-recipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^discovery://[^\s]{1,500}$"#,
+        r#"^discovery://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^dispute://[^\s]{1,248}$"#,
@@ -192398,6 +195000,13 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json"))),
     ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json"))),
     ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-hosted-export.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-hosted-export.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-superseded-root-unchanged.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/positive-superseded-root-unchanged.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-foreign-issuer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-foreign-issuer.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-scope-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-database-access-required.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-database-access-required.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-excluded-class-missing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v4/negative-excluded-class-missing.json"))),
     ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json"))),
     ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json"))),
     ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json"))),
@@ -192417,6 +195026,15 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"))),
     ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-submitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-submitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-accepted-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/positive-accepted-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-same-system-request.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-same-system-request.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-hash-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-hash-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-signed-by-another-party.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-signed-by-another-party.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-counteroffer-without-counterterms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-counteroffer-without-counterterms.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-participation-request-v1/negative-private-context-included.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json"))),
@@ -193906,19 +196524,30 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json"))),
     ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json"))),
     ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"))),
-    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-room-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-room-scoped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-collaboration-scoped-successor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/positive-collaboration-scoped-successor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unscoped-terms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unscoped-terms.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unregistered-settlement-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-unregistered-settlement-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-wrong-body-hash-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v2/negative-wrong-body-hash-profile.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-proposed-awaiting-acceptance.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-proposed-awaiting-acceptance.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-active-unanimous.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/positive-active-unanimous.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-before-active-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-before-active-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-root-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-activation-root-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-private-context-included.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-excluded-class-missing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discovery-v1/negative-excluded-class-missing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-hosted-discoverable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-hosted-discoverable.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-withdrawn-root-unchanged.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/positive-withdrawn-root-unchanged.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -194020,6 +196649,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/participant-state-bundle/v4" => {
+            serde_json::from_value::<ParticipantStateBundleV4>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/resource-offer/v3" => {
             serde_json::from_value::<ResourceOfferV3>(value.clone())
                 .map(|_| ())
@@ -194032,6 +196666,11 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/room-participation-request/v3" => {
             serde_json::from_value::<RoomParticipationRequestV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1" => {
+            serde_json::from_value::<OrchestrationParticipationRequestV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -195510,8 +198149,18 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/collaboration-terms-envelope/v3" => {
+            serde_json::from_value::<CollaborationTermsEnvelopeV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1" => {
             serde_json::from_value::<OutcomeRoomDiscoveryV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/orchestration-discovery/v1" => {
+            serde_json::from_value::<OrchestrationDiscoveryV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -195616,6 +198265,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/participant-state-bundle/v4" => {
+            let projection = serde_json::from_value::<ParticipantStateBundleV4>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/resource-offer/v3" => {
             let projection = serde_json::from_value::<ResourceOfferV3>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -195628,6 +198282,11 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/room-participation-request/v3" => {
             let projection = serde_json::from_value::<RoomParticipationRequestV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1" => {
+            let projection = serde_json::from_value::<OrchestrationParticipationRequestV1>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -197106,8 +199765,18 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/collaboration-terms-envelope/v3" => {
+            let projection = serde_json::from_value::<CollaborationTermsEnvelopeV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1" => {
             let projection = serde_json::from_value::<OutcomeRoomDiscoveryV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/orchestration-discovery/v1" => {
+            let projection = serde_json::from_value::<OrchestrationDiscoveryV1>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -197247,8 +199916,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1608,
-            "the registered golden corpus must remain the explicit 1608-fixture bar",
+            1635,
+            "the registered golden corpus must remain the explicit 1635-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -197490,7 +200159,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1046,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1050,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

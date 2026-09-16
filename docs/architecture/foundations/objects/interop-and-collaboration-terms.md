@@ -750,6 +750,65 @@ CollaborationTermsEnvelope:
     expired | terminated | revoked
 ```
 
+### CollaborationTermsEnvelope v3 — a System-scoped record with derived activation
+
+`schema://ioi/foundations/objects/collaboration-terms-envelope/v3` succeeds v2
+(registered 2026-09-16, R-172 slice S3). It is the same bargain admitted as an
+ordinary System-scoped record through the generic record seam
+(`POST /v1/hypervisor/autonomous-systems/{system_id}/records`): each party's
+bounded System holds its own copy under its own derived
+`SystemScopedObjectBinding`, and the parties share one identity
+(`collaboration_terms_id`) and one exact `terms_body_root`. Nothing about the
+terms is served by a plane of its own.
+
+Three members are new and one is re-typed:
+
+```yaml
+CollaborationTermsEnvelope (v3 delta):
+  schema_version: ioi.collaboration-terms.v3
+  system_binding: SystemScopedObjectBinding        # derived by the seam, never authored
+  scope:
+    collaboration_ref: collaboration://... | null
+    orchestration_ref: string | null              # the application's own composition scope (was outcome_room_ref)
+  required_party_refs:                            # every party whose exact-root acceptance activation requires
+    - system://... | domain://... | org://... | worker://... | service://...
+  acceptances:                                    # append-only; one per party, over the exact root
+    - party_ref: ...
+      terms_body_root: hash                       # must equal the envelope's terms_body_root
+      accepted_at: timestamp
+      signature:
+        key_suite: ed25519
+        signer_ref: ...                           # the accepting party
+        signer_public_key: hex
+        signed_material_hash: hash                # ioi.collaboration-terms-acceptance-jcs-sha256.v1 over {collaboration_terms_id, terms_body_root, party_ref, accepted_at}
+        signature: hex
+  activation: null | {                            # DERIVED by the composing application, never authored ahead of the acceptances
+    rule: unanimous_required_parties
+    status_when_activated: active                 # the status an activation entails
+    accepted_root: hash                           # equals terms_body_root
+    accepted_party_refs: [...]                    # exactly the acceptors on record
+    acceptance_receipt_refs: [...]                # the seam's receipts of the acceptance revisions
+    activated_at: timestamp
+  }
+```
+
+Activation is a projection of the acceptances, not a decision: `status: active`
+requires a non-null `activation` whose `accepted_root` is the envelope's own
+`terms_body_root` and whose `accepted_party_refs` are exactly the parties with
+an acceptance on record. The registered invariants pin what the portable
+invariant language can express: an activation present entails the active status
+(`collaboration_terms.activation.implies_active_status`), what activated is the
+terms' own root (`collaboration_terms.activation.accepted_root_is_the_terms_root`),
+and every acceptance binds that exact root
+(`collaboration_terms.acceptances.bind_the_exact_root`). That an active record
+carries its activation, and that every party in `required_party_refs` is among
+the acceptors, are the composing application's obligations — the language has no
+conditional presence or set-coverage operator over a nullable object — and are
+proven by the application's driven gate rather than restated as rules. Nothing
+crosses a boundary before activation: a discovery publication or a participation
+decision that names a terms root whose record is not `active` is refused by the
+composing application before any admission (ACC-13 clause 1).
+
 At least one scope ref must be non-null. `active` requires the declared
 activation rule, exact-root acceptance by every required party or role, and
 domain admission. Acceptance attests that the party's own governed decision

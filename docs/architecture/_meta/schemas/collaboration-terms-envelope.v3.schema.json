@@ -1,0 +1,339 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+  "title": "CollaborationTermsEnvelope",
+  "description": "The exact ex-ante bargain, admitted as a System-scoped record through the generic record seam; activation is derived from exact-root acceptances and never authored ahead of them (R-172 slice S3).",
+  "x-ioi-schema-version": "ioi.collaboration-terms.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "collaboration_terms_id",
+    "version",
+    "predecessor_terms_ref",
+    "terms_body_hash_profile",
+    "terms_body_root",
+    "scope",
+    "proposed_by_ref",
+    "status",
+    "party_roles",
+    "activation",
+    "system_binding",
+    "required_party_refs",
+    "acceptances"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.collaboration-terms.v3"
+    },
+    "collaboration_terms_id": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "predecessor_terms_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^terms://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "terms_body_hash_profile": {
+      "const": "ioi.collaboration-terms-body.v1"
+    },
+    "terms_body_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collaboration_ref",
+        "orchestration_ref"
+      ],
+      "properties": {
+        "collaboration_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^collaboration://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "orchestration_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The composing application's own scope for the orchestration these terms govern; when non-null it is the parent_scope_ref the seam derives into the binding."
+        }
+      }
+    },
+    "proposed_by_ref": {
+      "type": "string",
+      "pattern": "^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "proposed",
+        "active",
+        "suspended",
+        "superseded",
+        "expired",
+        "terminated",
+        "revoked"
+      ]
+    },
+    "party_roles": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "party_ref",
+              "role",
+              "acceptance_required"
+            ],
+            "properties": {
+              "party_ref": {
+                "type": "string",
+                "pattern": "^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$"
+              },
+              "role": {
+                "enum": [
+                  "data_owner",
+                  "worker_provider",
+                  "compute_provider",
+                  "coordinator",
+                  "customer",
+                  "auditor",
+                  "regulator",
+                  "insurer",
+                  "verifier",
+                  "settlement_counterparty"
+                ]
+              },
+              "acceptance_required": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "activation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule",
+            "status_when_activated",
+            "accepted_root",
+            "accepted_party_refs",
+            "acceptance_receipt_refs",
+            "activated_at"
+          ],
+          "properties": {
+            "rule": {
+              "enum": [
+                "unanimous_required_parties"
+              ]
+            },
+            "status_when_activated": {
+              "const": "active",
+              "description": "The status this activation entails; the envelope's status equals it whenever an activation is present."
+            },
+            "accepted_root": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "accepted_party_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+              }
+            },
+            "acceptance_receipt_refs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,500}$"
+              }
+            },
+            "activated_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "DERIVED by the composing application from the acceptances on record; null until every required party has accepted the exact root."
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
+    },
+    "required_party_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+      },
+      "description": "Every party whose exact-root acceptance activation requires."
+    },
+    "acceptances": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "party_ref",
+          "terms_body_root",
+          "accepted_at",
+          "signature"
+        ],
+        "properties": {
+          "party_ref": {
+            "type": "string",
+            "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+          },
+          "terms_body_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "signature": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key_suite",
+              "signer_ref",
+              "signer_public_key",
+              "signed_material_hash",
+              "signature"
+            ],
+            "properties": {
+              "key_suite": {
+                "enum": [
+                  "ed25519"
+                ]
+              },
+              "signer_ref": {
+                "type": "string",
+                "pattern": "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"
+              },
+              "signer_public_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "signed_material_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "signature": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{128}$"
+              }
+            }
+          }
+        }
+      },
+      "description": "Append-only: one exact-root acceptance per party, signed by that party over ioi.collaboration-terms-acceptance-jcs-sha256.v1."
+    }
+  },
+  "$defs": {
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

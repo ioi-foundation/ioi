@@ -958,6 +958,7 @@ jobs:
           - verifier_id: custody-proven-private-routes
           - verifier_id: system-record-seam
           - verifier_id: orchestration-composition
+          - verifier_id: aiip-collaboration-discovery
           # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
           # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
           # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
@@ -1167,6 +1168,32 @@ jobs:
       - name: Drill the orchestration-composition gate's own oracles
         if: matrix.verifier_id == 'orchestration-composition'
         run: npm run mutate:orchestration-composition --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the collaboration verifier drives
+        if: matrix.verifier_id == 'aiip-collaboration-discovery'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi/ioi-ai-orchestration
+
+      # R-172 S3 / M11.1 — collaboration COMPOSED in the ioi.ai application over thread primitives and
+      # the System-record seam (ACC-13 clauses 1, 2, 3, N1): terms v3 with activation derived from
+      # exact-root acceptances (nothing crosses before every required party accepts), a policy-bound
+      # discovery projection admitted only under active terms, an external party's signed request
+      # verified against the key it accepted the terms with and decided as a revision, the same-system
+      # negative, forged/tampered/stale-root/unknown-signer refusals, a least-disclosing state bundle
+      # verified offline, restart.
+      - name: Verify collaboration terms, discovery and typed participation (R-172 S3, M11.1)
+        if: matrix.verifier_id == 'aiip-collaboration-discovery'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:aiip-collaboration-discovery --workspace=@ioi/hypervisor-app
+
+      - name: Drill the collaboration gate's own oracles
+        if: matrix.verifier_id == 'aiip-collaboration-discovery'
+        run: npm run mutate:aiip-collaboration-discovery --workspace=@ioi/hypervisor-app
 
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two

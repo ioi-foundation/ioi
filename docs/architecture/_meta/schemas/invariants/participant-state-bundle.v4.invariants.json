@@ -1,0 +1,104 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/participant-state-bundle/portable-without-database/v4",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+  "rules": [
+    {
+      "rule_id": "participant_state_bundle.scope.matches_binding_parent_scope",
+      "description": "The orchestration the bundle belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "participant_state_bundle.bundle_root.commits_bundle",
+      "description": "The bundle root commits the bundle body (every member but the root, the signature, the lifecycle status and the seam-derived system_binding) under its domain; a relying party recomputes it with nothing but the bundle.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.participant-state-bundle-root-jcs-sha256.v1"
+          },
+          "participant_state_bundle_id": {
+            "path": "$.participant_state_bundle_id"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "participation_ref": {
+            "path": "$.participation_ref"
+          },
+          "participant_and_home_domain_refs": {
+            "path": "$.participant_and_home_domain_refs"
+          },
+          "coordination_topology": {
+            "path": "$.coordination_topology"
+          },
+          "bundle_reason": {
+            "path": "$.bundle_reason"
+          },
+          "source_admission_watermark_ref": {
+            "path": "$.source_admission_watermark_ref"
+          },
+          "released_or_reassigned_claim_refs": {
+            "path": "$.released_or_reassigned_claim_refs"
+          },
+          "preserved_contribution_attempt_finding_and_result_refs": {
+            "path": "$.preserved_contribution_attempt_finding_and_result_refs"
+          },
+          "preserved_receipt_acceptance_settlement_and_dispute_refs": {
+            "path": "$.preserved_receipt_acceptance_settlement_and_dispute_refs"
+          },
+          "portable_artifact_and_view_refs": {
+            "path": "$.portable_artifact_and_view_refs"
+          },
+          "lineage_and_supersession_refs": {
+            "path": "$.lineage_and_supersession_refs"
+          },
+          "export_license_retention_and_recall_policy_refs": {
+            "path": "$.export_license_retention_and_recall_policy_refs"
+          },
+          "excluded_context_classes": {
+            "path": "$.excluded_context_classes"
+          },
+          "released_future_access_refs": {
+            "path": "$.released_future_access_refs"
+          },
+          "revocation_or_supersession_refs": {
+            "path": "$.revocation_or_supersession_refs"
+          },
+          "revocation_effect": {
+            "path": "$.revocation_effect"
+          },
+          "bundle_artifact_ref": {
+            "path": "$.bundle_artifact_ref"
+          },
+          "hosted_database_access_required": {
+            "path": "$.hosted_database_access_required"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          }
+        },
+        "expected_path": "$.bundle_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "participant_state_bundle.issuer.is_the_host_system",
+      "description": "The host System signs the bundle it produced; a bundle signed by anyone else is not the host's export.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.signature.signer_ref",
+          "$.system_binding.system_id"
+        ]
+      }
+    }
+  ]
+}

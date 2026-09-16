@@ -1,0 +1,130 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/orchestration-participation-request/refs-not-tables/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+  "rules": [
+    {
+      "rule_id": "orchestration_participation_request.scope.matches_binding_parent_scope",
+      "description": "The orchestration the request answers is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.same_system.never_requests",
+      "description": "No AIIP path is used inside one system_id: a request whose requester system is the host System is not a participation request; work inside the System is a delegation of the coordinating thread.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.requester_system_ref",
+          "$.system_binding.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.request_hash.commits_request",
+      "description": "The request hash commits the request body under its domain; the requester's signature is over this hash, so a body edited after signing does not recompute.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.orchestration-participation-request-hash-jcs-sha256.v1"
+          },
+          "participation_request_id": {
+            "path": "$.participation_request_id"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "discovery_ref": {
+            "path": "$.discovery_ref"
+          },
+          "coordination_topology": {
+            "path": "$.coordination_topology"
+          },
+          "admission_owner_ref": {
+            "path": "$.admission_owner_ref"
+          },
+          "requested_by_ref": {
+            "path": "$.requested_by_ref"
+          },
+          "requester_system_ref": {
+            "path": "$.requester_system_ref"
+          },
+          "collaboration_terms_ref": {
+            "path": "$.collaboration_terms_ref"
+          },
+          "collaboration_terms_root": {
+            "path": "$.collaboration_terms_root"
+          },
+          "terms_response": {
+            "path": "$.terms_response"
+          },
+          "counterterms_ref": {
+            "path": "$.counterterms_ref"
+          },
+          "capability_offer_refs": {
+            "path": "$.capability_offer_refs"
+          },
+          "eligibility_evidence_refs": {
+            "path": "$.eligibility_evidence_refs"
+          },
+          "requested_role_frontier_and_visibility_refs": {
+            "path": "$.requested_role_frontier_and_visibility_refs"
+          },
+          "privacy_custody_and_context_policy_refs": {
+            "path": "$.privacy_custody_and_context_policy_refs"
+          },
+          "private_context_included": {
+            "path": "$.private_context_included"
+          },
+          "requested_at": {
+            "path": "$.requested_at"
+          }
+        },
+        "expected_path": "$.request_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.signature.by_the_requester",
+      "description": "The signer is the requesting party; a request signed by anyone else is not that party's.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.signature.signer_ref",
+          "$.requested_by_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.counteroffer.requires_counterterms",
+      "description": "A counteroffer names the counterterms it proposes.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.counterterms_ref",
+        "when_path": "$.terms_response",
+        "values": [
+          "counteroffer"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration_participation_request.decision.sets_the_status",
+      "description": "A present decision sets the record's status to its verdict: a submission carrying a decision, or a decided record whose status contradicts its decision, is not the host's revision. (That an accepted or refused record carries its decision is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.decision",
+        "paths": [
+          "$.status",
+          "$.decision.status"
+        ]
+      }
+    }
+  ]
+}

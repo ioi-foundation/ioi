@@ -148,7 +148,13 @@ pub(crate) fn derive_binding(
     }))
 }
 
-fn project(history: &[agentgres::mux::ExactProjection]) -> Vec<AdmittedRecord> {
+/// Every revision's `receipt_ref` and `operation_ref` are DERIVED here from the projection's own
+/// coordinates, exactly as the admit reply derives them, so a reader re-attaching after a restart
+/// can cite the receipt of an earlier admission without having witnessed it. The R-172 S3 driven
+/// gate found the chain view served neither: a decision that must cite the receipt of the
+/// submission it answers, and an activation that must name the receipts of the acceptances, had
+/// nothing to cite.
+fn project(history: &[agentgres::mux::ExactProjection], stream_tail: &str) -> Vec<AdmittedRecord> {
     history
         .iter()
         .map(|entry| AdmittedRecord {
@@ -170,6 +176,8 @@ fn project(history: &[agentgres::mux::ExactProjection]) -> Vec<AdmittedRecord> {
                 "idempotency_key": entry.operation.idem_key,
                 "recorded_at_ms": entry.operation.recorded_at_ms,
                 "system_binding": entry.operation.payload.pointer("/record/system_binding").cloned().unwrap_or(Value::Null),
+                "operation_ref": agentgres::refs::event_stream_operation_ref(OWNER_NAMESPACE, stream_tail, entry.seq, &entry.head),
+                "receipt_ref": agentgres::refs::event_stream_receipt_ref(OWNER_NAMESPACE, stream_tail, entry.admission_batch_seq, &entry.admission_root),
             }),
             head: entry.head.clone(),
             recorded_at_ms: entry
@@ -188,6 +196,7 @@ fn read_records(
     scope: &RequestResourceScope,
     resource: &str,
 ) -> Result<Vec<AdmittedRecord>, Reply> {
+    let tail = stream_tail(RESOURCE_KIND, resource);
     let history = read_owner_scoped_history(
         data_dir,
         identity,
@@ -195,10 +204,10 @@ fn read_records(
         RESOURCE_KIND,
         resource,
         OWNER_NAMESPACE,
-        &stream_tail(RESOURCE_KIND, resource),
+        &tail,
     )
     .map_err(mutation_refusal_reply)?;
-    Ok(project(&history))
+    Ok(project(&history, &tail))
 }
 
 fn family_view(stream: &[AdmittedRecord]) -> Value {

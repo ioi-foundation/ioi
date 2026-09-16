@@ -1002,7 +1002,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1049,6 +1049,74 @@
         },
         {
           "path": "fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v4",
+      "canonical_name": "ParticipantStateBundle",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#participantstatebundleenvelope-v4--produced-by-the-composing-application-verifiable-offline",
+      "schema_version": "ioi.applications.ioi-ai.participant-state-bundle.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "participant-state-bundle.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/participant-state-bundle/portable-without-database/v4",
+          "path": "invariants/participant-state-bundle.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ParticipantStateBundleV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ParticipantStateBundleV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/participant-state-bundle-v4/positive-hosted-export.json",
+        "fixtures/participant-state-bundle-v4/positive-superseded-root-unchanged.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/participant-state-bundle-v4/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "participant_state_bundle.bundle_root.commits_bundle"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v4/negative-foreign-issuer.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "participant_state_bundle.issuer.is_the_host_system"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "participant_state_bundle.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v4/negative-database-access-required.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v4/negative-excluded-class-missing.json",
           "expected_failure": "schema"
         }
       ]
@@ -1187,7 +1255,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1245,6 +1313,85 @@
         },
         {
           "path": "fixtures/room-participation-request-v3/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1",
+      "canonical_name": "OrchestrationParticipationRequest",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#orchestrationdiscoveryenvelope-and-orchestrationparticipationrequestenvelope",
+      "schema_version": "ioi.applications.ioi-ai.orchestration-participation-request.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "orchestration-participation-request.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/orchestration-participation-request/refs-not-tables/v1",
+          "path": "invariants/orchestration-participation-request.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OrchestrationParticipationRequestV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OrchestrationParticipationRequestV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/orchestration-participation-request-v1/positive-submitted.json",
+        "fixtures/orchestration-participation-request-v1/positive-accepted-revision.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-same-system-request.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.same_system.never_requests"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-hash-does-not-recompute.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.request_hash.commits_request"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-signed-by-another-party.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.signature.by_the_requester"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-counteroffer-without-counterterms.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.counteroffer.requires_counterterms"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-decision-on-a-submission.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.decision.sets_the_status"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_participation_request.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/orchestration-participation-request-v1/negative-private-context-included.json",
           "expected_failure": "schema"
         }
       ]
@@ -18257,7 +18404,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
         "compatibility": "additive",
         "migration_policy": "none",
         "predecessor_remains_valid": true,
@@ -18285,21 +18432,90 @@
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json",
-        "fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"
+        "fixtures/collaboration-terms-envelope-v2/positive-room-scoped.json",
+        "fixtures/collaboration-terms-envelope-v2/positive-collaboration-scoped-successor.json"
       ],
       "negative_fixture_refs": [
         {
-          "path": "fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json",
+          "path": "fixtures/collaboration-terms-envelope-v2/negative-unscoped-terms.json",
           "expected_failure": "invariant",
           "expected_rule_id": "collaboration_terms.scope.at_least_one_ref"
         },
         {
-          "path": "fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json",
+          "path": "fixtures/collaboration-terms-envelope-v2/negative-unregistered-settlement-field.json",
           "expected_failure": "schema"
         },
         {
-          "path": "fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json",
+          "path": "fixtures/collaboration-terms-envelope-v2/negative-wrong-body-hash-profile.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+      "canonical_name": "CollaborationTermsEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/interop-and-collaboration-terms.md#collaborationtermsenvelope-v3--a-system-scoped-record-with-derived-activation",
+      "schema_version": "ioi.collaboration-terms.v3",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/objects/collaboration-terms-envelope/v2",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "collaboration-terms-envelope.v3.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/collaboration-terms-envelope/derived-activation/v3",
+          "path": "invariants/collaboration-terms-envelope.v3.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CollaborationTermsEnvelopeV3"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CollaborationTermsEnvelopeV3"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/collaboration-terms-envelope-v3/positive-proposed-awaiting-acceptance.json",
+        "fixtures/collaboration-terms-envelope-v3/positive-active-unanimous.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/collaboration-terms-envelope-v3/negative-activation-before-active-status.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collaboration_terms.activation.implies_active_status"
+        },
+        {
+          "path": "fixtures/collaboration-terms-envelope-v3/negative-activation-root-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collaboration_terms.activation.accepted_root_is_the_terms_root"
+        },
+        {
+          "path": "fixtures/collaboration-terms-envelope-v3/negative-acceptance-over-another-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collaboration_terms.acceptances.bind_the_exact_root"
+        },
+        {
+          "path": "fixtures/collaboration-terms-envelope-v3/negative-unscoped-terms.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collaboration_terms.scope.at_least_one_ref"
+        },
+        {
+          "path": "fixtures/collaboration-terms-envelope-v3/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]
@@ -18315,7 +18531,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -18343,36 +18559,85 @@
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json",
-        "fixtures/room-participation-request-v3/positive-federated-discovered.json"
+        "fixtures/outcome-room-discovery-v1/positive-hosted-discoverable.json",
+        "fixtures/outcome-room-discovery-v1/positive-federated-policy-owned.json",
+        "fixtures/outcome-room-discovery-v1/positive-withdrawn-root-unchanged.json"
       ],
       "negative_fixture_refs": [
         {
-          "path": "fixtures/room-participation-request-v3/negative-federated-null-discovery.json",
+          "path": "fixtures/outcome-room-discovery-v1/negative-root-does-not-recompute.json",
           "expected_failure": "invariant",
-          "expected_rule_id": "room_participation_request.discovery.required_outside_hosted_admission"
+          "expected_rule_id": "outcome_room_discovery.state_root.commits_publication"
         },
         {
-          "path": "fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "room_participation_request.hosted_native.requires_same_system_admission_owner"
-        },
-        {
-          "path": "fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "room_participation_request.counteroffer.requires_counterterms"
-        },
-        {
-          "path": "fixtures/room-participation-request-v3/negative-room-scope-mismatch.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "room_participation_request.room.matches_binding_parent_scope"
-        },
-        {
-          "path": "fixtures/room-participation-request-v3/negative-private-context-included.json",
+          "path": "fixtures/outcome-room-discovery-v1/negative-private-context-included.json",
           "expected_failure": "schema"
         },
         {
-          "path": "fixtures/room-participation-request-v3/negative-unknown-field.json",
+          "path": "fixtures/outcome-room-discovery-v1/negative-excluded-class-missing.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
+      "canonical_name": "OrchestrationDiscovery",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#orchestrationdiscoveryenvelope-and-orchestrationparticipationrequestenvelope",
+      "schema_version": "ioi.applications.ioi-ai.orchestration-discovery.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "orchestration-discovery.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/orchestration-discovery/projection-not-database/v1",
+          "path": "invariants/orchestration-discovery.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OrchestrationDiscoveryV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OrchestrationDiscoveryV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/orchestration-discovery-v1/positive-hosted-discoverable.json",
+        "fixtures/orchestration-discovery-v1/positive-withdrawn-root-unchanged.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/orchestration-discovery-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_discovery.state_root.commits_publication"
+        },
+        {
+          "path": "fixtures/orchestration-discovery-v1/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration_discovery.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/orchestration-discovery-v1/negative-private-context-included.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json",
           "expected_failure": "schema"
         }
       ]

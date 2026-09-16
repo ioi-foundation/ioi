@@ -1,0 +1,52 @@
+{
+  "$id": "invariant://ioi/foundations/objects/collaboration-terms-envelope/derived-activation/v3",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v3",
+  "rules": [
+    {
+      "rule_id": "collaboration_terms.scope.at_least_one_ref",
+      "description": "At least one scope ref is non-null.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.scope.collaboration_ref",
+          "$.scope.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "collaboration_terms.activation.implies_active_status",
+      "description": "A present activation entails the active status: a record carrying an activation while still proposed, suspended or otherwise is not this bargain's projection. (That an active record carries its activation is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.activation",
+        "paths": [
+          "$.status",
+          "$.activation.status_when_activated"
+        ]
+      }
+    },
+    {
+      "rule_id": "collaboration_terms.activation.accepted_root_is_the_terms_root",
+      "description": "What activated is the envelope's own exact terms root; an activation over another root is not this bargain's.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.activation",
+        "paths": [
+          "$.activation.accepted_root",
+          "$.terms_body_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collaboration_terms.acceptances.bind_the_exact_root",
+      "description": "Every acceptance on record binds the envelope's exact terms root; an acceptance over a predecessor or a draft root does not count toward activation.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.acceptances",
+        "field": "terms_body_root",
+        "expected_path": "$.terms_body_root"
+      }
+    }
+  ]
+}

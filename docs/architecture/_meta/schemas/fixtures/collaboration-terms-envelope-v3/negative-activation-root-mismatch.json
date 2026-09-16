@@ -1,0 +1,76 @@
+{
+  "schema_version": "ioi.collaboration-terms.v3",
+  "collaboration_terms_id": "terms://ioi/orchestration/demo/1",
+  "version": "1.0.0",
+  "predecessor_terms_ref": null,
+  "terms_body_hash_profile": "ioi.collaboration-terms-body.v1",
+  "terms_body_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "scope": {
+    "collaboration_ref": null,
+    "orchestration_ref": "app-scope://ioi-ai/objective/demo"
+  },
+  "proposed_by_ref": "system://ioi/orchestration/demo",
+  "status": "active",
+  "party_roles": [
+    {
+      "party_ref": "system://ioi/orchestration/demo",
+      "role": "coordinator",
+      "acceptance_required": true
+    },
+    {
+      "party_ref": "worker://independent-alloy-lab",
+      "role": "worker_provider",
+      "acceptance_required": true
+    }
+  ],
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://ioi/orchestration/demo",
+    "parent_scope_ref": "app-scope://ioi-ai/objective/demo",
+    "proposed_or_issued_by_ref": "user://demo-operator",
+    "payload_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at": "2026-09-16T12:00:00Z",
+    "updated_at": null
+  },
+  "required_party_refs": [
+    "system://ioi/orchestration/demo",
+    "worker://independent-alloy-lab"
+  ],
+  "acceptances": [
+    {
+      "party_ref": "system://ioi/orchestration/demo",
+      "terms_body_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "accepted_at": "2026-09-16T12:00:00Z",
+      "signature": {
+        "key_suite": "ed25519",
+        "signer_ref": "system://ioi/orchestration/demo",
+        "signer_public_key": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "signed_material_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "signature": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "party_ref": "worker://independent-alloy-lab",
+      "terms_body_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "accepted_at": "2026-09-16T12:00:00Z",
+      "signature": {
+        "key_suite": "ed25519",
+        "signer_ref": "worker://independent-alloy-lab",
+        "signer_public_key": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "signed_material_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "signature": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    }
+  ],
+  "activation": {
+    "rule": "unanimous_required_parties",
+    "status_when_activated": "active",
+    "accepted_root": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "accepted_party_refs": [
+      "system://ioi/orchestration/demo",
+      "worker://independent-alloy-lab"
+    ],
+    "acceptance_receipt_refs": [],
+    "activated_at": "2026-09-16T12:30:00Z"
+  }
+}

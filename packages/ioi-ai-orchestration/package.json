@@ -1,0 +1,33 @@
+{
+  "name": "@ioi/ioi-ai-orchestration",
+  "version": "0.1.0",
+  "description": "The ioi.ai application's orchestration compositions over the IOI agent SDK's thread orchestration primitives: collaboration terms with derived activation, policy-bound discovery projections, signed participation requests and least-disclosing participant state bundles, all admitted as System-scoped records (R-172 slices S2/S3).",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./collaboration": {
+      "types": "./dist/collaboration.d.ts",
+      "import": "./dist/collaboration.js",
+      "require": "./dist/collaboration.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json --emitDeclarationOnly && node scripts/build.mjs",
+    "test": "npm run build && node --test --test-concurrency=1 test/*.mjs"
+  },
+  "dependencies": {
+    "@ioi/agent-sdk": "0.1.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
