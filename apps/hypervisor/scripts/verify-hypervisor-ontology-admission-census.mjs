@@ -1039,7 +1039,12 @@ const PINNED = {
   // reservation tail spelling — the two driven-run findings the S2 gate made reachable; no module
   // added, judgedTokenPositions 282 held. Moved in the commit that follows the daemon change, after
   // the pre-push sweep named the drift.
-  tokenMentions: 161555,
+  // Re-pinned 2026-09-16 (R-172 slice S3) from 161555, +10 tokens, EVERY bucket held (foreign-qualified
+  // 5166, opaque 3708, bare 541, judged 282, writers 57/264/311, fs 242): the movement is
+  // system_record_routes.rs alone — `project()` now derives each revision's receipt_ref and
+  // operation_ref through the two agentgres::refs derivations the admit reply already used, the
+  // seam finding the S3 collaboration gate made reachable. Named by the pre-push sweep.
+  tokenMentions: 161565,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 264, runtimeParameter: 311 },
   productionFsCalls: 242,
