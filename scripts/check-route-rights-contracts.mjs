@@ -67,6 +67,18 @@ const CONSUMER_PLANES = [
   // `unresolved_route_uses()`, and excludes EVERY candidate when either fails. Registering a
   // plane is a claim this gate then checks, not a way past it.
   "model_route_candidate_routes.rs",
+  // The fifth plane, registered 2026-09-16 (M06.9's learning lineage). The impact walker resolves
+  // a rights contract to read its REVOCATION STATE as a trigger (`route_contract_revoked`): a
+  // contract whose revocation_state is revoked seeds the walk on the family, one that is live is
+  // refused `impact_trigger_not_invalid`. It applies no ceiling because it grants nothing — it
+  // reads an invalidation the owner admitted and derives what that invalidation reaches.
+  "learning_lineage_routes.rs",
+  // The sixth plane, registered 2026-09-16 (M09.7's route assurance). The class derivation resolves
+  // the contract bound to a model route as the CONTRACTUAL evidence of its assurance class: it
+  // requires the contract to be live and its route binding to name the route, and it reads the
+  // provider-use terms and retention posture as evidence of a promise — never as custody. A
+  // contract that is not live or binds another route is a typed refusal on the claim.
+  "route_assurance_routes.rs",
 ];
 
 const read = (file) => readFileSync(join(ROUTES_DIR, file), "utf8");
