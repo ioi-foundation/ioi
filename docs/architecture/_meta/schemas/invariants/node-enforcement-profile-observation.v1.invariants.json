@@ -1,0 +1,83 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/node-enforcement-profile-observation/observed-not-promoted/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+  "rules": [
+    {
+      "rule_id": "node_enforcement_profile_observation.content_hash.commits_the_observation",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every mechanism, mode and evidence ref, so an observation edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.components.daemon-runtime.node-enforcement-profile-observation-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "observation_ref": {
+            "path": "$.observation_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_ref": {
+            "path": "$.predecessor_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "node_enforcement_profile_ref": {
+            "path": "$.node_enforcement_profile_ref"
+          },
+          "node_ref": {
+            "path": "$.node_ref"
+          },
+          "platform": {
+            "path": "$.platform"
+          },
+          "observed_at": {
+            "path": "$.observed_at"
+          },
+          "mechanisms": {
+            "path": "$.mechanisms"
+          },
+          "measured_boot": {
+            "path": "$.measured_boot"
+          },
+          "known_gaps": {
+            "path": "$.known_gaps"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "node_enforcement_profile_observation.mechanisms.observed",
+      "description": "An observation observes at least one mechanism; an empty observation is not a profile.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.mechanisms"
+      }
+    },
+    {
+      "rule_id": "node_enforcement_profile_observation.profile.named",
+      "description": "Every observation names the node enforcement profile it observed.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.node_enforcement_profile_ref"
+      }
+    }
+  ]
+}

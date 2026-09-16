@@ -18122,6 +18122,129 @@
           "expected_failure": "invariant"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/model-router/route-assurance-claim/v1",
+      "canonical_name": "RouteAssuranceClaimEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/components/model-router/doctrine.md#route-assurance-classes",
+      "schema_version": "ioi.model-router.route-assurance-claim.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "route-assurance-claim.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/model-router/route-assurance-claim/derived-never-promoted/v1",
+          "path": "invariants/route-assurance-claim.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "RouteAssuranceClaimEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "RouteAssuranceClaimEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/route-assurance-claim-v1/positive-custody-proven.json",
+        "fixtures/route-assurance-claim-v1/positive-downgraded-to-contractual.json",
+        "fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/route-assurance-claim-v1/negative-custody-proven-without-receipt.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/route-assurance-claim-v1/negative-contractual-without-contract.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/route-assurance-claim-v1/negative-class-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/route-assurance-claim-v1/negative-content-hash-drift.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/route-assurance-claim-v1/negative-refused-without-refusals.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+      "canonical_name": "NodeEnforcementProfileObservationEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/hypervisoros.md#node-enforcement-profile",
+      "schema_version": "ioi.components.daemon-runtime.node-enforcement-profile-observation.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "node-enforcement-profile-observation.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/daemon-runtime/node-enforcement-profile-observation/observed-not-promoted/v1",
+          "path": "invariants/node-enforcement-profile-observation.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "NodeEnforcementProfileObservationEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "NodeEnforcementProfileObservationEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/node-enforcement-profile-observation-v1/positive-observed.json",
+        "fixtures/node-enforcement-profile-observation-v1/positive-superseded.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json",
+          "expected_failure": "invariant"
+        }
+      ]
     }
   ]
 }

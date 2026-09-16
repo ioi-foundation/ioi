@@ -1,0 +1,30 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.node-enforcement-profile-observation.v1",
+  "observation_ref": "node-enforcement-observation://acme/estate-1/default/alpha-node-1",
+  "revision": 1,
+  "predecessor_ref": null,
+  "owner_ref": "org://acme",
+  "principal_ref": "user://principal_01",
+  "node_enforcement_profile_ref": "node-enforcement://acme/estate-1/default",
+  "node_ref": "runtime://acme/estate-1/alpha-node-1",
+  "platform": {
+    "os": "linux",
+    "kernel": "6.17.9",
+    "arch": "x86_64"
+  },
+  "observed_at": "2026-09-16T12:00:00Z",
+  "mechanisms": [],
+  "measured_boot": {
+    "boot_receipt_root": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "effective_posture": "measured_boot"
+  },
+  "known_gaps": [
+    "support_bundle redaction not observed"
+  ],
+  "status": "observed",
+  "receipt_refs": [
+    "receipt://hypervisoros/node-enforcement-observation/acme/estate-1/default/alpha-node-1/1"
+  ],
+  "admitted_at": "2026-09-16T12:00:00.250Z",
+  "content_hash": "sha256:c90dbe0cff2bb53e75757504193b8fb42ef27bc08de966f737bdddf3b0360c4f"
+}

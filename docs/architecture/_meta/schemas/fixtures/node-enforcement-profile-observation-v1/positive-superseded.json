@@ -1,0 +1,70 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.node-enforcement-profile-observation.v1",
+  "observation_ref": "node-enforcement-observation://acme/estate-1/default/alpha-node-1",
+  "revision": 2,
+  "predecessor_ref": "node-enforcement-observation://acme/estate-1/default/alpha-node-1/revision/1",
+  "owner_ref": "org://acme",
+  "principal_ref": "user://principal_01",
+  "node_enforcement_profile_ref": "node-enforcement://acme/estate-1/default",
+  "node_ref": "runtime://acme/estate-1/alpha-node-1",
+  "platform": {
+    "os": "linux",
+    "kernel": "6.17.9",
+    "arch": "x86_64"
+  },
+  "observed_at": "2026-09-16T12:00:00Z",
+  "mechanisms": [
+    {
+      "mechanism": "egress_policy",
+      "mode": "active_enforcement",
+      "action_classes": [
+        "egress"
+      ],
+      "verification_evidence_refs": [
+        "evidence://acme/estate-1/alpha-node-1/egress-policy/probe/1"
+      ],
+      "receipt_contract_refs": [
+        "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1"
+      ],
+      "required_privilege": "os_privileged"
+    },
+    {
+      "mechanism": "seccomp",
+      "mode": "active_enforcement",
+      "action_classes": [
+        "process_launch",
+        "filesystem"
+      ],
+      "verification_evidence_refs": [
+        "evidence://acme/estate-1/alpha-node-1/seccomp/probe/1"
+      ],
+      "receipt_contract_refs": [],
+      "required_privilege": "os_privileged"
+    },
+    {
+      "mechanism": "lsm_ebpf",
+      "mode": "audit_only",
+      "action_classes": [
+        "credential_access"
+      ],
+      "verification_evidence_refs": [
+        "evidence://acme/estate-1/alpha-node-1/lsm/audit/1"
+      ],
+      "receipt_contract_refs": [],
+      "required_privilege": "kernel"
+    }
+  ],
+  "measured_boot": {
+    "boot_receipt_root": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "effective_posture": "measured_boot"
+  },
+  "known_gaps": [
+    "support_bundle redaction not observed"
+  ],
+  "status": "superseded",
+  "receipt_refs": [
+    "receipt://hypervisoros/node-enforcement-observation/acme/estate-1/default/alpha-node-1/2"
+  ],
+  "admitted_at": "2026-09-16T12:00:00.250Z",
+  "content_hash": "sha256:74a63fcdd388980f05e0cb8b8a707591add4fd5cc5ea04799698b5e3e0eb8bbc"
+}

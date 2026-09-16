@@ -1,0 +1,151 @@
+{
+  "$id": "invariant://ioi/components/model-router/route-assurance-claim/derived-never-promoted/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/components/model-router/route-assurance-claim/v1",
+  "rules": [
+    {
+      "rule_id": "route_assurance_claim.content_hash.commits_the_derivation",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits the requested and effective classes, the evidence and every refusal, so a class edited after admission fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.model-router.route-assurance-claim-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "claim_ref": {
+            "path": "$.claim_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "predecessor_ref": {
+            "path": "$.predecessor_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "principal_ref": {
+            "path": "$.principal_ref"
+          },
+          "route_ref": {
+            "path": "$.route_ref"
+          },
+          "route_custody_hash": {
+            "path": "$.route_custody_hash"
+          },
+          "requested_class": {
+            "path": "$.requested_class"
+          },
+          "effective_class": {
+            "path": "$.effective_class"
+          },
+          "downgrade_reason": {
+            "path": "$.downgrade_reason"
+          },
+          "declared_posture": {
+            "path": "$.declared_posture"
+          },
+          "evidence": {
+            "path": "$.evidence"
+          },
+          "refusals": {
+            "path": "$.refusals"
+          },
+          "appraised_at": {
+            "path": "$.appraised_at"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          },
+          "revocation_epoch": {
+            "path": "$.revocation_epoch"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "route_assurance_claim.custody_proven.names_its_receipt",
+      "description": "A custody-proven class names the verified boot receipt it stands on; measurement is never implied.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.evidence.custody.boot_receipt_root",
+        "when_path": "$.effective_class",
+        "values": [
+          "custody_proven_no_plaintext"
+        ]
+      }
+    },
+    {
+      "rule_id": "route_assurance_claim.custody_proven.names_its_appraiser",
+      "description": "A custody-proven class names the appraiser that passed it; the attester's self-report is not an appraisal.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.evidence.custody.appraisal.appraiser_ref",
+        "when_path": "$.effective_class",
+        "values": [
+          "custody_proven_no_plaintext"
+        ]
+      }
+    },
+    {
+      "rule_id": "route_assurance_claim.custody_proven.names_its_egress_coverage",
+      "description": "A custody-proven class names the physical egress coverage declaration that prevents provider-readable egress.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.evidence.custody.egress_coverage_declaration_ref",
+        "when_path": "$.effective_class",
+        "values": [
+          "custody_proven_no_plaintext"
+        ]
+      }
+    },
+    {
+      "rule_id": "route_assurance_claim.workload_isolation.names_its_binding",
+      "description": "A workload-isolation class names the admitted immutable isolation binding.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.evidence.isolation.binding_ref",
+        "when_path": "$.effective_class",
+        "values": [
+          "workload_isolation"
+        ]
+      }
+    },
+    {
+      "rule_id": "route_assurance_claim.contractual.names_its_contract",
+      "description": "A contractual-privacy class names the rights contract revision whose terms it rests on.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.evidence.contractual.rights_contract_revision_ref",
+        "when_path": "$.effective_class",
+        "values": [
+          "contractual_privacy"
+        ]
+      }
+    },
+    {
+      "rule_id": "route_assurance_claim.refused.names_its_refusals",
+      "description": "A refused claim names why, typed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.refusals",
+        "when_path": "$.status",
+        "values": [
+          "refused"
+        ]
+      }
+    }
+  ]
+}

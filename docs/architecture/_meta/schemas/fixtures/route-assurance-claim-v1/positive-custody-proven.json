@@ -1,0 +1,91 @@
+{
+  "schema_version": "ioi.model-router.route-assurance-claim.v1",
+  "claim_ref": "route-assurance://route_local_llama",
+  "revision": 1,
+  "predecessor_ref": null,
+  "owner_ref": "org://acme",
+  "principal_ref": "user://principal_01",
+  "route_ref": "model-route://route_local_llama",
+  "route_custody_hash": "sha256:abababababababababababababababababababababababababababababababab",
+  "requested_class": "custody_proven_no_plaintext",
+  "effective_class": "custody_proven_no_plaintext",
+  "downgrade_reason": null,
+  "declared_posture": {
+    "execution_privacy_posture": "private_native",
+    "weight_class": "public_open_weight",
+    "mount_target": "local_device",
+    "remote_provider_can_read_weights": false
+  },
+  "evidence": {
+    "contractual": {
+      "rights_contract_revision_ref": null,
+      "provider_use_terms_hash": null,
+      "retention_posture": null
+    },
+    "isolation": {
+      "binding_ref": null,
+      "binding_hash": null
+    },
+    "custody": {
+      "node_ref": "runtime://acme/estate-1/alpha-node-1",
+      "boot_receipt_root": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "boot_epoch": 3,
+      "measurement_method": "tpm_quote",
+      "effective_posture": "measured_boot",
+      "appraisal": {
+        "attester_ref": "runtime://acme/estate-1/alpha-node-1",
+        "verifier_ref": "verifier://acme/estate-1/appraiser-service",
+        "appraiser_ref": "appraiser://acme/estate-1/appraiser-service",
+        "relying_party_ref": "user://principal_01",
+        "nonce": "9f2c4d6e8a0b1c2d3e4f5a6b",
+        "nonce_single_use_status": "consumed_for_this_appraisal",
+        "appraisal_status": "pass",
+        "appraised_at": "2026-09-16T12:00:00Z",
+        "appraisal_expires_at": "2026-09-16T12:10:00Z",
+        "endorsement_refs": [
+          "endorsement://acme/tpm-vendor/root"
+        ],
+        "reference_value_refs": [
+          "reference://acme/estate-1/pcr-baseline"
+        ],
+        "revocation_status": "current"
+      },
+      "key_owner_ref": "org://acme",
+      "protected_data_owner_ref": "org://acme",
+      "observable_paths": {
+        "storage": {
+          "observer_refs": [
+            "org://acme"
+          ],
+          "observes": "plaintext"
+        },
+        "model": {
+          "observer_refs": [
+            "org://acme"
+          ],
+          "observes": "plaintext"
+        },
+        "tool": {
+          "observer_refs": [],
+          "observes": "nothing"
+        },
+        "egress": {
+          "observer_refs": [],
+          "observes": "nothing"
+        }
+      },
+      "egress_coverage_declaration_ref": "enforcement-coverage://acme/estate-1/default/egress",
+      "egress_preventable": true
+    }
+  },
+  "refusals": [],
+  "appraised_at": "2026-09-16T12:00:00Z",
+  "expires_at": "2026-09-16T12:10:00Z",
+  "revocation_epoch": 0,
+  "status": "current",
+  "receipt_refs": [
+    "receipt://model-router/route-assurance/route_local_llama/1"
+  ],
+  "admitted_at": "2026-09-16T12:00:00.250Z",
+  "content_hash": "sha256:5dd31d4c6379d0a48a932a34ffaf2e31204a26f7594c8191a576382912223a13"
+}

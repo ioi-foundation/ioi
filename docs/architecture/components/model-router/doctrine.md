@@ -242,6 +242,100 @@ Supported surfaces should include:
 - adapter-backed or distillation-trained models;
 - mutable-context and perpetually post-trained model packages.
 
+## Route Assurance Classes
+
+Registered on this basis (2026-09-16, M09.7). A route's assurance class is
+DERIVED by the daemon from evidence it resolves; it is never authored, and it
+never falls back to a stronger label than the evidence supports:
+
+```text
+contractual_privacy
+  the provider PROMISES: a current ModelRouteRightsContract revision whose
+  provider-use terms prohibit training, logging, human review and aggregation
+  and whose retention posture is zero_retention — useful, and not custody
+
+workload_isolation
+  the workload is confined: an admitted immutable
+  HypervisorWorkloadIsolationBinding (ADR 0027) whose hash the daemon resolves
+  — the boundary is proven, the node's view of plaintext is not
+
+confidential_compute_declared
+  the route DECLARES a posture (ExecutionPrivacyPosture, weight class, mount
+  target) that nobody appraised — a declaration, recorded as one
+
+custody_proven_no_plaintext
+  the node is technically unable to observe protected plaintext, and the
+  daemon can say so from evidence: a verified measured-boot receipt whose
+  appraisal passed under SEPARATED attester, verifier, appraiser and
+  relying-party roles with a single-use nonce inside its freshness window and
+  current endorsements and reference values; the key owner and the
+  protected-data owner; an observable-path table (storage, model, tool,
+  egress) on which no provider observes plaintext; physical egress coverage
+  that is preventable, not merely audited; and a route custody that is local,
+  customer-boundary or TEE with remote_provider_can_read_weights false
+
+unevidenced
+  nothing supports any class: no contract, no binding, no appraisable
+  posture — the honest floor, never silently rounded up
+```
+
+The registered shape is `RouteAssuranceClaimEnvelope`
+(`schema://ioi/components/model-router/route-assurance-claim/v1`):
+
+```yaml
+RouteAssuranceClaimEnvelope:
+  schema_version: ioi.model-router.route-assurance-claim.v1
+  claim_ref: route-assurance://{route_id}
+  revision: integer
+  predecessor_ref: route-assurance://{route_id}/revision/{n} | null
+  owner_ref: org:// | project://
+  principal_ref: the relying party, as the daemon resolved it
+  route_ref: model-route://{route_id}
+  route_custody_hash: sha256 over the route's custody block and provider binding
+  requested_class: contractual_privacy | workload_isolation | confidential_compute_declared | custody_proven_no_plaintext
+  effective_class: the same vocabulary, derived, or unevidenced
+  downgrade_reason: string | null
+  declared_posture: { execution_privacy_posture, weight_class, mount_target, remote_provider_can_read_weights }
+  evidence:
+    contractual: { rights_contract_revision_ref, provider_use_terms_hash, retention_posture }
+    isolation:   { binding_ref, binding_hash }
+    custody:     { node_ref, boot_receipt_root, boot_epoch, measurement_method, effective_posture,
+                   appraisal: { attester_ref, verifier_ref, appraiser_ref, relying_party_ref, nonce,
+                                nonce_single_use_status, appraisal_status, appraised_at,
+                                appraisal_expires_at, endorsement_refs, reference_value_refs,
+                                revocation_status },
+                   key_owner_ref, protected_data_owner_ref,
+                   observable_paths: { storage, model, tool, egress: { observer_refs, observes } },
+                   egress_coverage_declaration_ref, egress_preventable }
+  refusals: [ { code, detail } ]
+  appraised_at: timestamp
+  expires_at: timestamp | null
+  revocation_epoch: integer
+  status: current | stale | revoked | refused
+  receipt_refs: []
+  content_hash: sha256
+  admitted_at: timestamp
+```
+
+`declared_posture.execution_privacy_posture` is the route's posture exactly as
+the model-route plane serves it (its custody admission serves `private_native`,
+`ctee_split`, `encrypted_storage_only`, `confidential_compute`,
+`remote_api_provider_trust` and `unsafe_plaintext_mount`; the vocabulary's
+`ExecutionPrivacyPosture` names the four public classes). The label is recorded
+and never promoted: `confidential_compute_declared` follows the plane's private
+group (`private_native`, `ctee_split`, `confidential_compute`) with no remote
+reader of the weights, and every stronger class is derived from the custody
+facts beside the label, never from the label.
+
+An unavailable, stale, ambiguous, withdrawn or unsupported appraisal downgrades
+the effective class to the strongest class the remaining evidence supports and
+names the reason; a replayed nonce, a role confusion (any two of attester,
+appraiser and relying party equal) or a substituted measurement, configuration,
+key or egress path refuses the custody-proven class outright. Contractual
+terms, encryption at rest, a container or VM, a provider badge, an attester's
+self-report and measured boot are each evidence and none of them promotes a
+route to no-provider-plaintext custody.
+
 ## Model Registry
 
 Model records should include:

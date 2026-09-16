@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+  "title": "NodeEnforcementProfileObservationEnvelope",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.node-enforcement-profile-observation.v1",
+  "description": "The physical enforcement owner's admitted observation of one NodeEnforcementProfile on one node: per mechanism (daemon gates, sandbox profiles, seccomp, LSM/eBPF hooks, egress policy, executable policy, hash/signature/path policy, datawall, log redaction, cTEE custody checks, TEE attestation) the mode it was OBSERVED in, the action classes it covers, its verification evidence and receipt contracts, and its privilege. The node-profile coverage producer derives EnforcementCoverageDeclarations from it and claims mediated, preventable or receipted coverage only where an active mechanism with verification evidence covers the class; a measured-boot receipt contributes discovered and attributable facts only. Owner: daemon-runtime/hypervisoros.md § Node Enforcement Profile (M09.7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_ref",
+    "revision",
+    "predecessor_ref",
+    "owner_ref",
+    "principal_ref",
+    "node_enforcement_profile_ref",
+    "node_ref",
+    "platform",
+    "observed_at",
+    "mechanisms",
+    "measured_boot",
+    "known_gaps",
+    "status",
+    "receipt_refs",
+    "content_hash",
+    "admitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.components.daemon-runtime.node-enforcement-profile-observation.v1"
+    },
+    "observation_ref": {
+      "type": "string",
+      "pattern": "^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "predecessor_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"
+        }
+      ]
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"
+    },
+    "principal_ref": {
+      "type": "string",
+      "pattern": "^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
+      "description": "The physical enforcement owner that observed the node, as the daemon resolved it."
+    },
+    "node_enforcement_profile_ref": {
+      "type": "string",
+      "pattern": "^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "node_ref": {
+      "type": "string",
+      "pattern": "^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "kernel",
+        "arch"
+      ],
+      "properties": {
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kernel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arch": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "mechanisms": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mechanism",
+          "mode",
+          "action_classes",
+          "verification_evidence_refs",
+          "receipt_contract_refs",
+          "required_privilege"
+        ],
+        "properties": {
+          "mechanism": {
+            "type": "string",
+            "enum": [
+              "daemon_gate",
+              "sandbox_profile",
+              "seccomp",
+              "lsm_ebpf",
+              "egress_policy",
+              "executable_policy",
+              "hash_signature_path_policy",
+              "datawall",
+              "log_redaction",
+              "ctee_custody_check",
+              "tee_attestation"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "active_enforcement",
+              "audit_only",
+              "passive_observation",
+              "receipt_ingestion_only",
+              "uncovered"
+            ]
+          },
+          "action_classes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "egress",
+                "process_launch",
+                "filesystem",
+                "credential_access",
+                "model_mount",
+                "network_listen",
+                "support_bundle",
+                "daemon_bypass"
+              ]
+            }
+          },
+          "verification_evidence_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "receipt_contract_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required_privilege": {
+            "type": "string",
+            "enum": [
+              "user",
+              "elevated",
+              "os_privileged",
+              "kernel",
+              "hardware_backed"
+            ]
+          }
+        }
+      }
+    },
+    "measured_boot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot_receipt_root",
+        "effective_posture"
+      ],
+      "properties": {
+        "boot_receipt_root": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          ]
+        },
+        "effective_posture": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      }
+    },
+    "known_gaps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "observed",
+        "superseded",
+        "revoked"
+      ]
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

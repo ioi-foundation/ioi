@@ -390,6 +390,49 @@ layer that blocks, detects, records, and receipts unsafe behavior such as
 unmanaged executable launches, unscoped egress, private-data leakage attempts,
 or daemon-bypass attempts.
 
+Observed on this basis (2026-09-16, M09.7): the physical enforcement owner
+admits a `NodeEnforcementProfileObservationEnvelope`
+(`schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1`)
+— per mechanism the mode it was OBSERVED in (`active_enforcement`,
+`audit_only`, `passive_observation`, `receipt_ingestion_only`, `uncovered`),
+the action classes it covers, its verification evidence, its receipt contracts
+and its privilege — and the node-profile coverage producer derives
+`EnforcementCoverageDeclaration`s from it per action class: `mediated`,
+`preventable` and `receipted` are claimed only where an active mechanism with
+verification evidence covers the class (`receipted` only with a receipt
+contract), an audit-only or passive mechanism contributes `observable` and
+`attributable` at most, and a measured-boot receipt contributes `discovered`
+and `attributable` only. A measured-boot receipt, encryption at rest, a
+container or VM, a provider badge or a self-report never promotes a class into
+mediated, preventable or receipted coverage.
+
+```yaml
+NodeEnforcementProfileObservationEnvelope:
+  schema_version: ioi.components.daemon-runtime.node-enforcement-profile-observation.v1
+  observation_ref: node-enforcement-observation://{estate}/{profile}/{node}
+  revision: integer
+  predecessor_ref: node-enforcement-observation://…/revision/{n} | null
+  owner_ref: org:// | project://
+  principal_ref: the physical enforcement owner, as the daemon resolved it
+  node_enforcement_profile_ref: node-enforcement://…
+  node_ref: runtime://…
+  platform: { os, kernel, arch }
+  observed_at: timestamp
+  mechanisms:
+    - mechanism: daemon_gate | sandbox_profile | seccomp | lsm_ebpf | egress_policy | executable_policy | hash_signature_path_policy | datawall | log_redaction | ctee_custody_check | tee_attestation
+      mode: active_enforcement | audit_only | passive_observation | receipt_ingestion_only | uncovered
+      action_classes: [ egress | process_launch | filesystem | credential_access | model_mount | network_listen | support_bundle | daemon_bypass ]
+      verification_evidence_refs: []
+      receipt_contract_refs: []
+      required_privilege: user | elevated | os_privileged | kernel | hardware_backed
+  measured_boot: { boot_receipt_root: sha256 | null, effective_posture: string | null }
+  known_gaps: []
+  status: observed | superseded | revoked
+  receipt_refs: []
+  content_hash: sha256
+  admitted_at: timestamp
+```
+
 ### EnforcementCoverageDeclaration
 
 This file is the canonical owner of `EnforcementCoverageDeclaration`, and this
@@ -919,6 +962,13 @@ revalidation. A local lease, revocation epoch, wall clock, or signed boot
 receipt alone cannot extend that envelope. Lost continuity narrows the node to
 the profile's safe local inspection/proposal behavior until re-anchored; it
 cannot mint authority or pass a `CapabilityExit`.
+
+The temporal profile is declared under the estate owner, never under a
+per-request owner: the daemon is configured with that principal
+(`IOI_HYPERVISOR_ESTATE_OWNER_REF`, a principal the wallet.network can hold an
+approval authority for), the declaration's authority challenge names it, and a
+grant minted by any other principal's authority is refused. No request chooses
+the estate owner.
 
 ## Admission / Settlement Boundary
 

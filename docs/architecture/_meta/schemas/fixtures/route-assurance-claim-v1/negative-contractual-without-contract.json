@@ -1,0 +1,83 @@
+{
+  "schema_version": "ioi.model-router.route-assurance-claim.v1",
+  "claim_ref": "route-assurance://route_hosted_api",
+  "revision": 1,
+  "predecessor_ref": null,
+  "owner_ref": "org://acme",
+  "principal_ref": "user://principal_01",
+  "route_ref": "model-route://route_hosted_api",
+  "route_custody_hash": "sha256:abababababababababababababababababababababababababababababababab",
+  "requested_class": "custody_proven_no_plaintext",
+  "effective_class": "contractual_privacy",
+  "downgrade_reason": "appraisal_unavailable: the route runs on provider_api with remote_api_private_weight; no node, no receipt, no appraisal \u2014 the rights contract's terms are what remains",
+  "declared_posture": {
+    "execution_privacy_posture": "remote_api_provider_trust",
+    "weight_class": "remote_api_private_weight",
+    "mount_target": "provider_api",
+    "remote_provider_can_read_weights": true
+  },
+  "evidence": {
+    "contractual": {
+      "rights_contract_revision_ref": null,
+      "provider_use_terms_hash": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+      "retention_posture": "zero_retention"
+    },
+    "isolation": {
+      "binding_ref": null,
+      "binding_hash": null
+    },
+    "custody": {
+      "node_ref": null,
+      "boot_receipt_root": null,
+      "boot_epoch": null,
+      "measurement_method": null,
+      "effective_posture": null,
+      "appraisal": {
+        "attester_ref": null,
+        "verifier_ref": null,
+        "appraiser_ref": null,
+        "relying_party_ref": null,
+        "nonce": null,
+        "nonce_single_use_status": null,
+        "appraisal_status": null,
+        "appraised_at": null,
+        "appraisal_expires_at": null,
+        "endorsement_refs": [],
+        "reference_value_refs": [],
+        "revocation_status": null
+      },
+      "key_owner_ref": null,
+      "protected_data_owner_ref": null,
+      "observable_paths": {
+        "storage": {
+          "observer_refs": [],
+          "observes": "nothing"
+        },
+        "model": {
+          "observer_refs": [],
+          "observes": "nothing"
+        },
+        "tool": {
+          "observer_refs": [],
+          "observes": "nothing"
+        },
+        "egress": {
+          "observer_refs": [],
+          "observes": "nothing"
+        }
+      },
+      "egress_coverage_declaration_ref": null,
+      "egress_preventable": false
+    }
+  },
+  "refusals": [],
+  "appraised_at": "2026-09-16T12:00:00Z",
+  "expires_at": "2026-09-16T12:10:00Z",
+  "revocation_epoch": 0,
+  "status": "current",
+  "receipt_refs": [
+    "receipt://model-router/route-assurance/route_hosted_api/1"
+  ],
+  "admitted_at": "2026-09-16T12:00:00.250Z",
+  "content_hash": "sha256:a259cc5b5afb8bb259a7e10c1901907fbc319ec74eb89cff603e7f81538c325e"
+}

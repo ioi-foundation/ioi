@@ -357,6 +357,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/learning-impact-record/v1", "sha256:42f059a812dc4a67edbe0c542440d03b9107e18ab434cbfe28b835348acb1222"),
     ("schema://ioi/components/wallet-network/provider-connection-ceremony/v1", "sha256:6e0436605e944d7018ea484b7611a9661511ffbfe58191c1d855c96f1181e804"),
     ("schema://ioi/components/wallet-network/provider-connection-binding/v1", "sha256:a752e6e00f0cb8c215e3d8307329444fb282c657e71c38c6de0b3a64a49c928f"),
+    ("schema://ioi/components/model-router/route-assurance-claim/v1", "sha256:0d906df6f2a5771b14f125fd7784dc47944289343b88da687c7c8b63f4ecd72b"),
+    ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", "sha256:c1e2b2a9471e78dafe2a7e3fcc32eeecdfc195d938e8da134a34eb29980bc2d9"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -150622,6 +150624,1390 @@ pub enum ProviderConnectionBindingV1Status {
     Superseded,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1 {
+    pub schema_version: RouteAssuranceClaimEnvelopeV1SchemaVersion,
+    pub claim_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub predecessor_ref: Option<String>,
+    pub owner_ref: String,
+    pub principal_ref: String,
+    pub route_ref: String,
+    pub route_custody_hash: String,
+    pub requested_class: RouteAssuranceClaimEnvelopeV1RequestedClass,
+    pub effective_class: RouteAssuranceClaimEnvelopeV1EffectiveClass,
+    pub downgrade_reason: Option<String>,
+    pub declared_posture: RouteAssuranceClaimEnvelopeV1DeclaredPosture,
+    pub evidence: RouteAssuranceClaimEnvelopeV1Evidence,
+    pub refusals: Vec<RouteAssuranceClaimEnvelopeV1RefusalsItem>,
+    pub appraised_at: String,
+    pub expires_at: Option<String>,
+    pub revocation_epoch: ArchitectureContractInteger,
+    pub status: RouteAssuranceClaimEnvelopeV1Status,
+    pub receipt_refs: Vec<String>,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/model-router/route-assurance-claim/v1","title":"RouteAssuranceClaimEnvelope","x-ioi-schema-version":"ioi.model-router.route-assurance-claim.v1","description":"The DERIVED assurance class (or unevidenced) of one model route, never authored: contractual_privacy (the provider promises, in a rights contract), workload_isolation (an admitted immutable workload isolation binding), confidential_compute_declared (the route declares a posture nobody appraised) or custody_proven_no_plaintext (a verified measured-boot receipt with a nonce-fresh appraisal under separated attester/verifier/appraiser/relying-party roles, current endorsements, the key and protected-data owners, an observable-path table on which no provider observes plaintext, and physical egress coverage). An unavailable, stale, ambiguous, withdrawn or unsupported appraisal downgrades to the strongest class the remaining evidence supports and never falls back to a stronger label; the downgrade names its reason. Owner: model-router/doctrine.md § Route Assurance Classes (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","revision","predecessor_ref","owner_ref","principal_ref","route_ref","route_custody_hash","requested_class","effective_class","downgrade_reason","declared_posture","evidence","refusals","appraised_at","expires_at","revocation_epoch","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.model-router.route-assurance-claim.v1"},"claim_ref":{"type":"string","pattern":"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The relying party: the resolved principal that asked for the class."},"route_ref":{"type":"string","pattern":"^model-route://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"route_custody_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"JCS-SHA256 over the route's custody block and provider binding as the daemon served them at derivation; a route edited afterwards no longer matches its claim."},"requested_class":{"type":"string","enum":["contractual_privacy","workload_isolation","confidential_compute_declared","custody_proven_no_plaintext"]},"effective_class":{"type":"string","enum":["contractual_privacy","workload_isolation","confidential_compute_declared","custody_proven_no_plaintext","unevidenced"],"description":"The class the evidence supports; unevidenced when nothing supports any class — a refused or evidence-less claim never names a class it lacks."},"downgrade_reason":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"declared_posture":{"type":"object","additionalProperties":false,"required":["execution_privacy_posture","weight_class","mount_target","remote_provider_can_read_weights"],"properties":{"execution_privacy_posture":{"type":"string","minLength":1,"pattern":"^[a-z][a-z0-9_]*$","description":"The route's declared execution privacy posture exactly as the model-route plane serves it (its custody admission serves private_native, ctee_split, encrypted_storage_only, confidential_compute, remote_api_provider_trust and unsafe_plaintext_mount; canon's ExecutionPrivacyPosture names the four public classes). The label is recorded, never promoted: the effective class is derived from the custody facts beside it."},"weight_class":{"type":"string","enum":["public_open_weight","user_local_private_weight","remote_api_private_weight","provider_trust_remote_mount","tee_or_customer_cloud_mount","forbidden_plaintext_mount"]},"mount_target":{"type":"string","enum":["local_device","user_owned_node","rented_gpu","customer_cloud","provider_api","tee_session","none"]},"remote_provider_can_read_weights":{"type":"boolean"}}},"evidence":{"type":"object","additionalProperties":false,"required":["contractual","isolation","custody"],"properties":{"contractual":{"type":"object","additionalProperties":false,"required":["rights_contract_revision_ref","provider_use_terms_hash","retention_posture"],"properties":{"rights_contract_revision_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"provider_use_terms_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"retention_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"isolation":{"type":"object","additionalProperties":false,"required":["binding_ref","binding_hash"],"properties":{"binding_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"binding_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]}}},"custody":{"type":"object","additionalProperties":false,"required":["node_ref","boot_receipt_root","boot_epoch","measurement_method","effective_posture","appraisal","key_owner_ref","protected_data_owner_ref","observable_paths","egress_coverage_declaration_ref","egress_preventable"],"properties":{"node_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"boot_epoch":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0,"maximum":1000000000}]},"measurement_method":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal":{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","appraisal_status","appraised_at","appraisal_expires_at","endorsement_refs","reference_value_refs","revocation_status"],"properties":{"attester_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"verifier_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraiser_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"relying_party_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce_single_use_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraised_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"appraisal_expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"endorsement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"reference_value_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"revocation_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"key_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"protected_data_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"observable_paths":{"type":"object","additionalProperties":false,"required":["storage","model","tool","egress"],"properties":{"storage":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"model":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"tool":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"egress":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}}},"egress_coverage_declaration_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"egress_preventable":{"type":"boolean"}}}}},"refusals":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["code","detail"],"properties":{"code":{"type":"string","minLength":1},"detail":{"type":"string","minLength":1}}}},"appraised_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"revocation_epoch":{"type":"integer","minimum":0,"maximum":1000000},"status":{"type":"string","enum":["current","stale","revoked","refused"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claim_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            route_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            route_custody_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"route_custody_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route_custody_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_class: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1RequestedClass>(
+                object
+                    .remove(r#"requested_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_class: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1EffectiveClass>(
+                object
+                    .remove(r#"effective_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"downgrade_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"downgrade_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_posture:
+                serde_json::from_value::<RouteAssuranceClaimEnvelopeV1DeclaredPosture>(
+                    object
+                        .remove(r#"declared_posture"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"declared_posture"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            evidence: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1Evidence>(
+                object
+                    .remove(r#"evidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refusals: serde_json::from_value::<Vec<RouteAssuranceClaimEnvelopeV1RefusalsItem>>(
+                object
+                    .remove(r#"refusals"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refusals"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appraised_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"appraised_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appraised_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.model-router.route-assurance-claim.v1"#)]
+    IoiModelRouterRouteAssuranceClaimV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1RequestedClass {
+    #[serde(rename = r#"contractual_privacy"#)]
+    ContractualPrivacy,
+    #[serde(rename = r#"workload_isolation"#)]
+    WorkloadIsolation,
+    #[serde(rename = r#"confidential_compute_declared"#)]
+    ConfidentialComputeDeclared,
+    #[serde(rename = r#"custody_proven_no_plaintext"#)]
+    CustodyProvenNoPlaintext,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1EffectiveClass {
+    #[serde(rename = r#"contractual_privacy"#)]
+    ContractualPrivacy,
+    #[serde(rename = r#"workload_isolation"#)]
+    WorkloadIsolation,
+    #[serde(rename = r#"confidential_compute_declared"#)]
+    ConfidentialComputeDeclared,
+    #[serde(rename = r#"custody_proven_no_plaintext"#)]
+    CustodyProvenNoPlaintext,
+    #[serde(rename = r#"unevidenced"#)]
+    Unevidenced,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1DeclaredPosture {
+    pub execution_privacy_posture: String,
+    pub weight_class: RouteAssuranceClaimEnvelopeV1DeclaredPostureWeightClass,
+    pub mount_target: RouteAssuranceClaimEnvelopeV1DeclaredPostureMountTarget,
+    pub remote_provider_can_read_weights: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1DeclaredPosture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["execution_privacy_posture","weight_class","mount_target","remote_provider_can_read_weights"],"properties":{"execution_privacy_posture":{"type":"string","minLength":1,"pattern":"^[a-z][a-z0-9_]*$","description":"The route's declared execution privacy posture exactly as the model-route plane serves it (its custody admission serves private_native, ctee_split, encrypted_storage_only, confidential_compute, remote_api_provider_trust and unsafe_plaintext_mount; canon's ExecutionPrivacyPosture names the four public classes). The label is recorded, never promoted: the effective class is derived from the custody facts beside it."},"weight_class":{"type":"string","enum":["public_open_weight","user_local_private_weight","remote_api_private_weight","provider_trust_remote_mount","tee_or_customer_cloud_mount","forbidden_plaintext_mount"]},"mount_target":{"type":"string","enum":["local_device","user_owned_node","rented_gpu","customer_cloud","provider_api","tee_session","none"]},"remote_provider_can_read_weights":{"type":"boolean"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            execution_privacy_posture: serde_json::from_value::<String>(
+                object
+                    .remove(r#"execution_privacy_posture"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"execution_privacy_posture"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            weight_class: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1DeclaredPostureWeightClass,
+            >(
+                object
+                    .remove(r#"weight_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"weight_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mount_target: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1DeclaredPostureMountTarget,
+            >(
+                object
+                    .remove(r#"mount_target"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mount_target"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            remote_provider_can_read_weights: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"remote_provider_can_read_weights"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"remote_provider_can_read_weights"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1DeclaredPostureWeightClass {
+    #[serde(rename = r#"public_open_weight"#)]
+    PublicOpenWeight,
+    #[serde(rename = r#"user_local_private_weight"#)]
+    UserLocalPrivateWeight,
+    #[serde(rename = r#"remote_api_private_weight"#)]
+    RemoteApiPrivateWeight,
+    #[serde(rename = r#"provider_trust_remote_mount"#)]
+    ProviderTrustRemoteMount,
+    #[serde(rename = r#"tee_or_customer_cloud_mount"#)]
+    TeeOrCustomerCloudMount,
+    #[serde(rename = r#"forbidden_plaintext_mount"#)]
+    ForbiddenPlaintextMount,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1DeclaredPostureMountTarget {
+    #[serde(rename = r#"local_device"#)]
+    LocalDevice,
+    #[serde(rename = r#"user_owned_node"#)]
+    UserOwnedNode,
+    #[serde(rename = r#"rented_gpu"#)]
+    RentedGpu,
+    #[serde(rename = r#"customer_cloud"#)]
+    CustomerCloud,
+    #[serde(rename = r#"provider_api"#)]
+    ProviderApi,
+    #[serde(rename = r#"tee_session"#)]
+    TeeSession,
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1Evidence {
+    pub contractual: RouteAssuranceClaimEnvelopeV1EvidenceContractual,
+    pub isolation: RouteAssuranceClaimEnvelopeV1EvidenceIsolation,
+    pub custody: RouteAssuranceClaimEnvelopeV1EvidenceCustody,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1Evidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["contractual","isolation","custody"],"properties":{"contractual":{"type":"object","additionalProperties":false,"required":["rights_contract_revision_ref","provider_use_terms_hash","retention_posture"],"properties":{"rights_contract_revision_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"provider_use_terms_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"retention_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"isolation":{"type":"object","additionalProperties":false,"required":["binding_ref","binding_hash"],"properties":{"binding_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"binding_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]}}},"custody":{"type":"object","additionalProperties":false,"required":["node_ref","boot_receipt_root","boot_epoch","measurement_method","effective_posture","appraisal","key_owner_ref","protected_data_owner_ref","observable_paths","egress_coverage_declaration_ref","egress_preventable"],"properties":{"node_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"boot_epoch":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0,"maximum":1000000000}]},"measurement_method":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal":{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","appraisal_status","appraised_at","appraisal_expires_at","endorsement_refs","reference_value_refs","revocation_status"],"properties":{"attester_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"verifier_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraiser_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"relying_party_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce_single_use_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraised_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"appraisal_expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"endorsement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"reference_value_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"revocation_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"key_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"protected_data_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"observable_paths":{"type":"object","additionalProperties":false,"required":["storage","model","tool","egress"],"properties":{"storage":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"model":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"tool":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"egress":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}}},"egress_coverage_declaration_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"egress_preventable":{"type":"boolean"}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            contractual:
+                serde_json::from_value::<RouteAssuranceClaimEnvelopeV1EvidenceContractual>(
+                    object
+                        .remove(r#"contractual"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"contractual"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            isolation: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1EvidenceIsolation>(
+                object
+                    .remove(r#"isolation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"isolation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            custody: serde_json::from_value::<RouteAssuranceClaimEnvelopeV1EvidenceCustody>(
+                object
+                    .remove(r#"custody"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"custody"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceContractual {
+    pub rights_contract_revision_ref: Option<String>,
+    pub provider_use_terms_hash: Option<String>,
+    pub retention_posture: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1EvidenceContractual {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["rights_contract_revision_ref","provider_use_terms_hash","retention_posture"],"properties":{"rights_contract_revision_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"provider_use_terms_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"retention_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            rights_contract_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"rights_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"rights_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_use_terms_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"provider_use_terms_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_use_terms_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retention_posture: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"retention_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceIsolation {
+    pub binding_ref: Option<String>,
+    pub binding_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1EvidenceIsolation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["binding_ref","binding_hash"],"properties":{"binding_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"binding_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            binding_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"binding_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustody {
+    pub node_ref: Option<String>,
+    pub boot_receipt_root: Option<String>,
+    pub boot_epoch: Option<ArchitectureContractInteger>,
+    pub measurement_method: Option<String>,
+    pub effective_posture: Option<String>,
+    pub appraisal: RouteAssuranceClaimEnvelopeV1EvidenceCustodyAppraisal,
+    pub key_owner_ref: Option<String>,
+    pub protected_data_owner_ref: Option<String>,
+    pub observable_paths: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePaths,
+    pub egress_coverage_declaration_ref: Option<String>,
+    pub egress_preventable: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1EvidenceCustody {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["node_ref","boot_receipt_root","boot_epoch","measurement_method","effective_posture","appraisal","key_owner_ref","protected_data_owner_ref","observable_paths","egress_coverage_declaration_ref","egress_preventable"],"properties":{"node_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"boot_epoch":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0,"maximum":1000000000}]},"measurement_method":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal":{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","appraisal_status","appraised_at","appraisal_expires_at","endorsement_refs","reference_value_refs","revocation_status"],"properties":{"attester_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"verifier_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraiser_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"relying_party_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce_single_use_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraised_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"appraisal_expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"endorsement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"reference_value_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"revocation_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"key_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"protected_data_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"observable_paths":{"type":"object","additionalProperties":false,"required":["storage","model","tool","egress"],"properties":{"storage":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"model":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"tool":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"egress":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}}},"egress_coverage_declaration_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"egress_preventable":{"type":"boolean"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            node_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"node_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_receipt_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"boot_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boot_epoch: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"boot_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            measurement_method: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"measurement_method"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"measurement_method"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_posture: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effective_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appraisal: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyAppraisal,
+            >(
+                object
+                    .remove(r#"appraisal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appraisal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            key_owner_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"key_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_data_owner_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"protected_data_owner_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"protected_data_owner_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observable_paths: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePaths,
+            >(
+                object
+                    .remove(r#"observable_paths"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observable_paths"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            egress_coverage_declaration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"egress_coverage_declaration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"egress_coverage_declaration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            egress_preventable: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"egress_preventable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"egress_preventable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustodyAppraisal {
+    pub attester_ref: Option<String>,
+    pub verifier_ref: Option<String>,
+    pub appraiser_ref: Option<String>,
+    pub relying_party_ref: Option<String>,
+    pub nonce: Option<String>,
+    pub nonce_single_use_status: Option<String>,
+    pub appraisal_status: Option<String>,
+    pub appraised_at: Option<String>,
+    pub appraisal_expires_at: Option<String>,
+    pub endorsement_refs: Vec<String>,
+    pub reference_value_refs: Vec<String>,
+    pub revocation_status: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1EvidenceCustodyAppraisal {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","appraisal_status","appraised_at","appraisal_expires_at","endorsement_refs","reference_value_refs","revocation_status"],"properties":{"attester_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"verifier_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraiser_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"relying_party_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce_single_use_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraised_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"appraisal_expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"endorsement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"reference_value_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"revocation_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            attester_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"attester_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attester_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"verifier_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appraiser_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"appraiser_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appraiser_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            relying_party_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"relying_party_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"relying_party_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonce: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"nonce"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nonce"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonce_single_use_status: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"nonce_single_use_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nonce_single_use_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appraisal_status: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"appraisal_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appraisal_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appraised_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"appraised_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appraised_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appraisal_expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"appraisal_expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appraisal_expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            endorsement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"endorsement_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"endorsement_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reference_value_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"reference_value_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reference_value_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_status: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"revocation_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePaths {
+    pub storage: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorage,
+    pub model: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModel,
+    pub tool: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsTool,
+    pub egress: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgress,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePaths {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["storage","model","tool","egress"],"properties":{"storage":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"model":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"tool":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"egress":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            storage: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorage,
+            >(
+                object
+                    .remove(r#"storage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"storage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModel,
+            >(
+                object
+                    .remove(r#"model"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tool: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsTool,
+            >(
+                object
+                    .remove(r#"tool"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tool"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            egress: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgress,
+            >(
+                object
+                    .remove(r#"egress"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"egress"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorage {
+    pub observer_refs: Vec<String>,
+    pub observes: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorageObserves,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorage
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            observer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"observer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observes: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorageObserves,
+            >(
+                object
+                    .remove(r#"observes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsStorageObserves {
+    #[serde(rename = r#"plaintext"#)]
+    Plaintext,
+    #[serde(rename = r#"handles"#)]
+    Handles,
+    #[serde(rename = r#"nothing"#)]
+    Nothing,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModel {
+    pub observer_refs: Vec<String>,
+    pub observes: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModelObserves,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModel
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            observer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"observer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observes: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModelObserves,
+            >(
+                object
+                    .remove(r#"observes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsModelObserves {
+    #[serde(rename = r#"plaintext"#)]
+    Plaintext,
+    #[serde(rename = r#"handles"#)]
+    Handles,
+    #[serde(rename = r#"nothing"#)]
+    Nothing,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsTool {
+    pub observer_refs: Vec<String>,
+    pub observes: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsToolObserves,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsTool
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            observer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"observer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observes: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsToolObserves,
+            >(
+                object
+                    .remove(r#"observes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsToolObserves {
+    #[serde(rename = r#"plaintext"#)]
+    Plaintext,
+    #[serde(rename = r#"handles"#)]
+    Handles,
+    #[serde(rename = r#"nothing"#)]
+    Nothing,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgress {
+    pub observer_refs: Vec<String>,
+    pub observes: RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgressObserves,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgress
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            observer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"observer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observes: serde_json::from_value::<
+                RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgressObserves,
+            >(
+                object
+                    .remove(r#"observes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1EvidenceCustodyObservablePathsEgressObserves {
+    #[serde(rename = r#"plaintext"#)]
+    Plaintext,
+    #[serde(rename = r#"handles"#)]
+    Handles,
+    #[serde(rename = r#"nothing"#)]
+    Nothing,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteAssuranceClaimEnvelopeV1RefusalsItem {
+    pub code: String,
+    pub detail: String,
+}
+
+impl<'de> serde::Deserialize<'de> for RouteAssuranceClaimEnvelopeV1RefusalsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["code","detail"],"properties":{"code":{"type":"string","minLength":1},"detail":{"type":"string","minLength":1}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            detail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"detail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"detail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RouteAssuranceClaimEnvelopeV1Status {
+    #[serde(rename = r#"current"#)]
+    Current,
+    #[serde(rename = r#"stale"#)]
+    Stale,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NodeEnforcementProfileObservationEnvelopeV1 {
+    pub schema_version: NodeEnforcementProfileObservationEnvelopeV1SchemaVersion,
+    pub observation_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub predecessor_ref: Option<String>,
+    pub owner_ref: String,
+    pub principal_ref: String,
+    pub node_enforcement_profile_ref: String,
+    pub node_ref: String,
+    pub platform: NodeEnforcementProfileObservationEnvelopeV1Platform,
+    pub observed_at: String,
+    pub mechanisms: Vec<NodeEnforcementProfileObservationEnvelopeV1MechanismsItem>,
+    pub measured_boot: NodeEnforcementProfileObservationEnvelopeV1MeasuredBoot,
+    pub known_gaps: Vec<String>,
+    pub status: NodeEnforcementProfileObservationEnvelopeV1Status,
+    pub receipt_refs: Vec<String>,
+    pub content_hash: String,
+    pub admitted_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for NodeEnforcementProfileObservationEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1","title":"NodeEnforcementProfileObservationEnvelope","x-ioi-schema-version":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1","description":"The physical enforcement owner's admitted observation of one NodeEnforcementProfile on one node: per mechanism (daemon gates, sandbox profiles, seccomp, LSM/eBPF hooks, egress policy, executable policy, hash/signature/path policy, datawall, log redaction, cTEE custody checks, TEE attestation) the mode it was OBSERVED in, the action classes it covers, its verification evidence and receipt contracts, and its privilege. The node-profile coverage producer derives EnforcementCoverageDeclarations from it and claims mediated, preventable or receipted coverage only where an active mechanism with verification evidence covers the class; a measured-boot receipt contributes discovered and attributable facts only. Owner: daemon-runtime/hypervisoros.md § Node Enforcement Profile (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","observation_ref","revision","predecessor_ref","owner_ref","principal_ref","node_enforcement_profile_ref","node_ref","platform","observed_at","mechanisms","measured_boot","known_gaps","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1"},"observation_ref":{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The physical enforcement owner that observed the node, as the daemon resolved it."},"node_enforcement_profile_ref":{"type":"string","pattern":"^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"node_ref":{"type":"string","pattern":"^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"platform":{"type":"object","additionalProperties":false,"required":["os","kernel","arch"],"properties":{"os":{"type":"string","minLength":1},"kernel":{"type":"string","minLength":1},"arch":{"type":"string","minLength":1}}},"observed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"mechanisms":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["mechanism","mode","action_classes","verification_evidence_refs","receipt_contract_refs","required_privilege"],"properties":{"mechanism":{"type":"string","enum":["daemon_gate","sandbox_profile","seccomp","lsm_ebpf","egress_policy","executable_policy","hash_signature_path_policy","datawall","log_redaction","ctee_custody_check","tee_attestation"]},"mode":{"type":"string","enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["egress","process_launch","filesystem","credential_access","model_mount","network_listen","support_bundle","daemon_bypass"]}},"verification_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"required_privilege":{"type":"string","enum":["user","elevated","os_privileged","kernel","hardware_backed"]}}}},"measured_boot":{"type":"object","additionalProperties":false,"required":["boot_receipt_root","effective_posture"],"properties":{"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"known_gaps":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"status":{"type":"string","enum":["observed","superseded","revoked"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                NodeEnforcementProfileObservationEnvelopeV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_enforcement_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_enforcement_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"node_enforcement_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            platform:
+                serde_json::from_value::<NodeEnforcementProfileObservationEnvelopeV1Platform>(
+                    object
+                        .remove(r#"platform"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"platform"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mechanisms: serde_json::from_value::<
+                Vec<NodeEnforcementProfileObservationEnvelopeV1MechanismsItem>,
+            >(
+                object
+                    .remove(r#"mechanisms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mechanisms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            measured_boot: serde_json::from_value::<
+                NodeEnforcementProfileObservationEnvelopeV1MeasuredBoot,
+            >(
+                object
+                    .remove(r#"measured_boot"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"measured_boot"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            known_gaps: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"known_gaps"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"known_gaps"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<NodeEnforcementProfileObservationEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NodeEnforcementProfileObservationEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1"#)]
+    IoiComponentsDaemonRuntimeNodeEnforcementProfileObservationV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NodeEnforcementProfileObservationEnvelopeV1Platform {
+    pub os: String,
+    pub kernel: String,
+    pub arch: String,
+}
+
+impl<'de> serde::Deserialize<'de> for NodeEnforcementProfileObservationEnvelopeV1Platform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["os","kernel","arch"],"properties":{"os":{"type":"string","minLength":1},"kernel":{"type":"string","minLength":1},"arch":{"type":"string","minLength":1}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            os: serde_json::from_value::<String>(
+                object
+                    .remove(r#"os"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"os"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kernel: serde_json::from_value::<String>(
+                object
+                    .remove(r#"kernel"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kernel"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            arch: serde_json::from_value::<String>(
+                object
+                    .remove(r#"arch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"arch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NodeEnforcementProfileObservationEnvelopeV1MechanismsItem {
+    pub mechanism: NodeEnforcementProfileObservationEnvelopeV1MechanismsItemMechanism,
+    pub mode: NodeEnforcementProfileObservationEnvelopeV1MechanismsItemMode,
+    pub action_classes:
+        Vec<NodeEnforcementProfileObservationEnvelopeV1MechanismsItemActionClassesItem>,
+    pub verification_evidence_refs: Vec<String>,
+    pub receipt_contract_refs: Vec<String>,
+    pub required_privilege:
+        NodeEnforcementProfileObservationEnvelopeV1MechanismsItemRequiredPrivilege,
+}
+
+impl<'de> serde::Deserialize<'de> for NodeEnforcementProfileObservationEnvelopeV1MechanismsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["mechanism","mode","action_classes","verification_evidence_refs","receipt_contract_refs","required_privilege"],"properties":{"mechanism":{"type":"string","enum":["daemon_gate","sandbox_profile","seccomp","lsm_ebpf","egress_policy","executable_policy","hash_signature_path_policy","datawall","log_redaction","ctee_custody_check","tee_attestation"]},"mode":{"type":"string","enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["egress","process_launch","filesystem","credential_access","model_mount","network_listen","support_bundle","daemon_bypass"]}},"verification_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"required_privilege":{"type":"string","enum":["user","elevated","os_privileged","kernel","hardware_backed"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mechanism: serde_json::from_value::<
+                NodeEnforcementProfileObservationEnvelopeV1MechanismsItemMechanism,
+            >(
+                object
+                    .remove(r#"mechanism"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mechanism"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mode: serde_json::from_value::<
+                NodeEnforcementProfileObservationEnvelopeV1MechanismsItemMode,
+            >(
+                object
+                    .remove(r#"mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_classes: serde_json::from_value::<
+                Vec<NodeEnforcementProfileObservationEnvelopeV1MechanismsItemActionClassesItem>,
+            >(
+                object
+                    .remove(r#"action_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verification_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"verification_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_privilege: serde_json::from_value::<
+                NodeEnforcementProfileObservationEnvelopeV1MechanismsItemRequiredPrivilege,
+            >(
+                object
+                    .remove(r#"required_privilege"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_privilege"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NodeEnforcementProfileObservationEnvelopeV1MechanismsItemMechanism {
+    #[serde(rename = r#"daemon_gate"#)]
+    DaemonGate,
+    #[serde(rename = r#"sandbox_profile"#)]
+    SandboxProfile,
+    #[serde(rename = r#"seccomp"#)]
+    Seccomp,
+    #[serde(rename = r#"lsm_ebpf"#)]
+    LsmEbpf,
+    #[serde(rename = r#"egress_policy"#)]
+    EgressPolicy,
+    #[serde(rename = r#"executable_policy"#)]
+    ExecutablePolicy,
+    #[serde(rename = r#"hash_signature_path_policy"#)]
+    HashSignaturePathPolicy,
+    #[serde(rename = r#"datawall"#)]
+    Datawall,
+    #[serde(rename = r#"log_redaction"#)]
+    LogRedaction,
+    #[serde(rename = r#"ctee_custody_check"#)]
+    CteeCustodyCheck,
+    #[serde(rename = r#"tee_attestation"#)]
+    TeeAttestation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NodeEnforcementProfileObservationEnvelopeV1MechanismsItemMode {
+    #[serde(rename = r#"active_enforcement"#)]
+    ActiveEnforcement,
+    #[serde(rename = r#"audit_only"#)]
+    AuditOnly,
+    #[serde(rename = r#"passive_observation"#)]
+    PassiveObservation,
+    #[serde(rename = r#"receipt_ingestion_only"#)]
+    ReceiptIngestionOnly,
+    #[serde(rename = r#"uncovered"#)]
+    Uncovered,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NodeEnforcementProfileObservationEnvelopeV1MechanismsItemActionClassesItem {
+    #[serde(rename = r#"egress"#)]
+    Egress,
+    #[serde(rename = r#"process_launch"#)]
+    ProcessLaunch,
+    #[serde(rename = r#"filesystem"#)]
+    Filesystem,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"model_mount"#)]
+    ModelMount,
+    #[serde(rename = r#"network_listen"#)]
+    NetworkListen,
+    #[serde(rename = r#"support_bundle"#)]
+    SupportBundle,
+    #[serde(rename = r#"daemon_bypass"#)]
+    DaemonBypass,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NodeEnforcementProfileObservationEnvelopeV1MechanismsItemRequiredPrivilege {
+    #[serde(rename = r#"user"#)]
+    User,
+    #[serde(rename = r#"elevated"#)]
+    Elevated,
+    #[serde(rename = r#"os_privileged"#)]
+    OsPrivileged,
+    #[serde(rename = r#"kernel"#)]
+    Kernel,
+    #[serde(rename = r#"hardware_backed"#)]
+    HardwareBacked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NodeEnforcementProfileObservationEnvelopeV1MeasuredBoot {
+    pub boot_receipt_root: Option<String>,
+    pub effective_posture: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for NodeEnforcementProfileObservationEnvelopeV1MeasuredBoot {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["boot_receipt_root","effective_posture"],"properties":{"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            boot_receipt_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"boot_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boot_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_posture: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effective_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NodeEnforcementProfileObservationEnvelopeV1Status {
+    #[serde(rename = r#"observed"#)]
+    Observed,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -163284,6 +164670,110 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/wallet-network/provider-connection-binding/v1",
         path: "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-content-hash-drift.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-custody-proven.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-downgraded-to-contractual.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-custody-proven-without-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-contractual-without-contract.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-class-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-content-hash-drift.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/model-router/route-assurance-claim/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-refused-without-refusals.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-observed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-superseded.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json",
         expected_accept: false,
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
@@ -182313,6 +183803,149 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-custody-proven.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-custody-proven.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-downgraded-to-contractual.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-downgraded-to-contractual.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-custody-proven-without-receipt.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-custody-proven-without-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-contractual-without-contract.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-contractual-without-contract.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-class-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-class-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-content-hash-drift.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-content-hash-drift.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-refused-without-refusals.json"#,
+        contract_id: r#"schema://ioi/components/model-router/route-assurance-claim/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-refused-without-refusals.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-observed.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-observed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-superseded.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-superseded.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -184039,6 +185672,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/learning-impact-record/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/learning-impact-record/v1","title":"LearningImpactRecordEnvelope","description":"THE DERIVED IMPACT OF ONE INVALIDATION OVER THE LEARNING LINEAGE (institutional-learning.md § LearningImpactRecordEnvelope; doctrine institutional-learning-boundary.md § Derived Rights, Revocation, And Honest Unlearning). The trigger's subject is resolved through its owner, the daemon traverses its own lineage refs, and each affected record carries the disposition its family earns — fenced, quarantined, rebuild_required, retrain_required, recall_required or residual_exposure — with residual exposure LISTED rather than erased. A record never proves a trained model forgot: `unlearning_claim` is `none` unless the evidence its kind names exists, and a registered invariant refuses a claim above `none` with no evidence. `impact_graph_root` commits the traversed edges under `ioi.learning-impact-graph-root-jcs-sha256.v1`; `content_hash` commits the body and excludes only itself and the admission stamp.","x-ioi-schema-version":"ioi.learning-impact-record.v1","type":"object","additionalProperties":false,"$defs":{"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"impactRecordRef":{"type":"string","pattern":"^learning-impact://[a-z0-9][a-z0-9._-]{0,127}$"},"anyRef":{"type":"string","minLength":1,"maxLength":512},"label":{"type":"string","minLength":1,"maxLength":240}},"required":["schema_version","learning_impact_record_id","owner_ref","trigger","impact_graph_root","affected","residual_exposure","minimum_audit_commitment_ref","unlearning_claim","unlearning_evidence_refs","content_hash","admitted_at"],"properties":{"schema_version":{"const":"ioi.learning-impact-record.v1"},"learning_impact_record_id":{"$ref":"#/$defs/impactRecordRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"trigger":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_revision_ref","decision_ref"],"properties":{"kind":{"enum":["source_right_revoked","consent_withdrawn","eligibility_excluded","route_contract_revoked","boundary_profile_superseded","retention_deleted","legal_hold_placed","label_corrected"]},"subject_ref":{"$ref":"#/$defs/anyRef"},"subject_revision_ref":{"anyOf":[{"$ref":"#/$defs/anyRef"},{"type":"null"}]},"decision_ref":{"$ref":"#/$defs/decisionRef"}}},"impact_graph_root":{"$ref":"#/$defs/sha256"},"affected":{"type":"array","minItems":0,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["ref","family","edge","disposition","basis"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"family":{"enum":["policy_bound_data_view","transformation_run","foundry_recipe_run","foundry_dataset_snapshot","foundry_program","foundry_checkpoint","foundry_qualification_proposal","foundry_artifact_intent","media_episode","media_split_manifest"]},"edge":{"$ref":"#/$defs/anyRef"},"disposition":{"enum":["fenced","quarantined","rebuild_required","retrain_required","recall_required","residual_exposure"]},"basis":{"$ref":"#/$defs/label"}}}},"residual_exposure":{"type":"array","minItems":0,"maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["ref","recipient_class","reason"],"properties":{"ref":{"$ref":"#/$defs/anyRef"},"recipient_class":{"enum":["external_recipient","public_disclosure","installed_artifact","delivered_export"]},"reason":{"$ref":"#/$defs/label"}}}},"minimum_audit_commitment_ref":{"$ref":"#/$defs/policyRef"},"unlearning_claim":{"enum":["none","removal_from_future_datasets","clean_retraining","verified_unlearning","deletion"]},"unlearning_evidence_refs":{"type":"array","minItems":0,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/anyRef"}},"content_hash":{"$ref":"#/$defs/sha256"},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"}}}"##),
     ("schema://ioi/components/wallet-network/provider-connection-ceremony/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/provider-connection-ceremony/v1","title":"ProviderConnectionCeremony","x-ioi-schema-version":"ioi.wallet.provider-connection-ceremony.v1","description":"A single-use, expiring provider authorization ceremony bound to the authenticated wallet principal, the exact provider profile revision, redirect origin and URI, state and nonce, PKCE (or the profile's equivalent proof) commitment, requested provider scopes, intended credential custody profile, permitted audience classes and product-session origin. It grants no provider access and no machine authority; completion validates the provider, the exact account and tenant subject commitments, the returned scopes and the credential response, and creates a ProviderConnectionBinding — never a product integration or an authority grant. The PKCE verifier is never a member: it is sealed server-side and only its S256 challenge is committed. Owner: wallet-network/api-authority-scopes.md § Provider Connection Binding (M03.16).","type":"object","additionalProperties":false,"required":["schema_version","ceremony_ref","owner_ref","declared_account_subject","principal_ref","connector_ref","provider_profile_ref","redirect","state","nonce","proof","requested_scopes","credential_custody_profile_ref","permitted_audience_classes","product_session_origin","issued_at","expires_at","status","completion","refusal","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet.provider-connection-ceremony.v1"},"ceremony_ref":{"type":"string","pattern":"^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$","description":"The ceremony's own ref; single-use, never reissued."},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The tenant that owns the record on the shared owner-scoped mutation chain (org:// or project://)."},"connector_ref":{"type":"string","pattern":"^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$","description":"The registered connector whose provider profile the ceremony binds; the product/System integration handle, not the provider account."},"provider_profile_ref":{"type":"string","pattern":"^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$","description":"The exact provider registry/profile revision: content-addressed over the connector's registered auth profile with secrets excluded, so a profile edited after the ceremony was issued cannot complete it."},"redirect":{"type":"object","additionalProperties":false,"required":["origin","uri"],"properties":{"origin":{"type":"string","minLength":1},"uri":{"type":"string","minLength":1}}},"state":{"type":"string","minLength":16,"maxLength":128},"nonce":{"type":"string","minLength":16,"maxLength":128},"proof":{"type":"object","additionalProperties":false,"required":["kind","code_challenge","code_challenge_method"],"properties":{"kind":{"type":"string","enum":["pkce_s256","profile_equivalent"]},"code_challenge":{"type":"string","minLength":43,"maxLength":128},"code_challenge_method":{"type":"string","enum":["S256"]}}},"requested_scopes":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1}},"credential_custody_profile_ref":{"type":"string","pattern":"^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"},"permitted_audience_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["connector","final_invoker"]}},"product_session_origin":{"type":"string","minLength":1,"maxLength":512},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"status":{"type":"string","enum":["issued","completed","expired","refused"]},"completion":{"type":"object","additionalProperties":false,"required":["completed_at","connection_ref","provider_account_subject_hash","provider_tenant_subject_hash","provider_granted_scopes","evidence_ref"],"description":"Always present; every member is null until the ceremony completes. A completed ceremony names the connection version it created and the evidence its validation observed (registered invariant).","properties":{"completed_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"connection_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"}]},"provider_account_subject_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"provider_tenant_subject_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"provider_granted_scopes":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"evidence_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"refusal":{"type":"object","additionalProperties":false,"required":["code","refused_at"],"description":"Always present; null members until the ceremony is refused, then the typed code and the instant.","properties":{"code":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"refused_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]}}},"receipt_refs":{"type":"array","items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"JCS-SHA256 over the flat material map under ioi.wallet.provider-connection-ceremony-content-commitment-jcs-sha256.v1; server-resolved."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The admission stamp the shared owner-scoped mutation chain assigns; server-resolved, outside the content commitment."},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The authenticated wallet principal the ceremony and every connection version are bound to, as the daemon RESOLVED it — never a body claim."},"declared_account_subject":{"oneOf":[{"type":"null"},{"type":"string","minLength":1,"maxLength":256}],"description":"The provider account the owner intends to connect, when declared at start. A provider-returned subject that differs is refused as substitution; when the provider returns none, the declared subject stands and the evidence records subject_source owner_declared."}}}"#),
     ("schema://ioi/components/wallet-network/provider-connection-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/provider-connection-binding/v1","title":"ProviderConnectionBinding","x-ioi-schema-version":"ioi.wallet.provider-connection-binding.v1","description":"A wallet.network-owned, versioned and revocable relationship between one wallet principal and one externally owned provider account, bound to provider-granted scopes, an exact brokered credential binding, a custody profile, permitted audiences, a connection revocation epoch, current provider verification, a reauthorization deadline and successor lineage. Provider-granted scopes express reachability only: the binding is not an AuthFactor, a credential, a connector installation, an authority grant, a provider account or an effect result. Disconnect, provider revocation, reauthorization expiry or credential rotation advances the epoch and fences the next brokered use at admission; reconnect creates a successor and never revives a predecessor's grants. Owner: wallet-network/api-authority-scopes.md § Provider Connection Binding (M03.16).","type":"object","additionalProperties":false,"required":["schema_version","connection_ref","connection_version","predecessor_ref","owner_ref","principal_ref","connector_ref","provider_profile_ref","provider_account_subject_hash","provider_tenant_subject_hash","provider_granted_scopes","credential_binding_ref","credential_custody_profile_ref","permitted_audience_classes","connection_revocation_epoch","reauthorization_required_at","last_provider_verification","status","successor_ref","ceremony_ref","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet.provider-connection-binding.v1"},"connection_ref":{"type":"string","pattern":"^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*$","description":"The connection family; a version is named connection_ref@version."},"connection_version":{"type":"integer","minimum":1,"maximum":1000000,"description":"A connection is versioned append-only; a million versions of one connection is beyond any honest lifecycle."},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The tenant that owns the record on the shared owner-scoped mutation chain (org:// or project://)."},"connector_ref":{"type":"string","pattern":"^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"provider_profile_ref":{"type":"string","pattern":"^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$"},"provider_account_subject_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"A commitment to the provider's account subject; the provider remains the truth owner of the identifier."},"provider_tenant_subject_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"provider_granted_scopes":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1},"description":"What the provider credential could request. Reachability, never a wallet authority grant."},"credential_binding_ref":{"type":"string","pattern":"^credential://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$","description":"The brokered ProviderCredentialBinding this version acts through; its contents are never a member."},"credential_custody_profile_ref":{"type":"string","pattern":"^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"},"permitted_audience_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["connector","final_invoker"]}},"connection_revocation_epoch":{"type":"integer","minimum":0,"maximum":1000000,"description":"Advanced by disconnect, provider revocation, reauthorization expiry and credential rotation; final admission revalidates the exact version, status and epoch."},"reauthorization_required_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"last_provider_verification":{"type":"object","additionalProperties":false,"required":["observed_at","evidence_ref","status"],"properties":{"observed_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"evidence_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"status":{"type":"string","enum":["current","degraded","unknown","provider_revoked"]}}},"status":{"type":"string","enum":["pending_authorization","active","reauthorization_required","degraded","provider_revoked","disconnected","superseded"]},"successor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$"}]},"ceremony_ref":{"type":"string","pattern":"^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$","description":"The ceremony whose completion created this version (a reconnect or reauthorization names its own ceremony)."},"receipt_refs":{"type":"array","items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"JCS-SHA256 over the flat material map under ioi.wallet.provider-connection-binding-content-commitment-jcs-sha256.v1; server-resolved."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The admission stamp the shared owner-scoped mutation chain assigns; server-resolved, outside the content commitment."},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The authenticated wallet principal the ceremony and every connection version are bound to, as the daemon RESOLVED it — never a body claim."}}}"#),
+    ("schema://ioi/components/model-router/route-assurance-claim/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/model-router/route-assurance-claim/v1","title":"RouteAssuranceClaimEnvelope","x-ioi-schema-version":"ioi.model-router.route-assurance-claim.v1","description":"The DERIVED assurance class (or unevidenced) of one model route, never authored: contractual_privacy (the provider promises, in a rights contract), workload_isolation (an admitted immutable workload isolation binding), confidential_compute_declared (the route declares a posture nobody appraised) or custody_proven_no_plaintext (a verified measured-boot receipt with a nonce-fresh appraisal under separated attester/verifier/appraiser/relying-party roles, current endorsements, the key and protected-data owners, an observable-path table on which no provider observes plaintext, and physical egress coverage). An unavailable, stale, ambiguous, withdrawn or unsupported appraisal downgrades to the strongest class the remaining evidence supports and never falls back to a stronger label; the downgrade names its reason. Owner: model-router/doctrine.md § Route Assurance Classes (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","revision","predecessor_ref","owner_ref","principal_ref","route_ref","route_custody_hash","requested_class","effective_class","downgrade_reason","declared_posture","evidence","refusals","appraised_at","expires_at","revocation_epoch","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.model-router.route-assurance-claim.v1"},"claim_ref":{"type":"string","pattern":"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The relying party: the resolved principal that asked for the class."},"route_ref":{"type":"string","pattern":"^model-route://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"route_custody_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"JCS-SHA256 over the route's custody block and provider binding as the daemon served them at derivation; a route edited afterwards no longer matches its claim."},"requested_class":{"type":"string","enum":["contractual_privacy","workload_isolation","confidential_compute_declared","custody_proven_no_plaintext"]},"effective_class":{"type":"string","enum":["contractual_privacy","workload_isolation","confidential_compute_declared","custody_proven_no_plaintext","unevidenced"],"description":"The class the evidence supports; unevidenced when nothing supports any class — a refused or evidence-less claim never names a class it lacks."},"downgrade_reason":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"declared_posture":{"type":"object","additionalProperties":false,"required":["execution_privacy_posture","weight_class","mount_target","remote_provider_can_read_weights"],"properties":{"execution_privacy_posture":{"type":"string","minLength":1,"pattern":"^[a-z][a-z0-9_]*$","description":"The route's declared execution privacy posture exactly as the model-route plane serves it (its custody admission serves private_native, ctee_split, encrypted_storage_only, confidential_compute, remote_api_provider_trust and unsafe_plaintext_mount; canon's ExecutionPrivacyPosture names the four public classes). The label is recorded, never promoted: the effective class is derived from the custody facts beside it."},"weight_class":{"type":"string","enum":["public_open_weight","user_local_private_weight","remote_api_private_weight","provider_trust_remote_mount","tee_or_customer_cloud_mount","forbidden_plaintext_mount"]},"mount_target":{"type":"string","enum":["local_device","user_owned_node","rented_gpu","customer_cloud","provider_api","tee_session","none"]},"remote_provider_can_read_weights":{"type":"boolean"}}},"evidence":{"type":"object","additionalProperties":false,"required":["contractual","isolation","custody"],"properties":{"contractual":{"type":"object","additionalProperties":false,"required":["rights_contract_revision_ref","provider_use_terms_hash","retention_posture"],"properties":{"rights_contract_revision_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"provider_use_terms_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"retention_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"isolation":{"type":"object","additionalProperties":false,"required":["binding_ref","binding_hash"],"properties":{"binding_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"binding_hash":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]}}},"custody":{"type":"object","additionalProperties":false,"required":["node_ref","boot_receipt_root","boot_epoch","measurement_method","effective_posture","appraisal","key_owner_ref","protected_data_owner_ref","observable_paths","egress_coverage_declaration_ref","egress_preventable"],"properties":{"node_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"boot_epoch":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0,"maximum":1000000000}]},"measurement_method":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal":{"type":"object","additionalProperties":false,"required":["attester_ref","verifier_ref","appraiser_ref","relying_party_ref","nonce","nonce_single_use_status","appraisal_status","appraised_at","appraisal_expires_at","endorsement_refs","reference_value_refs","revocation_status"],"properties":{"attester_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"verifier_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraiser_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"relying_party_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"nonce_single_use_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraisal_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"appraised_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"appraisal_expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"endorsement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"reference_value_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"revocation_status":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"key_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"protected_data_owner_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"observable_paths":{"type":"object","additionalProperties":false,"required":["storage","model","tool","egress"],"properties":{"storage":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"model":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"tool":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}},"egress":{"type":"object","additionalProperties":false,"required":["observer_refs","observes"],"properties":{"observer_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"observes":{"type":"string","enum":["plaintext","handles","nothing"]}}}}},"egress_coverage_declaration_ref":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]},"egress_preventable":{"type":"boolean"}}}}},"refusals":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["code","detail"],"properties":{"code":{"type":"string","minLength":1},"detail":{"type":"string","minLength":1}}}},"appraised_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"oneOf":[{"type":"null"},{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}]},"revocation_epoch":{"type":"integer","minimum":0,"maximum":1000000},"status":{"type":"string","enum":["current","stale","revoked","refused"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
+    ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1","title":"NodeEnforcementProfileObservationEnvelope","x-ioi-schema-version":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1","description":"The physical enforcement owner's admitted observation of one NodeEnforcementProfile on one node: per mechanism (daemon gates, sandbox profiles, seccomp, LSM/eBPF hooks, egress policy, executable policy, hash/signature/path policy, datawall, log redaction, cTEE custody checks, TEE attestation) the mode it was OBSERVED in, the action classes it covers, its verification evidence and receipt contracts, and its privilege. The node-profile coverage producer derives EnforcementCoverageDeclarations from it and claims mediated, preventable or receipted coverage only where an active mechanism with verification evidence covers the class; a measured-boot receipt contributes discovered and attributable facts only. Owner: daemon-runtime/hypervisoros.md § Node Enforcement Profile (M09.7).","type":"object","additionalProperties":false,"required":["schema_version","observation_ref","revision","predecessor_ref","owner_ref","principal_ref","node_enforcement_profile_ref","node_ref","platform","observed_at","mechanisms","measured_boot","known_gaps","status","receipt_refs","content_hash","admitted_at"],"properties":{"schema_version":{"type":"string","const":"ioi.components.daemon-runtime.node-enforcement-profile-observation.v1"},"observation_ref":{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"revision":{"type":"integer","minimum":1,"maximum":1000000},"predecessor_ref":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"}]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"},"principal_ref":{"type":"string","pattern":"^(?:user|worker|service)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$","description":"The physical enforcement owner that observed the node, as the daemon resolved it."},"node_enforcement_profile_ref":{"type":"string","pattern":"^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"node_ref":{"type":"string","pattern":"^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"},"platform":{"type":"object","additionalProperties":false,"required":["os","kernel","arch"],"properties":{"os":{"type":"string","minLength":1},"kernel":{"type":"string","minLength":1},"arch":{"type":"string","minLength":1}}},"observed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"mechanisms":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["mechanism","mode","action_classes","verification_evidence_refs","receipt_contract_refs","required_privilege"],"properties":{"mechanism":{"type":"string","enum":["daemon_gate","sandbox_profile","seccomp","lsm_ebpf","egress_policy","executable_policy","hash_signature_path_policy","datawall","log_redaction","ctee_custody_check","tee_attestation"]},"mode":{"type":"string","enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["egress","process_launch","filesystem","credential_access","model_mount","network_listen","support_bundle","daemon_bypass"]}},"verification_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"receipt_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"required_privilege":{"type":"string","enum":["user","elevated","os_privileged","kernel","hardware_backed"]}}}},"measured_boot":{"type":"object","additionalProperties":false,"required":["boot_receipt_root","effective_posture"],"properties":{"boot_receipt_root":{"oneOf":[{"type":"null"},{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}]},"effective_posture":{"oneOf":[{"type":"null"},{"type":"string","minLength":1}]}}},"known_gaps":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"status":{"type":"string","enum":["observed","superseded","revoked"]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -184356,6 +185991,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/learning-impact-record/v1", r#"[{"rule_id":"learning_impact_record.content_hash.commits_the_immutable_body","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself and the admission stamp under the domain separator `ioi.learning-impact-record-content-commitment-jcs-sha256.v1`, over a flat canonical-JSON material map; a relying party holding only the record recomputes it, so an affected list or a claim edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.learning-impact-record-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"learning_impact_record_id":{"path":"$.learning_impact_record_id"},"owner_ref":{"path":"$.owner_ref"},"trigger":{"path":"$.trigger"},"impact_graph_root":{"path":"$.impact_graph_root"},"affected":{"path":"$.affected"},"residual_exposure":{"path":"$.residual_exposure"},"minimum_audit_commitment_ref":{"path":"$.minimum_audit_commitment_ref"},"unlearning_claim":{"path":"$.unlearning_claim"},"unlearning_evidence_refs":{"path":"$.unlearning_evidence_refs"}}}},{"rule_id":"learning_impact_record.unlearning_claim.names_its_evidence","description":"NO UNLEARNING CLAIM WITHOUT ITS EVIDENCE: a claim above `none` names at least one evidence ref; a revocation or impact record does not prove that a trained model has forgotten the source.","expression":{"operator":"non_empty_when_in","when_path":"$.unlearning_claim","values":["removal_from_future_datasets","clean_retraining","verified_unlearning","deletion"],"path":"$.unlearning_evidence_refs"}}]"#),
     ("schema://ioi/components/wallet-network/provider-connection-ceremony/v1", r#"[{"rule_id":"provider_connection_ceremony.content_hash.commits_the_bound_ceremony","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member except itself under the domain separator over a flat canonical-JSON material map, so a redirect, scope set, proof or completion edited after issue fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.wallet.provider-connection-ceremony-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"ceremony_ref":{"path":"$.ceremony_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"connector_ref":{"path":"$.connector_ref"},"provider_profile_ref":{"path":"$.provider_profile_ref"},"redirect":{"path":"$.redirect"},"state":{"path":"$.state"},"nonce":{"path":"$.nonce"},"proof":{"path":"$.proof"},"requested_scopes":{"path":"$.requested_scopes"},"declared_account_subject":{"path":"$.declared_account_subject"},"credential_custody_profile_ref":{"path":"$.credential_custody_profile_ref"},"permitted_audience_classes":{"path":"$.permitted_audience_classes"},"product_session_origin":{"path":"$.product_session_origin"},"issued_at":{"path":"$.issued_at"},"expires_at":{"path":"$.expires_at"},"status":{"path":"$.status"},"completion":{"path":"$.completion"},"refusal":{"path":"$.refusal"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"provider_connection_ceremony.completion.names_its_connection","description":"A completed ceremony names the connection version it created; completion without a binding is not completion.","expression":{"operator":"non_empty_when_in","path":"$.completion.connection_ref","when_path":"$.status","values":["completed"]}},{"rule_id":"provider_connection_ceremony.completion.carries_provider_evidence","description":"A completed ceremony carries the provider evidence its validation observed; a completion asserted without evidence is a claim.","expression":{"operator":"non_empty_when_in","path":"$.completion.evidence_ref","when_path":"$.status","values":["completed"]}},{"rule_id":"provider_connection_ceremony.refusal.names_its_code","description":"A refused ceremony names why, typed.","expression":{"operator":"non_empty_when_in","path":"$.refusal.code","when_path":"$.status","values":["refused"]}},{"rule_id":"provider_connection_ceremony.expiry.declared","description":"A ceremony always expires; one without a deadline would be reusable for ever.","expression":{"operator":"non_empty","path":"$.expires_at"}}]"#),
     ("schema://ioi/components/wallet-network/provider-connection-binding/v1", r#"[{"rule_id":"provider_connection_binding.content_hash.commits_the_version","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every member of the version except itself, so a scope set, epoch, status or successor edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.wallet.provider-connection-binding-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"connection_ref":{"path":"$.connection_ref"},"connection_version":{"path":"$.connection_version"},"predecessor_ref":{"path":"$.predecessor_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"connector_ref":{"path":"$.connector_ref"},"provider_profile_ref":{"path":"$.provider_profile_ref"},"provider_account_subject_hash":{"path":"$.provider_account_subject_hash"},"provider_tenant_subject_hash":{"path":"$.provider_tenant_subject_hash"},"provider_granted_scopes":{"path":"$.provider_granted_scopes"},"credential_binding_ref":{"path":"$.credential_binding_ref"},"credential_custody_profile_ref":{"path":"$.credential_custody_profile_ref"},"permitted_audience_classes":{"path":"$.permitted_audience_classes"},"connection_revocation_epoch":{"path":"$.connection_revocation_epoch"},"reauthorization_required_at":{"path":"$.reauthorization_required_at"},"last_provider_verification":{"path":"$.last_provider_verification"},"status":{"path":"$.status"},"successor_ref":{"path":"$.successor_ref"},"ceremony_ref":{"path":"$.ceremony_ref"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"provider_connection_binding.active.has_granted_scopes","description":"An active connection names the scopes the provider granted; reachability is recorded, never assumed.","expression":{"operator":"non_empty_when_in","path":"$.provider_granted_scopes","when_path":"$.status","values":["active"]}},{"rule_id":"provider_connection_binding.verified.carries_evidence","description":"A connection that claims a current, degraded or provider-revoked verification carries the evidence that observed it.","expression":{"operator":"non_empty_when_in","path":"$.last_provider_verification.evidence_ref","when_path":"$.last_provider_verification.status","values":["current","degraded","provider_revoked"]}},{"rule_id":"provider_connection_binding.superseded.names_its_successor","description":"A superseded version names the successor that replaced it; predecessor grants do not revive or silently retarget.","expression":{"operator":"non_empty_when_in","path":"$.successor_ref","when_path":"$.status","values":["superseded"]}},{"rule_id":"provider_connection_binding.ceremony.bound","description":"Every version was created by exactly one ceremony it names.","expression":{"operator":"non_empty","path":"$.ceremony_ref"}}]"#),
+    ("schema://ioi/components/model-router/route-assurance-claim/v1", r#"[{"rule_id":"route_assurance_claim.content_hash.commits_the_derivation","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits the requested and effective classes, the evidence and every refusal, so a class edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.model-router.route-assurance-claim-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"claim_ref":{"path":"$.claim_ref"},"revision":{"path":"$.revision"},"predecessor_ref":{"path":"$.predecessor_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"route_ref":{"path":"$.route_ref"},"route_custody_hash":{"path":"$.route_custody_hash"},"requested_class":{"path":"$.requested_class"},"effective_class":{"path":"$.effective_class"},"downgrade_reason":{"path":"$.downgrade_reason"},"declared_posture":{"path":"$.declared_posture"},"evidence":{"path":"$.evidence"},"refusals":{"path":"$.refusals"},"appraised_at":{"path":"$.appraised_at"},"expires_at":{"path":"$.expires_at"},"revocation_epoch":{"path":"$.revocation_epoch"},"status":{"path":"$.status"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"route_assurance_claim.custody_proven.names_its_receipt","description":"A custody-proven class names the verified boot receipt it stands on; measurement is never implied.","expression":{"operator":"non_empty_when_in","path":"$.evidence.custody.boot_receipt_root","when_path":"$.effective_class","values":["custody_proven_no_plaintext"]}},{"rule_id":"route_assurance_claim.custody_proven.names_its_appraiser","description":"A custody-proven class names the appraiser that passed it; the attester's self-report is not an appraisal.","expression":{"operator":"non_empty_when_in","path":"$.evidence.custody.appraisal.appraiser_ref","when_path":"$.effective_class","values":["custody_proven_no_plaintext"]}},{"rule_id":"route_assurance_claim.custody_proven.names_its_egress_coverage","description":"A custody-proven class names the physical egress coverage declaration that prevents provider-readable egress.","expression":{"operator":"non_empty_when_in","path":"$.evidence.custody.egress_coverage_declaration_ref","when_path":"$.effective_class","values":["custody_proven_no_plaintext"]}},{"rule_id":"route_assurance_claim.workload_isolation.names_its_binding","description":"A workload-isolation class names the admitted immutable isolation binding.","expression":{"operator":"non_empty_when_in","path":"$.evidence.isolation.binding_ref","when_path":"$.effective_class","values":["workload_isolation"]}},{"rule_id":"route_assurance_claim.contractual.names_its_contract","description":"A contractual-privacy class names the rights contract revision whose terms it rests on.","expression":{"operator":"non_empty_when_in","path":"$.evidence.contractual.rights_contract_revision_ref","when_path":"$.effective_class","values":["contractual_privacy"]}},{"rule_id":"route_assurance_claim.refused.names_its_refusals","description":"A refused claim names why, typed.","expression":{"operator":"non_empty_when_in","path":"$.refusals","when_path":"$.status","values":["refused"]}}]"#),
+    ("schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1", r#"[{"rule_id":"node_enforcement_profile_observation.content_hash.commits_the_observation","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: the hash commits every mechanism, mode and evidence ref, so an observation edited after admission fails offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.content_hash","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.components.daemon-runtime.node-enforcement-profile-observation-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"observation_ref":{"path":"$.observation_ref"},"revision":{"path":"$.revision"},"predecessor_ref":{"path":"$.predecessor_ref"},"owner_ref":{"path":"$.owner_ref"},"principal_ref":{"path":"$.principal_ref"},"node_enforcement_profile_ref":{"path":"$.node_enforcement_profile_ref"},"node_ref":{"path":"$.node_ref"},"platform":{"path":"$.platform"},"observed_at":{"path":"$.observed_at"},"mechanisms":{"path":"$.mechanisms"},"measured_boot":{"path":"$.measured_boot"},"known_gaps":{"path":"$.known_gaps"},"status":{"path":"$.status"},"receipt_refs":{"path":"$.receipt_refs"}}}},{"rule_id":"node_enforcement_profile_observation.mechanisms.observed","description":"An observation observes at least one mechanism; an empty observation is not a profile.","expression":{"operator":"non_empty","path":"$.mechanisms"}},{"rule_id":"node_enforcement_profile_observation.profile.named","description":"Every observation names the node enforcement profile it observed.","expression":{"operator":"non_empty","path":"$.node_enforcement_profile_ref"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -187069,12 +188706,20 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^model-instance:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"#,
+        r#"^model-route-rights://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"#,
+    ),
+    (
         r#"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$"#,
         r#"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$"#,
     ),
     (
         r#"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
         r#"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^model-route://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+        r#"^model-route://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
     ),
     (
         r#"^model-route://\S+$"#,
@@ -187112,6 +188757,18 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^network-enrollment://[^\s]{1,500}$"#,
         r#"^network-enrollment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+        r#"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+    ),
+    (
+        r#"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"#,
+        r#"^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"#,
+    ),
+    (
+        r#"^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+        r#"^node-enforcement://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
     ),
     (
         r#"^node-enforcement://[^\s]{1,248}$"#,
@@ -187636,6 +189293,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^room-discovery://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+        r#"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+    ),
+    (
+        r#"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"#,
+        r#"^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$"#,
+    ),
+    (
         r#"^routing-decision://[^\s]{1,500}$"#,
         r#"^routing-decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -187655,6 +189320,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^runtime-assignment://\S+$"#,
         r#"^runtime-assignment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
+        r#"^runtime://[A-Za-z0-9][A-Za-z0-9._:/-]*$"#,
     ),
     (
         r#"^runtime://[^\s]{1,248}$"#,
@@ -190992,6 +192661,19 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-bad-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-bad-status.json"))),
     ("docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-verified-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-verified-without-evidence.json"))),
     ("docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-content-hash-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/provider-connection-binding-v1/negative-content-hash-drift.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-custody-proven.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-custody-proven.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-downgraded-to-contractual.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-downgraded-to-contractual.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-custody-proven-without-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-custody-proven-without-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-contractual-without-contract.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-contractual-without-contract.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-class-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-class-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-content-hash-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-content-hash-drift.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-refused-without-refusals.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/negative-refused-without-refusals.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-observed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-observed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-superseded.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/positive-superseded.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-no-mechanisms.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-mode-outside-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/node-enforcement-profile-observation-v1/negative-content-hash-drift.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -192565,6 +194247,16 @@ mod tests {
         },
         "schema://ioi/components/wallet-network/provider-connection-binding/v1" => {
             serde_json::from_value::<ProviderConnectionBindingV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/model-router/route-assurance-claim/v1" => {
+            serde_json::from_value::<RouteAssuranceClaimEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1" => {
+            serde_json::from_value::<NodeEnforcementProfileObservationEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -194144,6 +195836,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/model-router/route-assurance-claim/v1" => {
+            let projection = serde_json::from_value::<RouteAssuranceClaimEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/node-enforcement-profile-observation/v1" => {
+            let projection = serde_json::from_value::<NodeEnforcementProfileObservationEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -194280,8 +195982,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1582,
-            "the registered golden corpus must remain the explicit 1582-fixture bar",
+            1595,
+            "the registered golden corpus must remain the explicit 1595-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -194523,7 +196225,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1019,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1027,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
