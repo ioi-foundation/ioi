@@ -957,6 +957,7 @@ jobs:
           # prebuilt wallet fixture; no Ollama, no agent CLI.
           - verifier_id: custody-proven-private-routes
           - verifier_id: system-record-seam
+          - verifier_id: orchestration-composition
           # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
           # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
           # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
@@ -1121,18 +1122,16 @@ jobs:
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two
       # assertions that would pass vacuously if they broke.
-      - name: Build the daemon and the grant signer the custody-proven verifier boots
+      - name: Build the daemon the record-seam verifier boots
         if: matrix.verifier_id == 'system-record-seam'
         run: cargo build --locked -p ioi-node --bin hypervisor-daemon
 
-      # R-172 S1 — the System-scoped record seam and node integrity: the physical enforcement owner's
-      # observation and the coverage the daemon derives from it (active+verified mediates and
-      # prevents, audit-only never does, measured boot alone discovers and attributes only); the
-      # node-attestation ladder driven through the plane's own wallet-governed routes; a local
-      # private-native route on the ready node deriving custody_proven_no_plaintext with every
-      # commitment re-derived; each downgrade typed by its cause; contractual-to-custody promotion
-      # refused; audited egress never carrying the custody-proven class; restart.
-      - name: Verify the System-scoped record seam and node integrity (R-172 S1)
+      # R-172 S1 — the generic contract-typed application-record seam under a bounded System: a
+      # registered binding-carrying record admitted with its SystemScopedObjectBinding derived, a
+      # successor on the exact head, a stale head, a replay, every typed refusal, a second principal
+      # refused by scope, restart, and the structural claim that the seam names no application
+      # vocabulary.
+      - name: Verify the System-scoped record seam (R-172 S1)
         if: matrix.verifier_id == 'system-record-seam'
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
@@ -1140,9 +1139,34 @@ jobs:
           IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
         run: npm run check:system-record-seam --workspace=@ioi/hypervisor-app
 
-      - name: Drill the custody-proven gate's own oracles
+      - name: Drill the record-seam gate's own oracles
         if: matrix.verifier_id == 'system-record-seam'
         run: npm run mutate:system-record-seam --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon and the agent SDK the orchestration-composition verifier drives
+        if: matrix.verifier_id == 'orchestration-composition'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+
+      # R-172 S2 — an orchestration COMPOSED from thread orchestration primitives through the agent
+      # SDK: a coordinating thread as the root, delegations as subagents of it (ADR 0034), claims as
+      # exact-head reservations on the work-lifecycle plane whose FIRST admission names the genesis
+      # head, typed records under the bounded System through the S1 seam with the binding derived,
+      # the graph projected from the primitives' own reads, restart with a re-attached composer, and
+      # the structural claim that the composer names no application vocabulary and the daemon
+      # registers no route for the composition.
+      - name: Verify the orchestration composed from thread primitives (R-172 S2)
+        if: matrix.verifier_id == 'orchestration-composition'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:orchestration-composition --workspace=@ioi/hypervisor-app
+
+      - name: Drill the orchestration-composition gate's own oracles
+        if: matrix.verifier_id == 'orchestration-composition'
+        run: npm run mutate:orchestration-composition --workspace=@ioi/hypervisor-app
 
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two

@@ -161,7 +161,9 @@
     "soak:m4-room-participation-contribution-wallet-authority": "node scripts/qualify-m4-room-participation-contribution-soak.mjs",
     "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
     "check:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs",
-    "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation"
+    "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation",
+    "check:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs",
+    "mutate:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

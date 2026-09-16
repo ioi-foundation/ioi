@@ -63,6 +63,11 @@
       "import": "./dist/substrate-client.js",
       "require": "./dist/substrate-client.cjs"
     },
+    "./orchestration": {
+      "types": "./dist/orchestration.d.ts",
+      "import": "./dist/orchestration.js",
+      "require": "./dist/orchestration.cjs"
+    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js",

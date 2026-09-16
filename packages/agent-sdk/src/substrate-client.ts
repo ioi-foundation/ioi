@@ -11,6 +11,16 @@ import {
   type ProviderConnectionTransitionResult,
   type ProviderConnectionView,
 } from "./provider-connections.js";
+import {
+  SYSTEM_RECORD_ROUTES,
+  WORK_LIFECYCLE_ROUTES,
+  type SystemRecordAdmitInput,
+  type SystemRecordAdmitResult,
+  type SystemRecordChainResult,
+  type SystemRecordListResult,
+  type WorkReservationAdmitInput,
+  type WorkReservationAdmitResult,
+} from "./orchestration.js";
 import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
 import {
   evaluateComputerUseTrajectory,
@@ -1550,6 +1560,11 @@ export interface RuntimeSubstrateClient {
   refreshModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
   revokeModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
   /** M03.16 — external-account connections: connected is not authorized. */
+  // R-172 S1 — system-scoped application records; M04.10 — work reservations.
+  admitSystemRecord(systemId: string, input: SystemRecordAdmitInput): Promise<SystemRecordAdmitResult>;
+  listSystemRecords(systemId: string, contractId?: string): Promise<SystemRecordListResult>;
+  getSystemRecord(systemId: string, contractId: string, objectId: string): Promise<SystemRecordChainResult>;
+  admitWorkReservation(input: WorkReservationAdmitInput): Promise<WorkReservationAdmitResult>;
   startProviderConnection(input: ProviderConnectionStartInput): Promise<ProviderConnectionStartResult>;
   completeProviderConnection(input: ProviderConnectionCompleteInput): Promise<ProviderConnectionCompleteResult>;
   listProviderConnections(): Promise<ProviderConnectionListResult>;
@@ -1938,11 +1953,25 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeSubagentListInput = {},
   ): Promise<RuntimeSubagentListResult> {
-    return this.request(
+    // THE DAEMON SERVES THE BARE ARRAY. `GET /v1/threads/:id/subagents` answers with the subagent
+    // records themselves; no canon names a list envelope and the daemon never served one, while this
+    // SDK's published type has always been the envelope below. The R-172 S2 driven gate found the
+    // two disagreeing (every listing read as empty through the SDK). The envelope is normalized HERE
+    // as the SDK's own read model, so the published type is true and the wire is untouched.
+    const served = await this.request<RuntimeSubagentListResult | RuntimeSubagentRecord[]>(
       "listSubagents",
       "GET",
       `/v1/threads/${encodePath(threadId)}/subagents${subagentListQuery(input)}`,
     );
+    if (Array.isArray(served)) {
+      return {
+        object: "ioi.runtime_subagent_list",
+        thread_id: threadId,
+        count: served.length,
+        subagents: served,
+      };
+    }
+    return served;
   }
 
   async spawnSubagent(
@@ -2609,6 +2638,24 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "POST",
       `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/revoke`,
     );
+  }
+
+  // ---- R-172 S1 — system-scoped application records (the platform seam an orchestration composes over) ----
+  async admitSystemRecord(systemId: string, input: SystemRecordAdmitInput): Promise<SystemRecordAdmitResult> {
+    return this.request("admitSystemRecord", "POST", SYSTEM_RECORD_ROUTES.admit(systemId), input);
+  }
+
+  async listSystemRecords(systemId: string, contractId?: string): Promise<SystemRecordListResult> {
+    return this.request("listSystemRecords", "GET", SYSTEM_RECORD_ROUTES.list(systemId, contractId));
+  }
+
+  async getSystemRecord(systemId: string, contractId: string, objectId: string): Promise<SystemRecordChainResult> {
+    return this.request("getSystemRecord", "GET", SYSTEM_RECORD_ROUTES.get(systemId, contractId, objectId));
+  }
+
+  // ---- M04.10 — per-dimension work reservations on their own stream (R-74) ----------------------
+  async admitWorkReservation(input: WorkReservationAdmitInput): Promise<WorkReservationAdmitResult> {
+    return this.request("admitWorkReservation", "POST", WORK_LIFECYCLE_ROUTES.reservations, input);
   }
 
   // ---- M03.16 — external-account connections (connected is not authorized) ----------------------

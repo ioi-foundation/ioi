@@ -92,9 +92,12 @@ GET /v1/runtime/nodes
 GET  /v1/hypervisor/work-lifecycle/status
 GET  /v1/hypervisor/work-lifecycle/projection
 GET  /v1/hypervisor/work-lifecycle/records
+POST /v1/hypervisor/work-lifecycle/reservations
 POST /v1/hypervisor/work-lifecycle/cancellation-plan
 POST /v1/hypervisor/work-lifecycle/compaction
 ```
+
+`POST /v1/hypervisor/work-lifecycle/reservations` admits one per-dimension reservation (`schema://ioi/foundations/work-dimension-reservation/v1`) on its own stream under the `work-dimension-reservations` namespace, keyed by the claim's outermost ancestor spelled in the substrate's canonical tail alphabet. A stream that holds no claim yet reports the genesis head `sha256:000…0` as a real value, so a first claim names it in `expected_ancestor_head` and a sibling admitted in between is refused as `work_reservation_head_moved`; the ceilings are supplied under `ancestor_bounds` by the ancestors' owners and checked by the kernel. Identity resolves before the body is read.
 
 As of M04.6 these routes are present in the daemon registry. The read-only
 `status` diagnostic reports kernel presence, durable per-family object counts
@@ -3403,6 +3406,9 @@ work-lifecycle plane) and records its own typed vocabulary through this seam.
 - `GET /v1/hypervisor/autonomous-systems/:id/records/:contract/:object` — one
   record's chain (revisions, admissions, head); the path carries the seam's
   slugs of the contract id and the object id.
+
+
+An orchestration over these records is COMPOSED in the application layer, not served by the daemon (R-172 S2, ADR 0022/0030/0031/0034): the agent SDK's `Orchestration` composer (`packages/agent-sdk/src/orchestration.ts`) creates a coordinating thread through `POST /v1/threads`, delegates work as subagents of it through `POST /v1/threads/{thread_id}/subagents`, claims capacity through the work-lifecycle reservation route, admits its typed records through this seam with the application's own scope as `parent_scope_ref`, and projects a node graph from those reads. The daemon registers no route, object or roster for the composition; `GET /v1/threads/{thread_id}/subagents` serves the bare array of subagent records, and the SDK normalizes it into its published list envelope as its own read model.
 
 ### Route Assurance And Node Enforcement APIs
 

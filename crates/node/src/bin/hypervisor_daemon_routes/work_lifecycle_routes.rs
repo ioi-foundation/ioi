@@ -68,6 +68,15 @@ pub(crate) const RECORDS_NS: &str = "work-lifecycle-records";
 pub(crate) const RESERVATIONS_NS: &str = "work-dimension-reservations";
 const RESERVATION_OP_KIND: &str = "event_stream.work_dimension_reservation";
 const RESERVATION_CONTRACT_ID: &str = "schema://ioi/foundations/work-dimension-reservation/v1";
+/// The head of a reservation stream that holds no claim yet. A REAL VALUE RATHER THAN AN ABSENCE,
+/// for the same reason the machine plane serves one: the contract requires `expected_ancestor_head`
+/// to be a hash, and the kernel refuses an empty one, so a first claim has to be able to name the
+/// head it was computed against. The R-172 S2 driven gate found the first admission unreachable:
+/// the route read `None` on an empty stream, the kernel compared that as `""` against the caller's
+/// non-empty head and refused every first claim as "moved against <genesis>". The substrate CAS
+/// still receives `None` for the empty stream — only the caller-facing comparison names genesis.
+pub(crate) const RESERVATION_GENESIS_HEAD: &str =
+    "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 pub(crate) const PROJECTIONS_NS: &str = "work-lifecycle-projections";
 pub(crate) const CANCELLATION_PLANS_NS: &str = "work-lifecycle-cancellation-plans";
 pub(crate) const ARCHIVE_SEGMENTS_NS: &str = "work-lifecycle-archive-segments";
@@ -1087,20 +1096,29 @@ pub(crate) async fn handle_work_lifecycle_records(
 /// read.
 struct ReservationStream {
     tail: String,
+    /// The substrate's exact CAS expectation: `None` while the stream is empty.
     head: Option<String>,
+    /// The head a caller computes against: the last admitted head, or the genesis head when the
+    /// stream is empty. This is what `plan_reservation` compares `expected_ancestor_head` to.
+    observed_head: String,
     siblings: Vec<Value>,
 }
 
 /// The stream one claim contends on: its OUTERMOST ancestor, which is the last element of the
 /// chain. Every claim that could oversubscribe the same root serializes here, and claims under
 /// different roots never contend — so the CAS is as narrow as correctness allows and no narrower.
+/// The tail is the outermost ancestor spelled in the substrate's canonical alphabet (alphanumerics,
+/// `-`, `_`, `.`), under the `work-dimension-reservations` owner namespace. THE R-172 S2 DRIVEN
+/// GATE FOUND THE EARLIER SPELLING UNADMITTABLE: it prefixed `reservations/`, the slash is outside
+/// the canonical tail alphabet, and Agentgres refused every claim as `CoordinatesNotCanonical`
+/// after the kernel had already planned it. The structural M04.10 gate never drove the route.
 fn reservation_stream_tail(candidate: &Value) -> Option<String> {
     candidate
         .get("ancestor_chain")
         .and_then(Value::as_array)
         .and_then(|chain| chain.last())
         .and_then(Value::as_str)
-        .map(|root| format!("reservations/{}", stream_safe(root)))
+        .map(|root| format!("reservations.{}", stream_safe(root)))
 }
 
 fn stream_safe(reference: &str) -> String {
@@ -1120,9 +1138,13 @@ fn read_reservation_stream(data_dir: &str, tail: &str) -> Result<ReservationStre
             )
         })?;
     let head = history.last().map(|projection| projection.head.to_string());
+    let observed_head = head
+        .clone()
+        .unwrap_or_else(|| RESERVATION_GENESIS_HEAD.to_owned());
     Ok(ReservationStream {
         tail: tail.to_string(),
         head,
+        observed_head,
         siblings: history
             .into_iter()
             .map(|projection| projection.operation.payload)
@@ -1175,8 +1197,13 @@ fn admit_reservation(
         ));
     };
     let stream = read_reservation_stream(data_dir, &tail)?;
-    core.plan_reservation(candidate, stream.head.as_deref(), &bounds, &stream.siblings)
-        .map_err(|error| bad(StatusCode::CONFLICT, error.code(), error.message()))?;
+    core.plan_reservation(
+        candidate,
+        Some(stream.observed_head.as_str()),
+        &bounds,
+        &stream.siblings,
+    )
+    .map_err(|error| bad(StatusCode::CONFLICT, error.code(), error.message()))?;
     let reservation_ref = candidate
         .get("reservation_ref")
         .and_then(Value::as_str)
@@ -1429,6 +1456,87 @@ mod tests {
         substrate_store::reset_handle_for_test();
         let store = WorkLifecycleStore::new(dir.path().to_str().unwrap());
         (dir, store)
+    }
+
+    /// R-172 S2 driven-run finding: the first claim on an empty reservation stream was unreachable
+    /// through the daemon. The kernel refuses an empty `expected_ancestor_head` and compared the
+    /// route's `None` as `""`, so every first claim was refused as "moved against <genesis>". The
+    /// route now serves the genesis head as a real value, the way the machine plane does.
+    #[test]
+    fn a_first_reservation_names_the_genesis_head_and_its_successor_names_the_admitted_one() {
+        let (dir, _store) = fresh_store();
+        let data_dir = dir.path().to_str().unwrap();
+        let core = WorkLifecycleLogCore;
+        let candidate = |n: u32, head: &str| {
+            json!({
+                "schema_version": "ioi.foundations.work-dimension-reservation.v1",
+                "reservation_ref": format!("work-reservation://acme/w1/compute/{n}"),
+                "work_ref": format!("work-run://acme/w1/child-{n}"),
+                "holder_ref": "session://acme/operator-7",
+                "dimension": "compute_seconds",
+                "reserved_units": 1800,
+                "ancestor_chain": ["work-run://acme/w1/parent-1", "work-run://acme/w1", "org://acme"],
+                "expected_ancestor_head": head,
+                "protected_capacity": { "recovery_units": 600, "integration_units": 300 },
+                "status": "active",
+                "transferred_to_ref": Value::Null,
+                "transferred_from_ref": Value::Null,
+                "created_at_ms": 1_757_635_200_000u64 + u64::from(n),
+                "expires_at_ms": 1_757_638_800_000u64,
+            })
+        };
+        let bounds = || {
+            [
+                "work-run://acme/w1/parent-1",
+                "work-run://acme/w1",
+                "org://acme",
+            ]
+            .into_iter()
+            .map(|ancestor| ReservationBound {
+                ancestor_ref: ancestor.to_string(),
+                bound_units: 100_000,
+            })
+            .collect::<Vec<_>>()
+        };
+
+        let first = admit_reservation(
+            data_dir,
+            &core,
+            &candidate(1, RESERVATION_GENESIS_HEAD),
+            bounds(),
+            1_000,
+        )
+        .expect("the first claim admits against the genesis head");
+        let admitted_head = first["admitted_head"].as_str().unwrap().to_string();
+        assert!(admitted_head.starts_with("sha256:") && admitted_head != RESERVATION_GENESIS_HEAD);
+
+        let stale = admit_reservation(
+            data_dir,
+            &core,
+            &candidate(2, RESERVATION_GENESIS_HEAD),
+            bounds(),
+            2_000,
+        )
+        .expect_err("genesis over an admitted stream is stale");
+        assert_eq!(stale.0, StatusCode::CONFLICT);
+        assert_eq!(
+            stale.1["error"]["code"],
+            json!("work_reservation_head_moved")
+        );
+
+        let second = admit_reservation(
+            data_dir,
+            &core,
+            &candidate(2, &admitted_head),
+            bounds(),
+            2_000,
+        )
+        .expect("the successor admits on the admitted head");
+        assert_ne!(second["admitted_head"], json!(admitted_head));
+        assert!(second["admitted_head"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
     }
 
     #[test]
