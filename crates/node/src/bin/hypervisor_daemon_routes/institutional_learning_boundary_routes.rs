@@ -2986,3 +2986,18 @@ mod tests {
             .contains(&"operational_inference".to_string()));
     }
 }
+
+/// PUBLISHED READER for the learning-lineage plane (M06.9): the CURRENT revision ref of a boundary
+/// profile family, so "superseded" is a fact read from the family head rather than asserted.
+pub(crate) fn boundary_profile_head_revision_ref(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    family_ref: &str,
+) -> Result<Option<String>, Reply> {
+    let stream = authorized_stream(&PROFILE, data_dir, identity, family_ref)?;
+    Ok(stream
+        .last()
+        .and_then(|entry| entry.record.get("revision_ref"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned))
+}

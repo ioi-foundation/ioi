@@ -2994,3 +2994,26 @@ mod tests {
         }
     }
 }
+
+/// PUBLISHED READER for the learning-lineage plane (M06.9): every view revision the caller may
+/// read, so an invalidation's impact is walked over the views' own bound claims, consents, route
+/// rights and boundary profiles rather than re-declared.
+pub(crate) fn lineage_view_revisions(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<Vec<serde_json::Value>, Reply> {
+    let refs = super::substrate_store::authorized_request_resource_refs(
+        data_dir,
+        identity,
+        VIEW.resource_kind,
+    )
+    .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let mut out = Vec::new();
+    for resource in refs {
+        let stream = super::model_route_rights_routes::authorized_stream(
+            &VIEW, data_dir, identity, &resource,
+        )?;
+        out.extend(stream.into_iter().map(|entry| entry.record));
+    }
+    Ok(out)
+}

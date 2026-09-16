@@ -130,6 +130,8 @@ mod ioi_intelligence_routes;
 mod k8s_candidate_source;
 #[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
 mod lambda_candidate_source;
+#[path = "hypervisor_daemon_routes/learning_lineage_routes.rs"]
+mod learning_lineage_routes;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/m048_collaboration_routes.rs"]
@@ -2791,6 +2793,19 @@ async fn async_main() -> anyhow::Result<()> {
         )
         // M10.4 — the governed evaluation plane (evaluations.md § Registered shapes; foundry.md
         // § Model-Swap Continuity): five families on the shared owner-scoped mutation chain.
+        .route(
+            "/v1/hypervisor/learning-lineage/impact",
+            get(learning_lineage_routes::handle_lineage_impact),
+        )
+        .route(
+            "/v1/hypervisor/learning-impact-records",
+            get(learning_lineage_routes::handle_impact_record_query)
+                .post(learning_lineage_routes::handle_impact_record_admit),
+        )
+        .route(
+            "/v1/hypervisor/learning-impact-records/:family",
+            get(learning_lineage_routes::handle_impact_record_get),
+        )
         .route(
             "/v1/hypervisor/evaluation-suites",
             get(evaluation_routes::handle_suite_query)

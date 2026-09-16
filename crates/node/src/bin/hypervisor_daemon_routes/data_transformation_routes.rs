@@ -2576,6 +2576,17 @@ pub(crate) async fn handle_transformation_run_admit(
         Ok(recipe) => recipe,
         Err(response) => return response,
     };
+    // THE QUARANTINE FENCE (M06.9): a run over a recipe or a view an admitted impact record
+    // quarantined feeds nothing further.
+    {
+        let mut inputs = vec![recipe.revision_ref.clone(), recipe.data_recipe_id.clone()];
+        inputs.extend(recipe.policy_bound_data_view_refs.iter().cloned());
+        if let Err(response) =
+            super::learning_lineage_routes::refuse_if_quarantined(&st.data_dir, &inputs)
+        {
+            return response;
+        }
+    }
     if let Some(asserted) = body
         .get("expected_data_recipe_content_hash")
         .and_then(Value::as_str)
@@ -3208,4 +3219,34 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&record).expect("json")).expect("json");
         assert_eq!(first, predecessor_record_hash(&reserialized).expect("hash"));
     }
+}
+
+/// PUBLISHED READERS for the learning-lineage plane (M06.9): every data-recipe revision and every
+/// transformation run the caller may read, walked by their own view and recipe refs.
+pub(crate) fn lineage_data_recipes(
+    data_dir: &str,
+    identity: &RequestIdentity,
+) -> Result<Vec<Value>, Reply> {
+    let refs = authorized_request_resource_refs(data_dir, identity, RECIPE.resource_kind)
+        .map_err(scope_refusal_reply)?;
+    let mut out = Vec::new();
+    for resource in refs {
+        let stream = authorized_stream(&RECIPE, data_dir, identity, &resource)?;
+        out.extend(stream.into_iter().map(|entry| entry.record));
+    }
+    Ok(out)
+}
+
+pub(crate) fn lineage_transformation_runs(
+    data_dir: &str,
+    identity: &RequestIdentity,
+) -> Result<Vec<Value>, Reply> {
+    let refs = authorized_request_resource_refs(data_dir, identity, RUN.resource_kind)
+        .map_err(scope_refusal_reply)?;
+    let mut out = Vec::new();
+    for resource in refs {
+        let stream = authorized_stream(&RUN, data_dir, identity, &resource)?;
+        out.extend(stream.into_iter().map(|entry| entry.record));
+    }
+    Ok(out)
 }

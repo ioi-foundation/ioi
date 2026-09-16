@@ -308,10 +308,52 @@ fn projection_value(exact: &ExactProjection, replayed: Option<bool>) -> Value {
     payload
 }
 
+/// DESTROYED CONTENT NEVER RETURNS (M06.9). Before ANY admission — the artifact intent included —
+/// a materialization whose content hash a retention disposition destroyed is refused, typed. The
+/// same check inside `durable_write` is the last line of defence for a write that reaches the
+/// filesystem by another road; this one answers the caller first, so a new run key over destroyed
+/// bytes reads as the destruction it is, not as a head conflict on the intent stream.
+fn refuse_if_destroyed_content(
+    data_dir: &str,
+    family: &str,
+    content_hash: &str,
+) -> Result<(), Reply> {
+    if super::managed_runtime_routes::refuse_if_material_destroyed_public(data_dir, content_hash)
+        .is_err()
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "foundry_content_destroyed",
+            format!(
+                "{family} content {content_hash} was destroyed by a retention disposition; re-materializing the same bytes is refused estate-wide — a rebuild from a clean source is new content under a new decision"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 fn durable_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let parent = path
         .parent()
         .ok_or_else(|| std::io::Error::other("artifact path has no parent"))?;
+    // DESTROYED CONTENT NEVER RETURNS (M06.9): a blob whose content hash a retention disposition
+    // destroyed is refused re-materialization by the same estate-wide fact that refuses restore.
+    if let (Some(data_dir), Some(stem)) =
+        (parent.parent(), path.file_stem().and_then(|s| s.to_str()))
+    {
+        if let Some(data_dir) = data_dir.to_str() {
+            if super::managed_runtime_routes::refuse_if_material_destroyed_public(
+                data_dir,
+                &format!("sha256:{stem}"),
+            )
+            .is_err()
+            {
+                return Err(std::io::Error::other(
+                    "content-addressed material was destroyed by a retention disposition; re-materializing the same bytes is refused",
+                ));
+            }
+        }
+    }
     std::fs::create_dir_all(parent)?;
     if path.exists() {
         if std::fs::read(path)? == bytes {
@@ -1195,6 +1237,11 @@ pub(crate) async fn handle_recipe_run(
         Ok(request) => request,
         Err(reply) => return reply,
     };
+    if let Err(reply) =
+        super::learning_lineage_routes::refuse_if_quarantined(&st.data_dir, &[recipe_id.clone()])
+    {
+        return reply;
+    }
     if request.idempotency_key.trim().is_empty() {
         return bad(
             StatusCode::BAD_REQUEST,
@@ -1356,6 +1403,9 @@ fn commit_dataset_artifact(
     owner_ref: &str,
     idempotency_key: &str,
 ) -> Reply {
+    if let Err(reply) = refuse_if_destroyed_content(data_dir, "dataset", &prepared.content_hash) {
+        return reply;
+    }
     let artifact_ref = format!(
         "artifact://foundry-dataset/{}",
         prepared.content_hash.trim_start_matches("sha256:")
@@ -1488,6 +1538,7 @@ fn load_dataset_material(data_dir: &str, snapshot: &Value) -> Result<Value, Repl
             "snapshot has no content hash",
         )
     })?;
+    super::managed_runtime_routes::refuse_if_material_destroyed_public(data_dir, content_hash)?;
     let bytes =
         std::fs::read(artifact_path(data_dir, DATA_DIR, content_hash)).map_err(|error| {
             bad(
@@ -1625,6 +1676,12 @@ pub(crate) async fn handle_program_create(
         Ok(snapshot) => snapshot,
         Err(reply) => return reply,
     };
+    if let Err(reply) = super::learning_lineage_routes::refuse_if_quarantined(
+        &st.data_dir,
+        &[request.dataset_snapshot_ref.clone()],
+    ) {
+        return reply;
+    }
     if snapshot["recipe_content_hash"] != request.expected_recipe_content_hash {
         return bad(
             StatusCode::CONFLICT,
@@ -2102,6 +2159,11 @@ fn program_action_core(
             // BEFORE the checkpointed successor. One blob per step, so each step records its own
             // content-addressed intent keyed by this transition's idempotency key; an exact retry
             // replays that intent, the write is a no-op, and the successor replays.
+            if let Err(reply) =
+                refuse_if_destroyed_content(data_dir, "checkpoint", &checkpoint_hash)
+            {
+                return reply;
+            }
             let artifact_ref = format!(
                 "artifact://foundry-checkpoint/{}",
                 checkpoint_hash.trim_start_matches("sha256:")
@@ -2198,6 +2260,7 @@ fn verify_checkpoint_projection(
             "checkpoint has no artifact hash",
         )
     })?;
+    super::managed_runtime_routes::refuse_if_material_destroyed_public(data_dir, hash)?;
     let bytes = std::fs::read(artifact_path(data_dir, CHECKPOINT_DIR, hash)).map_err(|error| {
         bad(
             StatusCode::CONFLICT,
@@ -2728,6 +2791,11 @@ pub(crate) async fn handle_program_qualify(
         Ok(scope) => scope,
         Err(reply) => return reply,
     };
+    if let Err(reply) =
+        super::learning_lineage_routes::refuse_if_quarantined(&st.data_dir, &[id.clone()])
+    {
+        return reply;
+    }
     if current.head != request.expected_head {
         return bad(
             StatusCode::CONFLICT,
@@ -3096,6 +3164,337 @@ fn collect_abandoned_blob(
     }
 }
 
+// ======================================================= learning lineage and retention seams (M06.9)
+
+/// What the learning-lineage walker reads from Foundry: recipe revisions, dataset snapshots,
+/// programs (with every checkpoint their streams admitted and their qualification proposal), and
+/// artifact intents — each the head the caller may read, nothing re-declared.
+pub(crate) struct FoundryLineage {
+    pub(crate) recipes: Vec<Value>,
+    pub(crate) snapshots: Vec<Value>,
+    pub(crate) programs: Vec<Value>,
+    pub(crate) intents: Vec<Value>,
+}
+
+pub(crate) fn lineage_heads(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<FoundryLineage, Reply> {
+    let recipes = list_heads(
+        data_dir,
+        identity,
+        "recipe.",
+        "ioi.foundry-recipe-revision.v1",
+        RECIPE_SCOPE_KIND,
+        "recipe_id",
+        Some("owner_ref"),
+    )?;
+    let snapshots = list_heads(
+        data_dir,
+        identity,
+        "dataset.",
+        "ioi.foundry-dataset-snapshot.v1",
+        DATASET_SCOPE_KIND,
+        "dataset_snapshot_ref",
+        None,
+    )?;
+    let mut programs = list_heads(
+        data_dir,
+        identity,
+        "program.",
+        "ioi.foundry-training-program.v1",
+        PROGRAM_SCOPE_KIND,
+        "program_id",
+        Some("owner_ref"),
+    )?;
+    for program in programs.iter_mut() {
+        let program_id = program["program_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        let history = super::substrate_store::read_event_stream_history(
+            data_dir,
+            NAMESPACE,
+            &hash_tail("program", &program_id),
+        )
+        .map_err(|error| {
+            bad(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "foundry_inventory_unavailable",
+                error.to_string(),
+            )
+        })?;
+        let mut checkpoints: BTreeMap<String, Value> = BTreeMap::new();
+        for entry in &history {
+            let checkpoint = entry.operation.payload["current_checkpoint"].clone();
+            if let Some(reference) = checkpoint["checkpoint_ref"].as_str() {
+                checkpoints.insert(reference.to_owned(), checkpoint.clone());
+            }
+        }
+        program["checkpoints"] = Value::Array(checkpoints.into_values().collect());
+        if let Some(proposal) = program
+            .pointer("/qualification/proposal_ref")
+            .or_else(|| program.pointer("/qualification/qualification_proposal_ref"))
+            .and_then(Value::as_str)
+        {
+            program["qualification_proposal_ref"] = json!(proposal);
+        }
+    }
+    let allowed = authorized_refs(data_dir, identity, ARTIFACT_INTENT_SCOPE_KIND)?;
+    let tails =
+        super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE).map_err(|error| {
+            bad(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "foundry_inventory_unavailable",
+                error.to_string(),
+            )
+        })?;
+    let mut intents = Vec::new();
+    for tail in tails
+        .into_iter()
+        .filter(|tail| tail.starts_with("artifact-intent."))
+    {
+        let head = read_head(data_dir, &tail)?;
+        let payload = head.operation.payload;
+        let reference = payload["intent_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        if allowed.contains(&reference) {
+            intents.push(payload);
+        }
+    }
+    Ok(FoundryLineage {
+        recipes,
+        snapshots,
+        programs,
+        intents,
+    })
+}
+
+/// The blob a retention subject kind names. `subject_kind` is the retention owner's vocabulary.
+pub(crate) fn foundry_blob_path(data_dir: &str, subject_kind: &str, hash: &str) -> PathBuf {
+    let family = if subject_kind == "foundry_checkpoint_artifact" {
+        CHECKPOINT_DIR
+    } else {
+        DATA_DIR
+    };
+    artifact_path(data_dir, family, hash)
+}
+
+/// Resolve a dataset snapshot through the caller's own scope: its head and the scope, so the
+/// retention owner stores the canonical coordinate and destroys the bytes the head names.
+pub(crate) fn authorized_snapshot(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    snapshot_ref: &str,
+) -> Result<(Value, super::substrate_store::RequestResourceScope), Reply> {
+    let scope = authorize_scope(data_dir, identity, DATASET_SCOPE_KIND, snapshot_ref, None)?;
+    let snapshot = dataset_snapshot(data_dir, snapshot_ref)?;
+    Ok((snapshot, scope))
+}
+
+/// Resolve a checkpoint (`checkpoint://foundry/{program}/{step}/{hash}`) through its program's
+/// scope; the checkpoint must be one the program's own stream admitted.
+pub(crate) fn authorized_checkpoint(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    checkpoint_ref: &str,
+) -> Result<(Value, super::substrate_store::RequestResourceScope), Reply> {
+    let Some(rest) = checkpoint_ref.strip_prefix("checkpoint://foundry/") else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "foundry_checkpoint_ref_invalid",
+            "a checkpoint is named checkpoint://foundry/{program}/{step}/{hash}",
+        ));
+    };
+    // The {program} component is the program stream's hashed tail (the program id itself carries
+    // '/'), so the stream is read by that tail and the program id — the scope's resource — comes
+    // off the admitted payload, never off the caller's spelling.
+    let mut parts = rest.rsplitn(3, '/');
+    let hash = parts.next().unwrap_or_default();
+    let _step = parts.next().unwrap_or_default();
+    let program_tail = parts.next().unwrap_or_default();
+    if hash.is_empty()
+        || program_tail.is_empty()
+        || program_tail.len() > 64
+        || !program_tail.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "foundry_checkpoint_ref_invalid",
+            "a checkpoint is named checkpoint://foundry/{program}/{step}/{hash}",
+        ));
+    }
+    let history = super::substrate_store::read_event_stream_history(
+        data_dir,
+        NAMESPACE,
+        &format!("program.{program_tail}"),
+    )
+    .map_err(|error| {
+        bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "foundry_inventory_unavailable",
+            error.to_string(),
+        )
+    })?;
+    let Some(program_id) = history
+        .first()
+        .and_then(|entry| entry.operation.payload["program_id"].as_str())
+        .map(str::to_owned)
+    else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "foundry_checkpoint_absent",
+            "no program stream admitted a checkpoint at this coordinate",
+        ));
+    };
+    let scope = authorize_scope(data_dir, identity, PROGRAM_SCOPE_KIND, &program_id, None)?;
+    let found = history.iter().find_map(|entry| {
+        let checkpoint = &entry.operation.payload["current_checkpoint"];
+        (checkpoint["checkpoint_ref"].as_str() == Some(checkpoint_ref)).then(|| checkpoint.clone())
+    });
+    let Some(checkpoint) = found else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "foundry_checkpoint_absent",
+            "the program's stream admitted no such checkpoint",
+        ));
+    };
+    Ok((checkpoint, scope))
+}
+
+/// Every OTHER admitted custodian of the same bytes: another snapshot with the same content hash,
+/// or a checkpoint of another program with the same artifact hash. (An artifact intent is the
+/// obligation the SAME materialization recorded, not a second custodian.) A blob is destroyed
+/// under a disposition only when every custodian has been disposed of — the retention owner
+/// passes the custodians it has already excused.
+pub(crate) fn blob_shared_by_others(
+    data_dir: &str,
+    subject_kind: &str,
+    hash: &str,
+    this_subject_ref: &str,
+) -> Result<Vec<String>, Reply> {
+    let tails =
+        super::substrate_store::list_event_stream_tails(data_dir, NAMESPACE).map_err(|error| {
+            bad(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "foundry_inventory_unavailable",
+                error.to_string(),
+            )
+        })?;
+    let wanted = hash.trim_start_matches("sha256:");
+    let mut others = Vec::new();
+    for tail in tails {
+        let Ok(head) = read_head(data_dir, &tail) else {
+            continue;
+        };
+        let payload = &head.operation.payload;
+        if tail.starts_with("dataset.") && subject_kind == "foundry_dataset_snapshot" {
+            let reference = payload["dataset_snapshot_ref"].as_str().unwrap_or_default();
+            if reference != this_subject_ref
+                && payload["content_hash"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .trim_start_matches("sha256:")
+                    == wanted
+            {
+                others.push(reference.to_owned());
+            }
+        } else if tail.starts_with("program.") && subject_kind == "foundry_checkpoint_artifact" {
+            let checkpoint = &payload["current_checkpoint"];
+            let reference = checkpoint["checkpoint_ref"].as_str().unwrap_or_default();
+            if reference != this_subject_ref
+                && checkpoint["artifact_hash"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .trim_start_matches("sha256:")
+                    == wanted
+            {
+                others.push(reference.to_owned());
+            }
+        }
+    }
+    Ok(others)
+}
+
+/// The retention owner's tombstone for a Foundry blob: resolve the subject through its scope,
+/// refuse while another custodian names the bytes, then write the destroyed-content fact to the
+/// SAME estate-wide stream the managed and environment lanes read — restore, re-capture and
+/// re-materialization all refuse it by name. Returns the tombstone evidence; the caller destroys
+/// the bytes after the fact is durable.
+pub(crate) fn tombstone_foundry_artifact(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    subject_kind: &str,
+    subject_ref: &str,
+    disposition_ref: &str,
+    idempotency_key: &str,
+    excused_custodians: &[String],
+) -> Result<Value, Reply> {
+    let (hash, scope) = match subject_kind {
+        "foundry_dataset_snapshot" => {
+            let (snapshot, scope) = authorized_snapshot(data_dir, identity, subject_ref)?;
+            (
+                snapshot["content_hash"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+                scope,
+            )
+        }
+        "foundry_checkpoint_artifact" => {
+            let (checkpoint, scope) = authorized_checkpoint(data_dir, identity, subject_ref)?;
+            (
+                checkpoint["artifact_hash"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+                scope,
+            )
+        }
+        other => {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "retention_subject_kind_unsupported",
+                format!("{other} is not a Foundry retention subject kind"),
+            ))
+        }
+    };
+    let others: Vec<String> = blob_shared_by_others(data_dir, subject_kind, &hash, subject_ref)?
+        .into_iter()
+        .filter(|custodian| !excused_custodians.contains(custodian))
+        .collect();
+    if !others.is_empty() {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "retention_subject_shared",
+            format!("{subject_ref}'s bytes ({hash}) are still named by {others:?}; destruction is never a side effect on another record's custody — dispose of every custodian, or none"),
+        ));
+    }
+    // The destroyed-content fact is admitted under the CUSTODIAN's scope — the snapshot's own,
+    // or the program's for a checkpoint — because that scope is what the substrate validates the
+    // admission against; the fact itself is keyed by the content hash, which is exactly what was
+    // destroyed, and the disposition record names the subject.
+    let fact = super::managed_runtime_routes::record_material_destroyed(
+        data_dir,
+        identity,
+        &scope,
+        &scope.resource_kind,
+        &scope.resource_ref,
+        &hash,
+        disposition_ref,
+        idempotency_key,
+    )?;
+    Ok(json!({
+        "subject_kind": subject_kind,
+        "subject_ref": subject_ref,
+        "artifact_hash": hash,
+        "destroyed_content_fact": fact,
+        "note": "the admitted snapshot or program stream and its receipts survive; only the content-addressed bytes are destroyed, and the same bytes refuse re-materialization estate-wide",
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3412,6 +3811,173 @@ mod tests {
         assert_eq!(
             body["error"]["code"],
             "foundry_recipe_expected_head_conflict"
+        );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    // M06.9 — the checkpoint coordinate is the program stream's hashed tail, never the program id
+    // spelled by the caller; an absent coordinate is 404, a spelled one is 400.
+    #[test]
+    fn authorized_checkpoint_refuses_spelled_and_absent_coordinates() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let (status, body) = authorized_checkpoint(
+            data_dir,
+            &identity,
+            "checkpoint://foundry/trainpipe://acme/p1/9/0000",
+        )
+        .unwrap_err();
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body.0["error"]["code"], "foundry_checkpoint_ref_invalid");
+        let (status, body) = authorized_checkpoint(
+            data_dir,
+            &identity,
+            "checkpoint://foundry/abcdef0123456789/9/0000",
+        )
+        .unwrap_err();
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body.0["error"]["code"], "foundry_checkpoint_absent");
+        let program_id = "trainpipe://acme/p1";
+        admitted_program(data_dir, &identity, program_id);
+        let tail = hash_tail("program", program_id);
+        let (status, body) = authorized_checkpoint(
+            data_dir,
+            &identity,
+            &format!(
+                "checkpoint://foundry/{}/9/0000",
+                tail.trim_start_matches("program.")
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "a real program with no such checkpoint"
+        );
+        assert_eq!(body.0["error"]["code"], "foundry_checkpoint_absent");
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    fn planted_snapshot(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+        snapshot_ref: &str,
+        content_hash: &str,
+    ) {
+        let scope = bind_scope(
+            data_dir,
+            identity,
+            DATASET_SCOPE_KIND,
+            snapshot_ref,
+            "org://local",
+            snapshot_ref,
+        )
+        .unwrap();
+        admit(
+            data_dir,
+            true,
+            identity,
+            &scope,
+            DATASET_SCOPE_KIND,
+            snapshot_ref,
+            &hash_tail("dataset", snapshot_ref),
+            DATASET_PARENT_OP,
+            None,
+            &json!({
+                "schema_version":"ioi.foundry-dataset-snapshot.v1",
+                "dataset_snapshot_ref": snapshot_ref,
+                "content_hash": content_hash,
+                "status":"materialized",
+            }),
+            1,
+            snapshot_ref,
+        )
+        .unwrap();
+    }
+
+    // M06.9 — shared custody. The Foundry plane cannot mint two records over one blob today (a
+    // snapshot's ref IS its content hash; a checkpoint's bytes commit to its program), so this
+    // branch is proven over two PLANTED dataset heads naming the same bytes: destruction is refused
+    // until every other custodian is excused, then executes once and leaves the estate-wide fact.
+    #[test]
+    fn tombstone_refuses_shared_custody_until_every_custodian_is_excused() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://one",
+            ["org://local".to_string()],
+        );
+        let hash = digest(b"the same bytes");
+        planted_snapshot(data_dir, &identity, "dataset-snapshot://foundry/one", &hash);
+        planted_snapshot(data_dir, &identity, "dataset-snapshot://foundry/two", &hash);
+        let others = blob_shared_by_others(
+            data_dir,
+            "foundry_dataset_snapshot",
+            &hash,
+            "dataset-snapshot://foundry/one",
+        )
+        .unwrap();
+        assert_eq!(others, vec!["dataset-snapshot://foundry/two".to_string()]);
+        let (status, body) = tombstone_foundry_artifact(
+            data_dir,
+            &identity,
+            "foundry_dataset_snapshot",
+            "dataset-snapshot://foundry/one",
+            "retention-disposition://rdsp_one",
+            "delete-one",
+            &[],
+        )
+        .unwrap_err();
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body.0["error"]["code"], "retention_subject_shared");
+        assert!(body.0["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("dataset-snapshot://foundry/two"));
+        assert!(
+            super::super::managed_runtime_routes::refuse_if_material_destroyed_public(
+                data_dir, &hash
+            )
+            .is_ok(),
+            "a refused tombstone destroys nothing"
+        );
+        let tombstone = tombstone_foundry_artifact(
+            data_dir,
+            &identity,
+            "foundry_dataset_snapshot",
+            "dataset-snapshot://foundry/one",
+            "retention-disposition://rdsp_one",
+            "delete-one",
+            &["dataset-snapshot://foundry/two".to_string()],
+        )
+        .unwrap();
+        assert_eq!(tombstone["artifact_hash"], hash);
+        assert!(tombstone["destroyed_content_fact"].is_string());
+        let (status, body) =
+            super::super::managed_runtime_routes::refuse_if_material_destroyed_public(
+                data_dir, &hash,
+            )
+            .unwrap_err();
+        assert!(status.is_client_error(), "{status} {}", body.0);
+        let again = tombstone_foundry_artifact(
+            data_dir,
+            &identity,
+            "foundry_dataset_snapshot",
+            "dataset-snapshot://foundry/two",
+            "retention-disposition://rdsp_two",
+            "delete-two",
+            &["dataset-snapshot://foundry/one".to_string()],
+        )
+        .unwrap();
+        assert_eq!(
+            again["destroyed_content_fact"], tombstone["destroyed_content_fact"],
+            "one destroyed-content fact per content, not per custodian"
         );
         super::super::substrate_store::reset_handle_for_test();
     }

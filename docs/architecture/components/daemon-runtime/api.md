@@ -3372,6 +3372,40 @@ POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
 POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
 ```
 
+### Learning Lineage And Impact APIs
+
+Served (2026-09-16, M06.9). The impact of an invalidation is DERIVED over the
+daemon's own lineage refs and admitted as a `LearningImpactRecordEnvelope`
+(`schema://ioi/foundations/objects/learning-impact-record/v1`); the walker
+serves the same graph without admission. A transformation run, a Foundry recipe
+run, a program or a qualification over an input an admitted record quarantined
+is refused `learning_source_quarantined`; a claim of removal, clean retraining,
+verified unlearning or deletion without the evidence its kind names is refused
+`false_unlearning_claim`. Foundry dataset snapshots and checkpoint artifacts are
+retention subjects through `POST /v1/hypervisor/retention/dispositions`
+(subject kinds `foundry_dataset_snapshot`, `foundry_checkpoint_artifact`;
+`payload_state_root` is the served content or artifact hash, and a checkpoint is
+named by its program stream's coordinate, never by a spelled program id). Delete
+destroys the bytes once and records a content-keyed destroyed fact under the
+custodian's scope; the same content then refuses verify-restore, a backup copy
+put back, and re-materialization under a new run key
+(`foundry_content_destroyed`). On this basis one Foundry record owns one blob (a
+snapshot's ref is its content hash; a checkpoint's bytes commit to its program),
+so `retention_subject_shared` guards a second custodian no route mints today. A
+retention projection absent over an admitted stream answers
+`retention_disposition_projection_missing`, never a 404.
+
+The walk takes `trigger_kind` and `subject_ref` as query parameters (and an
+optional `owner_ref`); the trigger is resolved through its owner, and a subject
+that is not invalidated is refused `impact_trigger_not_invalid`.
+
+```http
+GET  /v1/hypervisor/learning-lineage/impact
+POST /v1/hypervisor/learning-impact-records
+GET  /v1/hypervisor/learning-impact-records
+GET  /v1/hypervisor/learning-impact-records/{family}
+```
+
 ### Governed Evaluation Plane APIs
 
 The evaluation plane's four objects beyond the epoch and its ledger — released

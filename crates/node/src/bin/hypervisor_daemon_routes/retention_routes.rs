@@ -39,7 +39,7 @@ use serde_json::{json, Value};
 
 use super::mutation_event_foundation::{
     admit_owner_scoped_write, replay_stable_id, require_write_caller, scope_refusal_reply,
-    MutationCommit, WriteCaller,
+    stream_tail, MutationCommit, WriteCaller,
 };
 use super::{persist_record, DaemonState};
 
@@ -55,9 +55,17 @@ const SUBJECT_KINDS: &[&str] = &[
     "managed_backup_export",
     "environment_workspace_capture",
     "policy_bound_media_snapshot",
+    "foundry_dataset_snapshot",
+    "foundry_checkpoint_artifact",
 ];
 const SUBJECT_KIND_MANAGED_BACKUP: &str = "managed_backup_export";
 const SUBJECT_KIND_ENVIRONMENT_CAPTURE: &str = "environment_workspace_capture";
+/// M06.9 (owner ruling 2026-09-16 in security-privacy-policy-invariants.md § DataRetentionDisposition):
+/// Foundry's content-addressed dataset snapshots and program checkpoints are retention subjects.
+/// Their payload is the blob, `payload_state_root` is its content hash, and the blob is destroyed
+/// only when no other custodian names the bytes (`retention_subject_shared`).
+const SUBJECT_KIND_FOUNDRY_SNAPSHOT: &str = "foundry_dataset_snapshot";
+const SUBJECT_KIND_FOUNDRY_CHECKPOINT: &str = "foundry_checkpoint_artifact";
 
 type Reply = (StatusCode, Json<Value>);
 
@@ -85,6 +93,42 @@ fn load(data_dir: &str, id: &str) -> Option<Value> {
         .ok()?,
     )
     .ok()
+}
+
+/// The answer when no read projection exists at `id`. The projection is a CACHE of the durable
+/// chain: if the chain holds admissions for this disposition, saying "no disposition exists" would
+/// be false, and a caller would act on a lie (declare again, or treat a destroyed subject as never
+/// governed). So the chain is consulted first — a missing projection over an admitted stream is a
+/// typed, retryable service fault that names the head it could not project, never a 404.
+///
+/// M06.9 measured this seam (the driven gate destroys the projection directory before a restart);
+/// rebuilding a disposition from its chain is NOT done here because the admitted payloads are
+/// deltas (the declare payload carries no payload state root — that was resolved at declaration),
+/// so a fold could not reproduce the record byte for byte. Register R-166 types the rebuild as a
+/// queued unit rather than pretending here.
+fn missing_projection(data_dir: &str, id: &str) -> Reply {
+    let disposition_ref = format!("retention-disposition://{id}");
+    let tail = stream_tail(KIND_DISPOSITION, &disposition_ref);
+    match super::substrate_store::read_event_stream_operation(data_dir, RETENTION_NAMESPACE, &tail) {
+        Ok(Some(head)) => bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "retention_disposition_projection_missing",
+            format!(
+                "the durable chain holds admissions for {disposition_ref} (head {}) but its read projection is absent; the projection is a cache of the chain and has not been rebuilt — nothing here is invented, retry after the projection is reconciled",
+                head.head
+            ),
+        ),
+        Ok(None) => bad(
+            StatusCode::NOT_FOUND,
+            "retention_disposition_not_found",
+            "no disposition exists at this id",
+        ),
+        Err(error) => bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "retention_disposition_projection_missing",
+            format!("the read projection is absent and the durable chain could not be consulted: {error}"),
+        ),
+    }
 }
 
 fn project_admission(record: &mut Value, commit: &MutationCommit) {
@@ -195,6 +239,46 @@ pub(crate) async fn handle_disposition_create(
             }
             (capture_ref, state_root)
         }
+        SUBJECT_KIND_FOUNDRY_SNAPSHOT => {
+            let (snapshot, _scope) = match super::foundry_execution_routes::authorized_snapshot(
+                &st.data_dir,
+                &caller.identity,
+                subject_id,
+            ) {
+                Ok(value) => value,
+                Err(reply) => return reply,
+            };
+            let reference = snapshot["dataset_snapshot_ref"].as_str().unwrap_or("").to_string();
+            let hash = snapshot["content_hash"].as_str().unwrap_or("").to_string();
+            if reference.is_empty() || hash.is_empty() {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "retention_subject_unresolved",
+                    "the admitted snapshot carries no content hash, so a deletion could not name what it destroyed",
+                );
+            }
+            (reference, hash)
+        }
+        SUBJECT_KIND_FOUNDRY_CHECKPOINT => {
+            let (checkpoint, _scope) = match super::foundry_execution_routes::authorized_checkpoint(
+                &st.data_dir,
+                &caller.identity,
+                subject_id,
+            ) {
+                Ok(value) => value,
+                Err(reply) => return reply,
+            };
+            let reference = checkpoint["checkpoint_ref"].as_str().unwrap_or("").to_string();
+            let hash = checkpoint["artifact_hash"].as_str().unwrap_or("").to_string();
+            if reference.is_empty() || hash.is_empty() {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "retention_subject_unresolved",
+                    "the admitted checkpoint carries no artifact hash, so a deletion could not name what it destroyed",
+                );
+            }
+            (reference, hash)
+        }
         _ => {
             return bad(
                 StatusCode::BAD_REQUEST,
@@ -267,11 +351,7 @@ fn authorized_disposition(
     let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
         .map_err(scope_refusal_reply)?;
     let Some(record) = load(&st.data_dir, id) else {
-        return Err(bad(
-            StatusCode::NOT_FOUND,
-            "retention_disposition_not_found",
-            "no disposition exists at this id",
-        ));
+        return Err(missing_projection(&st.data_dir, id));
     };
     if !record["owner_ref"]
         .as_str()
@@ -335,11 +415,7 @@ pub(crate) async fn handle_disposition_legal_hold(
         );
     }
     let Some(record) = load(&st.data_dir, &id) else {
-        return bad(
-            StatusCode::NOT_FOUND,
-            "retention_disposition_not_found",
-            "no disposition exists at this id",
-        );
+        return missing_projection(&st.data_dir, &id);
     };
     if record["owner_ref"].as_str() != Some(caller.owner_ref.as_str()) {
         return scope_refusal_reply(
@@ -426,11 +502,7 @@ pub(crate) async fn handle_disposition_delete(
         Err((status, value)) => return (status, Json(value)),
     };
     let Some(record) = load(&st.data_dir, &id) else {
-        return bad(
-            StatusCode::NOT_FOUND,
-            "retention_disposition_not_found",
-            "no disposition exists at this id",
-        );
+        return missing_projection(&st.data_dir, &id);
     };
     if record["owner_ref"].as_str() != Some(caller.owner_ref.as_str()) {
         return scope_refusal_reply(
@@ -497,6 +569,33 @@ pub(crate) async fn handle_disposition_delete(
         .unwrap_or("")
         .to_string();
     let tombstone_result = match subject_kind.as_str() {
+        SUBJECT_KIND_FOUNDRY_SNAPSHOT | SUBJECT_KIND_FOUNDRY_CHECKPOINT => {
+            // Every custodian of the same bytes that has ITS OWN disposition declared (and not
+            // held) is excused: the last delete destroys, and no single disposition destroys
+            // under another record's custody.
+            let hash = record["subject"]["payload_state_root"]
+                .as_str()
+                .unwrap_or("")
+                .to_string();
+            let excused: Vec<String> = super::read_record_dir(&st.data_dir, KIND_DISPOSITION)
+                .into_iter()
+                .filter(|other| {
+                    other["subject"]["payload_state_root"].as_str() == Some(hash.as_str())
+                        && other["disposition_id"].as_str() != Some(disposition_ref.as_str())
+                        && !other["legal_hold"]["held"].as_bool().unwrap_or(false)
+                })
+                .filter_map(|other| other["subject"]["subject_ref"].as_str().map(str::to_owned))
+                .collect();
+            super::foundry_execution_routes::tombstone_foundry_artifact(
+                &st.data_dir,
+                &caller.identity,
+                &subject_kind,
+                &subject_ref,
+                &disposition_ref,
+                &caller.idempotency_key,
+                &excused,
+            )
+        }
         SUBJECT_KIND_ENVIRONMENT_CAPTURE => {
             super::environment_routes::tombstone_environment_capture(
                 &st.data_dir,
@@ -553,7 +652,15 @@ pub(crate) async fn handle_disposition_delete(
         // CAPTURE ID under `{snapshots,backups}/<id>/workspace.tar` — and reaching only the first is
         // precisely the gap this leg closes. The capture KIND is read back off the tombstone that
         // just resolved the subject, so nothing here trusts a caller-supplied path.
-        let path = if subject_kind == SUBJECT_KIND_ENVIRONMENT_CAPTURE {
+        let path = if subject_kind == SUBJECT_KIND_FOUNDRY_SNAPSHOT
+            || subject_kind == SUBJECT_KIND_FOUNDRY_CHECKPOINT
+        {
+            super::foundry_execution_routes::foundry_blob_path(
+                &st.data_dir,
+                &subject_kind,
+                &state_root,
+            )
+        } else if subject_kind == SUBJECT_KIND_ENVIRONMENT_CAPTURE {
             let capture_kind = tombstone["capture_kind"].as_str().unwrap_or("snapshot");
             super::environment_routes::capture_material_path(
                 &st.data_dir,

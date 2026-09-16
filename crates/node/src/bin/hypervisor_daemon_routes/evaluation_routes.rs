@@ -1781,6 +1781,47 @@ pub(crate) fn resolve_result_under_epoch(
     Ok(result)
 }
 
+/// PUBLISHED READER (M06.9): the current record of an evaluation result under any epoch, for a
+/// verified-unlearning claim that names its own evaluation.
+pub(crate) fn resolve_result_record(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    result_ref: &str,
+) -> Result<Value, Reply> {
+    let Some(family) = result_ref
+        .strip_prefix(RESULT.ref_scheme)
+        .filter(|family| family_token(family))
+    else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &RESULT.code("revision_ref_not_canonical"),
+            format!("{result_ref} is not an evaluation-result:// family ref"),
+        ));
+    };
+    let resource = format!("{}{family}", RESULT.ref_scheme);
+    let stream = authorized_stream(&RESULT, &st.data_dir, identity, &resource)?;
+    stream
+        .last()
+        .map(|entry| entry.record.clone())
+        .ok_or_else(|| {
+            bad(
+                StatusCode::NOT_FOUND,
+                &RESULT.code("absent"),
+                format!("{result_ref} is not an admitted evaluation result"),
+            )
+        })
+}
+
+/// PUBLISHED READER (M06.9): the kind of the evaluator an evaluator revision ref names.
+pub(crate) fn resolve_evaluator_kind(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    revision_ref: &str,
+) -> Result<String, Reply> {
+    let record = resolve_evaluator_revision(st, identity, revision_ref)?;
+    Ok(text(&record, "evaluator_kind"))
+}
+
 /// The epoch a run or report binds must be FROZEN AND ACTIVE. M10.1's codes are reused so a caller
 /// meets one vocabulary across the campaign spine and the evaluation plane.
 fn require_active_epoch(epoch: &Value) -> Result<(), Reply> {
