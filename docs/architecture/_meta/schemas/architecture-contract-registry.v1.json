@@ -14,7 +14,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -71,6 +71,71 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+      "canonical_name": "Attempt",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#work-objects-v4--composed-over-the-orchestration-r-177-s4b",
+      "schema_version": "ioi.applications.ioi-ai.attempt.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/attempt/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "attempt.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/attempt/composed-coordinates/v4",
+          "path": "invariants/attempt.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AttemptV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AttemptV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/attempt-v4/positive-participation-attempt.json",
+        "fixtures/attempt-v4/positive-delegation-attempt.json",
+        "fixtures/attempt-v4/positive-absent-coordinate.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/attempt-v4/negative-no-actor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "attempt.actor.is_a_participation_or_a_delegation"
+        },
+        {
+          "path": "fixtures/attempt-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "attempt.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/attempt-v4/negative-coordinate-from-another-orchestration.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "attempt.frontier_item.matches_orchestration"
+        },
+        {
+          "path": "fixtures/attempt-v4/negative-room-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
       "canonical_name": "CapabilityOffer",
       "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#resourceofferenvelope-and-capabilityofferenvelope",
@@ -81,7 +146,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -120,6 +185,65 @@
         },
         {
           "path": "fixtures/capability-offer-v3/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+      "canonical_name": "CapabilityOffer",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#work-objects-v4--composed-over-the-orchestration-r-177-s4b",
+      "schema_version": "ioi.applications.ioi-ai.capability-offer.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/capability-offer/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "capability-offer.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/capability-offer/composed-coordinates/v4",
+          "path": "invariants/capability-offer.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CapabilityOfferV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CapabilityOfferV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/capability-offer-v4/positive-participation-offer.json",
+        "fixtures/capability-offer-v4/positive-delegation-offer.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/capability-offer-v4/negative-no-actor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "capability_offer.actor.is_a_participation_or_a_delegation"
+        },
+        {
+          "path": "fixtures/capability-offer-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "capability_offer.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/capability-offer-v4/negative-lease-member.json",
           "expected_failure": "schema"
         }
       ]
@@ -370,7 +494,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -427,6 +551,71 @@
         },
         {
           "path": "fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+      "canonical_name": "Finding",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#work-objects-v4--composed-over-the-orchestration-r-177-s4b",
+      "schema_version": "ioi.applications.ioi-ai.finding.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/finding/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "finding.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/finding/composed-coordinates/v4",
+          "path": "invariants/finding.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FindingV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FindingV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/finding-v4/positive-participation-finding.json",
+        "fixtures/finding-v4/positive-delegation-finding.json",
+        "fixtures/finding-v4/positive-absent-coordinate.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/finding-v4/negative-no-actor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "finding.actor.is_a_participation_or_a_delegation"
+        },
+        {
+          "path": "fixtures/finding-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "finding.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/finding-v4/negative-coordinate-from-another-orchestration.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "finding.attempt.matches_orchestration"
+        },
+        {
+          "path": "fixtures/finding-v4/negative-room-member.json",
           "expected_failure": "schema"
         }
       ]
@@ -1132,7 +1321,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1171,6 +1360,65 @@
         },
         {
           "path": "fixtures/resource-offer-v3/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+      "canonical_name": "ResourceOffer",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#work-objects-v4--composed-over-the-orchestration-r-177-s4b",
+      "schema_version": "ioi.applications.ioi-ai.resource-offer.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/resource-offer/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "resource-offer.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/resource-offer/composed-coordinates/v4",
+          "path": "invariants/resource-offer.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ResourceOfferV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ResourceOfferV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/resource-offer-v4/positive-participation-offer.json",
+        "fixtures/resource-offer-v4/positive-delegation-offer.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/resource-offer-v4/negative-no-actor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "resource_offer.actor.is_a_participation_or_a_delegation"
+        },
+        {
+          "path": "fixtures/resource-offer-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "resource_offer.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/resource-offer-v4/negative-lease-member.json",
           "expected_failure": "schema"
         }
       ]
@@ -1483,7 +1731,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1531,6 +1779,65 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+      "canonical_name": "VerifierChallenge",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#work-objects-v4--composed-over-the-orchestration-r-177-s4b",
+      "schema_version": "ioi.applications.ioi-ai.verifier-challenge.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "verifier-challenge.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/verifier-challenge/composed-coordinates/v4",
+          "path": "invariants/verifier-challenge.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "VerifierChallengeV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "VerifierChallengeV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/verifier-challenge-v4/positive-participation-challenge.json",
+        "fixtures/verifier-challenge-v4/positive-delegation-challenge.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/verifier-challenge-v4/negative-no-actor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verifier_challenge.actor.is_a_participation_or_a_delegation"
+        },
+        {
+          "path": "fixtures/verifier-challenge-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verifier_challenge.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/verifier-challenge-v4/negative-room-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
       "canonical_name": "WorkClaimLease",
       "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#workclaimleaseenvelope",
@@ -1541,7 +1848,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1589,6 +1896,65 @@
         },
         {
           "path": "fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+      "canonical_name": "WorkClaim",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#work-objects-v4--composed-over-the-orchestration-r-177-s4b",
+      "schema_version": "ioi.applications.ioi-ai.work-claim.v4",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-claim.v4.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/work-claim/composed-coordinates/v4",
+          "path": "invariants/work-claim.v4.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkClaimV4"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkClaimV4"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-claim-v4/positive-participation-claim.json",
+        "fixtures/work-claim-v4/positive-delegation-claim.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-claim-v4/negative-no-actor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "work_claim.actor.is_a_participation_or_a_delegation"
+        },
+        {
+          "path": "fixtures/work-claim-v4/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "work_claim.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/work-claim-v4/negative-room-member.json",
           "expected_failure": "schema"
         }
       ]

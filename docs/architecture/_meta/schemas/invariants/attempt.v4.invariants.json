@@ -1,0 +1,101 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/attempt/composed-coordinates/v4",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+  "rules": [
+    {
+      "rule_id": "attempt.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.goal_run.matches_orchestration",
+      "description": "A frozen goal run coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.goal_run",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.goal_run.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.frontier_item.matches_orchestration",
+      "description": "A frozen frontier item coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.frontier_item",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.frontier_item.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.work_claim.matches_orchestration",
+      "description": "A frozen work claim coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.work_claim",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.work_claim.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.goal_run.matches_bound_goal_run",
+      "description": "A frozen goal run coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.goal_run",
+        "paths": [
+          "$.goal_run_ref",
+          "$.bound_coordinates.goal_run.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.frontier_item.matches_bound_frontier_item",
+      "description": "A frozen frontier item coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.frontier_item",
+        "paths": [
+          "$.frontier_item_ref",
+          "$.bound_coordinates.frontier_item.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.work_claim.matches_bound_work_claim",
+      "description": "A frozen work claim coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.work_claim",
+        "paths": [
+          "$.work_claim_ref",
+          "$.bound_coordinates.work_claim.record_ref"
+        ]
+      }
+    }
+  ]
+}

@@ -21,6 +21,11 @@
       "types": "./dist/bindings.d.ts",
       "import": "./dist/bindings.js",
       "require": "./dist/bindings.cjs"
+    },
+    "./work": {
+      "types": "./dist/work.d.ts",
+      "import": "./dist/work.js",
+      "require": "./dist/work.cjs"
     }
   },
   "files": [

@@ -416,6 +416,14 @@
       "note": "First pinned 2026-09-16 (register R-176; M11.3; ACC-13 clause 5) at the 11 assertions it executes through the built agent SDK and the built @ioi/ioi-ai-orchestration package against an isolated daemon, the REAL wallet.network fixture and three in-process peers speaking the A2A, MCP and HTTP/JSON-RPC wire shapes: the bounded System activated; active terms and a hosted discovery; the registered binding profiles (the contract's own fixtures) each naming non-equivalences; the same signed request crossing all three bindings byte-identically into one record with one revision; transport completion leaving the record submitted; an altering peer refused as not a binding with nothing admitted; a deprecated profile and an equivalence-claiming profile refused; a registry entry granting no authority; acceptance from the host's own decision with no transport member on the chain; restart with a re-delivery recognized; structure. The drill (D1-D3) is a separate invocation and is not part of this count."
     },
     {
+      "id": "work-objects-composition",
+      "npm_script": "check:work-objects-composition",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-work-objects-composition.mjs",
+      "runtime_assertions": 13,
+      "assertion_names_sha256": "909f24351be0d77d54d2cac903b57d59620893087c42b7488cf382d8a35a93ab",
+      "note": "First pinned 2026-09-16 (register R-177, slice S4b) at the 13 assertions it executes through the built agent SDK and the built @ioi/ioi-ai-orchestration package against an isolated daemon and the REAL wallet.network fixture: the bounded System activated; an orchestration with one delegation the kernel lists, one accepted, one exited and one undecided participation, and two frontier items; a claim by the delegation and a claim by the participation admitted with the binding derived and exactly one actor; seven actor refusals by name (foreign thread, unlisted subagent, undecided and exited participations, no actor, both actors, unknown frontier item) admitting nothing; an attempt with the frontier item and the claim frozen as coordinates equal to the served records' payload roots and re-derived offline; an attempt under another actor's claim refused; a finding by the attempt's actor with the attempt frozen and a finding by the other actor refused; a challenge by the participation and a challenge of an absent record refused; a capability and a resource offer with no lease member; a record carrying a room member refused by the seam; a transition as a revision by the record's own actor and refused for the other; restart; the structural claim that the module names no room or lease, the router serves no v4 route and the old planes know nothing of v4. The drill (D1-D3) is a separate invocation and is not part of this count."
+    },
+    {
       "id": "standalone-conformance",
       "npm_script": "check:standalone-conformance",
       "source": "scripts/check-standalone-conformance.mjs",

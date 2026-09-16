@@ -961,6 +961,7 @@ jobs:
           - verifier_id: aiip-collaboration-discovery
           - verifier_id: aiip-portable-exit
           - verifier_id: aiip-binding-replaceability
+          - verifier_id: work-objects-composition
           # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
           # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
           # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
@@ -1243,6 +1244,31 @@ jobs:
       - name: Drill the binding-replaceability gate's own oracles
         if: matrix.verifier_id == 'aiip-binding-replaceability'
         run: npm run mutate:aiip-binding-replaceability --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the work-objects verifier drives
+        if: matrix.verifier_id == 'work-objects-composition'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi/ioi-ai-orchestration
+
+      # R-177 S4b — the six work objects (WorkClaim, Attempt, Finding, VerifierChallenge,
+      # ResourceOffer, CapabilityOffer v4) composed over the orchestration as records under the
+      # bounded System: actors are accepted participations or delegations of the coordinating
+      # thread, frozen coordinates are the served records' payload roots, a room member is refused
+      # by the seam, transitions are revisions by the record's own actor, restart, and the
+      # room-hosted planes know nothing of v4.
+      - name: Verify the work objects composed over the orchestration (R-177 S4b)
+        if: matrix.verifier_id == 'work-objects-composition'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:work-objects-composition --workspace=@ioi/hypervisor-app
+
+      - name: Drill the work-objects gate's own oracles
+        if: matrix.verifier_id == 'work-objects-composition'
+        run: npm run mutate:work-objects-composition --workspace=@ioi/hypervisor-app
 
       # The drill runs beside the gate rather than instead of it: an oracle that cannot fail is not
       # one, and the receipt-root comparison plus the byte-identity comparison are exactly the two

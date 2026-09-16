@@ -5,7 +5,7 @@ import path from "node:path";
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const dist = path.join(root, "dist");
 
-const packageEntryPoints = ["src/index.ts", "src/collaboration.ts", "src/bindings.ts"].map((entry) => path.join(root, entry));
+const packageEntryPoints = ["src/index.ts", "src/collaboration.ts", "src/bindings.ts", "src/work.ts"].map((entry) => path.join(root, entry));
 
 await fs.mkdir(dist, { recursive: true });
 

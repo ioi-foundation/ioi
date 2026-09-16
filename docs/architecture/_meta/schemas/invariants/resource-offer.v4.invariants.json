@@ -1,0 +1,29 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/resource-offer/composed-coordinates/v4",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+  "rules": [
+    {
+      "rule_id": "resource_offer.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "resource_offer.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
+        ]
+      }
+    }
+  ]
+}

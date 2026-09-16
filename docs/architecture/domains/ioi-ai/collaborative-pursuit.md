@@ -1097,6 +1097,84 @@ VerifierChallengeEnvelope:
     rule_changed | reverifying | resolved | withdrawn
 ```
 
+## Work objects v4 — composed over the orchestration (R-177, S4b)
+
+The six work objects below succeed their v3 shapes (registered 2026-09-16; the
+predecessors remain registered and valid until the room-hosted spine retires).
+They are application records the ioi.ai composer admits under the bounded
+System through the generic record seam, and they take their coordinates from
+the composition rather than from a room or a lease:
+
+- `orchestration_ref` — the application's own scope for the orchestration,
+  equal to the `parent_scope_ref` the seam derives into every record's binding
+  (`<object>.scope.matches_binding_parent_scope`).
+- the actor — exactly one of `participation_ref` (an accepted, not-yet-exited
+  `OrchestrationParticipationRequest`, for a party outside the host System) or
+  `delegation_ref` (`delegation://{thread_id}/{subagent_id}`, a subagent of the
+  coordinating thread, for work inside the System). The portable invariant
+  `<object>.actor.is_a_participation_or_a_delegation` pins that one is present;
+  that the participation is accepted and unexited, or the delegation is a live
+  subagent of this orchestration's thread, is the composing application's
+  obligation, proven by its driven gate (the invariant language cannot read
+  another record).
+- no `outcome_room_ref`, no `participant_lease_ref`, no room-database state
+  root: a frozen coordinate carries `record_ref`, `orchestration_ref` and
+  `control_hash`, and every frozen coordinate's `orchestration_ref` equals the
+  record's own.
+
+```yaml
+WorkClaimEnvelope (v4, successor of WorkClaimLeaseEnvelope v3):
+  schema_version: ioi.applications.ioi-ai.work-claim.v4
+  work_claim_id: work-claim://...
+  system_binding: SystemScopedObjectBinding
+  orchestration_ref: string
+  frontier_item_ref: frontier://...
+  claimant_ref: worker://... | service://... | org://... | domain://... | system://...
+  participation_ref: participation-request://... | null
+  delegation_ref: delegation://... | null
+  eligibility_match_receipt_ref, task_offer_ref, task_acceptance_ref, routing_decision_ref: ... | null
+  collaboration_terms_ref: terms://...
+  collaboration_terms_root: hash
+  terms_acceptance_ref: receipt://...
+  contribution_policy_ref, settlement_profile_ref, bounded_scope_ref: ...
+  quote_ref, budget_reservation_ref: ... | null
+  context_lease_refs: [...]
+  authority_resource_compute_data_budget_and_tool_lease_refs: [...]
+  duplicate_work_policy: exclusive | allowed | independent_replication | adversarial_replication
+  issued_at, expires_at: timestamp
+  heartbeat_ref: ... | null
+  renewal_count: integer
+  release_or_reassignment_reason: ... | null
+  status: proposed | active | waiting | released | expired | reassigned | completed | quarantined
+
+AttemptEnvelope (v4):
+  attempt_id, system_binding, orchestration_ref, work_subject_ref
+  goal_run_ref, frontier_item_ref, work_claim_ref: ... | null
+  participant_ref: the acting principal
+  participation_ref | delegation_ref: the actor coordinate (exactly one)
+  bound_coordinates: null | { goal_run?, frontier_item?, work_claim?: { record_ref, orchestration_ref, control_hash } }
+  ...every other v3 member unchanged...
+
+FindingEnvelope (v4):
+  finding_id, system_binding, orchestration_ref, attempt_ref, work_result_ref, participant_ref, proposed_by_ref
+  participation_ref | delegation_ref
+  bound_coordinates: null | { attempt?, work_result?: { record_ref, orchestration_ref, control_hash } }
+  ...every other v3 member unchanged...
+
+ResourceOfferEnvelope (v4) and CapabilityOfferEnvelope (v4):
+  ...v3 members with orchestration_ref added and provider_participant_lease_ref / participant_lease_ref
+  replaced by participation_ref | delegation_ref...
+
+VerifierChallengeEnvelope (v4):
+  ...v3 members with outcome_room_ref replaced by orchestration_ref...
+```
+
+The daemon planes that served v3 (`attempt_finding_routes`, `verifier_challenge_routes`,
+`resource_capability_offer_routes`, `work_frontier_claim_routes`) are not re-cut:
+they retire with the room-hosted spine (R-172 S4a/S4c). The v4 records are
+admitted, read and revised only through the record seam by the composing
+application.
+
 ## Collaborative-Pursuit Mode Semantics
 
 > Moved here from

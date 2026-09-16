@@ -69,6 +69,60 @@ export type AttemptV3 = {
   status: "draft" | "running" | "submitted" | "admitted" | "challenged" | "accepted" | "rejected" | "superseded";
 };
 
+export type AttemptV4 = {
+  schema_version: "ioi.applications.ioi-ai.attempt.v4";
+  attempt_id: string;
+  orchestration_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  work_subject_ref: string;
+  goal_run_ref: string | null;
+  frontier_item_ref: string | null;
+  work_claim_ref: string | null;
+  participant_ref: string;
+  participation_ref: string | null;
+  delegation_ref: string | null;
+  bound_coordinates: {
+      goal_run: {
+            record_ref: string;
+            orchestration_ref: string;
+            control_hash: string;
+          } | null;
+      frontier_item: {
+            record_ref: string;
+            orchestration_ref: string;
+            control_hash: string;
+          } | null;
+      work_claim: {
+            record_ref: string;
+            orchestration_ref: string;
+            control_hash: string;
+          } | null;
+    };
+  declared_method_and_hypothesis_refs: Array<string>;
+  parent_and_derivation_refs: Array<string>;
+  input_state_and_environment_refs: Array<string>;
+  worker_model_resolver_tool_and_runtime_version_refs: Array<string>;
+  authority_and_policy_refs: Array<string>;
+  resource_and_cost_refs: Array<string>;
+  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
+  work_result_ref: string | null;
+  outcome_delta_refs: Array<string>;
+  artifact_evidence_and_receipt_refs: Array<string>;
+  verifier_refs: Array<string>;
+  reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated";
+  artifact_license_ip_retention_and_export_refs: Array<string>;
+  contribution_refs: Array<string>;
+  status: "draft" | "running" | "submitted" | "admitted" | "challenged" | "accepted" | "rejected" | "superseded";
+};
+
 export type CapabilityOfferV3 = {
   schema_version: "ioi.applications.ioi-ai.capability-offer.v3";
   capability_offer_id: string;
@@ -82,6 +136,31 @@ export type CapabilityOfferV3 = {
       updated_at: string | null;
     };
   participant_lease_ref: string;
+  backing_worker_or_service_ref: string;
+  capability_descriptor_refs: Array<string>;
+  eligible_frontier_classes: Array<string>;
+  model_harness_tool_and_connector_refs: Array<string>;
+  authority_and_context_requirements: Array<string>;
+  privacy_cost_quality_and_latency_refs: Array<string>;
+  availability_ref: string | null;
+  status: "offered" | "eligible" | "allocated" | "suspended" | "withdrawn" | "revoked";
+};
+
+export type CapabilityOfferV4 = {
+  schema_version: "ioi.applications.ioi-ai.capability-offer.v4";
+  capability_offer_id: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  orchestration_ref: string;
+  participation_ref: string | null;
+  delegation_ref: string | null;
   backing_worker_or_service_ref: string;
   capability_descriptor_refs: Array<string>;
   eligible_frontier_classes: Array<string>;
@@ -231,6 +310,54 @@ export type FindingV3 = {
             record_hash: string;
           } | null;
     } | null;
+  proposition: string;
+  finding_kind: "hypothesis" | "observation" | "claim" | "negative_result" | "integrity_incident" | "mapping_claim" | "causal_claim" | "counterexample" | "synthesis";
+  confidence_or_uncertainty: number | null;
+  valid_time: Record<string, unknown> | null;
+  transaction_time: string;
+  source_and_observation_context_refs: Array<string>;
+  supporting_evidence_refs: Array<string>;
+  proof_refs: Array<string>;
+  contradicting_evidence_refs: Array<string>;
+  applicability_and_counterexample_refs: Array<string>;
+  provenance_ontology_and_mapping_refs: Array<string>;
+  proposed_effect_refs: Array<string>;
+  supersedes_ref: string | null;
+  dispute_ref: string | null;
+  status: "branch_local" | "proposed" | "admitted" | "contradicted" | "superseded" | "disputed" | "rejected" | "archived";
+};
+
+export type FindingV4 = {
+  schema_version: "ioi.applications.ioi-ai.finding.v4";
+  finding_id: string;
+  orchestration_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  attempt_ref: string;
+  work_result_ref: string;
+  participant_ref: string;
+  participation_ref: string | null;
+  delegation_ref: string | null;
+  proposed_by_ref: string;
+  bound_coordinates: {
+      attempt: {
+            record_ref: string;
+            orchestration_ref: string;
+            control_hash: string;
+          } | null;
+      work_result: {
+            record_ref: string;
+            orchestration_ref: string;
+            control_hash: string;
+          } | null;
+    };
   proposition: string;
   finding_kind: "hypothesis" | "observation" | "claim" | "negative_result" | "integrity_incident" | "mapping_claim" | "causal_claim" | "counterexample" | "synthesis";
   confidence_or_uncertainty: number | null;
@@ -796,6 +923,38 @@ export type ResourceOfferV3 = {
   status: "offered" | "queued" | "allocated" | "exhausted" | "withdrawn" | "expired" | "revoked";
 };
 
+export type ResourceOfferV4 = {
+  schema_version: "ioi.applications.ioi-ai.resource-offer.v4";
+  resource_offer_id: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  orchestration_ref: string;
+  participation_ref: string | null;
+  delegation_ref: string | null;
+  backing_provider_ref: string;
+  resource_profile_ref: string;
+  capacity_and_availability_ref: string;
+  locality_and_custody_refs: Array<string>;
+  trust_and_assurance_refs: Array<string>;
+  cost_ref: string | null;
+  eligible_work_classes: Array<string>;
+  policy_constraint_refs: Array<string>;
+  allocation_policy_ref: string;
+  queue_preemption_and_fairness_policy_ref: string;
+  expires_at: string | null;
+  allocation_decision_refs: Array<string>;
+  spend_and_contribution_refs: Array<string>;
+  usage_and_consumption_refs: Array<string>;
+  status: "offered" | "queued" | "allocated" | "exhausted" | "withdrawn" | "expired" | "revoked";
+};
+
 export type RoomParticipantLeaseV3 = {
   schema_version: "ioi.applications.ioi-ai.room-participant-lease.v3";
   participant_lease_id: string;
@@ -1002,6 +1161,34 @@ export type VerifierChallengeV3 = {
   status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
 };
 
+export type VerifierChallengeV4 = {
+  schema_version: "ioi.applications.ioi-ai.verifier-challenge.v4";
+  verifier_challenge_id: string;
+  orchestration_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  challenger_ref: string;
+  participation_ref: string | null;
+  delegation_ref: string | null;
+  challenged_ref: string;
+  challenge_kind: "metric" | "rule" | "verifier" | "evidence" | "eligibility" | "result" | "exploit" | "independence" | "collusion" | "mapping";
+  challenge_evidence_refs: Array<string>;
+  adjudicator_policy_ref: string;
+  prior_rule_version_ref: string | null;
+  proposed_rule_version_ref: string | null;
+  affected_attempt_refs: Array<string>;
+  reverification_required: boolean;
+  adjudication_ref: string | null;
+  status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
+};
+
 export type WorkClaimLeaseV3 = {
   schema_version: "ioi.applications.ioi-ai.work-claim-lease.v3";
   work_claim_id: string;
@@ -1018,6 +1205,46 @@ export type WorkClaimLeaseV3 = {
   frontier_item_ref: string | null;
   claimant_ref: string;
   claimant_participant_lease_ref: string | null;
+  eligibility_match_receipt_ref: string | null;
+  task_offer_ref: string | null;
+  task_acceptance_ref: string | null;
+  routing_decision_ref: string | null;
+  collaboration_terms_ref: string;
+  collaboration_terms_root: string;
+  terms_acceptance_ref: string;
+  contribution_policy_ref: string;
+  quote_ref: string | null;
+  budget_reservation_ref: string | null;
+  settlement_profile_ref: string;
+  bounded_scope_ref: string;
+  context_lease_refs: Array<string>;
+  authority_resource_compute_data_budget_and_tool_lease_refs: Array<string>;
+  duplicate_work_policy: "exclusive" | "allowed" | "independent_replication" | "adversarial_replication";
+  issued_at: string;
+  expires_at: string;
+  heartbeat_ref: string | null;
+  renewal_count: number;
+  release_or_reassignment_reason: string | null;
+  status: "proposed" | "active" | "waiting" | "released" | "expired" | "reassigned" | "completed" | "quarantined" | "revoked";
+};
+
+export type WorkClaimV4 = {
+  schema_version: "ioi.applications.ioi-ai.work-claim.v4";
+  work_claim_id: string;
+  orchestration_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+  frontier_item_ref: string | null;
+  claimant_ref: string;
+  participation_ref: string | null;
+  delegation_ref: string | null;
   eligibility_match_receipt_ref: string | null;
   task_offer_ref: string | null;
   task_acceptance_ref: string | null;
@@ -13921,6 +14148,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-participation-attempt.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-delegation-attempt.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-absent-coordinate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-no-actor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "attempt.actor.is_a_participation_or_a_delegation"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-scope-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "attempt.scope.matches_binding_parent_scope"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-coordinate-from-another-orchestration.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "attempt.frontier_item.matches_orchestration"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json",
     "expected": "accept",
@@ -13947,6 +14230,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v4/positive-participation-offer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v4/positive-delegation-offer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-no-actor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "capability_offer.actor.is_a_participation_or_a_delegation"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-scope-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "capability_offer.scope.matches_binding_parent_scope"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-lease-member.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -14219,6 +14542,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/positive-participation-finding.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/positive-delegation-finding.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/positive-absent-coordinate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/negative-no-actor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "finding.actor.is_a_participation_or_a_delegation"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/negative-scope-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "finding.scope.matches_binding_parent_scope"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/negative-coordinate-from-another-orchestration.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "finding.attempt.matches_orchestration"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-v4/negative-room-member.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -14649,6 +15028,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v4/positive-participation-offer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v4/positive-delegation-offer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-no-actor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "resource_offer.actor.is_a_participation_or_a_delegation"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-scope-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "resource_offer.scope.matches_binding_parent_scope"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-lease-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json",
     "expected": "accept",
@@ -14961,6 +15380,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/positive-participation-challenge.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/positive-delegation-challenge.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-no-actor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verifier_challenge.actor.is_a_participation_or_a_delegation"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-scope-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verifier_challenge.scope.matches_binding_parent_scope"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
     "expected": "accept",
@@ -15003,6 +15462,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-v4/positive-participation-claim.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-v4/positive-delegation-claim.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-no-actor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "work_claim.actor.is_a_participation_or_a_delegation"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-scope-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "work_claim.scope.matches_binding_parent_scope"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-room-member.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -29739,10 +30238,22 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-participation-attempt.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-participation-attempt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-delegation-attempt.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-delegation-attempt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-absent-coordinate.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/positive-absent-coordinate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-no-actor.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-no-actor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-coordinate-from-another-orchestration.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-coordinate-from-another-orchestration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v4/negative-room-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v4/positive-participation-offer.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v4/positive-participation-offer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v4/positive-delegation-offer.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v4/positive-delegation-offer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-no-actor.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-no-actor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-lease-member.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v4/negative-lease-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json","mutation_id":null,"value_json":null}),
@@ -29777,6 +30288,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/positive-participation-finding.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/positive-participation-finding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/positive-delegation-finding.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/positive-delegation-finding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/positive-absent-coordinate.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/positive-absent-coordinate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/negative-no-actor.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/negative-no-actor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/negative-coordinate-from-another-orchestration.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/negative-coordinate-from-another-orchestration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v4/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v4/negative-room-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json","mutation_id":null,"value_json":null}),
@@ -29830,6 +30348,11 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v4/positive-participation-offer.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v4/positive-participation-offer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v4/positive-delegation-offer.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v4/positive-delegation-offer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-no-actor.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-no-actor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-lease-member.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v4/negative-lease-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json","mutation_id":null,"value_json":null}),
@@ -29869,12 +30392,22 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/positive-participation-challenge.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/positive-participation-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/positive-delegation-challenge.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/positive-delegation-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-no-actor.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-no-actor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v4/negative-room-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-v4/positive-participation-claim.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-v4/positive-participation-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-v4/positive-delegation-claim.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-v4/positive-delegation-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-no-actor.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-no-actor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim/v4","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-v4/negative-room-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
@@ -31599,6 +32132,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$",
   "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$",
   "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision|ontology-assertion|ontology-mapping)://[^\\s]{1,500}$",
+  "^(?:attempt|observation|domain)://[^\\s]{1,500}$",
   "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$",
   "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$",
   "^(?:auth_factor|guardian)://[^\\s]{1,500}$",
@@ -31817,6 +32351,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$",
   "^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$",
   "^(?:system|domain|policy)://[^\\s]{1,500}$",
+  "^(?:system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
   "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$",
   "^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$",
@@ -31825,6 +32360,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]{1,500}$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:system|worker|agent)://[^\\s]{1,500}$",
+  "^(?:system|worker|org|user)://[^\\s]{1,500}$",
   "^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$",
   "^(?:system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:target-state|agentgres)://[^\\s]{1,240}$",
@@ -32097,6 +32634,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^decision://[^\\s]{1,500}$",
   "^decision://\\S*$",
   "^decision://\\S+$",
+  "^delegation://[^\\s]{1,500}$",
   "^deployment-profile://[A-Za-z0-9._:/-]+$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -32606,12 +33144,15 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
 
 export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/attempt/v3": "sha256:75afea38507e624bcd2833433691eb91f2036bdd0f11dcfa7cff2a2ba3fba03f",
+  "schema://ioi/applications/ioi-ai/attempt/v4": "sha256:c5b2ec72ea637161a83fedce1c6d9544b21ea61e2246e35bcbca4654059793ee",
   "schema://ioi/applications/ioi-ai/capability-offer/v3": "sha256:add2a12e4fe9e8285568e2f5d7e6e175a2aacf39a21165cfb76323e9b14bda4f",
+  "schema://ioi/applications/ioi-ai/capability-offer/v4": "sha256:df932c7530f6b83384d8893ae906be4b43b479b3e0e7eed6a56ddc26cc4d6ed6",
   "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632",
   "schema://ioi/applications/ioi-ai/context-cell/v1": "sha256:0eca9869c48e1186799ca5371d7173ad95b5f642a2e33e7ba541fc54708c2e28",
   "schema://ioi/applications/ioi-ai/context-handoff/v1": "sha256:5083fcda55a9f6b103bbb961699d67f4ab28b00afb173846c00af2b68aa144e5",
   "schema://ioi/applications/ioi-ai/context-lease/v1": "sha256:cd77670feff9c31f2cff2e34bb98f9906eaa0018d69944c31de4a3e58f26de25",
   "schema://ioi/applications/ioi-ai/finding/v3": "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253",
+  "schema://ioi/applications/ioi-ai/finding/v4": "sha256:3abe0a2827626decf1a9c825e5f094226e80ae78898d3fbe4b6d0ed9b71e7a5b",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": "sha256:b9ee6a68b49ece6ba66a51e69e0df922f8f22a1c7f3f22ed3b193371a21d8650",
   "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1": "sha256:59fc95ab0db7dea0fa7ea5310d53e9a112bcb52d57e318bc71d02f21a8ac68f0",
   "schema://ioi/applications/ioi-ai/goal-run-activation/v1": "sha256:ede21f480591582d0e4db34f3d258a392faf85c5bb5b0080abdc1d077639dfd3",
@@ -32626,12 +33167,15 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/participant-state-bundle/v3": "sha256:c833dd239224d3d9c12f7daf39c9a05c3645b498f7ddef1dd286fd057670ec89",
   "schema://ioi/applications/ioi-ai/participant-state-bundle/v4": "sha256:d8a24d7c3e6c238ad6a7d88969c4bd9c08a9f7d644e670206d075e7da88b30d1",
   "schema://ioi/applications/ioi-ai/resource-offer/v3": "sha256:56552f2ee0d5d7e6ef015514a2901776624befc86634b19b7bc8322e87b0ef09",
+  "schema://ioi/applications/ioi-ai/resource-offer/v4": "sha256:a7022e2db8f8c73c687d0ca35cf0d89cc9df1fc9d2e07c32e088af3e6d2818ee",
   "schema://ioi/applications/ioi-ai/room-participant-lease/v3": "sha256:98f4d5cb76de13d96d3eaa27f5335aed23c3153ac9cf8c782fd3e12674edb8a9",
   "schema://ioi/applications/ioi-ai/room-participation-request/v3": "sha256:081004a6e83c7c9c34b166f20ea669aa0428245c32a1edbecd2db2d910628bd6",
   "schema://ioi/applications/ioi-ai/orchestration-participation-request/v1": "sha256:752d8c064b5fcb19abbfed0262c134e56cb6470c88a8124c0a2d465d55876856",
   "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2": "sha256:c465a5a83308cd79841bfb94e86bb02369d595a189f212b66a4bf5fe1fae3181",
   "schema://ioi/applications/ioi-ai/verifier-challenge/v3": "sha256:9b7c215945dacf4a4267b583d7c21484995f652ce79d7c5146d1e2b50d4edaae",
+  "schema://ioi/applications/ioi-ai/verifier-challenge/v4": "sha256:8542f59a32b63f64eed127b07749f7bc92c49c1a8be3abe37ba625d652b192ac",
   "schema://ioi/applications/ioi-ai/work-claim-lease/v3": "sha256:a9f4260494a490b2a60c3acb437a6b90667a5c7fb3760cb19f7b042d36747588",
+  "schema://ioi/applications/ioi-ai/work-claim/v4": "sha256:edfe8926d472d2ec90f94257afce4f19ae5d8de45bdb4c1fac5018c2f7746e3b",
   "schema://ioi/applications/ioi-ai/work-frontier-item/v3": "sha256:ef718d9b0643a361674b7173bc6b29758bec366f6e5b5b328d2f974e0818f1ca",
   "schema://ioi/components/agentgres/agent-execution-branch/v1": "sha256:e9a2a131a83dbdea693e979b7e0a985f39116da4c8cfdd9c4bd23d7ebd35247f",
   "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1": "sha256:d48b8eb8c9449251774f15d72f00cd121e5aa68829122880bbde18bf1ed7590b",
@@ -33441,6 +33985,420 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
+  "schema://ioi/applications/ioi-ai/attempt/v4": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/attempt/v4",
+    "title": "Attempt",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.attempt.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attempt_id",
+      "orchestration_ref",
+      "system_binding",
+      "work_subject_ref",
+      "goal_run_ref",
+      "frontier_item_ref",
+      "work_claim_ref",
+      "participant_ref",
+      "participation_ref",
+      "delegation_ref",
+      "bound_coordinates",
+      "declared_method_and_hypothesis_refs",
+      "parent_and_derivation_refs",
+      "input_state_and_environment_refs",
+      "worker_model_resolver_tool_and_runtime_version_refs",
+      "authority_and_policy_refs",
+      "resource_and_cost_refs",
+      "outcome_class",
+      "work_result_ref",
+      "outcome_delta_refs",
+      "artifact_evidence_and_receipt_refs",
+      "verifier_refs",
+      "reproduction_state",
+      "artifact_license_ip_retention_and_export_refs",
+      "contribution_refs",
+      "status"
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.attempt.v4"
+      },
+      "attempt_id": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$"
+      },
+      "goal_run_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "frontier_item_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^frontier://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "work_claim_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^work-claim://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "participant_ref": {
+        "type": "string",
+        "pattern": "^(?:system|worker|agent)://[^\\s]{1,500}$"
+      },
+      "participation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participation-request://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "An accepted, not-yet-exited OrchestrationParticipationRequest: the actor when the party is outside the host System."
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "delegation://{thread_id}/{subagent_id}: a subagent of the coordinating thread, the actor for work inside the System."
+      },
+      "bound_coordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "goal_run",
+          "frontier_item",
+          "work_claim"
+        ],
+        "properties": {
+          "goal_run": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "orchestration_ref",
+                  "control_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "orchestration_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "control_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "frontier_item": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "orchestration_ref",
+                  "control_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "orchestration_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "control_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "work_claim": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "orchestration_ref",
+                  "control_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "orchestration_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "control_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "Frozen coordinates of the records this one binds — always present, each member a coordinate (record ref, orchestration, control hash) or null; every present coordinate belongs to this orchestration."
+      },
+      "declared_method_and_hypothesis_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:method|finding|artifact)://[^\\s]{1,500}$"
+        }
+      },
+      "parent_and_derivation_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:attempt|artifact|finding)://[^\\s]{1,500}$"
+        }
+      },
+      "input_state_and_environment_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"
+        }
+      },
+      "worker_model_resolver_tool_and_runtime_version_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:(?:worker|model-route|runtime)://[^\\s]{1,500}|(?:harness-profile|agent-harness-adapter|tool)://[^\\s]{1,500}/revision/[^\\s]{1,500})$"
+        }
+      },
+      "authority_and_policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:grant|policy)://[^\\s]{1,500}$"
+        }
+      },
+      "resource_and_cost_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"
+        }
+      },
+      "outcome_class": {
+        "enum": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit_found",
+          "superseded"
+        ]
+      },
+      "work_result_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^work-result://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outcome_delta_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^outcome-delta://[^\\s]{1,500}$"
+        }
+      },
+      "artifact_evidence_and_receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"
+        }
+      },
+      "verifier_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$"
+        }
+      },
+      "reproduction_state": {
+        "enum": [
+          "unreviewed",
+          "reproducible",
+          "not_reproduced",
+          "contradicted",
+          "invalidated"
+        ]
+      },
+      "artifact_license_ip_retention_and_export_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:license|policy)://[^\\s]{1,500}$"
+        }
+      },
+      "contribution_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:contribution|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "running",
+          "submitted",
+          "admitted",
+          "challenged",
+          "accepted",
+          "rejected",
+          "superseded"
+        ]
+      }
+    },
+    "description": " Version 4 is composed over the orchestration: it names its orchestration and its actor (participation_ref | delegation_ref), freezes coordinates by record ref and orchestration, and knows no room or lease (R-177 S4b; successor of v3)."
+  },
   "schema://ioi/applications/ioi-ai/capability-offer/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
@@ -33530,6 +34488,196 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "participant_lease_ref": {
         "type": "string",
         "pattern": "^participant-lease://[^\\s]{1,500}$"
+      },
+      "backing_worker_or_service_ref": {
+        "type": "string",
+        "pattern": "^(?:worker|service|system)://[^\\s]{1,500}$"
+      },
+      "capability_descriptor_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:ai|package|capability)://[^\\s]{1,500}$"
+        }
+      },
+      "eligible_frontier_classes": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "model_harness_tool_and_connector_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$"
+        }
+      },
+      "authority_and_context_requirements": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:(?:policy|context-profile)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"
+        }
+      },
+      "privacy_cost_quality_and_latency_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:privacy_posture|quote|benchmark|sla)://[^\\s]{1,500}$"
+        }
+      },
+      "availability_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^schedule://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "offered",
+          "eligible",
+          "allocated",
+          "suspended",
+          "withdrawn",
+          "revoked"
+        ]
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/capability-offer/v4": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/capability-offer/v4",
+    "title": "CapabilityOffer",
+    "description": "A room-scoped typed profile over existing worker manifests and capability discovery. An offer advertises; it neither allocates work nor grants execution authority. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition. Version 4 takes its actor from the composition (participation_ref | delegation_ref) and names its orchestration; the participant lease is gone (R-177 S4b; successor of v3).",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.capability-offer.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "capability_offer_id",
+      "system_binding",
+      "orchestration_ref",
+      "participation_ref",
+      "delegation_ref",
+      "backing_worker_or_service_ref",
+      "capability_descriptor_refs",
+      "eligible_frontier_classes",
+      "model_harness_tool_and_connector_refs",
+      "authority_and_context_requirements",
+      "privacy_cost_quality_and_latency_refs",
+      "availability_ref",
+      "status"
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.capability-offer.v4"
+      },
+      "capability_offer_id": {
+        "type": "string",
+        "pattern": "^capability-offer://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."
+      },
+      "participation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participation-request://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "An accepted, not-yet-exited OrchestrationParticipationRequest: the actor when the party is outside the host System."
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "delegation://{thread_id}/{subagent_id}: a subagent of the coordinating thread, the actor for work inside the System."
       },
       "backing_worker_or_service_ref": {
         "type": "string",
@@ -34846,6 +35994,392 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     ]
+  },
+  "schema://ioi/applications/ioi-ai/finding/v4": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/finding/v4",
+    "title": "Finding",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.finding.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "finding_id",
+      "orchestration_ref",
+      "system_binding",
+      "attempt_ref",
+      "work_result_ref",
+      "participant_ref",
+      "participation_ref",
+      "delegation_ref",
+      "proposed_by_ref",
+      "bound_coordinates",
+      "proposition",
+      "finding_kind",
+      "confidence_or_uncertainty",
+      "valid_time",
+      "transaction_time",
+      "source_and_observation_context_refs",
+      "supporting_evidence_refs",
+      "proof_refs",
+      "contradicting_evidence_refs",
+      "applicability_and_counterexample_refs",
+      "provenance_ontology_and_mapping_refs",
+      "proposed_effect_refs",
+      "supersedes_ref",
+      "dispute_ref",
+      "status"
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "recordCoordinate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_ref",
+          "outcome_room_ref",
+          "revision",
+          "record_hash"
+        ],
+        "properties": {
+          "record_ref": {
+            "type": "string",
+            "pattern": "^finding://[^\\s]{1,500}$"
+          },
+          "outcome_room_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "record_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.finding.v4"
+      },
+      "finding_id": {
+        "type": "string",
+        "pattern": "^finding://[^\\s]{1,500}$"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "attempt_ref": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      },
+      "work_result_ref": {
+        "type": "string",
+        "pattern": "^work-result://[^\\s]{1,500}$"
+      },
+      "participant_ref": {
+        "type": "string",
+        "pattern": "^(?:system|domain|worker|service|agent|org)://[^\\s]{1,500}$"
+      },
+      "participation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participation-request://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "An accepted, not-yet-exited OrchestrationParticipationRequest: the actor when the party is outside the host System."
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "delegation://{thread_id}/{subagent_id}: a subagent of the coordinating thread, the actor for work inside the System."
+      },
+      "proposed_by_ref": {
+        "type": "string",
+        "pattern": "^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"
+      },
+      "bound_coordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt",
+          "work_result"
+        ],
+        "properties": {
+          "attempt": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "orchestration_ref",
+                  "control_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "orchestration_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "control_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "work_result": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "orchestration_ref",
+                  "control_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "orchestration_ref": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+                  },
+                  "control_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "Frozen coordinates of the records this one binds — always present, each member a coordinate (record ref, orchestration, control hash) or null; every present coordinate belongs to this orchestration."
+      },
+      "proposition": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 8000
+      },
+      "finding_kind": {
+        "enum": [
+          "hypothesis",
+          "observation",
+          "claim",
+          "negative_result",
+          "integrity_incident",
+          "mapping_claim",
+          "causal_claim",
+          "counterexample",
+          "synthesis"
+        ]
+      },
+      "confidence_or_uncertainty": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "valid_time": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transaction_time": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "source_and_observation_context_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:attempt|observation|domain)://[^\\s]{1,500}$"
+        }
+      },
+      "supporting_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "proof_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "contradicting_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|finding)://[^\\s]{1,500}$"
+        }
+      },
+      "applicability_and_counterexample_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy|finding|ontology)://[^\\s]{1,500}$"
+        }
+      },
+      "provenance_ontology_and_mapping_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"
+        }
+      },
+      "proposed_effect_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"
+        }
+      },
+      "supersedes_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^finding://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dispute_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^dispute://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "branch_local",
+          "proposed",
+          "admitted",
+          "contradicted",
+          "superseded",
+          "disputed",
+          "rejected",
+          "archived"
+        ]
+      }
+    },
+    "description": " Version 4 is composed over the orchestration: it names its orchestration and its actor (participation_ref | delegation_ref), freezes coordinates by record ref and orchestration, and knows no room or lease (R-177 S4b; successor of v3)."
   },
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -39368,6 +40902,250 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/applications/ioi-ai/resource-offer/v4": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/resource-offer/v4",
+    "title": "ResourceOffer",
+    "description": "A room-scoped typed profile over existing provider inventory and resource-allocation objects. An offer is not a second marketplace and grants no allocation by itself. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition. Version 4 takes its actor from the composition (participation_ref | delegation_ref) and names its orchestration; the participant lease is gone (R-177 S4b; successor of v3).",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.resource-offer.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "resource_offer_id",
+      "system_binding",
+      "orchestration_ref",
+      "participation_ref",
+      "delegation_ref",
+      "backing_provider_ref",
+      "resource_profile_ref",
+      "capacity_and_availability_ref",
+      "locality_and_custody_refs",
+      "trust_and_assurance_refs",
+      "cost_ref",
+      "eligible_work_classes",
+      "policy_constraint_refs",
+      "allocation_policy_ref",
+      "queue_preemption_and_fairness_policy_ref",
+      "expires_at",
+      "allocation_decision_refs",
+      "spend_and_contribution_refs",
+      "usage_and_consumption_refs",
+      "status"
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.resource-offer.v4"
+      },
+      "resource_offer_id": {
+        "type": "string",
+        "pattern": "^resource-offer://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."
+      },
+      "participation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participation-request://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "An accepted, not-yet-exited OrchestrationParticipationRequest: the actor when the party is outside the host System."
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "delegation://{thread_id}/{subagent_id}: a subagent of the coordinating thread, the actor for work inside the System."
+      },
+      "backing_provider_ref": {
+        "type": "string",
+        "pattern": "^(?:provider|org|domain|system)://[^\\s]{1,500}$"
+      },
+      "resource_profile_ref": {
+        "type": "string",
+        "pattern": "^(?:resource|runtime|node)://[^\\s]{1,500}$"
+      },
+      "capacity_and_availability_ref": {
+        "type": "string",
+        "pattern": "^(?:capacity|schedule)://[^\\s]{1,500}$"
+      },
+      "locality_and_custody_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:region|custody|privacy_posture)://[^\\s]{1,500}$"
+        }
+      },
+      "trust_and_assurance_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|certification_claim|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "cost_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:quote|budget)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "eligible_work_classes": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "policy_constraint_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^policy://[^\\s]{1,500}$"
+        }
+      },
+      "allocation_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "queue_preemption_and_fairness_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "expires_at": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "allocation_decision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:allocation|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "spend_and_contribution_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:spend|contribution|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "usage_and_consumption_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:ledger|receipt|work-credit)://[^\\s]{1,500}$"
+        }
+      },
+      "status": {
+        "enum": [
+          "offered",
+          "queued",
+          "allocated",
+          "exhausted",
+          "withdrawn",
+          "expired",
+          "revoked"
+        ]
+      }
+    }
+  },
   "schema://ioi/applications/ioi-ai/room-participant-lease/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
@@ -40763,6 +42541,219 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/applications/ioi-ai/verifier-challenge/v4": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/verifier-challenge/v4",
+    "title": "VerifierChallenge",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.verifier-challenge.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "verifier_challenge_id",
+      "orchestration_ref",
+      "system_binding",
+      "challenger_ref",
+      "participation_ref",
+      "delegation_ref",
+      "challenged_ref",
+      "challenge_kind",
+      "challenge_evidence_refs",
+      "adjudicator_policy_ref",
+      "prior_rule_version_ref",
+      "proposed_rule_version_ref",
+      "affected_attempt_refs",
+      "reverification_required",
+      "adjudication_ref",
+      "status"
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.verifier-challenge.v4"
+      },
+      "verifier_challenge_id": {
+        "type": "string",
+        "pattern": "^verifier-challenge://[^\\s]{1,500}$"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "challenger_ref": {
+        "type": "string",
+        "pattern": "^(?:system|worker|org|user)://[^\\s]{1,500}$"
+      },
+      "participation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participation-request://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "An accepted, not-yet-exited OrchestrationParticipationRequest: the actor when the party is outside the host System."
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "delegation://{thread_id}/{subagent_id}: a subagent of the coordinating thread, the actor for work inside the System."
+      },
+      "challenged_ref": {
+        "type": "string",
+        "pattern": "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"
+      },
+      "challenge_kind": {
+        "enum": [
+          "metric",
+          "rule",
+          "verifier",
+          "evidence",
+          "eligibility",
+          "result",
+          "exploit",
+          "independence",
+          "collusion",
+          "mapping"
+        ]
+      },
+      "challenge_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "adjudicator_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "prior_rule_version_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "proposed_rule_version_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "affected_attempt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^attempt://[^\\s]{1,500}$"
+        }
+      },
+      "reverification_required": {
+        "type": "boolean"
+      },
+      "adjudication_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "admitted",
+          "investigating",
+          "upheld",
+          "rejected",
+          "rule_changed",
+          "reverifying",
+          "resolved",
+          "withdrawn"
+        ]
+      }
+    },
+    "description": " Version 4 names its orchestration and its actor (participation_ref | delegation_ref) instead of a room (R-177 S4b; successor of v3)."
+  },
   "schema://ioi/applications/ioi-ai/work-claim-lease/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
@@ -41131,6 +43122,320 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     ]
+  },
+  "schema://ioi/applications/ioi-ai/work-claim/v4": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/work-claim/v4",
+    "title": "WorkClaim",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.work-claim-lease.v3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "work_claim_id",
+      "orchestration_ref",
+      "system_binding",
+      "frontier_item_ref",
+      "claimant_ref",
+      "participation_ref",
+      "delegation_ref",
+      "eligibility_match_receipt_ref",
+      "task_offer_ref",
+      "task_acceptance_ref",
+      "routing_decision_ref",
+      "collaboration_terms_ref",
+      "collaboration_terms_root",
+      "terms_acceptance_ref",
+      "contribution_policy_ref",
+      "quote_ref",
+      "budget_reservation_ref",
+      "settlement_profile_ref",
+      "bounded_scope_ref",
+      "context_lease_refs",
+      "authority_resource_compute_data_budget_and_tool_lease_refs",
+      "duplicate_work_policy",
+      "issued_at",
+      "expires_at",
+      "heartbeat_ref",
+      "renewal_count",
+      "release_or_reassignment_reason",
+      "status"
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.work-claim.v4"
+      },
+      "work_claim_id": {
+        "type": "string",
+        "pattern": "^work-claim://[^\\s]{1,500}$"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      },
+      "frontier_item_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^frontier://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "claimant_ref": {
+        "type": "string",
+        "pattern": "^(?:system|domain|worker|service|agent|org)://[^\\s]{1,500}$"
+      },
+      "participation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^participation-request://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "An accepted, not-yet-exited OrchestrationParticipationRequest: the actor when the party is outside the host System."
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "delegation://{thread_id}/{subagent_id}: a subagent of the coordinating thread, the actor for work inside the System."
+      },
+      "eligibility_match_receipt_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "task_offer_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^packet://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "task_acceptance_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^packet://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "routing_decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^routing-decision://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "collaboration_terms_ref": {
+        "type": "string",
+        "pattern": "^terms://[^\\s]{1,500}$"
+      },
+      "collaboration_terms_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "terms_acceptance_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "contribution_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "quote_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^quote://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "budget_reservation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:budget|spend|allocation)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "settlement_profile_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "bounded_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:task|task-brief|policy)://[^\\s]{1,500}$"
+      },
+      "context_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^context-lease://[^\\s]{1,500}$"
+        }
+      },
+      "authority_resource_compute_data_budget_and_tool_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"
+        }
+      },
+      "duplicate_work_policy": {
+        "enum": [
+          "exclusive",
+          "allowed",
+          "independent_replication",
+          "adversarial_replication"
+        ]
+      },
+      "issued_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "expires_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "heartbeat_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:heartbeat|receipt)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "renewal_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "release_or_reassignment_reason": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "active",
+          "waiting",
+          "released",
+          "expired",
+          "reassigned",
+          "completed",
+          "quarantined",
+          "revoked"
+        ]
+      }
+    },
+    "description": "A claim on a frontier item by an actor of the orchestration — an accepted participation or a delegation — admitted as an application record under the bounded System (R-177 S4b; successor of WorkClaimLease v3, which bound a room and a participant lease)."
   },
   "schema://ioi/applications/ioi-ai/work-frontier-item/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -140262,6 +142567,102 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/applications/ioi-ai/attempt/v4": [
+    {
+      "rule_id": "attempt.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.goal_run.matches_orchestration",
+      "description": "A frozen goal run coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.goal_run",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.goal_run.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.frontier_item.matches_orchestration",
+      "description": "A frozen frontier item coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.frontier_item",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.frontier_item.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.work_claim.matches_orchestration",
+      "description": "A frozen work claim coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.work_claim",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.work_claim.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.goal_run.matches_bound_goal_run",
+      "description": "A frozen goal run coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.goal_run",
+        "paths": [
+          "$.goal_run_ref",
+          "$.bound_coordinates.goal_run.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.frontier_item.matches_bound_frontier_item",
+      "description": "A frozen frontier item coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.frontier_item",
+        "paths": [
+          "$.frontier_item_ref",
+          "$.bound_coordinates.frontier_item.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "attempt.work_claim.matches_bound_work_claim",
+      "description": "A frozen work claim coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.work_claim",
+        "paths": [
+          "$.work_claim_ref",
+          "$.bound_coordinates.work_claim.record_ref"
+        ]
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/capability-offer/v3": [
     {
       "rule_id": "capability_offer.issuer.resolves_through_participant_lease_or_room_system",
@@ -140283,6 +142684,30 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
               "$.system_binding.system_id"
             ]
           }
+        ]
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/capability-offer/v4": [
+    {
+      "rule_id": "capability_offer.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "capability_offer.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
         ]
       }
     }
@@ -140393,6 +142818,78 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
               "$.system_binding.system_id"
             ]
           }
+        ]
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/finding/v4": [
+    {
+      "rule_id": "finding.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.attempt.matches_orchestration",
+      "description": "A frozen attempt coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.attempt",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.attempt.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.work_result.matches_orchestration",
+      "description": "A frozen work result coordinate, when present, belongs to this orchestration.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.work_result",
+        "paths": [
+          "$.orchestration_ref",
+          "$.bound_coordinates.work_result.orchestration_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.attempt.matches_bound_attempt",
+      "description": "A frozen attempt coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.attempt",
+        "paths": [
+          "$.attempt_ref",
+          "$.bound_coordinates.attempt.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.work_result.matches_bound_work_result",
+      "description": "A frozen work result coordinate, when present, is the record this one names.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates.work_result",
+        "paths": [
+          "$.work_result_ref",
+          "$.bound_coordinates.work_result.record_ref"
         ]
       }
     }
@@ -140944,6 +143441,30 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/applications/ioi-ai/resource-offer/v4": [
+    {
+      "rule_id": "resource_offer.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "resource_offer.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
+        ]
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/room-participant-lease/v3": [
     {
       "rule_id": "room_participant_lease.room.matches_binding_parent_scope",
@@ -141345,6 +143866,30 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/applications/ioi-ai/verifier-challenge/v4": [
+    {
+      "rule_id": "verifier_challenge.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "verifier_challenge.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
+        ]
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/work-claim-lease/v3": [
     {
       "rule_id": "work_claim.room.matches_admission",
@@ -141374,6 +143919,30 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
             "field": "proposed_or_issued_by_ref",
             "expected_path": "$.system_binding.system_id"
           }
+        ]
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/work-claim/v4": [
+    {
+      "rule_id": "work_claim.scope.matches_binding_parent_scope",
+      "description": "The orchestration the record belongs to is exactly the parent scope the seam derived into its binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "work_claim.actor.is_a_participation_or_a_delegation",
+      "description": "The actor is an accepted participation (a party outside the host System) or a delegation (a subagent of the coordinating thread); a record with neither has no actor. (That the participation is accepted and unexited, or the delegation a live subagent of this orchestration's thread, is the composing application's obligation, proven by its driven gate.)",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.participation_ref",
+          "$.delegation_ref"
         ]
       }
     }
@@ -160534,10 +163103,22 @@ export function validateAttemptV3(
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/attempt/v3", value).ok;
 }
 
+export function validateAttemptV4(
+  value: unknown,
+): value is AttemptV4 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/attempt/v4", value).ok;
+}
+
 export function validateCapabilityOfferV3(
   value: unknown,
 ): value is CapabilityOfferV3 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/capability-offer/v3", value).ok;
+}
+
+export function validateCapabilityOfferV4(
+  value: unknown,
+): value is CapabilityOfferV4 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/capability-offer/v4", value).ok;
 }
 
 export function validateCollaborativeWorkGraphV1(
@@ -160568,6 +163149,12 @@ export function validateFindingV3(
   value: unknown,
 ): value is FindingV3 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/finding/v3", value).ok;
+}
+
+export function validateFindingV4(
+  value: unknown,
+): value is FindingV4 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/finding/v4", value).ok;
 }
 
 export function validateGoalGroundingLoopV1(
@@ -160654,6 +163241,12 @@ export function validateResourceOfferV3(
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/resource-offer/v3", value).ok;
 }
 
+export function validateResourceOfferV4(
+  value: unknown,
+): value is ResourceOfferV4 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/resource-offer/v4", value).ok;
+}
+
 export function validateRoomParticipantLeaseV3(
   value: unknown,
 ): value is RoomParticipantLeaseV3 {
@@ -160684,10 +163277,22 @@ export function validateVerifierChallengeV3(
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/verifier-challenge/v3", value).ok;
 }
 
+export function validateVerifierChallengeV4(
+  value: unknown,
+): value is VerifierChallengeV4 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/verifier-challenge/v4", value).ok;
+}
+
 export function validateWorkClaimLeaseV3(
   value: unknown,
 ): value is WorkClaimLeaseV3 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/work-claim-lease/v3", value).ok;
+}
+
+export function validateWorkClaimV4(
+  value: unknown,
+): value is WorkClaimV4 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/work-claim/v4", value).ok;
 }
 
 export function validateWorkFrontierItemV3(

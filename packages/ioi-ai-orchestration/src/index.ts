@@ -51,4 +51,16 @@ export {
   selectBinding,
 } from "./bindings.js";
 export type { Binding, BindingProfile, CrossingEnvelope, ProtocolKind, TransportReceipt } from "./bindings.js";
+export {
+  WORK_CONTRACTS,
+  Work,
+  WorkRefusal,
+  coordinateOf,
+  delegationActor,
+  delegationRef,
+  parseDelegationRef,
+  participationActor,
+  verifyFrozenCoordinates,
+} from "./work.js";
+export type { Actor, ClaimDraft, FrozenCoordinate } from "./work.js";
 

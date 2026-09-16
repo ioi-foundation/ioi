@@ -169,7 +169,9 @@
     "check:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs",
     "mutate:aiip-portable-exit": "node scripts/verify-hypervisor-aiip-portable-exit.mjs --mutation",
     "check:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs",
-    "mutate:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs --mutation"
+    "mutate:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs --mutation",
+    "check:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs",
+    "mutate:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
