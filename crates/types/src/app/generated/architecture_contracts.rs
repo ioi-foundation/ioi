@@ -183822,7 +183822,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         mutation_id: None,
         value_json: None,
         ajv_schema_accept: true,
-        oracle_contract_accept: false,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/route-assurance-claim-v1/positive-refused-role-confusion.json"#,
