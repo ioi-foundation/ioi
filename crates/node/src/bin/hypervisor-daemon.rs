@@ -48,6 +48,8 @@ mod azure_candidate_source;
 mod binding_routes;
 #[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
 mod capability_lease_plan_routes;
+#[path = "hypervisor_daemon_routes/cloud_candidate_routes.rs"]
+mod cloud_candidate_routes;
 #[path = "hypervisor_daemon_routes/cloud_job_routes.rs"]
 mod cloud_job_routes;
 #[path = "hypervisor_daemon_routes/connector_execution_routes.rs"]
@@ -60,8 +62,6 @@ mod connector_session_routes;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/data_transformation_routes.rs"]
 mod data_transformation_routes;
-#[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
-mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
 mod device_custody_routes;
 #[path = "hypervisor_daemon_routes/device_held_principal_routes.rs"]
@@ -3791,27 +3791,27 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/cloud-candidates/intents",
-            post(decentralized_cloud_routes::handle_intent_create),
+            post(cloud_candidate_routes::handle_intent_create),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/intents/:id",
-            get(decentralized_cloud_routes::handle_intent_get),
+            get(cloud_candidate_routes::handle_intent_get),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/candidates",
-            get(decentralized_cloud_routes::handle_candidates_list),
+            get(cloud_candidate_routes::handle_candidates_list),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/candidates/refresh",
-            post(decentralized_cloud_routes::handle_candidates_refresh),
+            post(cloud_candidate_routes::handle_candidates_refresh),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/candidate-sources",
-            get(decentralized_cloud_routes::handle_candidate_sources),
+            get(cloud_candidate_routes::handle_candidate_sources),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/placement-advisory",
-            get(decentralized_cloud_routes::handle_placement_advisory),
+            get(cloud_candidate_routes::handle_placement_advisory),
         )
         .route(
             "/v1/hypervisor/warm-pools",

@@ -6,7 +6,7 @@
 //! Every one of those exists and is owned elsewhere (ADR 0051 §1, §7). The envelope's
 //! whole job is to compose them, which is why this file is short and mostly refusals.
 //!
-//!   decentralized.cloud proposes.   wallet.network authorizes.
+//!   The cloud candidate plane proposes.   wallet.network authorizes.
 //!   Hypervisor places and executes. Agentgres records what ran and what it cost.
 //!
 //! THE ONE RULE THAT SHAPES EVERYTHING HERE: a human and an agent submit the SAME
@@ -346,7 +346,7 @@ pub(crate) async fn handle_cloud_job_create(
         );
     }
     let intent_id = format!("cri_{:x}", nanos());
-    let intent = super::decentralized_cloud_routes::intent_record_for_job(&intent_id, &intent_body);
+    let intent = super::cloud_candidate_routes::intent_record_for_job(&intent_id, &intent_body);
     if persist_record(&st.data_dir, "cloud-resource-intents", &intent_id, &intent).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,

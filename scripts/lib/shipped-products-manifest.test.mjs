@@ -22,13 +22,13 @@ const validateShippedProductsManifest = (manifest, options = {}) =>
 test("the authoritative shipped-products manifest covers and verifies the executable estate", async () => {
   const manifest = await loadShippedProductsManifest();
   const report = await validateShippedProductsManifest(manifest);
-  // Seven lanes: the 2026-08-07 one-ioi.ai-application ruling removed the dual runtime invented
+  // Six lanes: the 2026-08-07 one-ioi.ai-application ruling removed the dual runtime invented
   // beside apps/ioi-ai, the 2026-08-12 dead-weight cleanup removed the retired apps/benchmarks
-  // lane, and 2026-09-07 registered the decentralized.cloud public face (ADR 0051) at
-  // development_only once its workspace merged undispositioned.
-  assert.equal(report.product_count, 7);
+  // lane, and on 2026-09-17 decentralized.cloud left this repository for its own, taking the
+  // seventh lane with it (it had been registered 2026-09-07 at development_only).
+  assert.equal(report.product_count, 6);
   assert.equal(report.nonshipped_root_count, 5);
-  assert.equal(report.source_graphs.length, 7);
+  assert.equal(report.source_graphs.length, 6);
   assert.equal(report.artifacts[0].verified, true);
 });
 

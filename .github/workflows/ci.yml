@@ -77,7 +77,7 @@ jobs:
       # The job is red if any step is red — nothing is downgraded — but a red names exactly its own
       # gate and hides no other. The two mutation-event coverage gates (`check:mutation-foundation`,
       # `check:mutation-handlers`) moved to the `mutation_event_coverage` job below: they are red on
-      # R-18 (decentralized-cloud's, unresolved), and a red that is someone else's belongs in a job
+      # R-18 (unresolved; re-owned by R-182), and a red under diagnosis belongs in a job
       # that carries their name, not in front of nine gates that are not theirs.
       - name: Verify generated architecture contracts
         run: npm run check:architecture-contracts
@@ -382,15 +382,17 @@ jobs:
   # registry (docs/architecture/_meta/mutation-event-foundation-coverage.v1.json) is stale on
   # `handle_cloud_job_execute` (cloud_job_routes.rs, 49eecf0bc), which meets both discarded-write
   # tests in source and is classified in neither MEF-GAP-008 nor a recorded absence. That is the
-  # private register's R-18 and it belongs to the decentralized-cloud program, which owns the
-  # handler; this program does not resolve it. Until 2026-09-12 the two gates ran inside
+  # private register's R-18. It belonged to the decentralized-cloud program, which authored the
+  # handler; that product left this repository on 2026-09-17 and the handler did not, so R-182
+  # re-owned the finding to the MVP finish-line program rather than leave it unowned. Until
+  # 2026-09-12 the two gates ran inside
   # build_and_test's contracts block, where their red aborted the block and masked every later
   # gate of that job. Here their red is exactly one job, named for its owner, that masks nothing:
   # it is not a `needs:` of any other job, and it stays red until R-18's closure (the handler
   # classified in MEF-GAP-008 or its absence recorded with a reason, both gates green), after
   # which it simply stays green here. Nothing is downgraded: a red job is a red run.
   mutation_event_coverage:
-    name: Mutation-event coverage gates (R-18, owner decentralized-cloud)
+    name: Mutation-event coverage gates (R-18, owner MVP finish-line program)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

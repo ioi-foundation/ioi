@@ -2157,7 +2157,8 @@ function envPager(base, summary) {
 // slice); still fetches /environment-classes for posture. Does NOT pull the full env list.
 // Placement venue cards — the four explicit choices over the BYO provider plane. Fee bases are
 // declared copy (never fee objects); "Let Hypervisor choose" renders planned until the
-// decentralized.cloud candidate plane exists. Provider cards show connected-account state,
+// cloud-candidate plane returns an admissible candidate from a connected provider adapter.
+// Provider cards show connected-account state,
 // verified/unverified + preflight reasons, runtime classes, capability hints, and cost owner.
 function renderPlacementVenues(venuesRes, policyRes, spendRecon) {
   const venues = (venuesRes || {}).venues || [];

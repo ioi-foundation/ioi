@@ -1,5 +1,5 @@
 //! Vast.ai CANDIDATE SOURCE — the first live external GPU supply adapter feeding the
-//! decentralized.cloud candidate plane. QUOTE + PREFLIGHT + CANDIDATE ENRICHMENT ONLY:
+//! cloud candidate plane. QUOTE + PREFLIGHT + CANDIDATE ENRICHMENT ONLY:
 //! no provisioning, no mutation, no spend — the provider lifecycle stays fail-closed
 //! (`PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED`) until the guarded lifecycle cut.
 //!

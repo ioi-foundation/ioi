@@ -1,6 +1,9 @@
 # ADR 0051: decentralized.cloud Is A Branded Public Front, A Job Primitive, And A Supply Registry — Never A Second Spine
 
-Status: Accepted
+Status: Superseded by [ADR 0054](./0054-defer-the-decentralized-candidate-engines-and-place-through-the-underlying-providers.md)
+(2026-09-17): the public face, job primitive and supply registry accepted here are
+deferred with the product, which moved to its own repository. The boundaries this ADR
+drew — never a second spine, never an authority layer — still bind any candidate source.
 
 Date: 2026-09-04
 

@@ -3666,7 +3666,7 @@ mod storage_backend_deletion_tests {
     }
 }
 
-/// Storage-backend facts for the candidate plane (decentralized_cloud_routes) — verified
+/// Storage-backend facts for the candidate plane (cloud_candidate_routes) — verified
 /// accounts with honest posture; NEVER availability claims beyond daemon records.
 pub(crate) fn backend_facts(data_dir: &str) -> Vec<Value> {
     let archives = read_record_dir(data_dir, ARCHIVE_KIND);

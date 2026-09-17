@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Vast candidate-source adapter done-bar (quote + preflight + candidate enrichment ONLY).
 //
-// Proves the first external GPU supply source feeding the decentralized.cloud candidate
+// Proves the first external GPU supply source feeding the cloud candidate
 // plane: credentials absent → candidate_source_unavailable with evidence; sealed bearer
 // resolves only inside the daemon; unreachable endpoint → degraded_unreachable with evidence
 // and ZERO fake quotes; fixture-backed offers normalize into CloudResourceCandidates with

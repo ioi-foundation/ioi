@@ -1,18 +1,20 @@
-//! decentralized.cloud CANDIDATE PLANE — first cut.
+//! CLOUD CANDIDATE PLANE.
 //!
 //! The daemon-owned resource-intelligence projection that fills the "Let Hypervisor choose"
 //! advisory path with REAL candidates. Candidate/proposal ONLY (canon:
-//! docs/architecture/domains/decentralized/cloud.md):
+//! docs/architecture/components/hypervisor/byo-provider-plane.md):
 //!
-//!   decentralized.cloud proposes resource candidates.
+//!   This plane proposes resource candidates.
 //!   wallet.network authorizes spend, provider credentials, grants, and revocation.
 //!   Hypervisor provisions, executes, snapshots, restores, supervises, and tears down.
 //!
-//! This cut derives candidates from LOCAL FACTS ONLY: the verified ProviderAccount catalog,
-//! environment-class provider eligibility, static adapter capabilities, preflight posture, and
-//! provider receipt history. External sources (decentralized.cloud network, DePIN markets,
-//! storage networks, managed capacity) return `candidate_source_unavailable` WITH EVIDENCE —
-//! never fake prices. Candidates are NOT authority: they cannot provision, release credentials,
+//! Candidates derive from LOCAL FACTS and from CONNECTED PROVIDER ADAPTERS: the verified
+//! ProviderAccount catalog, environment-class provider eligibility, static adapter capabilities,
+//! preflight posture, and provider receipt history. A source with no live adapter returns
+//! `candidate_source_unavailable` WITH EVIDENCE — never fake prices. (Renamed 2026-09-17 from
+//! cloud_candidate_routes: that product left this repository, and the plane it was named
+//! after was always the generic one — decentralized.cloud was a single declared-unavailable
+//! source among thirteen, and the eight provider adapters are what actually propose.) Candidates are NOT authority: they cannot provision, release credentials,
 //! expose ingress, or claim custody/restore truth; they expire; stale/expired/evidence-less
 //! candidates are not placement-eligible. No fee objects, no invented quotes, no
 //! RoutingDecisionReceipt.
@@ -1029,9 +1031,6 @@ pub(crate) async fn handle_candidate_sources(
             { "source": "managed_capacity", "state": "candidate_source_unavailable",
               "reason": "managed_capacity_not_offered — Hypervisor-managed execution (provider-of-record) does not exist yet; nothing honest to propose",
               "evidence": { "basis": "no managed capacity plane in the estate" } },
-            { "source": "decentralized.cloud", "state": "candidate_source_unavailable",
-              "reason": "network_adapter_absent — the decentralized.cloud network engine is not live; this daemon plane realizes its candidate semantics from local facts only",
-              "evidence": { "basis": "no external candidate API is called; no invented prices" } },
             super::aws_candidate_source::source_state(&st.data_dir),
             super::gcp_candidate_source::source_state(&st.data_dir),
             super::azure_candidate_source::source_state(&st.data_dir),

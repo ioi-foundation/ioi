@@ -33,7 +33,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
-use super::decentralized_cloud_routes as dcr;
+use super::cloud_candidate_routes as dcr;
 use super::DaemonState;
 
 pub(crate) const DECISION_KIND: &str = "placement-decisions";

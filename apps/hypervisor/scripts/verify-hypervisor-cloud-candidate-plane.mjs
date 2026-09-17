@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// decentralized.cloud candidate plane done-bar (first cut — local facts only).
+// Cloud candidate plane done-bar (local facts + connected provider adapters).
 //
 // Proves the daemon-owned candidate plane that fills "Let Hypervisor choose":
 // CloudResourceIntent → evidence-bound, expiring CloudResourceCandidates derived from the
@@ -57,7 +57,7 @@ async function run() {
     src.customer_inventory?.state === "available" && src.direct_provider?.state === "credential_preflight_only"
     && src.customer_inventory?.evidence?.verified_ssh_accounts >= 1);
   ok("external sources return candidate_source_unavailable WITH evidence — never fake prices",
-    ["managed_capacity", "decentralized.cloud", "depin_market", "storage_network"].every((k) =>
+    ["managed_capacity", "depin_market", "storage_network"].every((k) =>
       src[k]?.state === "candidate_source_unavailable" && !!src[k]?.reason && !!src[k]?.evidence)
     && /not fake prices/.test(sources.rule || ""));
 

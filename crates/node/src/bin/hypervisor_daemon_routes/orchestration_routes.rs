@@ -2009,8 +2009,8 @@ pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>)
 // COPY, never fee objects: this plane mints no fee, no quote, and no RoutingDecisionReceipt
 // (economic canon: fees attach to orchestration and governance — never hidden provider markup;
 // a routing fee becomes legitimate only when IOI itself places runs for payment). "Let Hypervisor
-// choose" stays a PLANNED placeholder with an advisory-empty candidate list until the
-// decentralized.cloud candidate plane exists — venue selection is never hidden behind auto.
+// choose" stays a PLANNED placeholder with an advisory-empty candidate list until the cloud
+// candidate plane returns an admissible candidate — venue selection is never hidden behind auto.
 
 const VENUE_POLICY_KIND: &str = "placement-venue-policy";
 const VENUE_IDS: &[&str] = &[
@@ -2117,7 +2117,7 @@ pub(crate) fn venue_fee(venue: &str) -> Value {
         "run_local" => ("none", "No fee. Local execution is the conformance reference; the control plane is covered by your subscription (subscription_control_plane), not metered per run."),
         "use_my_infrastructure" => ("none", "No provider-spend percentage. Your nodes, your spend — Hypervisor records, governs, and receipts the work; it does not hide markup inside provider cost. When Hypervisor performs the provider lifecycle for you (provisioning, snapshot custody, restore, receipts), a visible adapter orchestration fee may apply in a future cut — never a percentage of your spend. Nothing is charged today."),
         "pick_provider" => ("adapter_orchestration_fee", "Provider spend stays customer-borne at cost on your own account. When a cloud adapter lands, a visible flat orchestration fee attaches to adapter operations — never a percentage of your provider spend. Nothing is charged today: cloud kinds are credential + preflight only."),
-        "hypervisor_choose" => ("routing_fee", "When Hypervisor places runs for payment (decentralized.cloud), a visible routing fee applies with a challengeable RoutingDecisionReceipt; managed execution would carry a declared managed_margin. Neither exists today — this venue is a planned placeholder, and choosing it never hides the decision."),
+        "hypervisor_choose" => ("routing_fee", "When Hypervisor places runs for payment, a visible routing fee applies with a challengeable RoutingDecisionReceipt; managed execution would carry a declared managed_margin. Neither exists today — this venue is a planned placeholder, and choosing it never hides the decision."),
         _ => ("none", "unknown venue"),
     };
     json!({ "fee_basis": basis, "fee_explanation": explanation, "fee_object_minted": false, "cost_owner": "customer" })
@@ -2313,22 +2313,19 @@ pub(crate) async fn handle_placement_venues(
 ) -> (StatusCode, Json<Value>) {
     let classes = live_environment_classes(&st.base_url, &inbound).await;
     let mut venues = compose_venues(&st.data_dir, &classes);
-    let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
+    let intent = super::cloud_candidate_routes::ensure_default_intent(&st.data_dir);
     // W1.2 / MEF-GAP-008 — advisory_for refreshes candidates durably; surface a write failure rather
     // than composing venues over a silently-failed refresh.
-    let advisory = match super::decentralized_cloud_routes::advisory_for(
-        &st, &intent, false, &inbound,
-    )
-    .await
-    {
-        Ok(a) => a,
-        Err((code, message)) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "ok": false, "code": code, "message": message })),
-            )
-        }
-    };
+    let advisory =
+        match super::cloud_candidate_routes::advisory_for(&st, &intent, false, &inbound).await {
+            Ok(a) => a,
+            Err((code, message)) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "ok": false, "code": code, "message": message })),
+                )
+            }
+        };
     attach_choose_advisory(&mut venues, &advisory);
     (
         StatusCode::OK,
@@ -2421,11 +2418,9 @@ pub(crate) async fn handle_venue_policy_put(
     let advisory = venue == "hypervisor_choose";
     let mut advisory_block = Value::Null;
     if advisory {
-        let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
+        let intent = super::cloud_candidate_routes::ensure_default_intent(&st.data_dir);
         advisory_block =
-            match super::decentralized_cloud_routes::advisory_for(&st, &intent, true, &inbound)
-                .await
-            {
+            match super::cloud_candidate_routes::advisory_for(&st, &intent, true, &inbound).await {
                 Ok(a) => a,
                 Err((code, message)) => {
                     return (
@@ -2570,8 +2565,8 @@ pub(crate) async fn handle_placement_preview(
     // W1.2 / MEF-GAP-008 — advisory_for refreshes candidates durably; surface a write failure rather
     // than previewing over a silently-failed refresh.
     let advisory = if venue == "hypervisor_choose" {
-        let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
-        match super::decentralized_cloud_routes::advisory_for(&st, &intent, false, &inbound).await {
+        let intent = super::cloud_candidate_routes::ensure_default_intent(&st.data_dir);
+        match super::cloud_candidate_routes::advisory_for(&st, &intent, false, &inbound).await {
             Ok(a) => a,
             Err((code, message)) => {
                 return (

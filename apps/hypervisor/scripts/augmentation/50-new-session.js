@@ -157,7 +157,8 @@
   // ── Placement venue picker — DAEMON truth (placement/venues + venue-policy); the choice is
   // durable, explicit, and never hidden behind auto. Fee bases are declared copy, never fee
   // objects; "Let Hypervisor choose" renders planned/disabled-looking until the
-  // decentralized.cloud candidate plane exists (choosing it records an advisory preference).
+  // cloud-candidate plane returns an admissible candidate from a connected provider adapter
+  // (choosing it records an advisory preference).
   function nsPlacement() { return (nsCtx && nsCtx.placement) || { venues: [], policy: null }; }
   function nsVenueFor(id) { return (nsPlacement().venues || []).find(function (v) { return v.venue === id; }) || null; }
   function nsCurrentVenue() {

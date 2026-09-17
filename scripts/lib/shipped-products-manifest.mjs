@@ -30,10 +30,6 @@ export const CANONICAL_PRODUCT_IDS = Object.freeze([
   "developers-ioi-ai",
   "aiagent-xyz",
   "sas-xyz",
-  // decentralized.cloud public face (ADR 0051): registered 2026-09-07 at development_only so the
-  // shared register's undispositioned-workspace rule stops turning master red; the decentralized-
-  // cloud program owns the lane and its posture.
-  "decentralized-cloud",
 ]);
 
 export const VALIDATION_PHASES = Object.freeze([
@@ -75,7 +71,9 @@ const STATIC_BOUNDARY_MODES = new Set([
   "quarantined_legacy_fixture",
   "owned_derivative_with_committed_vendor_snapshot",
   // Every surface declares `wired`; an unwired surface says so on screen and the lane's own
-  // face gate asserts that against the served bytes (decentralized.cloud, ADR 0051).
+  // face gate asserts that against the served bytes. The mode outlived the lane that introduced
+  // it: decentralized.cloud left this repository on 2026-09-17, and the vocabulary stays because
+  // a later lane may declare it.
   "labelled_unwired_surfaces",
 ]);
 const VERIFICATION_KINDS = new Set([

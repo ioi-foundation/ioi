@@ -149,10 +149,13 @@ environment-class provider eligibility, and preflight posture:
   objects, no invented quotes, no RoutingDecisionReceipt.
 - `GET|PUT /v1/hypervisor/placement/venue-policy` — the durable chosen
   venue (`ioi.hypervisor.placement-venue-policy.v1`); `hypervisor_choose`
-  is filled by the decentralized.cloud candidate plane
-  (`/v1/hypervisor/cloud-candidates/*`, canonical doctrine
-  [`cloud.md`](../../domains/decentralized/cloud.md)) with explicit
-  `no_eligible_candidate` → `run_local` fallback.
+  is filled by the cloud-candidate plane (`/v1/hypervisor/cloud-candidates/*`,
+  `cloud_candidate_routes.rs`) from local facts and connected provider adapters,
+  with explicit `no_eligible_candidate` → `run_local` fallback. This file is that
+  plane's canonical doctrine: the plane was renamed out of a product name on
+  2026-09-17 when decentralized.cloud left the repository
+  ([`../../domains/decentralized/README.md`](../../domains/decentralized/README.md)),
+  and the source it declared was never live.
 - `GET /v1/hypervisor/placement/preview` — the pre-launch placement
   projection with `receipts_expected` named before launch.
 - `GET /v1/hypervisor/provider-spend/reconciliation` — quote-backed

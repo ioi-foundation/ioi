@@ -332,12 +332,12 @@ const H_BASELINE = [
   "capability_lease_plan_routes.rs::handle_plan_delete",
   "capability_lease_plan_routes.rs::handle_plan_patch",
   "capability_lease_plan_routes.rs::handle_plan_revoke",
-  // R-17 third disposition (2026-09-10) — RECORDED, NOT EDITED, and NOT EXCUSED. These two belong
-  // to the decentralized-cloud program (added by b7eda7dcb and 49eecf0bc); this program coordinates
-  // rather than edits that surface, so they are entered on the ratchet where every NEW site is
-  // still red and the reading they are owed is still owed. They are the same shape the standing-
-  // lease pair had before this cut: a mutating handler that resolves no caller. Closure test, for
-  // that program: each resolves its caller before any record read and refuses an unresolved one,
+  // R-17 third disposition (2026-09-10) — RECORDED, NOT EDITED, and NOT EXCUSED. These two were
+  // added by the decentralized-cloud program (b7eda7dcb, 49eecf0bc). That product left this
+  // repository on 2026-09-17 (R-182) and cloud_job_routes.rs did not, so there is no longer another
+  // program to coordinate with: the reading they are owed is owed by this one. They are the same
+  // shape the standing-lease pair had before this cut: a mutating handler that resolves no caller.
+  // Closure test: each resolves its caller before any record read and refuses an unresolved one,
   // and these two entries are deleted rather than re-pinned.
   "cloud_job_routes.rs::handle_cloud_job_create",
   "cloud_job_routes.rs::handle_cloud_job_execute",
@@ -355,7 +355,7 @@ const H_BASELINE = [
   "connector_session_routes.rs::handle_session_open",
   "connector_session_routes.rs::handle_session_patch",
   "connector_session_routes.rs::handle_session_release",
-  "decentralized_cloud_routes.rs::handle_intent_create",
+  "cloud_candidate_routes.rs::handle_intent_create",
   "editor_routes.rs::handle_provisioning_plan_create",
   "environment_routes.rs::handle_agent_run_upsert",
   "environment_routes.rs::handle_environment_classes",

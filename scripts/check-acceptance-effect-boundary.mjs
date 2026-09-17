@@ -17,7 +17,10 @@ import { runJourney, app, rootScript, cargoTest, bounded, ROOT } from "./lib/acc
 const DAEMON_SUITE = bounded(cargoTest("ioi-node", ["--bin", "hypervisor-daemon"]), 90);
 
 // R-18 (register, 2026-09-08): `handle_cloud_job_execute` in cloud_job_routes.rs carries four
-// discarded writes and is decentralized-cloud's. CI isolates its two gates in a job nothing needs.
+// discarded writes. It was the decentralized-cloud program's until 2026-09-17, when that product
+// left this repository (R-182) — the handler and its module did NOT leave, so the finding is now
+// this program's to close rather than to coordinate. CI isolates its two gates in a job nothing
+// needs.
 // R-136 (2026-09-14, MVP owner, owner-reversible): the same fence applies here — the two gates RUN,
 // and a red that consists of EXACTLY that one handler / that one source file is fenced and does not
 // hold the MVP gate (ADR 0053: the product track keeps its own release accounting). Any second
@@ -27,8 +30,8 @@ const R18_HANDLER = "handle_cloud_job_execute";
 const R18_SOURCE = "crates/node/src/bin/hypervisor_daemon_routes/cloud_job_routes.rs";
 const R18_REGISTRY = "docs/architecture/_meta/mutation-event-foundation-coverage.v1.json";
 const r18Fence = (what, matches) => ({
-  ruling: "R-18 (decentralized-cloud) fenced for the MVP by R-136 (2026-09-14, MVP owner)",
-  owner: "decentralized-cloud",
+  ruling: "R-18 fenced for the MVP by R-136 (2026-09-14, MVP owner); re-owned to this program by R-182 (2026-09-17) when decentralized.cloud left the repository and its handler did not",
+  owner: "MVP finish-line program",
   what,
   holdsGate: false,
   matches,

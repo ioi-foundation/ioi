@@ -931,7 +931,11 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   paper venues, venue comparison, and trade-candidate receipts; it does not own
   user authority, custody, final approval, venue execution, market resolution,
   user positions, policy, or settlement truth.
-- `decentralized.cloud`: a preferred first-party resource-intelligence engine
+- `decentralized.cloud`: **a deferred product, moved out of this repository on
+  2026-09-17** ([`../domains/decentralized/README.md`](../domains/decentralized/README.md));
+  the engine was never live and the daemon never called it. The term is retained
+  because the boundaries below are what any candidate source is held to, whoever
+  produces it. It was specified as a preferred first-party resource-intelligence engine
   for infrastructure capacity. Hypervisor, wallet.network, ioi.ai, agents, and
   clients may consume it through API/RPC/SDK boundaries for cloud resource
   candidates, provider quotes, resource-liquidity discovery, custody plans,
