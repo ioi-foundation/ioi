@@ -4005,7 +4005,7 @@ mod outcome_room_tests {
         b["notes"] = json!({ "api_key": "x" });
         assert_eq!(
             validate_room_create(&b).unwrap_err().0,
-            "outcome_room_plaintext_secret_rejected"
+            "plaintext_secret_rejected"
         );
     }
 
