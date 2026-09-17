@@ -177,7 +177,10 @@ scope for this contract family.
 
 These are the successors of `OutcomeRoomDiscovery` v1 and `RoomParticipationRequest`
 v3 above (registered 2026-09-16, R-172 slice S3; the predecessors remain
-registered and valid until slice S4 retires the room-hosted spine). The
+registered for retained chains, and the daemon routes that served them —
+room-participation-requests and room-participant-leases — were deleted on
+2026-09-16 under R-178 slice S4a and the owner's R-179 correction, so no daemon
+route admits a participation request or a lease). The
 composition they belong to is not a Hypervisor plane: it is an orchestration the
 ioi.ai application composes from thread orchestration primitives — a
 coordinating thread, delegations as subagents of it, reservations on the
@@ -471,6 +474,16 @@ the projection grants no room membership, authority, acceptance, or truth.
 versioned successor), never to an unversioned client cache.
 
 ## RoomParticipantLeaseEnvelope
+
+**Retired 2026-09-16 (R-178 slice S4a, R-179).** `RoomParticipantLease` v3 and
+the foundation `RoomParticipantLeaseEnvelope` v1 now carry
+`evolution.successor_contract_id` →
+`schema://ioi/applications/ioi-ai/orchestration-participation-request/v2`: in
+the composition an accepted, unexited `OrchestrationParticipationRequest` IS the
+external party's standing, and a delegation (a subagent of the coordinating
+thread) is the internal one — no lease object survives in the v4 vocabulary and
+no daemon route mints one. The records stay registered so retained chains still
+verify; the text below is kept as the migration input it describes.
 
 Room participation is a lease, not ambient membership. It composes existing
 identity, context, authority, runtime, resource, and budget leases rather than
@@ -1100,7 +1113,8 @@ VerifierChallengeEnvelope:
 ## Work objects v4 — composed over the orchestration (R-177, S4b)
 
 The six work objects below succeed their v3 shapes (registered 2026-09-16; the
-predecessors remain registered and valid until the room-hosted spine retires).
+predecessors remain registered for retained chains, and the daemon planes that
+served them were deleted the same day — R-178 slice S4a, R-179).
 They are application records the ioi.ai composer admits under the bounded
 System through the generic record seam, and they take their coordinates from
 the composition rather than from a room or a lease:
@@ -1170,10 +1184,18 @@ VerifierChallengeEnvelope (v4):
 ```
 
 The daemon planes that served v3 (`attempt_finding_routes`, `verifier_challenge_routes`,
-`resource_capability_offer_routes`, `work_frontier_claim_routes`) are not re-cut:
-they retire with the room-hosted spine (R-172 S4a/S4c). The v4 records are
-admitted, read and revised only through the record seam by the composing
-application.
+`resource_capability_offer_routes`, `work_frontier_claim_routes`, the participation
+and lease routes of `room_participation_routes` and the M04.8 wrapper
+`m048_collaboration_routes`) were not re-cut: they were DELETED on 2026-09-16
+(R-178 slice S4a, R-179) — 43 `/v1/goal-orchestration/*` routes across the
+attempts, findings, work-frontier-items, work-claim-leases, resource-offers,
+capability-offers, work-eligibility-matches, verifier-challenges,
+room-participation-requests, room-participant-leases, collaboration-terms and
+local-agent-pairing-sessions families — and no daemon route serves a work object,
+a participation request or a lease. The v4 records are admitted, read and revised
+only through the record seam by the composing application. The hosted-v2
+OutcomeRoom object, the room half of the room-system spine and the GoalRun plane
+follow in slices S4c and S4d.
 
 ## Collaborative-Pursuit Mode Semantics
 

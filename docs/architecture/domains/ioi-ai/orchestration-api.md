@@ -62,6 +62,21 @@ pairing, current participant/frontier/claim/attempt/finding/challenge
 lifecycles, federation, and remaining fine-grained routes below are target
 contract; their presence here is not a live-route claim.
 
+**Retired 2026-09-16 (R-178 slice S4a, R-179).** The daemon no longer mounts
+the flat `/v1/goal-orchestration/*` families for attempts, findings,
+work-frontier-items, work-claim-leases, resource-offers, capability-offers,
+work-eligibility-matches, verifier-challenges, room-participation-requests,
+room-participant-leases, collaboration-terms and local-agent-pairing-sessions
+(43 routes deleted with their modules). Those objects are v4 application
+records the ioi.ai composer (`packages/ioi-ai-orchestration`) admits through the
+System-record seam, and participation is an `OrchestrationParticipationRequest`
+or a delegation of the coordinating thread
+([`collaborative-pursuit.md`](./collaborative-pursuit.md)). The room-nested
+target routes listed below for the same lifecycles are retired as targets: the
+composition mounts none of them. The hosted-v2 OutcomeRoom routes and the
+GoalRun routes remain mounted until slices S4c and S4d retire them into the
+same composition.
+
 The `/v1/goal-orchestration/*` namespace is the ioi.ai orchestration
 application's route namespace (ADR 0022): the daemon hosts, admits, and
 receipts these routes exactly as it does any application domain's, and their

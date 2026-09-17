@@ -70,6 +70,10 @@ const routerSource = readFileSync(ROUTER, "utf8");
 // ------------------------------------------------------- the seam: resolve implies APPLY
 const admitBody =
   /fn admit_reservation\([\s\S]*?\n\}/u.exec(routeCode)?.[0] ?? "";
+// The stream reader is read alongside the admission because the "one head" property spans the two:
+// the admission takes ONE stream, and the reader is where `observed_head` is derived from `head`.
+const readerBody =
+  /fn read_reservation_stream\([\s\S]*?\n\}/u.exec(routeCode)?.[0] ?? "";
 observations.admission_found = admitBody.length > 0;
 ok(
   "the admission path EXISTS and is the one the route calls — a decision function with no caller passes every unit test it has",
@@ -91,11 +95,29 @@ ok(
 );
 
 // ------------------------------------------------------------- exact head, and the race
+// RE-ENCODED 2026-09-17 (register R-181). The property is unchanged; its PROXY was stale. This
+// assertion counted the literal `stream.head.as_deref()` twice, which held only while the same
+// Option was passed to both call sites. The reservation repair that first admitted a reservation
+// through this daemon split the two uses on purpose: the CAS needs `None` to mean "expect no head"
+// on a first admission, while the planner needs a non-empty string to diagnose against, so the
+// reader derives `observed_head` from the SAME `head` with the genesis sentinel standing in for the
+// empty stream. Counting the old literal then read a correct refactor as a defect. What makes the
+// heads one value is structural and is now asserted as such: ONE stream read in the admission, the
+// diagnosis and the CAS both taking members of THAT binding, and the reader deriving one member
+// from the other rather than reading the stream a second time.
+const oneRead = admitBody.split("read_reservation_stream(").length - 1 === 1;
+const planTakesObserved = /plan_reservation\(\s*candidate,\s*Some\(stream\.observed_head\.as_str\(\)\)/u.test(admitBody);
+const casTakesHead = /stream\.head\.as_deref\(\)/u.test(admitBody);
+const derivedFromTheSameHead =
+  /let observed_head = head\s*\.clone\(\)\s*\.unwrap_or_else\(\|\| RESERVATION_GENESIS_HEAD\.to_owned\(\)\)/u.test(
+    readerBody.replace(/\s+/gu, " ").replace(/let observed_head = head \./u, "let observed_head = head."),
+  ) ||
+  /let observed_head = head\s*\.clone\(\)\s*\.unwrap_or_else\(/u.test(readerBody);
+const noSecondRead = readerBody.split("read_event_stream_history(").length - 1 === 1;
 ok(
-  "the head the decision was given is the head the write commits against — one value, read once, used for both the diagnosis and the CAS",
-  /stream\.head\.as_deref\(\)/u.test(admitBody) &&
-    admitBody.split("stream.head.as_deref()").length - 1 >= 2,
-  "same head to plan and to admit",
+  "the head the decision was given is the head the write commits against — one stream read, and the diagnosis and the CAS take two members derived from that one head (the CAS's exact Option, the planner's genesis-substituted string)",
+  oneRead && planTakesObserved && casTakesHead && derivedFromTheSameHead && noSecondRead,
+  `one read=${oneRead} plan<-observed_head=${planTakesObserved} cas<-head=${casTakesHead} observed derived from head=${derivedFromTheSameHead} single history read=${noSecondRead}`,
 );
 ok(
   "a concurrent winner is a typed head conflict rather than a silent retry or a lost claim",
@@ -219,6 +241,25 @@ if (mutation) {
       kernelCode.replace("chain(std::iter::once(candidate))", ""),
     ),
     "the fold's membership is the subject",
+  );
+  drill(
+    "a second stream read behind the two heads is caught — the property is ONE read, not two values that happen to agree",
+    (() => {
+      const twoReads = admitBody.replace(
+        "let stream = read_reservation_stream(",
+        "let _other = read_reservation_stream(data_dir, &tail)?;\n    let stream = read_reservation_stream(",
+      );
+      return twoReads.split("read_reservation_stream(").length - 1 !== 1;
+    })(),
+    "a duplicated read breaks the one-read clause",
+  );
+  drill(
+    "a planner diagnosed against a head it did not read is caught — substituting a literal for the stream's own member fails the clause",
+    (() => {
+      const detached = admitBody.replace("Some(stream.observed_head.as_str())", 'Some("head-from-somewhere-else")');
+      return !/plan_reservation\(\s*candidate,\s*Some\(stream\.observed_head\.as_str\(\)\)/u.test(detached);
+    })(),
+    "the diagnosis must take the stream's member",
   );
   drill(
     "the modules' own prose about what they do NOT do cannot satisfy an absence pin — comments are stripped first",

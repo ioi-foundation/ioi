@@ -39,7 +39,7 @@
     "The runner certifies nothing a done-bar does not itself assert; clause coverage is the done-bars' coverage.",
     "clause 9 and N3 (M04.11, check:context-lease-handoff-lifecycle)",
     "clause 10 and N4 (M04.12, check:collective-artifact-runtime-lifecycle)",
-    "check:m4-outcome-room-system-spine is scheduled on the provisioned lane (two third-party agent CLIs; the estate's 2026-08-05 ruling)"
+    "clause 5's former scheduled leg (check:m4-outcome-room-system-spine on the provisioned lane) retired with the room-hosted spine on 2026-09-16 (R-178 slice S4a, R-179): outcome rooms and goal runs are ioi.ai compositions over thread orchestration primitives, not hypervisor planes, so no room verifier remains in the hypervisor app; clause 5 executes check:launch-chain alone and claims only what it executes."
   ],
   "source_provenance": "Authored 2026-09-14 by the MVP finish-line program, leg 2 (the ACC journey runners), as a clause table over the shared harness extracted from the ACC-15 runner; recorded in canon-to-code-delta.md § Journey verification LXXVI. Self-drill green on 6a9f77b92 plus the leg's files; the first composed run is recorded in the private register when it completes.",
   "last_status_transaction": "2026-09-14"

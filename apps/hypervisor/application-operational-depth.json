@@ -147,17 +147,7 @@
       "existing_daemon": {
         "routes": [
           "GET /v1/goal-orchestration/outcome-rooms",
-          "GET /v1/goal-orchestration/room-participation-requests",
-          "GET /v1/goal-orchestration/room-participant-leases",
-          "GET /v1/goal-orchestration/work-frontier-items",
-          "GET /v1/goal-orchestration/work-claim-leases",
-          "GET /v1/goal-orchestration/resource-offers",
-          "GET /v1/goal-orchestration/capability-offers",
-          "GET /v1/goal-orchestration/work-eligibility-matches",
-          "GET /v1/goal-orchestration/attempts",
-          "GET /v1/goal-orchestration/findings",
-          "GET /v1/hypervisor/work-results",
-          "GET /v1/goal-orchestration/verifier-challenges"
+          "GET /v1/hypervisor/work-results"
         ],
         "actions": [],
         "receipts": [

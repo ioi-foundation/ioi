@@ -279,10 +279,10 @@ const PINNED = {
   // and one record's chain by contract and object (GET). 948 `.route(` occurrences, 948 with a path
   // literal, 947 distinct paths: the reconciliation route still accounts for the single difference.
   // Moved in the SAME COMMIT as the routes.
-  registeredRoutes: 947,
+  registeredRoutes: 904 /* 2026-09-16: R-178 S4a / R-179 — 43 `/v1/goal-orchestration/*` routes deleted with the room-hosted work-object, participation, lease, collaboration-terms and pairing modules (947 → 904) */,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
-  atlasRouteMentions: { decided: 235, unchecked: 49 },
+  atlasRouteMentions: { decided: 225, unchecked: 49 } /* 2026-09-16: S4a — the missions app's ten deleted `existing_daemon.routes` claims removed (235 → 225) */,
   surfaceStringsNamingARoute: 8,
   // The pin includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed
@@ -343,7 +343,7 @@ const PINNED = {
   // probe URL (17 held). Its other absence-worded label (the producer's) closes its call past the
   // 400-character window this walk reads and is not counted, which this comment records rather than
   // hides. Moved in the SAME COMMIT as the gate.
-  verifierAbsenceLabels: 121 /* 2026-09-16: R-172 S3 +1 (collaboration gate), M11.2 +1 (portable-exit gate), M11.3 +1 (binding gate), S4b +1 (the work-objects gate's none-admits / no-lease / no-plane assertions); 17/17 probe URLs held throughout */,
+  verifierAbsenceLabels: 119 /* 2026-09-16: R-172 S3 +1 (collaboration gate), M11.2 +1 (portable-exit gate), M11.3 +1 (binding gate), S4b +1 (the work-objects gate's none-admits / no-lease / no-plane assertions); S4a −2 (the deleted room-spine gate's two absence-worded assertions, R-179); 17/17 probe URLs held throughout */,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

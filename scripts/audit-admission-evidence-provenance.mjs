@@ -531,10 +531,14 @@ const H_BASELINE = [
   // on exactly the same footing as every entry above — the middleware-covered legacy
   // surface, each awaiting its W1.2-class handler-level reading; a pinned census
   // entry, NOT a per-handler verdict. Growth beyond this set is red.
-  "attempt_finding_routes.rs::handle_attempt_create",
-  "attempt_finding_routes.rs::handle_attempt_transition",
-  "attempt_finding_routes.rs::handle_finding_create",
-  "attempt_finding_routes.rs::handle_finding_transition",
+  // Eleven entries LEFT the baseline 2026-09-16 (R-178 S4a / R-179): attempt_finding_routes.rs
+  // (attempt create/transition, finding create/transition), resource_capability_offer_routes.rs
+  // (match create), verifier_challenge_routes.rs (create/transition) and work_frontier_claim_routes.rs
+  // (claim acquire/transition, frontier create/transition). The modules were DELETED with the
+  // room-hosted spine — a baseline entry asserts a handler has NO in-handler identity call, and a
+  // handler that no longer exists asserts nothing, so the entries go rather than being re-pinned.
+  // The successors are v4 application records admitted through the System-record seam, whose
+  // single handler resolves identity first and is censused above.
   "editor_routes.rs::handle_editor_service_expose",
   "editor_routes.rs::handle_editor_service_rebuild",
   "editor_routes.rs::handle_editor_service_start",
@@ -551,7 +555,6 @@ const H_BASELINE = [
   "placement_failover_routes.rs::handle_failover_plan_arm",
   "placement_failover_routes.rs::handle_failover_plan_disarm",
   "recipe_routes.rs::handle_recipe_create",
-  "resource_capability_offer_routes.rs::handle_match_create",
   "system_amendment_routes.rs::handle_amendment",
   "system_continuity_routes.rs::handle_migration_destination_acknowledgement",
   "system_continuity_routes.rs::handle_transition",
@@ -561,12 +564,6 @@ const H_BASELINE = [
   "system_writer_routes.rs::handle_declare_failover_profile",
   "system_writer_routes.rs::handle_lost_suffix_resolution",
   "system_writer_routes.rs::handle_transition",
-  "verifier_challenge_routes.rs::handle_create",
-  "verifier_challenge_routes.rs::handle_transition",
-  "work_frontier_claim_routes.rs::handle_claim_acquire",
-  "work_frontier_claim_routes.rs::handle_claim_transition",
-  "work_frontier_claim_routes.rs::handle_frontier_create",
-  "work_frontier_claim_routes.rs::handle_frontier_transition",
 ];
 
 // ------------------------------------------------------------------ scan

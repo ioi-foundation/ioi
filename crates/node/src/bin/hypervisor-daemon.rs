@@ -34,8 +34,6 @@ mod agentops_routes;
 mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/assurance_transition_routes.rs"]
 mod assurance_transition_routes;
-#[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
-mod attempt_finding_routes;
 #[path = "hypervisor_daemon_routes/authority_gateway_routes.rs"]
 mod authority_gateway_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
@@ -134,8 +132,6 @@ mod lambda_candidate_source;
 mod learning_lineage_routes;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
-#[path = "hypervisor_daemon_routes/m048_collaboration_routes.rs"]
-mod m048_collaboration_routes;
 #[path = "hypervisor_daemon_routes/machine_routes.rs"]
 mod machine_routes;
 #[path = "hypervisor_daemon_routes/managed_runtime_routes.rs"]
@@ -204,14 +200,10 @@ mod provider_transport;
 mod recipe_routes;
 #[path = "hypervisor_daemon_routes/release_change_plan_routes.rs"]
 mod release_change_plan_routes;
-#[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
-mod resource_capability_offer_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]
 mod resource_routes;
 #[path = "hypervisor_daemon_routes/retention_routes.rs"]
 mod retention_routes;
-#[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
-mod room_participation_routes;
 #[path = "hypervisor_daemon_routes/route_assurance_routes.rs"]
 mod route_assurance_routes;
 #[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
@@ -264,16 +256,12 @@ mod system_writer_routes;
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
 mod vast_candidate_source;
-#[path = "hypervisor_daemon_routes/verifier_challenge_routes.rs"]
-mod verifier_challenge_routes;
 #[path = "hypervisor_daemon_routes/vertical_ontology_pack_routes.rs"]
 mod vertical_ontology_pack_routes;
 #[path = "hypervisor_daemon_routes/vertical_pack_worker_binding_routes.rs"]
 mod vertical_pack_worker_binding_routes;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
-#[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
-mod work_frontier_claim_routes;
 #[path = "hypervisor_daemon_routes/work_lifecycle_routes.rs"]
 mod work_lifecycle_routes;
 #[path = "hypervisor_daemon_routes/work_projection_routes.rs"]
@@ -722,50 +710,6 @@ async fn async_main() -> anyhow::Result<()> {
     // Agentgres admission boundaries before restoring any local room projection.
     if let Err((code, message)) = outcome_room_system_routes::complete_pending(&data_dir) {
         anyhow::bail!("OutcomeRoom recovery blocks readiness ({code}: {message})");
-    }
-    // #74 — converge only local/ungoverned participation submissions and already-terminal
-    // room-release tails before readiness. Governed replay performs network I/O and is launched
-    // only after the listener is bound, so resolver outage cannot delay readiness.
-    room_participation_routes::complete_participation_intents(&data_dir);
-    // M04.8 — the current participation/contribution plane keeps no room-child truth of its own,
-    // so there is nothing here to converge. What it does own is three owner-local evidence
-    // families (pairing sessions, collaboration terms + acceptances, eligibility matches), and a
-    // slot in one of those that cannot be read EXACTLY is indistinguishable from one that was
-    // never written. Census them fail-closed before the listener binds rather than serve a
-    // current route over an ambiguous pairing or acceptance record.
-    if let Err((code, message)) = m048_collaboration_routes::preflight_owner_local_census(&data_dir)
-    {
-        anyhow::bail!("M04.8 owner-local recovery blocks readiness ({code}: {message})");
-    }
-    // M04.8 — converge the one multi-owner boundary this plane has: a pairing session whose
-    // consumption crossed into an Agentgres participation-request admission. This MUST run after
-    // `outcome_room_system_routes::complete_pending` above, because that is what makes "did the
-    // admission linearize" a settled fact rather than a race. Forward when the request is present
-    // (so a spent pairing cannot be replayed), rollback when it is definitively absent (so an
-    // unspent pairing is not lost), and fail closed when it is undecidable.
-    if let Err((code, message)) =
-        m048_collaboration_routes::complete_pairing_consumption_intents(&data_dir)
-    {
-        anyhow::bail!("M04.8 pairing recovery blocks readiness ({code}: {message})");
-    }
-    // M04.8 — converge the admission crossing. Issuing a participant lease and marking its
-    // request admitted are two room children, so a crash can land between them. Both halves live
-    // in the room's own Agentgres history, so the unfinished state is self-describing and this
-    // pass repairs it FORWARD from room truth alone — no retained local intent, no second plane.
-    // It must run after the seam's `complete_pending` above so those children are settled.
-    if let Err((code, message)) =
-        m048_collaboration_routes::complete_participation_admissions(&data_dir)
-    {
-        anyhow::bail!("M04.8 admission recovery blocks readiness ({code}: {message})");
-    }
-    // M04.8 — converge the challenge crossing on the same principle: an admitted VerifierChallenge
-    // whose challenged Finding has not yet taken its disputed standing is a self-describing
-    // half-finished disposition, repaired forward from room truth alone. Idempotent: a Finding
-    // already disputed appends no redundant generation, and no generation is ever removed.
-    if let Err((code, message)) =
-        m048_collaboration_routes::complete_challenge_dispositions(&data_dir)
-    {
-        anyhow::bail!("M04.8 challenge recovery blocks readiness ({code}: {message})");
     }
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
@@ -3767,192 +3711,9 @@ async fn async_main() -> anyhow::Result<()> {
         )
         // M04.8 — the hosted pre-admission lane. Pairing and collaboration terms are owner-local
         // producers; the participation request itself is an Agentgres room child.
-        .route(
-            "/v1/goal-orchestration/local-agent-pairing-sessions",
-            axum::routing::post(m048_collaboration_routes::handle_pairing_create)
-                .get(m048_collaboration_routes::handle_pairing_list),
-        )
-        .route(
-            "/v1/goal-orchestration/local-agent-pairing-sessions/:id",
-            axum::routing::get(m048_collaboration_routes::handle_pairing_get),
-        )
-        .route(
-            "/v1/goal-orchestration/collaboration-terms",
-            axum::routing::post(m048_collaboration_routes::handle_terms_create)
-                .get(m048_collaboration_routes::handle_terms_list),
-        )
-        .route(
-            "/v1/goal-orchestration/collaboration-terms/:id",
-            axum::routing::get(m048_collaboration_routes::handle_terms_get),
-        )
-        .route(
-            "/v1/goal-orchestration/collaboration-terms/:id/accept",
-            axum::routing::post(m048_collaboration_routes::handle_terms_accept),
-        )
         // The participation-request family is re-pointed at the current generation. The
         // predecessor handlers are deliberately NOT mounted for this family: leaving them would
         // let a caller drive current truth through a plane that is no longer authoritative.
-        .route(
-            "/v1/goal-orchestration/room-participation-requests",
-            axum::routing::post(m048_collaboration_routes::handle_participation_request_create)
-                .get(m048_collaboration_routes::handle_participation_requests_list),
-        )
-        .route(
-            "/v1/goal-orchestration/room-participation-requests/:id",
-            axum::routing::get(m048_collaboration_routes::handle_participation_request_get),
-        )
-        .route(
-            "/v1/goal-orchestration/room-participation-requests/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_participation_request_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/room-participation-requests/:id/admit",
-            axum::routing::post(m048_collaboration_routes::handle_participation_request_admit),
-        )
-        .route(
-            "/v1/goal-orchestration/room-participant-leases",
-            axum::routing::get(m048_collaboration_routes::handle_participant_leases_list),
-        )
-        .route(
-            "/v1/goal-orchestration/room-participant-leases/:id",
-            axum::routing::get(m048_collaboration_routes::handle_participant_lease_get),
-        )
-        .route(
-            "/v1/goal-orchestration/room-participant-leases/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_participant_lease_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/work-frontier-items",
-            axum::routing::get(m048_collaboration_routes::handle_frontier_list)
-                .post(m048_collaboration_routes::handle_frontier_create),
-        )
-        .route(
-            "/v1/goal-orchestration/work-frontier-items/overview",
-            axum::routing::get(m048_collaboration_routes::handle_frontier_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/work-frontier-items/:id",
-            axum::routing::get(m048_collaboration_routes::handle_frontier_get),
-        )
-        .route(
-            "/v1/goal-orchestration/work-frontier-items/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_frontier_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/work-claim-leases",
-            axum::routing::get(m048_collaboration_routes::handle_claim_list)
-                .post(m048_collaboration_routes::handle_claim_acquire),
-        )
-        .route(
-            "/v1/goal-orchestration/work-claim-leases/overview",
-            axum::routing::get(m048_collaboration_routes::handle_claim_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/work-claim-leases/:id",
-            axum::routing::get(m048_collaboration_routes::handle_claim_get),
-        )
-        .route(
-            "/v1/goal-orchestration/work-claim-leases/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_claim_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/resource-offers",
-            axum::routing::get(m048_collaboration_routes::handle_resource_list)
-                .post(m048_collaboration_routes::handle_resource_create),
-        )
-        .route(
-            "/v1/goal-orchestration/resource-offers/overview",
-            axum::routing::get(m048_collaboration_routes::handle_resource_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/resource-offers/:id",
-            axum::routing::get(m048_collaboration_routes::handle_resource_get),
-        )
-        .route(
-            "/v1/goal-orchestration/resource-offers/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_resource_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/capability-offers",
-            axum::routing::get(m048_collaboration_routes::handle_capability_list)
-                .post(m048_collaboration_routes::handle_capability_create),
-        )
-        .route(
-            "/v1/goal-orchestration/capability-offers/overview",
-            axum::routing::get(m048_collaboration_routes::handle_capability_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/capability-offers/:id",
-            axum::routing::get(m048_collaboration_routes::handle_capability_get),
-        )
-        .route(
-            "/v1/goal-orchestration/capability-offers/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_capability_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/work-eligibility-matches",
-            axum::routing::get(m048_collaboration_routes::handle_match_list)
-                .post(m048_collaboration_routes::handle_match_create),
-        )
-        .route(
-            "/v1/goal-orchestration/work-eligibility-matches/overview",
-            axum::routing::get(m048_collaboration_routes::handle_match_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/work-eligibility-matches/:id",
-            axum::routing::get(m048_collaboration_routes::handle_match_get),
-        )
-        .route(
-            "/v1/goal-orchestration/attempts",
-            axum::routing::get(m048_collaboration_routes::handle_attempt_list)
-                .post(m048_collaboration_routes::handle_attempt_create),
-        )
-        .route(
-            "/v1/goal-orchestration/attempts/overview",
-            axum::routing::get(m048_collaboration_routes::handle_attempt_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/attempts/:id",
-            axum::routing::get(m048_collaboration_routes::handle_attempt_get),
-        )
-        .route(
-            "/v1/goal-orchestration/attempts/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_attempt_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/findings",
-            axum::routing::get(m048_collaboration_routes::handle_finding_list)
-                .post(m048_collaboration_routes::handle_finding_create),
-        )
-        .route(
-            "/v1/goal-orchestration/findings/overview",
-            axum::routing::get(m048_collaboration_routes::handle_finding_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/findings/:id",
-            axum::routing::get(m048_collaboration_routes::handle_finding_get),
-        )
-        .route(
-            "/v1/goal-orchestration/findings/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_finding_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/verifier-challenges",
-            axum::routing::get(m048_collaboration_routes::handle_challenge_list)
-                .post(m048_collaboration_routes::handle_challenge_create),
-        )
-        .route(
-            "/v1/goal-orchestration/verifier-challenges/overview",
-            axum::routing::get(m048_collaboration_routes::handle_challenge_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/verifier-challenges/:id",
-            axum::routing::get(m048_collaboration_routes::handle_challenge_get),
-        )
-        .route(
-            "/v1/goal-orchestration/verifier-challenges/:id/transition",
-            axum::routing::post(m048_collaboration_routes::handle_challenge_transition),
-        )
         .route(
             "/v1/hypervisor/placement/resolve",
             post(orchestration_routes::handle_placement_resolve),
@@ -5200,87 +4961,9 @@ async fn async_main() -> anyhow::Result<()> {
         .and_then(|value| value.trim().parse::<u64>().ok())
         .unwrap_or(30_000)
         .clamp(100, 300_000);
-    let participation_slot = GovernedCompleterSlot::default();
-    let frontier_slot = GovernedCompleterSlot::default();
-    let offers_slot = GovernedCompleterSlot::default();
-    let attempts_slot = GovernedCompleterSlot::default();
-    let challenges_slot = GovernedCompleterSlot::default();
     let system_slot = GovernedCompleterSlot::default();
     let governed_pass = async move {
         loop {
-            let participation_data_dir = governed_data_dir.clone();
-            let participation = run_governed_completer_with_watchdog(
-                "room-participation",
-                governed_watchdog_ms,
-                participation_slot.clone(),
-                move || async move {
-                    room_participation_routes::complete_governed_participation_intents(
-                        &participation_data_dir,
-                        governed_max_intents,
-                    )
-                    .await;
-                },
-            );
-            let frontier_data_dir = governed_data_dir.clone();
-            let frontier = run_governed_completer_with_watchdog(
-                "work-frontier-claim",
-                governed_watchdog_ms,
-                frontier_slot.clone(),
-                move || async move {
-                    work_frontier_claim_routes::complete_governed_frontier_claim_intents(
-                        &frontier_data_dir,
-                        governed_max_intents,
-                    )
-                    .await;
-                    // A participation terminal intent can materialize its separately authorized
-                    // work-claim intent during the first pass. Re-scan once inside the SAME
-                    // isolated owner worker so first-pass -> follow-up ordering is strict.
-                    work_frontier_claim_routes::complete_governed_frontier_claim_intents(
-                        &frontier_data_dir,
-                        governed_max_intents,
-                    )
-                    .await;
-                },
-            );
-            let offers_data_dir = governed_data_dir.clone();
-            let offers = run_governed_completer_with_watchdog(
-                "resource-capability-offer",
-                governed_watchdog_ms,
-                offers_slot.clone(),
-                move || async move {
-                    resource_capability_offer_routes::complete_governed_offer_intents(
-                        &offers_data_dir,
-                        governed_max_intents,
-                    )
-                    .await;
-                },
-            );
-            let attempts_data_dir = governed_data_dir.clone();
-            let attempts = run_governed_completer_with_watchdog(
-                "attempt-finding",
-                governed_watchdog_ms,
-                attempts_slot.clone(),
-                move || async move {
-                    attempt_finding_routes::complete_governed_attempt_finding_intents(
-                        &attempts_data_dir,
-                        governed_max_intents,
-                    )
-                    .await;
-                },
-            );
-            let challenges_data_dir = governed_data_dir.clone();
-            let challenges = run_governed_completer_with_watchdog(
-                "verifier-challenge",
-                governed_watchdog_ms,
-                challenges_slot.clone(),
-                move || async move {
-                    verifier_challenge_routes::complete_governed_verifier_challenge_intents(
-                        &challenges_data_dir,
-                        governed_max_intents,
-                    )
-                    .await;
-                },
-            );
             let system_data_dir = governed_data_dir.clone();
             let system = run_governed_completer_with_watchdog(
                 "system-genesis-sequence-zero",
@@ -5333,14 +5016,7 @@ async fn async_main() -> anyhow::Result<()> {
                     .await;
                 },
             );
-            tokio::join!(
-                participation,
-                frontier,
-                offers,
-                attempts,
-                challenges,
-                system
-            );
+            tokio::join!(system);
             tokio::time::sleep(std::time::Duration::from_millis(governed_interval_ms)).await;
         }
     };

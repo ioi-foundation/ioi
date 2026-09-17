@@ -172,13 +172,6 @@ jobs:
       # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
       # out-of-worktree binary and exercises only synthetic records on an isolated data directory.
 
-      # ADR 0038's named merge lane. The full daemon suite above also contains
-      # these tests; the exact invocation keeps the M04.8 claim boundary visible
-      # and prevents the scheduled real-wallet soak from drifting back into PR CI.
-      - name: Verify the deterministic M04.8 architecture matrix
-        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
-        run: npm --prefix apps/hypervisor run check:m4-room-participation-contribution-architecture
-
       # ONE STEP PER GATE (2026-09-12), for the reason stated at the head of this job. These nine
       # ran in one block, and on the first master run after the contract block stopped masking them
       # `mutate:standing-authority` was red — two mutants surviving because a PRESENCE assertion was
@@ -948,8 +941,8 @@ jobs:
         include:
           - verifier_id: goalrun-activation-plane
           # M04.11's ContextLease/ContextHandoff lifecycle. It boots its OWN isolated daemon and
-          # needs none of the outcome-room lane's apparatus (no Ollama, no agent CLI, no wallet
-          # fixture), so it rides this matrix for the daemon build and the census directory alone.
+          # needs no Ollama, no agent CLI and no wallet fixture, so it rides this matrix for the
+          # daemon build and the census directory alone.
           - verifier_id: context-lease-handoff-lifecycle
           # M09.7's custody-proven private routes. It drives the node-attestation plane's own
           # wallet-governed ladder (boot profile, temporal profile, admit, submit receipt, ready)
@@ -962,21 +955,6 @@ jobs:
           - verifier_id: aiip-portable-exit
           - verifier_id: aiip-binding-replaceability
           - verifier_id: work-objects-composition
-          # outcome-room-system-spine IS NOT HERE, and its absence is a restored ruling rather than
-          # a gap (2026-09-12, private register R-60). That verifier's collective path requires TWO
-          # daemon-admitted implementer contexts, and the daemon hard-wires those to the `opencode`
-          # and `deepseek` CLIs (goalrun_routes.rs builds its candidates from exactly those two
-          # harnesses). This runner installs opencode; `deepseek` is a second live third-party agent
-          # fleet. The estate already ruled on that cost, in its own words, before the apparatus was
-          # stripped on 2026-08-05: "live third-party agent fleets, not a per-push cost … run on
-          # demand to re-prove against a provisioned runner."
-          #
-          # What made it fail rather than skip is that the ruling's apparatus went and the verifier
-          # stayed, so a per-push matrix kept running a proof that cannot pass here — and the
-          # prebuild repair earlier today is what made that visible, because before it the lane died
-          # on readiness and contributed ZERO assertions instead of eleven. It now runs on its own
-          # provisioned lane (m4-outcome-room-spine.yml) where both CLIs exist, and the manifest
-          # records it as a scheduled qualification rather than a per-push gate.
     # Each matrix entry gets a separate runner and 120-minute interim hang
     # ceiling. This is not a performance threshold or accepted runtime doctrine.
     timeout-minutes: 120
@@ -1026,59 +1004,8 @@ jobs:
       - name: Prebuild the wallet-fixture node profile
         uses: ./.github/actions/prebuild-node-profile
 
-      - name: Install the exact Outcome adapter
-        if: matrix.verifier_id == 'outcome-room-system-spine'
-        run: |
-          npm install --global opencode-ai@1.18.25
-          test "$(opencode --version)" = "1.18.25"
-          command -v bwrap
-          bwrap --version
-
-      - name: Cache the exact Outcome model
-        if: matrix.verifier_id == 'outcome-room-system-spine'
-        uses: actions/cache@v3
-        with:
-          path: ~/.ollama/models
-          key: ollama-qwen2.5-7b-845dbda0ea48
-
-      - name: Provision the exact Outcome model route
-        if: matrix.verifier_id == 'outcome-room-system-spine'
-        run: |
-          curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.18.3 sh
-          # The client prints its version in one of two shapes: `ollama version is X` when it can
-          # reach a server, and `Warning: client version is X` when it cannot — and right after the
-          # installer starts the systemd unit it usually cannot yet, which is why this step read
-          # "absent" and failed on every master run from 2026-09-03 to 2026-09-12 (the previous
-          # parse accepted only the first shape). Both shapes carry `version is X`; parse that, and
-          # print the raw output so the next drift is visible in the log. The exact-version refusal
-          # is unchanged.
-          ollama --version 2>&1 || true
-          OLLAMA_CLIENT_VERSION="$(ollama --version 2>&1 | sed -n 's/^.*version is //p' | tail -n 1)"
-          echo "installed Ollama client version: ${OLLAMA_CLIENT_VERSION:-absent}"
-          test "$OLLAMA_CLIENT_VERSION" = "0.18.3"
-          nohup ollama serve > /tmp/ollama-serve.log 2>&1 &
-          for attempt in $(seq 1 30); do
-            curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break
-            if [ "$attempt" -eq 30 ]; then
-              cat /tmp/ollama-serve.log
-              exit 1
-            fi
-            sleep 2
-          done
-          ollama pull qwen2.5:7b
-          node - <<'NODEEOF'
-          const response = await fetch("http://127.0.0.1:11434/api/tags");
-          if (!response.ok) throw new Error(`ollama tags returned ${response.status}`);
-          const tags = await response.json();
-          const model = tags.models?.find((entry) => entry.name === "qwen2.5:7b");
-          const expected = "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e";
-          if (model?.digest !== expected) {
-            throw new Error(`qwen2.5:7b digest ${model?.digest ?? "absent"} != ${expected}`);
-          }
-          NODEEOF
-
-      # Keep both literal npm commands visible to check:verifier-floors. Each
-      # matrix runner executes exactly one mutually exclusive step.
+      # Every literal npm command stays visible to check:verifier-floors, and each matrix runner
+      # executes exactly one mutually exclusive verify step.
       - name: Verify the GoalRun activation plane
         if: matrix.verifier_id == 'goalrun-activation-plane'
         env:
@@ -1276,29 +1203,6 @@ jobs:
       - name: Drill the context-lease verifier's own oracles
         if: matrix.verifier_id == 'context-lease-handoff-lifecycle'
         run: npm run mutate:context-lease-handoff-lifecycle --workspace=@ioi/hypervisor-app
-
-      - name: Verify the OutcomeRoom/System spine
-        if: matrix.verifier_id == 'outcome-room-system-spine'
-        env:
-          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
-          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
-          IOI_WORKLOAD_GRPC_TIMEOUT_MS: 120000
-          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
-        run: |
-          # Re-establish the loopback model route in the same step in case the
-          # runner reaped a process backgrounded by the provisioning step.
-          if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
-            nohup ollama serve > /tmp/ollama-serve-verifier.log 2>&1 &
-            for attempt in $(seq 1 30); do
-              curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break
-              if [ "$attempt" -eq 30 ]; then
-                cat /tmp/ollama-serve-verifier.log
-                exit 1
-              fi
-              sleep 2
-            done
-          fi
-          npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
 
       - name: Publish the M04 plane verifier census
         uses: actions/upload-artifact@v4

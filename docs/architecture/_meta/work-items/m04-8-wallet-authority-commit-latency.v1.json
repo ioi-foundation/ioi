@@ -6,8 +6,8 @@
     "M04.8",
     "wallet-authority commit-path profiling"
   ],
-  "status": "active",
-  "objective": "Measure and repair the minutes-scale wallet-authority approval path without shrinking the full state-deepening soak, then establish enough repeated and mutation-tested release evidence to justify a per-approval latency tripwire.",
+  "status": "superseded",
+  "objective": "SUPERSEDED 2026-09-16 (R-178 slice S4a, R-179): the measuring instrument retired with the room-participation soak; the latency findings and repairs stand in the evidence artifacts and the Rust anchors. Measure and repair the minutes-scale wallet-authority approval path without shrinking the full state-deepening soak, then establish enough repeated and mutation-tested release evidence to justify a per-approval latency tripwire.",
   "falsifiable_claim": "For a fixed backend and build profile, the profiling harness attributes each approval's wall and CPU time to submission, consensus/finalization, execution, state commitment, durable persistence, and proof/resolution while recording height, state/version depth, and bytes; incomplete attribution fails closed, and a numeric performance tripwire remains absent until repeated release-host evidence selects a budget and a planted delay defeats it.",
   "canon_owners": [
     "docs/decisions/0038-split-deterministic-merge-verification-from-wallet-authority-soaks.md",
@@ -16,11 +16,6 @@
   ],
   "code_anchors": [
     {
-      "path": "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
-      "must_contain": "RESTART: all ten named lifecycles and auxiliary terms/eligibility evidence reproject exactly",
-      "present_when": "merged"
-    },
-    {
       "path": "apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs",
       "must_contain": "IOI_WALLET_FIXTURE_RELEASE",
       "present_when": "merged"
@@ -28,16 +23,6 @@
     {
       "path": "crates/execution/src/app/state_machine.rs",
       "must_contain": "commit_version_persist() is slow",
-      "present_when": "merged"
-    },
-    {
-      "path": "apps/hypervisor/scripts/profile-m4-wallet-authority-commit-path.mjs",
-      "must_contain": "ioi.m048.commit-path-profile.v1",
-      "present_when": "merged"
-    },
-    {
-      "path": "apps/hypervisor/scripts/profile-m4-wallet-authority-commit-path.mjs",
-      "must_contain": "ioi.m049.ordering-finality-parity-profile.v1",
       "present_when": "merged"
     },
     {
@@ -54,11 +39,6 @@
       "path": "crates/validator/src/standard/orchestration/ingestion/runner/finalize.rs",
       "must_contain": "MAX_LIVE_TIP_VALIDATION_ATTEMPTS",
       "present_when": "merged"
-    },
-    {
-      "path": ".github/workflows/m048-wallet-authority-soak.yml",
-      "must_contain": "soak:m4-room-participation-contribution-wallet-authority",
-      "present_when": "merged"
     }
   ],
   "evidence_refs": [
@@ -66,19 +46,16 @@
     "docs/architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json",
     "docs/decisions/0038-split-deterministic-merge-verification-from-wallet-authority-soaks.md",
     "docs/decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md",
-    "apps/hypervisor/scripts/profile-m4-wallet-authority-commit-path.mjs",
-    "apps/hypervisor/scripts/profile-m4-wallet-authority-commit-path.test.mjs",
-    "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
     "apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs",
     "crates/cli/tests/hypervisor_wallet_network_fixture.rs",
     "crates/execution/src/app/state_machine.rs",
     "crates/state/src/tree/iavl/tree/mod.rs",
     "crates/state/src/tree/jellyfish/tree.rs",
-    "crates/storage/src/redb_epoch_store.rs",
-    ".github/workflows/m048-wallet-authority-soak.yml"
+    "crates/storage/src/redb_epoch_store.rs"
   ],
   "adversarial_or_fault_proof": "The complete pre-repair and post-repair release profiles each attributed all 27 approvals across 27 heights with zero anomalies, release/IAVL/Redb provenance, readiness lag 1, and exact depth/version buckets. Pre-repair AFT finalization grew from 1,503 to 31,056 ms over versions 74-215/depths 9-11 while IAVL commitment stayed 0.003-0.010 ms and persistence stayed 19.875-33.213 ms. Bounded admitted-anchor verification, unchanged-tip suppression, current-live-tip ingestion validation, and combined atomic IAVL commit reduced AFT finalization to 56-94 ms through version 919/depth 12; commitment remained 0.004-0.009 ms and persistence 25.920-36.228 ms. Restoring the warm full-prefix rewalk made the depth mutation fail; inverting the non-regressing-tip predicate made its focused mutation fail; the profiler's 52-test attribution, profile-parity, cadence-provenance, and missing-field suite is fail-closed. The two historical M04.8 semantic artifacts were exactly 14/15 on the then-unavailable final restarted OutcomeRoom dependency, after all nine child-family and auxiliary counts reprojected exactly. Subsequent replay/ownership repairs are covered by the six 15/15 M04.9 follow-on runs. No latency tripwire is set because one host's runs do not yet select a reproducible budget or mutation-test that budget itself.",
   "remaining_nonclaims": [
+    "SUPERSEDED 2026-09-16 (R-178 slice S4a, R-179): the profiler (profile-m4-wallet-authority-commit-path.mjs and its test) parsed the output of the M04.8 room-participation soak verifier, and that verifier, its scheduled workflow and the soak wrapper were deleted with the room-hosted plane. No latency tripwire was established before the instrument retired. The pre/post-repair release profiles remain as evidence of the repair they measured; a successor instrument must drive the wallet-authority approval path through a platform gate (the System-record seam or the custody-proven routes), not through a room.",
     "No numeric approval latency budget is established; repeated release-host baselines and a mutation of the selected budget are still required.",
     "The repair attributes the dominant observed growth to repeated AFT canonical-collapse rewalks; it does not claim all latency is AFT or that IAVL, Redb, cryptography, replay, and polling have no cost.",
     "Jellyfish is disqualified from a performance comparison until incremental commit, proof, persistence/restart, pruning, and historical-anchor parity are mechanized through the state abstraction.",
@@ -87,6 +64,6 @@
     "The historical M04.8 release-profile artifacts were 14/15, not green full-soak claims; later replay/ownership repairs and the six 15/15 M04.9 runs do not rewrite those artifacts.",
     "M04.6 ownership, individual authority receipt semantics, the deterministic blocking lane, the full scheduled release soak, and M04.8's prior nonclaims remain unchanged."
   ],
-  "source_provenance": "Opened 2026-08-27 from M04.8 verifier evidence. On 2026-08-28, complete release/IAVL/Redb pre/post profiles attributed the defect to repeated steady-state AFT canonical-collapse rewalks, mutation-tested the bounded repair and live-tip ingestion guard, and retained the unchanged complete journey. ADR 0038 preserves the full semantic soak while separating it from the deterministic merge lane; the exact measurements and artifact hashes are registered in the M04.8 commit-path evidence file. A six-run AFT/Solo ordering-finality follow-on then preserved identical operation-scope order, individual receipts, fail-closed semantic checks, and restart projections while independently configuring scheduler/block cadence and polling with provenance. Its descriptive latency aggregates are not matched causal estimates, but its semantic parity supports ADR 0039 as Proposed design only; it neither changes the AFT control nor closes the remaining tripwire, exact receipt-crash, signing, peer-bearing-profile, transition, or event-driven-completion gaps.",
-  "last_status_transaction": "2026-08-28"
+  "source_provenance": "Opened 2026-08-27 from M04.8 verifier evidence. On 2026-08-28, complete release/IAVL/Redb pre/post profiles attributed the defect to repeated steady-state AFT canonical-collapse rewalks, mutation-tested the bounded repair and live-tip ingestion guard, and retained the unchanged complete journey. ADR 0038 preserves the full semantic soak while separating it from the deterministic merge lane; the exact measurements and artifact hashes are registered in the M04.8 commit-path evidence file. A six-run AFT/Solo ordering-finality follow-on then preserved identical operation-scope order, individual receipts, fail-closed semantic checks, and restart projections while independently configuring scheduler/block cadence and polling with provenance. Its descriptive latency aggregates are not matched causal estimates, but its semantic parity supports ADR 0039 as Proposed design only; it neither changes the AFT control nor closes the remaining tripwire, exact receipt-crash, signing, peer-bearing-profile, transition, or event-driven-completion gaps. SUPERSEDED 2026-09-16 by the MVP finish-line program (R-178 slice S4a, R-179), recorded in canon-to-code-delta.md section Journey verification C.",
+  "last_status_transaction": "2026-09-16"
 }

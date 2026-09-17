@@ -2763,21 +2763,6 @@ fn mutate_room(
     mutate: impl FnOnce(&mut Value) -> Result<Value, VErr>, // returns bound facts
 ) -> Result<(Value, Value), VErr> {
     let room_id = format!("outcome-room://{room_tail}");
-    super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
-        data_dir,
-        &room_id,
-        "outcome_room_mutation_in_flight",
-    )?;
-    super::attempt_finding_routes::refuse_external_mutation_if_reserved(
-        data_dir,
-        &room_id,
-        "outcome_room_mutation_in_flight",
-    )?;
-    super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
-        data_dir,
-        &room_id,
-        "outcome_room_mutation_in_flight",
-    )?;
     let Some(prior) = load_room(data_dir, &room_id) else {
         return Err(verr(
             "outcome_room_not_found",
@@ -2952,81 +2937,12 @@ fn bind_room_backlink_room_locked_impl(
     room_ref: &str,
     op: &str,
     bound_ref: &str,
-    ignored_work_intent_tail: Option<&str>,
-    ignored_offer_intent_tail: Option<&str>,
-    ignored_attempt_finding_intent_tail: Option<&str>,
-    ignored_verifier_challenge_intent_tail: Option<&str>,
+    _ignored_work_intent_tail: Option<&str>,
+    _ignored_offer_intent_tail: Option<&str>,
+    _ignored_attempt_finding_intent_tail: Option<&str>,
+    _ignored_verifier_challenge_intent_tail: Option<&str>,
 ) -> Result<(Value, Value), VErr> {
     refuse_predecessor_child_profile_for_room_ref(data_dir, room_ref)?;
-    match (ignored_work_intent_tail, ignored_offer_intent_tail) {
-        (Some(intent_tail), _) => {
-            super::work_frontier_claim_routes::refuse_external_mutation_if_reserved_except(
-                data_dir,
-                room_ref,
-                "outcome_room_mutation_in_flight",
-                intent_tail,
-            )?
-        }
-        (None, Some(_)) => {
-            super::work_frontier_claim_routes::refuse_external_mutation_if_work_reserved(
-                data_dir,
-                room_ref,
-                "outcome_room_mutation_in_flight",
-            )?
-        }
-        (None, None) => {
-            super::work_frontier_claim_routes::refuse_external_mutation_if_work_reserved(
-                data_dir,
-                room_ref,
-                "outcome_room_mutation_in_flight",
-            )?
-        }
-    }
-    match ignored_offer_intent_tail {
-        Some(intent_tail) => {
-            super::resource_capability_offer_routes::refuse_external_mutation_if_reserved_except(
-                data_dir,
-                room_ref,
-                "outcome_room_mutation_in_flight",
-                intent_tail,
-            )?
-        }
-        None => super::resource_capability_offer_routes::refuse_external_mutation_if_reserved(
-            data_dir,
-            room_ref,
-            "outcome_room_mutation_in_flight",
-        )?,
-    }
-    match ignored_attempt_finding_intent_tail {
-        Some(intent_tail) => {
-            super::attempt_finding_routes::refuse_external_mutation_if_reserved_except(
-                data_dir,
-                room_ref,
-                "outcome_room_mutation_in_flight",
-                intent_tail,
-            )?
-        }
-        None => super::attempt_finding_routes::refuse_external_mutation_if_reserved(
-            data_dir,
-            room_ref,
-            "outcome_room_mutation_in_flight",
-        )?,
-    }
-    match ignored_verifier_challenge_intent_tail {
-        Some(intent_tail) => {
-            super::verifier_challenge_routes::refuse_external_mutation_if_reserved_except(
-                data_dir,
-                room_ref,
-                "outcome_room_mutation_in_flight",
-                intent_tail,
-            )?
-        }
-        None => super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
-            data_dir,
-            room_ref,
-            "outcome_room_mutation_in_flight",
-        )?,
-    }
     let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) else {
         return Err(verr(
             "outcome_room_backlink_op_invalid",
@@ -3352,81 +3268,8 @@ async fn handle_legacy_outcome_room_transition(
     // Fixed cross-plane order for terminal room lifecycle: frontier/claim -> room. The new plane
     // never writes this room file; this owner route asks its read-only blocker seam while both
     // aggregates are serialized.
-    let _offer_guard = if matches!(transition.as_str(), "close" | "archive") {
-        Some(
-            super::resource_capability_offer_routes::OFFER_MATCH_LOCK
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner()),
-        )
-    } else {
-        None
-    };
-    let _frontier_guard = if matches!(transition.as_str(), "close" | "archive") {
-        Some(
-            super::work_frontier_claim_routes::FRONTIER_CLAIM_LOCK
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner()),
-        )
-    } else {
-        None
-    };
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    if matches!(transition.as_str(), "close" | "archive") {
-        if let Err(error) =
-            super::resource_capability_offer_routes::refuse_room_close_if_blocked_locked(
-                &st.data_dir,
-                &format!("outcome-room://{id}"),
-            )
-        {
-            let status = if error.0.contains("registry_unreadable")
-                || error.0.contains("intent_unreadable")
-            {
-                StatusCode::INTERNAL_SERVER_ERROR
-            } else {
-                StatusCode::CONFLICT
-            };
-            return err(status, error);
-        }
-        if let Err(error) = super::work_frontier_claim_routes::refuse_room_close_if_blocked_locked(
-            &st.data_dir,
-            &format!("outcome-room://{id}"),
-        ) {
-            let status = if error.0.contains("registry_unreadable")
-                || error.0.contains("intent_unreadable")
-            {
-                StatusCode::INTERNAL_SERVER_ERROR
-            } else {
-                StatusCode::CONFLICT
-            };
-            return err(status, error);
-        }
-        if let Err(error) = super::attempt_finding_routes::refuse_room_close_if_blocked_locked(
-            &st.data_dir,
-            &format!("outcome-room://{id}"),
-        ) {
-            let status = if error.0.contains("registry_unreadable")
-                || error.0.contains("intent_unreadable")
-            {
-                StatusCode::INTERNAL_SERVER_ERROR
-            } else {
-                StatusCode::CONFLICT
-            };
-            return err(status, error);
-        }
-        if let Err(error) = super::verifier_challenge_routes::refuse_room_close_if_blocked_locked(
-            &st.data_dir,
-            &format!("outcome-room://{id}"),
-        ) {
-            let status = if error.0.contains("registry_unreadable")
-                || error.0.contains("intent_unreadable")
-            {
-                StatusCode::INTERNAL_SERVER_ERROR
-            } else {
-                StatusCode::CONFLICT
-            };
-            return err(status, error);
-        }
-    }
+    if matches!(transition.as_str(), "close" | "archive") {}
     let result = mutate_room(&st.data_dir, &id, &body, &transition, |room| {
         let from = s(room, "status", "");
         if !allowed_from.contains(&from.as_str()) {
@@ -3670,42 +3513,6 @@ async fn handle_legacy_outcome_room_attach_goal_run(
     }
     // ROOM-SCOPE critical section: resolution through finalization under the one room lock.
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    if let Err(error) = super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
-        &st.data_dir,
-        &room_id,
-        "outcome_room_mutation_in_flight",
-    ) {
-        let status = if error.0.contains("unreadable") {
-            StatusCode::INTERNAL_SERVER_ERROR
-        } else {
-            StatusCode::CONFLICT
-        };
-        return err(status, error);
-    }
-    if let Err(error) = super::attempt_finding_routes::refuse_external_mutation_if_reserved(
-        &st.data_dir,
-        &room_id,
-        "outcome_room_mutation_in_flight",
-    ) {
-        let status = if error.0.contains("unreadable") {
-            StatusCode::INTERNAL_SERVER_ERROR
-        } else {
-            StatusCode::CONFLICT
-        };
-        return err(status, error);
-    }
-    if let Err(error) = super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
-        &st.data_dir,
-        &room_id,
-        "outcome_room_mutation_in_flight",
-    ) {
-        let status = if error.0.contains("unreadable") {
-            StatusCode::INTERNAL_SERVER_ERROR
-        } else {
-            StatusCode::CONFLICT
-        };
-        return err(status, error);
-    }
     let Some(prior_run) = read_record_dir(&st.data_dir, GOAL_RUN_DIR)
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(|v| v.as_str()) == Some(run_file_id.as_str()))

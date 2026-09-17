@@ -1434,7 +1434,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -11706,7 +11706,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration-participation-request/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,

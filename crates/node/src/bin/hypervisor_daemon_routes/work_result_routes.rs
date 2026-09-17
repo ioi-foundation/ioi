@@ -566,7 +566,7 @@ pub(crate) fn bind_verifier_challenge_locked(
     challenge_ref: &str,
     prior: &Value,
     successor: &Value,
-    intent_tail: &str,
+    _intent_tail: &str,
 ) -> Result<Value, (String, String)> {
     let expected = verifier_challenge_backlink_successor(prior, result_ref, challenge_ref)?;
     if expected != *successor {
@@ -592,12 +592,6 @@ pub(crate) fn bind_verifier_challenge_locked(
             "WorkResult equals neither the sealed prior nor sealed successor",
         ));
     }
-    super::verifier_challenge_routes::refuse_external_mutation_if_reserved_except(
-        data_dir,
-        result_ref,
-        "work_result_mutation_in_flight",
-        intent_tail,
-    )?;
     let storage_key = resolve_work_result_storage_key_strict(data_dir, result_ref)
         .map_err(|message| verr("work_result_challenge_backlink_unreadable", message))?
         .ok_or_else(|| {
@@ -2184,41 +2178,7 @@ pub(crate) async fn handle_outcome_delta_create(
     ) {
         return response;
     }
-    let bound_result_ref = s(&prior_result, "work_result_id", "");
-    if let Err((code, message)) =
-        super::attempt_finding_routes::refuse_external_mutation_if_reserved(
-            &st.data_dir,
-            &bound_result_ref,
-            "work_result_mutation_in_flight",
-        )
-    {
-        let status = if code.contains("unreadable") {
-            StatusCode::INTERNAL_SERVER_ERROR
-        } else {
-            StatusCode::CONFLICT
-        };
-        return (
-            status,
-            Json(json!({"error":{"code":code,"message":message}})),
-        );
-    }
-    if let Err((code, message)) =
-        super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
-            &st.data_dir,
-            &bound_result_ref,
-            "work_result_mutation_in_flight",
-        )
-    {
-        let status = if code.contains("unreadable") {
-            StatusCode::INTERNAL_SERVER_ERROR
-        } else {
-            StatusCode::CONFLICT
-        };
-        return (
-            status,
-            Json(json!({"error":{"code":code,"message":message}})),
-        );
-    }
+    let _bound_result_ref = s(&prior_result, "work_result_id", "");
     let id_tail = format!("od_{:x}", nanos());
     let outcome_delta_id = format!("outcome-delta://{id_tail}");
     let now = iso_now();

@@ -239,13 +239,7 @@ pub(crate) fn update_goal_run_guarded(
             format!("no durable GoalRun record '{goal_run_id}'"),
         ));
     };
-    let goal_ref = fresh.get("goal_ref").and_then(Value::as_str).unwrap_or("");
-    super::attempt_finding_routes::refuse_external_mutation_if_reserved(
-        data_dir,
-        goal_ref,
-        "goal_run_mutation_in_flight",
-    )
-    .map_err(|(code, message)| (code, message))?;
+    let _goal_ref = fresh.get("goal_ref").and_then(Value::as_str).unwrap_or("");
     expect(&fresh)?;
     if let Some(obj) = fresh.as_object_mut() {
         mutate(obj);

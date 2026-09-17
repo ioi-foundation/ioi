@@ -3292,6 +3292,18 @@ thread, run, invocation, result, lifecycle, authority, storage, evidence and
 recovery API documented above. No step of ordinary Hypervisor use requires
 them.
 
+On 2026-09-16 (R-178 slice S4a, R-179) the daemon stopped hosting that
+catalog's work-object, participation, lease, collaboration-terms and
+local-agent-pairing families: 43 `/v1/goal-orchestration/*` routes and the six
+modules that served them were deleted. Their successors are v4 application
+records admitted through the System-scoped record seam and composed in
+`packages/ioi-ai-orchestration`
+([`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md)
+§ *Work objects v4*); the hosted-v2 OutcomeRoom and GoalRun families follow in
+slices S4c and S4d. Hypervisor keeps only what the platform owns: the record
+seam, threads and subagents, work-lifecycle reservations and System
+genesis/activation.
+
 ## Bounded Improvement Campaign APIs
 
 The six-object governance spine — governance profile, agenda, campaign,
