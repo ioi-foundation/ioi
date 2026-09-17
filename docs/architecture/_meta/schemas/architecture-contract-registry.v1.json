@@ -1122,7 +1122,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration/v1",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": true,
@@ -19141,6 +19141,69 @@
         },
         {
           "path": "fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/orchestration/v1",
+      "canonical_name": "Orchestration",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#orchestrationenvelope",
+      "schema_version": "ioi.applications.ioi-ai.orchestration.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/outcome-room/v2",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "orchestration.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/orchestration/handle-is-the-record/v1",
+          "path": "invariants/orchestration.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OrchestrationV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OrchestrationV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/orchestration-v1/positive-open-hosted.json",
+        "fixtures/orchestration-v1/positive-closed-with-member.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/orchestration-v1/negative-scope-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration.scope.matches_binding_parent_scope"
+        },
+        {
+          "path": "fixtures/orchestration-v1/negative-id-outside-scope.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "orchestration.scope.names_its_own_id"
+        },
+        {
+          "path": "fixtures/orchestration-v1/negative-root-not-a-thread.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/orchestration-v1/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]

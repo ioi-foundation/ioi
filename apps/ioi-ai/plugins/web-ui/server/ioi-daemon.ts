@@ -11,6 +11,12 @@ export interface IoiDaemonResponse {
   text: string;
 }
 
+export interface IoiDaemonAuthority {
+  endpoint: string;
+  headers: Record<string, string>;
+  principal: { principal_id: string; tenant_refs: string[] };
+}
+
 export interface IoiDaemonGateway {
   request(
     req: IncomingMessage,
@@ -19,6 +25,7 @@ export interface IoiDaemonGateway {
     path: string,
     body?: string,
   ): Promise<IoiDaemonResponse>;
+  authority(req: IncomingMessage, expectedPrincipal: string): Promise<IoiDaemonAuthority | IoiDaemonResponse>;
 }
 
 export interface IoiDaemonGatewayOptions {
@@ -34,7 +41,9 @@ interface CachedDaemonSession {
   expiresAtMs: number;
 }
 
-function isDaemonResponse(value: Record<string, string> | IoiDaemonResponse): value is IoiDaemonResponse {
+function isDaemonResponse(
+  value: Record<string, string> | IoiDaemonAuthority | IoiDaemonResponse,
+): value is IoiDaemonResponse {
   return typeof (value as IoiDaemonResponse).status === "number";
 }
 
@@ -206,40 +215,54 @@ export function createIoiDaemonGateway(
     };
   }
 
-  return {
-    async request(req, expectedPrincipal, method, path, body) {
-      if (!expectedPrincipal) return mismatch();
-      let resolved = await exchangeHeaders(req, expectedPrincipal);
+  async function authority(
+    req: IncomingMessage,
+    expectedPrincipal: string,
+  ): Promise<IoiDaemonAuthority | IoiDaemonResponse> {
+    if (!expectedPrincipal) return mismatch();
+    let resolved = await exchangeHeaders(req, expectedPrincipal);
+    if (isDaemonResponse(resolved)) return resolved;
+    let headers = resolved;
+    let whoami = await send("/v1/hypervisor/auth/whoami", "GET", headers);
+    if (exchange && whoami.status === 401) {
+      resolved = await exchangeHeaders(req, expectedPrincipal, true);
       if (isDaemonResponse(resolved)) return resolved;
-      let headers = resolved;
-      let whoami = await send("/v1/hypervisor/auth/whoami", "GET", headers);
-      if (exchange && whoami.status === 401) {
-        resolved = await exchangeHeaders(req, expectedPrincipal, true);
-        if (isDaemonResponse(resolved)) return resolved;
-        headers = resolved;
-        whoami = await send("/v1/hypervisor/auth/whoami", "GET", headers);
-      }
-      if (whoami.status !== 200) return whoami;
-      let identity: unknown;
-      try {
-        identity = JSON.parse(whoami.text);
-      } catch {
-        return mismatch();
-      }
-      const response = identity as {
-        authenticated?: unknown;
-        principal?: { principal_id?: unknown; tenant_refs?: unknown };
-      };
-      if (
-        ((exchange || !trustedLocal) && response.authenticated !== true) ||
-        response.principal?.principal_id !== expectedPrincipal ||
-        (exchange &&
-          (!Array.isArray(response.principal?.tenant_refs) ||
-            !response.principal.tenant_refs.includes(exchange.tenantRef)))
-      ) {
-        if (exchange) daemonSessions.delete(expectedPrincipal);
-        return mismatch();
-      }
+      headers = resolved;
+      whoami = await send("/v1/hypervisor/auth/whoami", "GET", headers);
+    }
+    if (whoami.status !== 200) return whoami;
+    let identity: unknown;
+    try {
+      identity = JSON.parse(whoami.text);
+    } catch {
+      return mismatch();
+    }
+    const response = identity as {
+      authenticated?: unknown;
+      principal?: { principal_id?: unknown; tenant_refs?: unknown };
+    };
+    if (
+      ((exchange || !trustedLocal) && response.authenticated !== true) ||
+      response.principal?.principal_id !== expectedPrincipal ||
+      (exchange &&
+        (!Array.isArray(response.principal?.tenant_refs) ||
+          !response.principal.tenant_refs.includes(exchange.tenantRef)))
+    ) {
+      if (exchange) daemonSessions.delete(expectedPrincipal);
+      return mismatch();
+    }
+    const tenantRefs = Array.isArray(response.principal?.tenant_refs)
+      ? response.principal.tenant_refs.filter((ref): ref is string => typeof ref === "string")
+      : [];
+    return { endpoint: `${prefix}/`, headers, principal: { principal_id: expectedPrincipal, tenant_refs: tenantRefs } };
+  }
+
+  return {
+    authority,
+    async request(req, expectedPrincipal, method, path, body) {
+      const resolved = await authority(req, expectedPrincipal);
+      if (isDaemonResponse(resolved)) return resolved;
+      const headers = { ...resolved.headers };
       if (body !== undefined) headers["content-type"] = "application/json";
       const result = await send(path, method, headers, body);
       if (exchange && method === "POST" && path === "/v1/hypervisor/auth/logout") {

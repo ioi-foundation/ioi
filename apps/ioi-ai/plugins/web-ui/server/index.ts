@@ -1,6 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -32,6 +31,7 @@ import {
   portFromEnv,
 } from "../../../../ioi-ai/plugins/chassis/src/env.ts";
 import { boundedIoiId, createIoiDaemonGateway } from "./ioi-daemon.ts";
+import { createOrchestrationRoutes } from "./orchestration-routes.ts";
 import { portalDaemonExchangeConfigFromEnv } from "./portal-daemon-exchange.ts";
 
 const PORT = portFromEnv(8096);
@@ -55,6 +55,15 @@ const ioiDaemon = createIoiDaemonGateway(IOI_DAEMON, fetch, {
   allowInsecureRemoteHttp: IOI_INSECURE_REMOTE_HTTP,
   portalExchange: IOI_PORTAL_DAEMON_EXCHANGE,
   requirePortalExchange: IS_PRODUCTION,
+});
+const orchestrationRoutes = createOrchestrationRoutes(ioiDaemon, {
+  json,
+  relay,
+  readIoiObject,
+  closedIoiObject,
+  boundedIoiText,
+  canonicalIoiRef,
+  canonicalIoiRefs,
 });
 const ALLOW_UNSIGNED_TEST_IDENTITY =
   process.env.NODE_ENV === "test" && process.env.ALLOW_UNSIGNED_TEST_IDENTITY === "1";
@@ -442,29 +451,6 @@ function canonicalIoiRefs(value: unknown, schemes: readonly string[]): string[] 
   if (references.some((entry) => entry === null)) return null;
   const result = references as string[];
   return new Set(result).size === result.length ? result : null;
-}
-
-function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error("non-finite JSON number");
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (typeof value !== "object") throw new Error("unsupported JSON value");
-  const object = value as Record<string, unknown>;
-  return `{${Object.keys(object)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
-    .join(",")}}`;
-}
-
-export function goalRunMembershipRoot(goalRun: Record<string, unknown>): string {
-  const canonical = canonicalJson({
-    domain: "ioi.goal-run-room-membership-predecessor-jcs-sha256.v1",
-    value: goalRun,
-  });
-  return `sha256:${createHash("sha256").update(canonical).digest("hex")}`;
 }
 
 const slackUrlCache = new LRUCache<string, { url: string | null }>({
@@ -1201,244 +1187,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
       );
     }
 
-    if (method === "GET" && path === "/api/ioi/rooms") {
-      return relay(res, await ioiDaemon.request(req, user, "GET", "/v1/goal-orchestration/outcome-rooms"));
-    }
-
-    if (method === "POST" && path === "/api/ioi/rooms") {
-      const source = await readIoiObject(req, res, "OutcomeRoom materialization input must be a JSON object.");
-      if (
-        !source ||
-        !closedIoiObject(
-          res,
-          source,
-          ["system_id", "goal_run_ref", "objective", "room_mode", "governance"],
-          "OutcomeRoom materialization input",
-        )
-      )
-        return;
-      const systemId = canonicalIoiRef(source.system_id, ["system"]);
-      const goalRunRef = canonicalIoiRef(source.goal_run_ref, ["goal"]);
-      const objective = boundedIoiText(source.objective, 4_096);
-      const roomMode = source.room_mode;
-      const governance =
-        source.governance !== null && typeof source.governance === "object" && !Array.isArray(source.governance)
-          ? (source.governance as Record<string, unknown>)
-          : null;
-      const governanceFields = [
-        "constraint_refs",
-        "acceptance_criteria_refs",
-        "stop_policy_ref",
-        "visibility_policy_ref",
-        "participation_policy_ref",
-        "privacy_policy_ref",
-        "contribution_policy_ref",
-        "cooperation_surplus_policy_ref",
-        "collaboration_terms_refs",
-        "artifact_license_rights_retention_and_export_policy_refs",
-        "coordination_policy_ref",
-        "ordering_and_merge_policy_ref",
-        "conflict_and_failover_policy_ref",
-        "ontology_profile_refs",
-        "scorecard_and_guardrail_refs",
-        "verifier_path_refs",
-        "resource_and_budget_refs",
-      ] as const;
-      if (
-        !systemId ||
-        !goalRunRef ||
-        !/^goal:\/\/gr_[A-Za-z0-9_-]+$/u.test(goalRunRef) ||
-        !objective ||
-        !["private_goal", "permissioned_team"].includes(String(roomMode)) ||
-        !governance ||
-        !closedIoiObject(res, governance, governanceFields, "OutcomeRoom governance")
-      ) {
-        if (!res.headersSent)
-          json(res, 400, {
-            error: "bad_request",
-            message: "A System, collective GoalRun, objective, selected room mode, and closed governance object are required.",
-          });
-        return;
-      }
-      const scalarPolicies = [
-        "stop_policy_ref",
-        "visibility_policy_ref",
-        "participation_policy_ref",
-        "privacy_policy_ref",
-        "contribution_policy_ref",
-        "cooperation_surplus_policy_ref",
-        "coordination_policy_ref",
-        "ordering_and_merge_policy_ref",
-        "conflict_and_failover_policy_ref",
-      ] as const;
-      const policies = Object.fromEntries(
-        scalarPolicies.map((field) => [field, canonicalIoiRef(governance[field], ["policy"])]),
-      );
-      if (Object.values(policies).some((value) => value === null)) {
-        return json(res, 400, {
-          error: "bad_request",
-          message: "Every required governance policy must be a canonical policy:// ref.",
-        });
-      }
-      const listFields = {
-        constraint_refs: ["constraint", "policy", "budget"],
-        acceptance_criteria_refs: ["rubric", "gate", "policy"],
-        collaboration_terms_refs: ["terms"],
-        artifact_license_rights_retention_and_export_policy_refs: ["policy", "license"],
-        ontology_profile_refs: ["ontology", "semantic-profile", "ontology-mapping"],
-        scorecard_and_guardrail_refs: ["benchmark", "rubric", "gate", "policy"],
-        verifier_path_refs: ["verifier-path"],
-        resource_and_budget_refs: ["resource-pool", "budget", "goal-budget", "order"],
-      } as const;
-      const lists = Object.fromEntries(
-        Object.entries(listFields).map(([field, schemes]) => [field, canonicalIoiRefs(governance[field], schemes)]),
-      );
-      if (Object.values(lists).some((value) => value === null)) {
-        return json(res, 400, {
-          error: "bad_request",
-          message: "OutcomeRoom governance lists must contain unique canonical refs of the required kind.",
-        });
-      }
-      const body = JSON.stringify({
-        schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
-        system_id: systemId,
-        owner_or_sponsor_ref: `user://${user}`,
-        objective_ref: goalRunRef,
-        objective,
-        room_mode: roomMode,
-        coordination_topology: "hosted_admission",
-        host_domain_ref: systemId,
-        ...policies,
-        ...lists,
-        discovery_and_external_admission_policy_refs: [],
-        multi_party_collaboration_ref: null,
-        settlement_policy_ref: null,
-      });
-      return relay(
-        res,
-        await ioiDaemon.request(req, user, "POST", "/v1/goal-orchestration/outcome-rooms", body),
-      );
-    }
-
-    if (method === "GET" && path === "/api/ioi/rooms/overview") {
-      return relay(res, await ioiDaemon.request(req, user, "GET", "/v1/goal-orchestration/outcome-rooms/overview"));
-    }
-
-    const roomProjection = path.match(
-      /^\/api\/ioi\/rooms\/([^/]+)\/(replay|collaborative-work-graph|discussion-projection|product-projection)$/,
-    );
-    if (method === "GET" && roomProjection) {
-      const id = boundedIoiId(roomProjection[1]!, "or_");
-      if (!id)
-        return json(res, 400, {
-          error: "bad_request",
-          message: "Invalid OutcomeRoom id.",
-        });
-      return relay(
-        res,
-        await ioiDaemon.request(
-          req,
-          user,
-          "GET",
-          `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(id)}/${roomProjection[2]}`,
-        ),
-      );
-    }
-
-    const room = path.match(/^\/api\/ioi\/rooms\/([^/]+)$/);
-    if (method === "GET" && room) {
-      const id = boundedIoiId(room[1]!, "or_");
-      if (!id)
-        return json(res, 400, {
-          error: "bad_request",
-          message: "Invalid OutcomeRoom id.",
-        });
-      return relay(
-        res,
-        await ioiDaemon.request(req, user, "GET", `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(id)}`),
-      );
-    }
-
-    const roomMembership = path.match(/^\/api\/ioi\/rooms\/([^/]+)\/goal-runs\/(attach|detach)$/);
-    if (method === "POST" && roomMembership) {
-      const id = boundedIoiId(roomMembership[1]!, "or_");
-      if (!id)
-        return json(res, 400, {
-          error: "bad_request",
-          message: "Invalid OutcomeRoom id.",
-        });
-      const source = await readIoiObject(req, res, "OutcomeRoom membership input must be a JSON object.");
-      if (
-        !source ||
-        !closedIoiObject(res, source, ["goal_run_ref", "expected_revision"], "OutcomeRoom membership input")
-      )
-        return;
-      const goalRunRef = canonicalIoiRef(source.goal_run_ref, ["goal"]);
-      const expectedRevision = source.expected_revision;
-      const goalRunId = goalRunRef?.slice("goal://".length) ?? "";
-      if (
-        !goalRunRef ||
-        !boundedIoiId(encodeURIComponent(goalRunId), "gr_") ||
-        !Number.isSafeInteger(expectedRevision) ||
-        Number(expectedRevision) < 0
-      ) {
-        return json(res, 400, {
-          error: "bad_request",
-          message: "A canonical goal://gr_ ref and non-negative expected_revision are required.",
-        });
-      }
-      const current = await ioiDaemon.request(
-        req,
-        user,
-        "GET",
-        `/v1/goal-orchestration/goal-runs/${encodeURIComponent(goalRunId)}`,
-      );
-      if (current.status !== 200) return relay(res, current);
-      let currentBody: unknown;
-      try {
-        currentBody = JSON.parse(current.text);
-      } catch {
-        return json(res, 502, {
-          error: "invalid_daemon_response",
-          message: "The daemon returned a non-JSON GoalRun while resolving room membership.",
-        });
-      }
-      const currentEnvelope =
-        currentBody !== null && typeof currentBody === "object" && !Array.isArray(currentBody)
-          ? (currentBody as Record<string, unknown>)
-          : null;
-      const currentGoalRun =
-        currentEnvelope?.goal_run !== null &&
-        typeof currentEnvelope?.goal_run === "object" &&
-        !Array.isArray(currentEnvelope?.goal_run)
-          ? (currentEnvelope.goal_run as Record<string, unknown>)
-          : null;
-      if (
-        currentEnvelope?.ok !== true ||
-        currentGoalRun?.goal_run_id !== goalRunId ||
-        currentGoalRun?.goal_ref !== goalRunRef
-      ) {
-        return json(res, 502, {
-          error: "invalid_daemon_response",
-          message: "The daemon GoalRun projection cannot supply the exact membership predecessor.",
-        });
-      }
-      const body = JSON.stringify({
-        goal_run_ref: goalRunRef,
-        expected_revision: expectedRevision,
-        expected_goal_run_record_root: goalRunMembershipRoot(currentGoalRun),
-      });
-      return relay(
-        res,
-        await ioiDaemon.request(
-          req,
-          user,
-          "POST",
-          `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(id)}/${roomMembership[2]}-goal-run`,
-          body,
-        ),
-      );
-    }
+    if (path.startsWith("/api/ioi/orchestrations") && (await orchestrationRoutes.handle(req, res, user, method, path, url))) return;
 
     if (method === "POST" && path === "/api/blobs") {
       return uploadBlobFromRequest(req, res, declaredSha(url));

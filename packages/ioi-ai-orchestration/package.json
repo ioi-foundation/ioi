@@ -1,7 +1,7 @@
 {
   "name": "@ioi/ioi-ai-orchestration",
   "version": "0.1.0",
-  "description": "The ioi.ai application's orchestration compositions over the IOI agent SDK's thread orchestration primitives: collaboration terms with derived activation, policy-bound discovery projections, signed participation requests and least-disclosing participant state bundles, all admitted as System-scoped records (R-172 slices S2/S3).",
+  "description": "The ioi.ai application's orchestration compositions over the IOI agent SDK's thread orchestration primitives: the orchestrations themselves recorded under their bounded System (the S2 handle made durable, successor of OutcomeRoom v2), collaboration terms with derived activation, policy-bound discovery projections, signed participation requests, least-disclosing participant state bundles and the v4 work objects, all admitted as System-scoped records (R-172 slices S2/S3/S4b/S4c).",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -26,6 +26,11 @@
       "types": "./dist/work.d.ts",
       "import": "./dist/work.js",
       "require": "./dist/work.cjs"
+    },
+    "./orchestrations": {
+      "types": "./dist/orchestrations.d.ts",
+      "import": "./dist/orchestrations.js",
+      "require": "./dist/orchestrations.cjs"
     }
   },
   "files": [

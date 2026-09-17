@@ -1,9 +1,11 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { systemRecordSlug } from "../../../../../packages/agent-sdk/dist/index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const artifactRoot = path.join(root, ".artifacts", "implementation", "ioi-ai-browser-smoke");
@@ -114,34 +116,133 @@ function goalRun(id, goal, status = "draft") {
   };
 }
 
-function outcomeRoom(id, goalRef, objective) {
-  return {
-    schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
-    outcome_room_id: `outcome-room://${id}`,
-    system_id: `system://browser-smoke/${id}`,
-    package_id: "package://ioi/outcome-room",
-    owner_or_sponsor_ref: `user://${principal}`,
-    objective_ref: goalRef,
-    objective,
-    room_mode: "private_goal",
-    coordination_topology: "hosted_admission",
-    member_goal_run_refs: [],
-    latest_sequence: 1,
-    latest_operation_ref: `agentgres://outcome-room/${id}/operations/1`,
-    room_state_root: `sha256:${"1".repeat(64)}`,
-    room_receipt_root: `sha256:${"2".repeat(64)}`,
-    status: "open",
-    created_at: "2026-08-06T12:00:00Z",
-    updated_at: "2026-08-06T12:00:00Z",
+const SMOKE_SYSTEM = "system://browser-smoke/estate";
+const ORCHESTRATION_CONTRACT = "schema://ioi/applications/ioi-ai/orchestration/v1";
+const SEAM_ADMISSION_FIELDS = [
+  "owner_ref",
+  "idempotency_key",
+  "contract_id",
+  "object_id",
+  "parent_scope_ref",
+  "record",
+  "expected_head",
+];
+const fakeThreads = new Map();
+const seamChains = new Map();
+let threadCount = 0;
+
+function seamDigest(text) {
+  return `sha256:${createHash("sha256").update(text).digest("hex")}`;
+}
+
+function seamKey(systemId, contractId, objectId) {
+  return `${systemId}/${systemRecordSlug(contractId)}/${systemRecordSlug(objectId)}`;
+}
+
+function admitSeamRecord(systemId, input) {
+  const key = seamKey(systemId, input.contract_id, input.object_id);
+  const chain = seamChains.get(key) ?? [];
+  const head = chain.at(-1)?.head ?? null;
+  if ((input.expected_head ?? null) !== head) {
+    return { status: 409, body: { error: { code: "system_record_expected_head_conflict" } } };
+  }
+  const payloadRoot = seamDigest(JSON.stringify(input.record));
+  const record = {
+    ...input.record,
+    system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1",
+      system_id: systemId,
+      parent_scope_ref: input.parent_scope_ref,
+      proposed_or_issued_by_ref: `user://${principal}`,
+      payload_root: payloadRoot,
+      created_at: "2026-08-06T12:00:00Z",
+      updated_at: chain.length ? "2026-08-06T12:05:00Z" : null,
+    },
   };
+  const nextHead = seamDigest(`${head ?? "genesis"}|${payloadRoot}`);
+  const admission = {
+    seq: chain.length,
+    head: nextHead,
+    contract_id: input.contract_id,
+    idempotency_key: input.idempotency_key,
+    receipt_ref: `receipt://event-stream/system-records/${chain.length}`,
+    operation_ref: `agentgres://event-stream/system-records/${chain.length}`,
+  };
+  chain.push({ record, head: nextHead, admission });
+  seamChains.set(key, chain);
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      replayed: false,
+      system_id: systemId,
+      contract_id: input.contract_id,
+      resource_ref: key,
+      record,
+      admission,
+      expected_head_for_successor: nextHead,
+      receipt_ref: admission.receipt_ref,
+      operation_ref: admission.operation_ref,
+    },
+  };
+}
+
+function orchestrationRecord(tail, threadId, objective, goalRef) {
+  return {
+    schema_version: "ioi.applications.ioi-ai.orchestration.v1",
+    orchestration_id: `orchestration://${tail}`,
+    orchestration_ref: `app-scope://ioi-ai/orchestration/${tail}`,
+    owner_ref: `user://${principal}`,
+    composed_by_ref: `user://${principal}`,
+    thread_ref: `thread://${threadId}`,
+    objective,
+    objective_ref: goalRef,
+    mode: "private_goal",
+    coordination_topology: "hosted_admission",
+    constraint_refs: [],
+    acceptance_criteria_refs: [],
+    stop_policy_ref: "policy://browser-smoke/stop",
+    visibility_policy_ref: "policy://browser-smoke/visibility",
+    participation_policy_ref: "policy://browser-smoke/participation",
+    privacy_policy_ref: "policy://browser-smoke/privacy",
+    contribution_policy_ref: "policy://browser-smoke/contribution",
+    cooperation_surplus_policy_ref: "policy://browser-smoke/surplus",
+    collaboration_terms_refs: [],
+    artifact_license_rights_retention_and_export_policy_refs: [],
+    coordination_policy_ref: "policy://browser-smoke/coordination",
+    ordering_and_merge_policy_ref: "policy://browser-smoke/ordering",
+    conflict_and_failover_policy_ref: "policy://browser-smoke/failover",
+    ontology_profile_refs: [],
+    scorecard_and_guardrail_refs: [],
+    verifier_path_refs: [],
+    resource_and_budget_refs: [],
+    settlement_policy_ref: null,
+    multi_party_collaboration_ref: null,
+    member_goal_run_refs: [],
+    composed_at: "2026-08-06T12:00:00Z",
+    status: "open",
+  };
+}
+
+function seedOrchestration() {
+  const thread = { thread_id: "thread_seeded", status: "active", title: "Seeded orchestration" };
+  fakeThreads.set(thread.thread_id, thread);
+  const seeded = admitSeamRecord(SMOKE_SYSTEM, {
+    owner_ref: `user://${principal}`,
+    idempotency_key: "browser-smoke-seed",
+    contract_id: ORCHESTRATION_CONTRACT,
+    object_id: "orchestration://orc_seeded",
+    parent_scope_ref: "app-scope://ioi-ai/orchestration/orc_seeded",
+    record: orchestrationRecord("orc_seeded", thread.thread_id, "Seeded orchestration", "goal://gr_seeded"),
+    expected_head: null,
+  });
+  if (seeded.status !== 200) throw new Error("the seeded orchestration did not admit");
 }
 
 const fakeGoals = new Map([
   ["gr_seeded", goalRun("gr_seeded", "Seeded runnable outcome", "draft")],
 ]);
-const fakeRooms = new Map([
-  ["or_seeded", outcomeRoom("or_seeded", "goal://gr_seeded", "Seeded Outcome Room")],
-]);
+seedOrchestration();
 
 function goalEvents(id) {
   return {
@@ -150,59 +251,6 @@ function goalEvents(id) {
     events: [],
     invocations: [],
     verifications: [],
-  };
-}
-
-function roomProjection(id, kind) {
-  const roomRef = `outcome-room://${id}`;
-  if (kind === "collaborative-work-graph") {
-    return {
-      collaborative_work_graph: {
-        schema_version: "ioi.applications.ioi-ai.collaborative-work-graph.v1",
-        outcome_room_ref: roomRef,
-        member_goal_run_refs: fakeRooms.get(id)?.member_goal_run_refs ?? [],
-        participant_refs: [],
-        frontier_item_refs: [],
-        work_claim_refs: [],
-        attempt_refs: [],
-        finding_refs: [],
-        verifier_challenge_refs: [],
-        work_result_refs: [],
-        outcome_delta_refs: [],
-        source_admission_receipt_refs: [`receipt://agentgres/${id}/1`],
-        information_flow_label_refs: [],
-      },
-    };
-  }
-  if (kind === "discussion-projection") {
-    return {
-      discussion_projection: {
-        schema_version: "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1",
-        outcome_room_ref: roomRef,
-        information_flow_label_refs: [],
-        permitted_subject_refs: [],
-        message_refs: [],
-        redaction_summary_refs: [],
-        source_admission_receipt_refs: [`receipt://agentgres/${id}/1`],
-      },
-    };
-  }
-  if (kind === "product-projection") {
-    return {
-      schema_version: "ioi.hypervisor.outcome-room-product-projection.v1",
-      outcome_room: { outcome_room_ref: roomRef },
-      member_goal_runs: [],
-      work_result_refs: [],
-      outcome_delta_refs: [],
-      work_results: [],
-      outcome_deltas: [],
-      source_admission_receipt_refs: [`receipt://agentgres/${id}/1`],
-    };
-  }
-  return {
-    schema_version: "ioi.outcome-room-replay-projection.v2",
-    outcome_room_ref: roomRef,
-    operations: [],
   };
 }
 
@@ -314,93 +362,90 @@ function createDaemonServer() {
         reconciliation: { receipt_ref: `receipt://goal-run/${id}/reconciliation`, status: "committed" },
       });
     }
-    if (url.pathname === "/v1/goal-orchestration/outcome-rooms") {
+    if (url.pathname === "/v1/hypervisor/autonomous-systems/projection") {
+      if (method !== "GET") return methodRefusal(response, ["GET"]);
+      request.resume();
+      return sendJson(response, 200, {
+        schema_version: "ioi.hypervisor.autonomous-system-read-projection.v1",
+        view: "compact",
+        state: "ready",
+        systems: [{ system_id: SMOKE_SYSTEM, status: "active" }],
+      });
+    }
+    if (url.pathname === "/v1/threads") {
+      if (method !== "POST") return methodRefusal(response, ["POST"]);
+      const body = await jsonBody(request);
+      if (typeof body.goal !== "string" || !body.goal)
+        return sendJson(response, 422, { error: { code: "browser_smoke_thread_create_invalid" } });
+      threadCount += 1;
+      const thread = { thread_id: `thread_interaction_${threadCount}`, status: "active", title: body.goal };
+      fakeThreads.set(thread.thread_id, thread);
+      return sendJson(response, 200, thread);
+    }
+    const threadPath = url.pathname.match(/^\/v1\/threads\/([^/]+)(\/subagents)?$/u);
+    if (threadPath) {
+      if (method !== "GET") return methodRefusal(response, ["GET"]);
+      request.resume();
+      const thread = fakeThreads.get(decodeURIComponent(threadPath[1]));
+      if (!thread) return sendJson(response, 404, { error: { code: "thread_not_found" } });
+      return sendJson(response, 200, threadPath[2] ? { subagents: [] } : thread);
+    }
+    const seamPath = url.pathname.match(/^\/v1\/hypervisor\/autonomous-systems\/([^/]+)\/records(?:\/([^/]+)\/([^/]+))?$/u);
+    if (seamPath) {
+      const systemId = decodeURIComponent(seamPath[1]);
+      if (systemId !== SMOKE_SYSTEM) {
+        request.resume();
+        return sendJson(response, 404, { error: { code: "system_record_system_absent" } });
+      }
+      if (seamPath[2]) {
+        if (method !== "GET") return methodRefusal(response, ["GET"]);
+        request.resume();
+        const chain = seamChains.get(`${systemId}/${decodeURIComponent(seamPath[2])}/${decodeURIComponent(seamPath[3])}`);
+        if (!chain) {
+          return sendJson(response, 403, {
+            error: {
+              code: "request_resource_scope_required",
+              message: "the requested resource has no scope visible to the authenticated principal",
+            },
+          });
+        }
+        return sendJson(response, 200, {
+          ok: true,
+          current: chain.at(-1).record,
+          revisions: chain.map((entry) => entry.record),
+          admissions: chain.map((entry) => entry.admission),
+          head: chain.at(-1).head,
+        });
+      }
       if (method === "GET") {
         request.resume();
-        return sendJson(response, 200, {
-          schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
-          outcome_rooms: [...fakeRooms.values()],
-          runtimeTruthSource: "daemon-runtime",
-        });
+        const contract = url.searchParams.get("contract_id");
+        const records = [...seamChains.entries()]
+          .filter(([key]) => key.startsWith(`${systemId}/`) && (!contract || key.startsWith(`${systemId}/${systemRecordSlug(contract)}/`)))
+          .map(([key, chain]) => ({
+            resource_ref: key,
+            contract_id: chain.at(-1).admission.contract_id,
+            current: chain.at(-1).record,
+            head: chain.at(-1).head,
+            revisions: chain.length,
+          }));
+        return sendJson(response, 200, { ok: true, system_id: systemId, records, count: records.length });
       }
       if (method !== "POST") return methodRefusal(response, ["GET", "POST"]);
       const body = await jsonBody(request);
       if (
-        body.schema_version !== "ioi.applications.ioi-ai.outcome-room.v2" ||
-        typeof body.system_id !== "string" ||
-        !body.system_id.startsWith("system://") ||
-        body.owner_or_sponsor_ref !== `user://${principal}` ||
-        body.coordination_topology !== "hosted_admission" ||
-        body.host_domain_ref !== body.system_id ||
-        typeof body.objective_ref !== "string" ||
-        !body.objective_ref.startsWith("goal://gr_")
+        !exactFields(body, SEAM_ADMISSION_FIELDS) ||
+        body.contract_id !== ORCHESTRATION_CONTRACT ||
+        body.owner_ref !== `user://${principal}` ||
+        body.record === null ||
+        typeof body.record !== "object" ||
+        "system_binding" in body.record ||
+        body.record.orchestration_id !== body.object_id ||
+        body.record.orchestration_ref !== body.parent_scope_ref
       )
-        return sendJson(response, 422, { error: { code: "browser_smoke_room_create_invalid" } });
-      const room = outcomeRoom("or_interaction", body.objective_ref, body.objective);
-      room.system_id = body.system_id;
-      room.room_mode = body.room_mode;
-      fakeRooms.set("or_interaction", room);
-      return sendJson(response, 201, {
-        outcome_room: room,
-        agentgres_admission: {
-          receipt_ref: "receipt://agentgres/or_interaction/1",
-          operation_ref: "agentgres://outcome-room/or_interaction/operations/1",
-        },
-        replayed: false,
-      });
-    }
-    if (url.pathname === "/v1/goal-orchestration/outcome-rooms/overview") {
-      if (method !== "GET") return methodRefusal(response, ["GET"]);
-      request.resume();
-      return sendJson(response, 200, {
-        schema_version: "ioi.hypervisor.outcome-rooms-overview.v1",
-        outcome_rooms: fakeRooms.size,
-      });
-    }
-    const roomPath = url.pathname.match(
-      /^\/v1\/goal-orchestration\/outcome-rooms\/(or_[A-Za-z0-9_-]+)(?:\/(replay|collaborative-work-graph|discussion-projection|product-projection|attach-goal-run|detach-goal-run))?$/u,
-    );
-    if (roomPath) {
-      const [, id, action] = roomPath;
-      const room = fakeRooms.get(id);
-      if (!room) {
-        request.resume();
-        return sendJson(response, 404, { error: { code: "outcome_room_not_found" } });
-      }
-      if (!action) {
-        if (method !== "GET") return methodRefusal(response, ["GET"]);
-        request.resume();
-        return sendJson(response, 200, { outcome_room: room });
-      }
-      if (["replay", "collaborative-work-graph", "discussion-projection", "product-projection"].includes(action)) {
-        if (method !== "GET") return methodRefusal(response, ["GET"]);
-        request.resume();
-        return sendJson(response, 200, roomProjection(id, action));
-      }
-      if (method !== "POST") return methodRefusal(response, ["POST"]);
-      const body = await jsonBody(request);
-      const goalId = String(body.goal_run_ref ?? "").slice("goal://".length);
-      const run = fakeGoals.get(goalId);
-      if (
-        !run ||
-        body.goal_run_ref !== room.objective_ref ||
-        body.expected_revision !== room.latest_sequence ||
-        !/^sha256:[0-9a-f]{64}$/u.test(String(body.expected_goal_run_record_root ?? ""))
-      )
-        return sendJson(response, 409, { error: { code: "browser_smoke_room_membership_invalid" } });
-      const attaching = action === "attach-goal-run";
-      room.member_goal_run_refs = attaching ? [body.goal_run_ref] : [];
-      room.latest_sequence += 1;
-      run.outcome_room_ref = attaching ? room.outcome_room_id : null;
-      return sendJson(response, 200, {
-        outcome_room: room,
-        goal_run: run,
-        membership_transition: attaching ? "attach" : "detach",
-        agentgres_admission: {
-          receipt_ref: `receipt://agentgres/${id}/${room.latest_sequence}`,
-          operation_ref: `agentgres://outcome-room/${id}/operations/${room.latest_sequence}`,
-        },
-      });
+        return sendJson(response, 422, { error: { code: "browser_smoke_seam_admission_invalid" } });
+      const admitted = admitSeamRecord(systemId, body);
+      return sendJson(response, admitted.status, admitted.body);
     }
     if (url.pathname === "/v1/hypervisor/auth/logout") {
       if (method !== "POST") return methodRefusal(response, ["POST"]);
@@ -447,7 +492,11 @@ async function waitFor(url, timeoutMs = 20_000) {
 
 const routes = [
   { path: "/goals", heading: "Intent becomes governed work." },
-  { path: "/rooms/or_seeded", heading: "Seeded Outcome Room" },
+  {
+    path: `/orchestrations/orc_seeded?system=${encodeURIComponent(SMOKE_SYSTEM)}`,
+    name: "orchestrations-orc_seeded",
+    heading: "Seeded orchestration",
+  },
   { path: "/goal-activations/gra_seeded", heading: "Review before activation" },
   { path: "/contexts", heading: "Projects" },
   { path: "/files", heading: "Files" },
@@ -579,10 +628,10 @@ try {
 
       await page.goto(`${baseUrl}/goals`, { waitUntil: "domcontentloaded" });
       await page.getByRole("heading", { name: "Intent becomes governed work.", exact: true }).waitFor();
-      await page.locator('[data-focus-key="room-materialize"]').click();
-      await page.locator('[name="system_id"]').fill("system://browser-smoke/or_interaction");
-      await page.locator('[name="goal_run_ref"]').fill("goal://gr_interaction");
-      await page.locator('[name="objective"]').fill("Browser interaction OutcomeRoom");
+      await page.locator('[data-focus-key="orchestration-compose-open"]').click();
+      await page.locator('[name="system_id"]').fill(SMOKE_SYSTEM);
+      await page.locator('[name="objective_ref"]').fill("goal://gr_interaction");
+      await page.locator('[name="objective"]').fill("Browser interaction orchestration");
       await page.locator('[name="governance"]').fill(
         JSON.stringify({
           stop_policy_ref: "policy://browser-smoke/stop",
@@ -596,18 +645,23 @@ try {
           conflict_and_failover_policy_ref: "policy://browser-smoke/failover",
         }),
       );
-      await page.locator('[data-focus-key="outcome-room-create"]').click();
-      await page.getByRole("heading", { name: "Browser interaction OutcomeRoom", exact: true }).waitFor();
-      await page.locator('[data-focus-key="room-membership"]').click();
+      await page.locator('[data-focus-key="orchestration-compose"]').click();
+      await page.getByRole("heading", { name: "Browser interaction orchestration", exact: true }).waitFor();
+      await page.locator('[data-focus-key="orchestration-membership"]').click();
       await page.getByRole("button", { name: "Detach objective GoalRun", exact: true }).waitFor();
-      await page.locator('[data-focus-key="room-membership"]').click();
+      await page.locator('[data-focus-key="orchestration-membership"]').click();
       await page.getByRole("button", { name: "Attach objective GoalRun", exact: true }).waitFor();
-      await page.screenshot({ path: path.join(artifactRoot, "interaction-outcome-room.png"), fullPage: true });
+      await page.screenshot({ path: path.join(artifactRoot, "interaction-orchestration.png"), fullPage: true });
+      const composedChains = [...seamChains.keys()].filter((key) => !key.endsWith(`/${systemRecordSlug("orchestration://orc_seeded")}`));
+      if (composedChains.length !== 1 || seamChains.get(composedChains[0]).length !== 3) {
+        throw new Error(`the composed orchestration should hold three revisions (compose, attach, detach): ${JSON.stringify([...seamChains.entries()].map(([key, chain]) => [key, chain.length]))}`);
+      }
       report.push({
         kind: "interaction",
-        journey: "outcome-room-materialize-attach-detach",
+        journey: "orchestration-compose-attach-detach",
         final_membership: "detached",
-        screenshot: "interaction-outcome-room.png",
+        revisions: 3,
+        screenshot: "interaction-orchestration.png",
       });
     }
 
@@ -631,7 +685,7 @@ try {
       if (geometry.documentScrollWidth > geometry.documentClientWidth + 1) {
         errors.push(`overflow: document ${geometry.documentScrollWidth}/${geometry.documentClientWidth} at ${route.path}`);
       }
-      const file = `${mode.name}-${route.path === "/" ? "chats" : route.path.slice(1)}.png`;
+      const file = `${mode.name}-${route.name ?? (route.path === "/" ? "chats" : route.path.slice(1))}.png`;
       await page.screenshot({ path: path.join(artifactRoot, file), fullPage: true });
       report.push({
         mode: mode.name,
@@ -648,17 +702,26 @@ try {
   }
 
   const daemonPaths = new Set(upstreamRequests.filter((item) => item.owner === "daemon").map((item) => item.path));
+  const seamRoot = `/v1/hypervisor/autonomous-systems/${encodeURIComponent(SMOKE_SYSTEM)}/records`;
   for (const required of [
     "/v1/hypervisor/auth/whoami",
     "/v1/goal-orchestration/goal-runs",
     "/v1/goal-orchestration/goal-runs/gr_interaction/start",
     "/v1/goal-orchestration/goal-runs/gr_interaction/reconcile",
-    "/v1/goal-orchestration/outcome-rooms",
-    "/v1/goal-orchestration/outcome-rooms/or_interaction/attach-goal-run",
-    "/v1/goal-orchestration/outcome-rooms/or_interaction/detach-goal-run",
     "/v1/goal-orchestration/goal-run-activations/gra_seeded",
+    "/v1/hypervisor/autonomous-systems/projection",
+    "/v1/threads",
+    "/v1/threads/thread_seeded",
+    "/v1/threads/thread_seeded/subagents",
+    seamRoot,
   ]) {
     if (!daemonPaths.has(required)) throw new Error(`ioi.ai did not exercise daemon route ${required}`);
+  }
+  if (![...daemonPaths].some((item) => item.startsWith(`${seamRoot}/`))) {
+    throw new Error("ioi.ai did not read an orchestration record's chain through the System-record seam");
+  }
+  if ([...daemonPaths].some((item) => item.includes("/goal-orchestration/outcome-rooms"))) {
+    throw new Error("ioi.ai still called a daemon room route");
   }
   fs.writeFileSync(
     path.join(artifactRoot, "report.json"),

@@ -6807,13 +6807,13 @@ h3.ambient-field-label {
 .goal-list-errors,
 .goal-activation-form,
 .goal-run-form,
-.goal-room-form,
+.goal-orchestration-form,
 .goal-review,
 .goal-detail-head,
 .goal-detail-actions,
 .goal-pipeline,
 .goal-detail-grid,
-.goal-room-spine,
+.goal-orchestration-spine,
 .goal-back {
   width: min(1080px, 100%);
   box-sizing: border-box;
@@ -6978,7 +6978,7 @@ h3.ambient-field-label {
   background: var(--goal-accent-soft);
   color: var(--goal-accent);
 }
-.goal-list-icon.room {
+.goal-list-icon.orchestration {
   background: color-mix(in srgb, #16856a 11%, var(--background));
   color: #16856a;
 }
@@ -7062,7 +7062,7 @@ h3.ambient-field-label {
 }
 .goal-activation-form,
 .goal-run-form,
-.goal-room-form,
+.goal-orchestration-form,
 .goal-review {
   margin-top: 18px;
   padding: 24px;
@@ -7088,7 +7088,7 @@ h3.ambient-field-label {
 }
 .goal-activation-form > label,
 .goal-run-form > label,
-.goal-room-form > label,
+.goal-orchestration-form > label,
 .goal-grant-label {
   display: flex;
   justify-content: space-between;
@@ -7100,14 +7100,14 @@ h3.ambient-field-label {
 }
 .goal-activation-form label span,
 .goal-run-form label span,
-.goal-room-form label span,
+.goal-orchestration-form label span,
 .goal-grant-label span {
   color: var(--muted-foreground);
   font-weight: 400;
 }
 .goal-activation-form textarea,
 .goal-run-form textarea,
-.goal-room-form textarea,
+.goal-orchestration-form textarea,
 .goal-grant {
   width: 100%;
   min-height: 118px;
@@ -7123,7 +7123,7 @@ h3.ambient-field-label {
 }
 .goal-activation-form textarea:focus,
 .goal-run-form textarea:focus,
-.goal-room-form textarea:focus,
+.goal-orchestration-form textarea:focus,
 .goal-grant:focus {
   border-color: color-mix(in srgb, var(--goal-accent) 62%, var(--border));
   outline: 2px solid color-mix(in srgb, var(--goal-accent) 14%, transparent);
@@ -7155,7 +7155,7 @@ h3.ambient-field-label {
   font-weight: 400;
 }
 .goal-form-grid input,
-.goal-room-form .field-select > select {
+.goal-orchestration-form .field-select > select {
   width: 100%;
   min-height: 42px;
   box-sizing: border-box;
@@ -7166,18 +7166,18 @@ h3.ambient-field-label {
   color: var(--foreground);
   font: inherit;
 }
-.goal-room-form .field-select {
+.goal-orchestration-form .field-select {
   width: 100%;
 }
-.goal-room-form .field-select > .icon {
+.goal-orchestration-form .field-select > .icon {
   right: 14px;
 }
 .goal-form-grid input:focus,
-.goal-room-form .field-select > select:focus {
+.goal-orchestration-form .field-select > select:focus {
   border-color: color-mix(in srgb, var(--goal-accent) 62%, var(--border));
   outline: 2px solid color-mix(in srgb, var(--goal-accent) 14%, transparent);
 }
-.goal-room-form textarea.goal-governance {
+.goal-orchestration-form textarea.goal-governance {
   min-height: 260px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
@@ -7539,7 +7539,7 @@ h3.ambient-field-label {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px;
 }
-.goal-room-spine {
+.goal-orchestration-spine {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
@@ -7550,21 +7550,21 @@ h3.ambient-field-label {
   border-radius: 12px;
   background: color-mix(in srgb, var(--secondary) 24%, var(--background));
 }
-.goal-room-spine > div {
+.goal-orchestration-spine > div {
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 3px 8px;
 }
-.goal-room-spine > div > svg {
+.goal-orchestration-spine > div > svg {
   grid-row: 1 / 3;
   color: var(--goal-accent);
 }
-.goal-room-spine strong {
+.goal-orchestration-spine strong {
   font-size: 11px;
 }
-.goal-room-spine span {
+.goal-orchestration-spine span {
   min-width: 0;
   overflow: hidden;
   color: var(--muted-foreground);
@@ -7630,10 +7630,10 @@ h3.ambient-field-label {
   .goal-card-wide {
     grid-column: 1;
   }
-  .goal-room-spine {
+  .goal-orchestration-spine {
     grid-template-columns: 1fr;
   }
-  .goal-room-spine > span {
+  .goal-orchestration-spine > span {
     justify-self: center;
     transform: rotate(90deg);
   }

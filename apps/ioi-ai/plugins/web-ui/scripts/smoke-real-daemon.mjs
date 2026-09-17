@@ -17,17 +17,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   validateActivationResponse,
-  validateCollaborativeWorkGraph,
-  validateDiscussionProjection,
   validateGoalDetail,
   validateGoalEvents,
   validateGoalRunList,
-  validateOutcomeRoomDetail,
-  validateOutcomeRoomList,
-  validateProductProjection,
-  validateRoomReplay,
+  validateOrchestrationDelegations,
+  validateOrchestrationDetail,
+  validateOrchestrationGraph,
+  validateOrchestrationList,
+  validateOrchestrationReplay,
 } from "../src/goal-space-response.ts";
-import { goalRunId, outcomeRoomId } from "../src/goal-space-contract.ts";
+import { goalRunId, orchestrationId } from "../src/goal-space-contract.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const artifactRoot = path.join(repoRoot, ".artifacts", "implementation", "ioi-ai-real-daemon-smoke");
@@ -261,15 +260,12 @@ const REQUIRED_DAEMON_ROUTES = [
   ["/v1/goal-orchestration/goal-runs/:id/start", ["POST"]],
   ["/v1/goal-orchestration/goal-runs/:id/reconcile", ["POST"]],
   ["/v1/goal-orchestration/goal-runs/:id/events", ["GET"]],
-  ["/v1/goal-orchestration/outcome-rooms", ["GET", "POST"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id", ["GET"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions", ["POST"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/attach-goal-run", ["POST"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/detach-goal-run", ["POST"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/replay", ["GET"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph", ["GET"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/discussion-projection", ["GET"]],
-  ["/v1/goal-orchestration/outcome-rooms/:id/product-projection", ["GET"]],
+  ["/v1/threads", ["POST"]],
+  ["/v1/threads/:id", ["GET"]],
+  ["/v1/threads/:id/subagents", ["GET"]],
+  ["/v1/hypervisor/autonomous-systems/projection", ["GET"]],
+  ["/v1/hypervisor/autonomous-systems/:id/records", ["GET", "POST"]],
+  ["/v1/hypervisor/autonomous-systems/:id/records/:contract/:object", ["GET"]],
 ];
 
 async function daemonRouteInventory(baseUrl, trustedLocal) {
@@ -460,7 +456,7 @@ async function run() {
     }
 
     const goals = await bffJson("/api/ioi/goals", validateGoalRunList, "GoalRun collection");
-    const rooms = await bffJson("/api/ioi/rooms", validateOutcomeRoomList, "OutcomeRoom collection");
+    const orchestrations = await bffJson("/api/ioi/orchestrations", validateOrchestrationList, "Orchestration collection");
     const explicitGoalId = boundedId(process.env.IOI_AI_REAL_GOAL_RUN_ID?.trim() ?? "", "gr_", "IOI_AI_REAL_GOAL_RUN_ID");
     const selectedGoalId = explicitGoalId ?? goalRunId(goals.value[0]);
     if (selectedGoalId) {
@@ -476,38 +472,37 @@ async function run() {
       );
     }
 
-    const explicitRoomId = boundedId(
-      process.env.IOI_AI_REAL_OUTCOME_ROOM_ID?.trim() ?? "",
-      "or_",
-      "IOI_AI_REAL_OUTCOME_ROOM_ID",
+    const explicitOrchestrationId = boundedId(
+      process.env.IOI_AI_REAL_ORCHESTRATION_ID?.trim() ?? "",
+      "orc_",
+      "IOI_AI_REAL_ORCHESTRATION_ID",
     );
-    const selectedRoomId = explicitRoomId ?? outcomeRoomId(rooms.value[0]);
-    if (selectedRoomId) {
+    const explicitSystemId = process.env.IOI_AI_REAL_SYSTEM_ID?.trim() || null;
+    if (explicitOrchestrationId && !explicitSystemId?.startsWith("system://")) {
+      throw usageError("IOI_AI_REAL_ORCHESTRATION_ID requires IOI_AI_REAL_SYSTEM_ID, the canonical system:// ref it is recorded under.");
+    }
+    const firstOrchestration = orchestrations.value.orchestrations[0] ?? null;
+    const selectedOrchestrationId = explicitOrchestrationId ?? (firstOrchestration ? orchestrationId(firstOrchestration.orchestration) : null);
+    const selectedSystemId = explicitOrchestrationId ? explicitSystemId : (firstOrchestration?.system_id ?? null);
+    if (selectedOrchestrationId && selectedSystemId) {
+      const base = `/api/ioi/orchestrations/${encodeURIComponent(selectedOrchestrationId)}`;
+      const query = `?system_id=${encodeURIComponent(selectedSystemId)}`;
       await bffJson(
-        `/api/ioi/rooms/${encodeURIComponent(selectedRoomId)}`,
-        (body) => validateOutcomeRoomDetail(body, selectedRoomId),
-        "OutcomeRoom owner projection",
+        `${base}${query}`,
+        (body) => validateOrchestrationDetail(body, selectedOrchestrationId),
+        "Orchestration record at its current head",
       );
       await bffJson(
-        `/api/ioi/rooms/${encodeURIComponent(selectedRoomId)}/replay`,
-        (body) => validateRoomReplay(body, selectedRoomId),
-        "OutcomeRoom replay",
+        `${base}/replay${query}`,
+        (body) => validateOrchestrationReplay(body, selectedOrchestrationId),
+        "Orchestration replay (the record's chain)",
       );
       await bffJson(
-        `/api/ioi/rooms/${encodeURIComponent(selectedRoomId)}/collaborative-work-graph`,
-        (body) => validateCollaborativeWorkGraph(body, selectedRoomId),
-        "OutcomeRoom collaborative work graph",
+        `${base}/graph${query}`,
+        (body) => validateOrchestrationGraph(body, selectedOrchestrationId),
+        "Orchestration composed graph",
       );
-      await bffJson(
-        `/api/ioi/rooms/${encodeURIComponent(selectedRoomId)}/discussion-projection`,
-        (body) => validateDiscussionProjection(body, selectedRoomId),
-        "OutcomeRoom discussion projection",
-      );
-      await bffJson(
-        `/api/ioi/rooms/${encodeURIComponent(selectedRoomId)}/product-projection`,
-        (body) => validateProductProjection(body, selectedRoomId),
-        "OutcomeRoom product projection",
-      );
+      await bffJson(`${base}/delegations${query}`, validateOrchestrationDelegations, "Orchestration delegations");
     }
 
     const activationId = boundedId(
@@ -536,9 +531,11 @@ async function run() {
       isolated_auth_bootstrap_mutation_count: runtime.mode === "binary-isolated" ? 1 : 0,
       route_inventory: routeInventory,
       goal_run_count: goals.value.length,
-      outcome_room_count: rooms.value.length,
+      orchestration_count: orchestrations.value.orchestrations.length,
+      orchestration_systems_unavailable: orchestrations.value.unavailable.map((entry) => entry.system_id),
       selected_goal_run_id: selectedGoalId ?? null,
-      selected_outcome_room_id: selectedRoomId ?? null,
+      selected_orchestration_id: selectedOrchestrationId ?? null,
+      selected_system_id: selectedSystemId ?? null,
       selected_activation_id: activationId,
       checks,
       generated_at: new Date().toISOString(),
@@ -547,7 +544,7 @@ async function run() {
     writeFileSync(path.join(artifactRoot, "report.json"), `${JSON.stringify(report, null, 2)}\n`, "utf8");
     console.log(
       `ioi.ai real-daemon smoke: ${checks.length} read contracts passed ` +
-        `(GoalRuns=${goals.value.length}, OutcomeRooms=${rooms.value.length}, ` +
+        `(GoalRuns=${goals.value.length}, orchestrations=${orchestrations.value.orchestrations.length}, ` +
         `goal-orchestration-mutations=0, auth-bootstrap=${runtime.mode === "binary-isolated" ? 1 : 0})`,
     );
   } finally {

@@ -163,7 +163,9 @@
     "check:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs",
     "mutate:aiip-binding-replaceability": "node scripts/verify-hypervisor-aiip-binding-replaceability.mjs --mutation",
     "check:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs",
-    "mutate:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs --mutation"
+    "mutate:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs --mutation",
+    "check:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs",
+    "mutate:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

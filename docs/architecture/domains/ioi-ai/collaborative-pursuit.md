@@ -1,11 +1,12 @@
 # OutcomeRoom and Collaborative-Pursuit Objects
 
 Status: canonical low-level reference.
-Canonical owner: this file for the object shapes of OutcomeRoom discovery and participation requests, OutcomeRooms, room participant leases, participant state bundles, resource and capability offers, work frontier items, work claim leases, attempts, findings, and verifier challenges.
+Canonical owner: this file for the object shapes of orchestrations and their discovery and participation requests, OutcomeRoom discovery and participation requests, OutcomeRooms, room participant leases, participant state bundles, resource and capability offers, work frontier items, work claim leases, attempts, findings, and verifier challenges.
 Supersedes: none.
 Superseded by: none.
-Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
-ioi.ai owners under ADR 0052 Decision 4).
+Last alignment pass: 2026-09-17 (`OrchestrationEnvelope` registered as the successor of
+`OutcomeRoomEnvelope` under R-172 slice S4c-1 / R-185; earlier: 2026-09-12, GoalRun/OutcomeRoom
+remnants moved to or from their ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
 
@@ -281,7 +282,94 @@ OrchestrationParticipationRequestEnvelope:
   status: submitted | accepted | refused | withdrawn | expired
 ```
 
+## OrchestrationEnvelope
+
+`OrchestrationEnvelope` is the successor of `OutcomeRoomEnvelope` below
+(registered 2026-09-17, R-172 slice S4c-1, register R-185; the predecessor
+remains registered while the daemon still hosts its routes, and those routes
+retire in slice S4c-2). It is the S2 orchestration handle made durable: an
+orchestration the ioi.ai application composed from thread orchestration
+primitives — a coordinating thread as the root (ADR 0034), delegations as its
+subagents, reservations on the work-lifecycle plane, and typed records admitted
+under the bounded System through the generic record seam — recorded as ONE
+application record under that System (ADR 0022, ADR 0030, ADR 0031). The record
+carries the coordinates a composer needs to re-attach (`thread_ref`,
+`owner_ref`, `orchestration_ref`), the objective the thread was created with,
+the mode and the governance refs the application declares, and the GoalRuns
+attached to it. The platform interprets none of it: no daemon route serves an
+orchestration, no roster or membership object is minted, and the head the seam
+hands back is the only coordinate a caller carries.
+
+**Everything the goal space shows is a read, and everything it changes is a
+revision on an exact head.** Listing is the seam's list under the contract;
+opening is the seam's chain plus the handle re-opened on the record's
+coordinates; the graph is projected from the kernel's thread and subagents and
+the seam's records whose `parent_scope_ref` is this orchestration's scope;
+replay is the chain. Attaching or detaching a GoalRun is a successor revision of
+`member_goal_run_refs`, and a status change is a successor revision of `status`,
+each naming the exact head it was computed against — the seam refuses any other
+by name. No reciprocal write lands in a GoalRun: the GoalRun's own composition
+over the orchestration follows in slice S4d, and until then a GoalRun's
+projection does not name its orchestration.
+
+`orchestration_ref` is derived from `orchestration_id` and from nothing else
+(`app-scope://ioi-ai/orchestration/<tail>`), and equals the `parent_scope_ref`
+the seam derives into every record of the orchestration — the two invariants the
+registry checks.
+
+```yaml
+OrchestrationEnvelope:
+  orchestration_id: orchestration://orc_...
+  orchestration_ref: app-scope://ioi-ai/orchestration/orc_...   # equals system_binding.parent_scope_ref; its tail is the id's tail
+  system_binding: SystemScopedObjectBinding                     # derived by the seam, never authored
+  owner_ref: org://... | project://... | user://... | domain://... | service://... | system://...   # the seam's owner scope
+  composed_by_ref: user://... | service://... | system://... | domain://...
+  thread_ref: thread://...                                      # the coordinating thread the kernel serves: the root
+  objective: string                                             # at most 4,096 characters
+  objective_ref: goal://... | task://... | service://... | null
+  mode: private_goal | permissioned_team | cross_org | open_challenge
+  coordination_topology: hosted_admission | federated_admission
+  constraint_refs: [constraint://... | policy://... | budget://...]
+  acceptance_criteria_refs: [rubric://... | gate://... | policy://...]
+  stop_policy_ref: policy://...
+  visibility_policy_ref: policy://...
+  participation_policy_ref: policy://...
+  privacy_policy_ref: policy://...
+  contribution_policy_ref: policy://...
+  cooperation_surplus_policy_ref: policy://...
+  collaboration_terms_refs: [terms://...]
+  artifact_license_rights_retention_and_export_policy_refs: [policy://... | license://...]
+  coordination_policy_ref: policy://...
+  ordering_and_merge_policy_ref: policy://...
+  conflict_and_failover_policy_ref: policy://...
+  ontology_profile_refs: [ontology://... | semantic-profile://... | ontology-mapping://...]
+  scorecard_and_guardrail_refs: [benchmark://... | rubric://... | gate://... | policy://...]
+  verifier_path_refs: [verifier-path://...]
+  resource_and_budget_refs: [resource-pool://... | budget://... | goal-budget://... | order://...]
+  settlement_policy_ref: policy://... | null
+  multi_party_collaboration_ref: collaboration://... | null
+  member_goal_run_refs: [goal://gr_...]                         # at most 64, unique; a revision on the exact head
+  composed_at: timestamp
+  status: open | paused | closed                                # closed is terminal
+```
+
+The ioi.ai web application's goal space is the first consumer of this record
+and the reason it exists (R-185): its six proxied hosted-room routes are
+re-pointed at this composition, so the ioi.ai UI consumes the orchestration
+through `packages/ioi-ai-orchestration` over the seam and the S2 handle, never
+through a daemon room route. The daemon session the ioi.ai portal exchange mints
+reaches exactly the primitives the composition drives — `/v1/threads`, a thread
+and its subagents, the Systems projection and the record seam under a System —
+and none of a System's own genesis, activation or transition routes.
+
 ## OutcomeRoomEnvelope
+
+**Retiring (R-172 slices S4c-1 and S4c-2).** This envelope and the hosted-v2
+room routes that serve it are migration input: its successor is
+`OrchestrationEnvelope` above, recorded through the generic seam, and the
+ioi.ai web application no longer calls the room routes. The shape below stays
+registered for retained chains until the routes are deleted with
+`outcome_room_routes.rs`.
 
 `OutcomeRoomEnvelope` is the shared collaborative-pursuit profile above one or
 more GoalRuns. It binds a durable objective to a work frontier, participants,

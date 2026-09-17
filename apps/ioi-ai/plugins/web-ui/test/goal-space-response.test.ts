@@ -6,15 +6,17 @@ import {
   isCanonicalWorkResultRef,
   validateActivationResponse,
   validateAdmittedActivationResponse,
-  validateCollaborativeWorkGraph,
   validateGoalRun,
   validateGoalRunCreate,
   validateGoalRunList,
   validateGoalRunReconcile,
   validateGoalRunStart,
-  validateOutcomeRoomCreate,
-  validateOutcomeRoomList,
-  validateOutcomeRoomMembership,
+  validateOrchestrationCompose,
+  validateOrchestrationDetail,
+  validateOrchestrationGraph,
+  validateOrchestrationList,
+  validateOrchestrationMembership,
+  validateOrchestrationReplay,
 } from "../src/goal-space-response.ts";
 
 function goalRun(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -28,6 +30,40 @@ function goalRun(overrides: Record<string, unknown> = {}): Record<string, unknow
   };
 }
 
+const HEAD = `sha256:${"1".repeat(64)}`;
+const NEXT_HEAD = `sha256:${"2".repeat(64)}`;
+const SYSTEM = "system://estate/one";
+
+function orchestration(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    schema_version: "ioi.applications.ioi-ai.orchestration.v1",
+    orchestration_id: "orchestration://orc_456",
+    orchestration_ref: "app-scope://ioi-ai/orchestration/orc_456",
+    system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1",
+      system_id: SYSTEM,
+      parent_scope_ref: "app-scope://ioi-ai/orchestration/orc_456",
+      proposed_or_issued_by_ref: "user://alice",
+      payload_root: `sha256:${"a".repeat(64)}`,
+      created_at: "2026-09-17T12:00:00Z",
+      updated_at: null,
+    },
+    owner_ref: "org://local",
+    composed_by_ref: "user://alice",
+    thread_ref: "thread://thread_1",
+    objective: "Coordinate one bounded outcome",
+    objective_ref: "goal://gr_123",
+    mode: "private_goal",
+    coordination_topology: "hosted_admission",
+    member_goal_run_refs: [],
+    composed_at: "2026-09-17T12:00:00Z",
+    status: "open",
+    ...overrides,
+  };
+}
+
+const admission = { receipt_ref: "receipt://event-stream/system-records/1", operation_ref: "agentgres://event-stream/1" };
+
 function activation(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     ok: true,
@@ -40,18 +76,40 @@ function activation(overrides: Record<string, unknown> = {}): Record<string, unk
   };
 }
 
-test("GoalRun and OutcomeRoom list emptiness is accepted only through a valid canonical envelope", () => {
+test("GoalRun and orchestration list emptiness is accepted only through a valid canonical envelope", () => {
   assert.deepEqual(validateGoalRunList({ ok: true, goal_runs: [] }), []);
   assert.deepEqual(
-    validateOutcomeRoomList({
-      schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
-      outcome_rooms: [],
+    validateOrchestrationList({
+      ok: true,
+      schema_version: "ioi.applications.ioi-ai.orchestration.v1",
+      systems: [],
+      orchestrations: [],
+      unavailable: [],
     }),
-    [],
+    { orchestrations: [], unavailable: [] },
   );
+  const listed = validateOrchestrationList({
+    ok: true,
+    schema_version: "ioi.applications.ioi-ai.orchestration.v1",
+    systems: [{ system_id: SYSTEM, count: 1 }],
+    orchestrations: [{ system_id: SYSTEM, orchestration: orchestration(), head: HEAD, revisions: 1 }],
+    unavailable: [{ system_id: "system://estate/two", status: 403, error: { error: { code: "request_resource_scope_required" } } }],
+  });
+  assert.equal(listed.orchestrations[0]?.head, HEAD);
+  assert.equal(listed.unavailable[0]?.status, 403);
   assert.throws(() => validateGoalRunList({ ok: true }), GoalSpaceResponseContractError);
   assert.throws(() => validateGoalRunList({ ok: true, goal_runs: {} }), GoalSpaceResponseContractError);
-  assert.throws(() => validateOutcomeRoomList({ outcome_rooms: [] }), GoalSpaceResponseContractError);
+  assert.throws(() => validateOrchestrationList({ orchestrations: [] }), GoalSpaceResponseContractError);
+  assert.throws(
+    () =>
+      validateOrchestrationList({
+        ok: true,
+        schema_version: "ioi.applications.ioi-ai.orchestration.v1",
+        orchestrations: [{ system_id: SYSTEM, orchestration: orchestration(), head: "latest", revisions: 1 }],
+        unavailable: [],
+      }),
+    GoalSpaceResponseContractError,
+  );
 });
 
 test("GoalRun response validation rejects malformed ids, arrays, and reference tails", () => {
@@ -108,73 +166,136 @@ test("GoalRun lifecycle success accepts only owner-shaped start and reconciliati
   );
 });
 
-test("OutcomeRoom mutations require Agentgres receipt evidence and reciprocal GoalRun truth", () => {
-  const room = {
-    schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
-    outcome_room_id: "outcome-room://or_123",
-    status: "open",
-    member_goal_run_refs: [],
-  };
-  const admission = { receipt_ref: "receipt://agentgres/room/1", operation_ref: "agentgres://room/operation/1" };
+test("orchestration composition and membership require the seam's admission evidence and the exact head", () => {
+  const composed = validateOrchestrationCompose({
+    ok: true,
+    system_id: SYSTEM,
+    orchestration: orchestration(),
+    head: HEAD,
+    thread_id: "thread_1",
+    replayed: false,
+    admission,
+  });
+  assert.equal(composed.orchestration.orchestration_id, "orchestration://orc_456");
+  assert.equal(composed.head, HEAD);
+  assert.equal(composed.admission?.receipt_ref, admission.receipt_ref);
   assert.equal(
-    validateOutcomeRoomCreate({ outcome_room: room, agentgres_admission: admission, replayed: false }).outcome_room_id,
-    "outcome-room://or_123",
+    validateOrchestrationCompose({ ok: true, system_id: SYSTEM, orchestration: orchestration(), head: HEAD, thread_id: "thread_1", replayed: true })
+      .admission,
+    null,
   );
   assert.throws(
-    () => validateOutcomeRoomCreate({ outcome_room: room, replayed: false }),
-    GoalSpaceResponseContractError,
-  );
-  assert.equal(
-    validateOutcomeRoomMembership(
-      {
-        outcome_room: { ...room, member_goal_run_refs: ["goal://gr_123"] },
-        goal_run: goalRun({ outcome_room_ref: "outcome-room://or_123" }),
-        agentgres_admission: admission,
-        membership_transition: "attach",
-      },
-      "or_123",
-      "gr_123",
-      "attach",
-    ).run.outcome_room_ref,
-    "outcome-room://or_123",
-  );
-  assert.throws(
-    () =>
-      validateOutcomeRoomMembership(
-        {
-          outcome_room: room,
-          goal_run: goalRun({ outcome_room_ref: null }),
-          agentgres_admission: admission,
-          membership_transition: "attach",
-        },
-        "or_123",
-        "gr_123",
-        "attach",
-      ),
+    () => validateOrchestrationCompose({ ok: true, system_id: SYSTEM, orchestration: orchestration(), head: HEAD, thread_id: "thread_1", replayed: false }),
     GoalSpaceResponseContractError,
   );
   assert.throws(
     () =>
-      validateOutcomeRoomMembership(
-        {
-          outcome_room: room,
-          goal_run: goalRun({ outcome_room_ref: "outcome-room://or_123" }),
-          agentgres_admission: admission,
-          membership_transition: "attach",
-        },
-        "or_123",
-        "gr_123",
-        "attach",
-      ),
-    GoalSpaceResponseContractError,
-  );
-  assert.throws(
-    () =>
-      validateOutcomeRoomCreate({
-        outcome_room: room,
-        agentgres_admission: { ...admission, operation_ref: "operation-without-agentgres-scheme" },
+      validateOrchestrationCompose({
+        ok: true,
+        system_id: SYSTEM,
+        orchestration: orchestration({ member_goal_run_refs: ["goal://gr_123"] }),
+        head: HEAD,
+        thread_id: "thread_1",
         replayed: false,
+        admission,
       }),
+    GoalSpaceResponseContractError,
+  );
+  assert.throws(
+    () =>
+      validateOrchestrationCompose({
+        ok: true,
+        system_id: SYSTEM,
+        orchestration: orchestration({ thread_ref: "thread://thread_other" }),
+        head: HEAD,
+        thread_id: "thread_1",
+        replayed: false,
+        admission,
+      }),
+    GoalSpaceResponseContractError,
+  );
+  assert.throws(
+    () =>
+      validateOrchestrationCompose({
+        ok: true,
+        system_id: SYSTEM,
+        orchestration: orchestration({ orchestration_ref: "app-scope://ioi-ai/orchestration/orc_other" }),
+        head: HEAD,
+        thread_id: "thread_1",
+        replayed: false,
+        admission,
+      }),
+    GoalSpaceResponseContractError,
+  );
+  const detail = validateOrchestrationDetail(
+    { ok: true, system_id: SYSTEM, orchestration: orchestration(), head: HEAD, revisions: 1, thread_id: "thread_1" },
+    "orc_456",
+  );
+  assert.equal(detail.thread_id, "thread_1");
+  assert.throws(
+    () =>
+      validateOrchestrationDetail(
+        { ok: true, system_id: SYSTEM, orchestration: orchestration(), head: HEAD, revisions: 1, thread_id: "thread_1" },
+        "orc_999",
+      ),
+    GoalSpaceResponseContractError,
+  );
+  const attached = validateOrchestrationMembership(
+    {
+      ok: true,
+      system_id: SYSTEM,
+      membership_transition: "attach",
+      orchestration: orchestration({ member_goal_run_refs: ["goal://gr_123"] }),
+      head: NEXT_HEAD,
+      admission,
+    },
+    "orc_456",
+    "gr_123",
+    "attach",
+  );
+  assert.equal(attached.head, NEXT_HEAD);
+  assert.throws(
+    () =>
+      validateOrchestrationMembership(
+        { ok: true, system_id: SYSTEM, membership_transition: "attach", orchestration: orchestration(), head: NEXT_HEAD, admission },
+        "orc_456",
+        "gr_123",
+        "attach",
+      ),
+    GoalSpaceResponseContractError,
+  );
+  assert.throws(
+    () =>
+      validateOrchestrationMembership(
+        {
+          ok: true,
+          system_id: SYSTEM,
+          membership_transition: "detach",
+          orchestration: orchestration({ member_goal_run_refs: ["goal://gr_123"] }),
+          head: NEXT_HEAD,
+          admission,
+        },
+        "orc_456",
+        "gr_123",
+        "detach",
+      ),
+    GoalSpaceResponseContractError,
+  );
+  assert.throws(
+    () =>
+      validateOrchestrationMembership(
+        {
+          ok: true,
+          system_id: SYSTEM,
+          membership_transition: "attach",
+          orchestration: orchestration({ member_goal_run_refs: ["goal://gr_123"] }),
+          head: NEXT_HEAD,
+          admission: { ...admission, operation_ref: "operation-without-agentgres-scheme" },
+        },
+        "orc_456",
+        "gr_123",
+        "attach",
+      ),
     GoalSpaceResponseContractError,
   );
 });
@@ -222,32 +343,60 @@ test("activation review validation distinguishes retained drafts from fully rece
   );
 });
 
-test("projection validation rejects an object-shaped false projection and accepts the complete empty graph", () => {
-  assert.throws(() => validateCollaborativeWorkGraph({}, "or_123"), GoalSpaceResponseContractError);
+test("graph and replay validation accept the composed projection and reject a false or unrooted one", () => {
+  assert.throws(() => validateOrchestrationGraph({}, "orc_456"), GoalSpaceResponseContractError);
   const graph = {
-    schema_version: "ioi.applications.ioi-ai.collaborative-work-graph.v1",
-    outcome_room_ref: "outcome-room://or_123",
-    member_goal_run_refs: [],
-    participant_refs: [],
-    frontier_item_refs: [],
-    work_claim_refs: [],
-    attempt_refs: [],
-    finding_refs: [],
-    verifier_challenge_refs: [],
-    work_result_refs: [],
-    outcome_delta_refs: [],
-    source_admission_receipt_refs: [],
-    information_flow_label_refs: [],
+    system_id: SYSTEM,
+    scope_ref: "app-scope://ioi-ai/orchestration/orc_456",
+    root: "thread:thread_1",
+    nodes: [
+      { id: `system:${SYSTEM}`, kind: "system", ref: SYSTEM, owner: "system-genesis", detail: {} },
+      { id: "thread:thread_1", kind: "thread", ref: "thread_1", owner: "thread-kernel", detail: { status: "active" } },
+      {
+        id: "record:r",
+        kind: "record",
+        ref: "r",
+        owner: "system-record-seam",
+        detail: { parent_scope_ref: "app-scope://ioi-ai/orchestration/orc_456" },
+      },
+    ],
+    edges: [
+      { from: `system:${SYSTEM}`, to: "thread:thread_1", kind: "coordinates" },
+      { from: "thread:thread_1", to: "record:r", kind: "records" },
+    ],
+    nonclaim: "This graph mints no object and grants no authority.",
   };
-  assert.equal(
-    validateCollaborativeWorkGraph({ collaborative_work_graph: graph }, "or_123").outcome_room_ref,
-    "outcome-room://or_123",
+  assert.equal(validateOrchestrationGraph({ ok: true, graph }, "orc_456").root, "thread:thread_1");
+  assert.throws(() => validateOrchestrationGraph({ ok: true, graph }, "orc_999"), GoalSpaceResponseContractError);
+  assert.throws(
+    () => validateOrchestrationGraph({ ok: true, graph: { ...graph, root: "thread:thread_missing" } }, "orc_456"),
+    GoalSpaceResponseContractError,
   );
   assert.throws(
+    () => validateOrchestrationGraph({ ok: true, graph: { ...graph, edges: [{ from: "thread:thread_1", to: "record:absent", kind: "records" }] } }, "orc_456"),
+    GoalSpaceResponseContractError,
+  );
+  assert.throws(
+    () => validateOrchestrationGraph({ ok: true, graph: { ...graph, nonclaim: "the composition owns these" } }, "orc_456"),
+    GoalSpaceResponseContractError,
+  );
+  const replay = validateOrchestrationReplay(
+    {
+      ok: true,
+      system_id: SYSTEM,
+      orchestration_id: "orchestration://orc_456",
+      head: NEXT_HEAD,
+      revisions: [orchestration(), orchestration({ member_goal_run_refs: ["goal://gr_123"] })],
+      admissions: [admission, { ...admission, receipt_ref: "receipt://event-stream/system-records/2" }],
+    },
+    "orc_456",
+  );
+  assert.equal(replay.revisions.length, 2);
+  assert.throws(
     () =>
-      validateCollaborativeWorkGraph(
-        { collaborative_work_graph: { ...graph, source_admission_receipt_refs: ["receipt://"] } },
-        "or_123",
+      validateOrchestrationReplay(
+        { ok: true, orchestration_id: "orchestration://orc_456", head: NEXT_HEAD, revisions: [orchestration()], admissions: [] },
+        "orc_456",
       ),
     GoalSpaceResponseContractError,
   );

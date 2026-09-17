@@ -81,18 +81,18 @@ test("a cron is addressed by /crons/<id>", () => {
   });
 });
 
-test("GoalRuns and OutcomeRooms use their canonical application paths", () => {
+test("GoalRuns and orchestrations use their canonical application paths", () => {
   assert.equal(deepLinkPath("", "goals", null, null, "gr_123"), "/goals/gr_123");
-  assert.equal(deepLinkPath("", "goals", null, null, "room:or_456"), "/rooms/or_456");
+  assert.equal(deepLinkPath("", "goals", null, null, "orchestration:orc_456"), "/orchestrations/orc_456");
   assert.deepEqual(parseDeepLink("", "/goals/gr_123", ""), {
     view: "goals",
     session: null,
     item: "gr_123",
   });
-  assert.deepEqual(parseDeepLink("", "/rooms/or_456", ""), {
+  assert.deepEqual(parseDeepLink("", "/orchestrations/orc_456", "?system=system%3A%2F%2Festate%2Fone"), {
     view: "goals",
     session: null,
-    item: "room:or_456",
+    item: "orchestration:orc_456",
   });
 });
 

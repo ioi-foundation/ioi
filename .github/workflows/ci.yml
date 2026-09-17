@@ -957,6 +957,7 @@ jobs:
           - verifier_id: aiip-portable-exit
           - verifier_id: aiip-binding-replaceability
           - verifier_id: work-objects-composition
+          - verifier_id: orchestration-records
     # Each matrix entry gets a separate runner and 120-minute interim hang
     # ceiling. This is not a performance threshold or accepted runtime doctrine.
     timeout-minutes: 120
@@ -1126,6 +1127,34 @@ jobs:
       - name: Drill the collaboration gate's own oracles
         if: matrix.verifier_id == 'aiip-collaboration-discovery'
         run: npm run mutate:aiip-collaboration-discovery --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the orchestration-records verifier drives
+        if: matrix.verifier_id == 'orchestration-records'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi/ioi-ai-orchestration
+
+      # R-185 / R-172 S4c-1 — the ioi.ai application's orchestrations RECORDED under a bounded System:
+      # the coordinating thread first, then the one typed record (orchestration/v1, the successor of
+      # OutcomeRoom v2) admitted through the System-record seam with the binding derived and the
+      # composition scope derived from the id (a record naming another scope refused by the
+      # registered invariant); the seam's list; re-attach from the record; GoalRun attach/detach and
+      # status as revisions on the exact head with the stale head refused by the seam by name; the
+      # graph from the primitives' reads scoped to the orchestration; restart; and the portal session
+      # the ioi.ai web application runs under reaching exactly the composition's primitives and no
+      # other daemon route.
+      - name: Verify the orchestrations recorded under a System and the portal session they run under (R-185, S4c-1)
+        if: matrix.verifier_id == 'orchestration-records'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:orchestration-records --workspace=@ioi/hypervisor-app
+
+      - name: Drill the orchestration-records gate's own oracles
+        if: matrix.verifier_id == 'orchestration-records'
+        run: npm run mutate:orchestration-records --workspace=@ioi/hypervisor-app
 
       - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the portable-exit verifier drives
         if: matrix.verifier_id == 'aiip-portable-exit'

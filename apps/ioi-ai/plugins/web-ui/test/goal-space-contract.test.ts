@@ -6,24 +6,29 @@ import {
   goalSpaceTabForKey,
   goalRunId,
   kernelOwnerBindings,
-  outcomeRoomId,
+  orchestrationId,
+  orchestrationTitle,
   requiredKernelBindingsComplete,
 } from "../src/goal-space-contract.ts";
 
 test("Goal Space tabs implement the horizontal and vertical keyboard patterns", () => {
-  assert.equal(goalSpaceTabForKey("goals", "ArrowRight"), "rooms");
-  assert.equal(goalSpaceTabForKey("rooms", "ArrowLeft"), "goals");
-  assert.equal(goalSpaceTabForKey("goals", "End"), "rooms");
-  assert.equal(goalSpaceTabForKey("rooms", "Home"), "goals");
+  assert.equal(goalSpaceTabForKey("goals", "ArrowRight"), "orchestrations");
+  assert.equal(goalSpaceTabForKey("orchestrations", "ArrowLeft"), "goals");
+  assert.equal(goalSpaceTabForKey("goals", "End"), "orchestrations");
+  assert.equal(goalSpaceTabForKey("orchestrations", "Home"), "goals");
   assert.equal(goalSpaceTabForKey("goals", "Enter"), null);
 });
 
 test("canonical ids are accepted from refs while cross-family and malformed ids refuse", () => {
   assert.equal(goalRunId({ goal_ref: "goal://gr_123" }), "gr_123");
-  assert.equal(outcomeRoomId({ outcome_room_id: "outcome-room://or_456" }), "or_456");
+  assert.equal(orchestrationId({ orchestration_id: "orchestration://orc_456" }), "orc_456");
+  assert.equal(orchestrationId({ orchestration_id: "outcome-room://or_456" }), null);
+  assert.equal(orchestrationId({ orchestration_ref: "app-scope://ioi-ai/orchestration/orc_456" }), null);
   assert.equal(activationId({ activation_id: "goal-run-activation://gra_789" }), "gra_789");
-  assert.equal(goalRunId({ goal_ref: "outcome-room://or_456" }), null);
+  assert.equal(goalRunId({ goal_ref: "orchestration://orc_456" }), null);
   assert.equal(goalRunId({ goal_ref: "goal://gr_bad/path" }), null);
+  assert.equal(orchestrationTitle({ objective: "Coordinate", orchestration_id: "orchestration://orc_1" }), "Coordinate");
+  assert.equal(orchestrationTitle({ orchestration_id: "orchestration://orc_1" }), "orchestration://orc_1");
 });
 
 test("execution readiness requires exact canonical owner fields and ignores legacy local session summaries", () => {

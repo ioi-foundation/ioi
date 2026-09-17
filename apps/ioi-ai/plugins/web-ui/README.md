@@ -26,16 +26,28 @@ Core binds run reads and signals to the portal-verified actor;
 no run bearer is exposed to browser code or placed in a URL. The active-run resume index
 (`/api/runs/active`) is per-process best-effort with a durable core fallback for personal threads.
 
-GoalRun and OutcomeRoom requests cross a separate production trust boundary. The BFF validates the
+GoalRun and orchestration requests cross a separate production trust boundary. The BFF validates the
 portal identity, mints a 10–60 second HMAC assertion for one configured issuer, daemon audience,
 principal, and tenant, and sends it to
 `POST /v1/hypervisor/auth/portal-session-exchange`. The daemon consumes the JTI durably, resolves
 the principal and current tenant membership from daemon-owned records, and returns a five-minute
 hash-at-rest session. That session stays in bounded server memory and is never set as a browser
-cookie or relayed in an API response. The daemon session itself is restricted to
-`/v1/goal-orchestration/*` plus introspection and logout; it is not a general Hypervisor login. In
-production, missing exchange configuration is a fail-closed
-503; browser-supplied `ioi_session` cookies and daemon bearer tokens are not a fallback.
+cookie or relayed in an API response. The daemon session itself is scoped to `/v1/goal-orchestration/*`,
+introspection and logout, plus exactly the thread orchestration primitives the goal space's
+orchestrations are composed from: `POST /v1/threads`, a thread and its subagents, the Systems
+projection, and the System-record seam under a System. It reaches none of a System's genesis,
+activation or transition routes and is not a general Hypervisor login. In production, missing
+exchange configuration is a fail-closed 503; browser-supplied `ioi_session` cookies and daemon
+bearer tokens are not a fallback.
+
+Orchestrations are not proxied daemon routes. `/api/ioi/orchestrations/*` runs the ioi.ai
+composition in `packages/ioi-ai-orchestration` over the agent SDK's substrate client, built for one
+request on the verified daemon authority: composing creates the coordinating thread and admits the
+orchestration record through the System-record seam; listing, opening, the graph, replay and
+delegations are reads of that record's chain and of the kernel's thread; attaching a GoalRun or
+changing the status is a revision of the record on the exact head the client loaded. Both packages
+must be built first (`npm run build --workspace=@ioi/agent-sdk` and
+`npm run build --workspace=@ioi/ioi-ai-orchestration` from the repository root).
 
 Set the same four `IOI_PORTAL_DAEMON_EXCHANGE_*` trust values on this BFF and the daemon. The secret
 must be a random value of at least 32 bytes; issuer, audience, and the canonical `org://` or
@@ -53,10 +65,10 @@ npm start
 ### Opt-in real-daemon smoke
 
 `npm run smoke:browser` proves the seeded UI journeys against a strict contract fake. It is not
-real-daemon evidence. The separate `npm run smoke:real-daemon` lane sends GoalRun and OutcomeRoom
+real-daemon evidence. The separate `npm run smoke:real-daemon` lane sends GoalRun and orchestration
 read-only requests through this plugin's identity-binding BFF and validates their canonical
-response contracts. It never creates, starts, reconciles, attaches, detaches, or transitions one
-of those records.
+response contracts. It never creates, starts, reconciles, composes, attaches, detaches, or
+transitions one of those records.
 
 Use an already-running daemon with its expected principal and exactly one real credential:
 
@@ -78,13 +90,13 @@ IOI_AI_REAL_DAEMON_BINARY=../../../../target/debug/hypervisor-daemon npm run smo
 
 An existing loopback daemon with intentionally unenforced local identity may be checked only when
 `IOI_AI_REAL_ALLOW_LOOPBACK_TRUST=1` is set explicitly. Remote HTTP is refused. Optional
-`IOI_AI_REAL_GOAL_RUN_ID`, `IOI_AI_REAL_OUTCOME_ROOM_ID`, and
+`IOI_AI_REAL_GOAL_RUN_ID`, `IOI_AI_REAL_ORCHESTRATION_ID` (with `IOI_AI_REAL_SYSTEM_ID`), and
 `IOI_AI_REAL_ACTIVATION_ID` select detail projections; otherwise the first visible GoalRun and
-OutcomeRoom are used when present. The sanitized report is written to
+orchestration are used when present. The sanitized report is written to
 `.artifacts/implementation/ioi-ai-real-daemon-smoke/report.json` at the repository root. It also
 records the daemon's mechanically derived `/v1` capability index and fails unless every route and
-method used by the GoalRun, activation, OutcomeRoom membership, lifecycle, and projection journeys
-is compiled into that binary.
+method used by the GoalRun, activation, and orchestration journeys — the thread routes, the Systems
+projection and the System-record seam the composition drives — is compiled into that binary.
 
 Dev (HMR): run `npm run serve` in one terminal and `npm run dev` in another — Vite serves
 the front-end on :5173 and proxies `/signin`, `/me`, `/api/*` to the node server.

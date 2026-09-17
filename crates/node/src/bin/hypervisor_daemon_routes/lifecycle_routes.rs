@@ -19641,7 +19641,8 @@ pub(crate) fn session_allows_route(data_dir: &str, headers: &HeaderMap, path: &s
         return true;
     };
     let has_scope = session.get("allowed_route_prefixes").is_some()
-        || session.get("allowed_exact_routes").is_some();
+        || session.get("allowed_exact_routes").is_some()
+        || session.get("allowed_route_patterns").is_some();
     if !has_scope {
         return true;
     }
@@ -19651,11 +19652,39 @@ pub(crate) fn session_allows_route(data_dir: &str, headers: &HeaderMap, path: &s
     let Some(exact) = session["allowed_exact_routes"].as_array() else {
         return false;
     };
+    // Patterns are optional on a scoped session (sessions minted before they existed carry
+    // none); a member that is present but not an array fails closed like the other two.
+    let patterns: Vec<&str> = match session.get("allowed_route_patterns") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(items)) => items.iter().filter_map(Value::as_str).collect(),
+        Some(_) => return false,
+    };
     exact.iter().any(|route| route.as_str() == Some(path))
         || prefixes
             .iter()
             .filter_map(Value::as_str)
             .any(|prefix| path.starts_with(prefix))
+        || patterns
+            .iter()
+            .any(|pattern| route_pattern_matches(pattern, path))
+}
+
+/// A route pattern is a path whose `*` segments each match exactly one non-empty path segment:
+/// `/v1/threads/*/subagents` admits `/v1/threads/thread_1/subagents` and nothing shallower or
+/// deeper. No other wildcard exists, so a pattern cannot widen into a prefix by accident — the
+/// scoped session that names `/v1/hypervisor/autonomous-systems/*/records` reaches the record
+/// seam under a System and never that System's genesis, activation or transition routes.
+pub(crate) fn route_pattern_matches(pattern: &str, path: &str) -> bool {
+    let wanted: Vec<&str> = pattern.split('/').collect();
+    let present: Vec<&str> = path.split('/').collect();
+    wanted.len() == present.len()
+        && wanted.iter().zip(present.iter()).all(|(want, have)| {
+            if *want == "*" {
+                !have.is_empty()
+            } else {
+                want == have
+            }
+        })
 }
 
 /// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
@@ -21108,9 +21137,23 @@ pub(crate) fn issue_portal_exchange_session(
                 .map(Value::String)
                 .unwrap_or(Value::Null),
             "allowed_route_prefixes": ["/v1/goal-orchestration/"],
+            // R-185 (S4c-1): the ioi.ai application consumes its orchestrations as a COMPOSITION
+            // over thread orchestration primitives — the coordinating thread, its subagents and
+            // the System-record seam — so the portal session that used to reach only the hosted
+            // room routes now reaches exactly those primitives. Exact and per-segment patterns,
+            // never a prefix: `/v1/hypervisor/autonomous-systems/*/records` is the seam under a
+            // System, and the System's own genesis, activation and transition routes stay out.
             "allowed_exact_routes": [
                 "/v1/hypervisor/auth/whoami",
-                "/v1/hypervisor/auth/logout"
+                "/v1/hypervisor/auth/logout",
+                "/v1/threads",
+                "/v1/hypervisor/autonomous-systems/projection"
+            ],
+            "allowed_route_patterns": [
+                "/v1/threads/*",
+                "/v1/threads/*/subagents",
+                "/v1/hypervisor/autonomous-systems/*/records",
+                "/v1/hypervisor/autonomous-systems/*/records/*/*"
             ],
         })),
     )

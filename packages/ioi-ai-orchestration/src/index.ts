@@ -63,4 +63,38 @@ export {
   verifyFrozenCoordinates,
 } from "./work.js";
 export type { Actor, ClaimDraft, FrozenCoordinate } from "./work.js";
+export {
+  GOVERNANCE_LIST_REFS,
+  GOVERNANCE_NULLABLE_REFS,
+  GOVERNANCE_SCALAR_REFS,
+  ORCHESTRATION_CONTRACT,
+  ORCHESTRATION_ID_PREFIX,
+  ORCHESTRATION_MEMBER_BOUND,
+  ORCHESTRATION_MODES,
+  ORCHESTRATION_SCHEMA_VERSION,
+  ORCHESTRATION_SCOPE_PREFIX,
+  ORCHESTRATION_STATUSES,
+  OrchestrationRefusal,
+  Orchestrations,
+  mintOrchestrationIdTail,
+  orchestrationId,
+  orchestrationIdTail,
+  orchestrationScope,
+  threadIdOf,
+} from "./orchestrations.js";
+export type {
+  AdmittedOrchestration,
+  MembershipTransition,
+  OpenedOrchestration,
+  OrchestrationDraft,
+  OrchestrationEntry,
+  OrchestrationGovernance,
+  OrchestrationMode,
+  OrchestrationRecord,
+  OrchestrationStatus,
+  OrchestrationTopology,
+  OrchestrationsOptions,
+  OrchestrationsScope,
+  RevisedOrchestration,
+} from "./orchestrations.js";
 

@@ -373,6 +373,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", "sha256:246178377ca60c7d74cf072dbd456403bf3be7c2dac13b5569fc879b60d648d6"),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", "sha256:4f180dec8f4e5a6280ec6f83fda7ec5d80a6ce6a10432a58f3b969eac2a54ad2"),
     ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", "sha256:e83849fc04673f4731ab603c5c8a75322c3a702051eba31fd8f65876f6290b82"),
+    ("schema://ioi/applications/ioi-ai/orchestration/v1", "sha256:7cf31ecade85abb3dc84ffd51e647b1e2e32416e1a263e12ffb3e53cced1d851"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -158074,6 +158075,404 @@ pub enum OrchestrationDiscoveryV1Status {
     Revoked,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationV1 {
+    pub schema_version: OrchestrationV1SchemaVersion,
+    pub orchestration_id: String,
+    pub orchestration_ref: String,
+    pub system_binding: OrchestrationV1SystemBinding,
+    pub owner_ref: String,
+    pub composed_by_ref: String,
+    pub thread_ref: String,
+    pub objective: String,
+    pub objective_ref: Option<String>,
+    pub mode: OrchestrationV1Mode,
+    pub coordination_topology: OrchestrationV1CoordinationTopology,
+    pub constraint_refs: Vec<String>,
+    pub acceptance_criteria_refs: Vec<String>,
+    pub stop_policy_ref: String,
+    pub visibility_policy_ref: String,
+    pub participation_policy_ref: String,
+    pub privacy_policy_ref: String,
+    pub contribution_policy_ref: String,
+    pub cooperation_surplus_policy_ref: String,
+    pub collaboration_terms_refs: Vec<String>,
+    pub artifact_license_rights_retention_and_export_policy_refs: Vec<String>,
+    pub coordination_policy_ref: String,
+    pub ordering_and_merge_policy_ref: String,
+    pub conflict_and_failover_policy_ref: String,
+    pub ontology_profile_refs: Vec<String>,
+    pub scorecard_and_guardrail_refs: Vec<String>,
+    pub verifier_path_refs: Vec<String>,
+    pub resource_and_budget_refs: Vec<String>,
+    pub settlement_policy_ref: Option<String>,
+    pub multi_party_collaboration_ref: Option<String>,
+    pub member_goal_run_refs: Vec<String>,
+    pub composed_at: String,
+    pub status: OrchestrationV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration/v1","title":"Orchestration","description":"An orchestration the ioi.ai application composed from thread orchestration primitives, recorded under its bounded System through the System-record seam: the coordinating thread it is rooted at, the objective, the mode and the governance refs the application declared, and the GoalRuns attached to it (R-172 slice S4c, register R-185; successor of OutcomeRoom v2). The record is the S2 orchestration handle made durable — the platform composes nothing from it and mints nothing for it.","type":"object","additionalProperties":false,"required":["schema_version","orchestration_id","orchestration_ref","system_binding","owner_ref","composed_by_ref","thread_ref","objective","objective_ref","mode","coordination_topology","constraint_refs","acceptance_criteria_refs","stop_policy_ref","visibility_policy_ref","participation_policy_ref","privacy_policy_ref","contribution_policy_ref","cooperation_surplus_policy_ref","collaboration_terms_refs","artifact_license_rights_retention_and_export_policy_refs","coordination_policy_ref","ordering_and_merge_policy_ref","conflict_and_failover_policy_ref","ontology_profile_refs","scorecard_and_guardrail_refs","verifier_path_refs","resource_and_budget_refs","settlement_policy_ref","multi_party_collaboration_ref","member_goal_run_refs","composed_at","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration.v1"},"orchestration_id":{"type":"string","pattern":"^orchestration://orc_[A-Za-z0-9_-]{1,160}$","description":"The record's own identity; the object id the seam admits it under."},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$","description":"The composition's scope: the parent scope every record of this orchestration is admitted under, and the seam derives into system_binding.parent_scope_ref. Its tail is the orchestration id's tail."},"system_binding":{"$ref":"#/$defs/systemBinding"},"owner_ref":{"type":"string","pattern":"^(?:org|project|user|domain|service|system)://[^\\s]{1,500}$","description":"The owner scope the seam chains this orchestration's records under (the resolved tenant, else the resolved principal)."},"composed_by_ref":{"type":"string","pattern":"^(?:user|service|system|domain)://[^\\s]{1,500}$"},"thread_ref":{"type":"string","pattern":"^thread://[A-Za-z0-9_-]{1,200}$","description":"The coordinating thread the kernel serves: the root of the orchestration's graph (ADR 0034)."},"objective":{"type":"string","minLength":1,"maxLength":4096},"objective_ref":{"anyOf":[{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},{"type":"null"}]},"mode":{"enum":["private_goal","permissioned_team","cross_org","open_challenge"]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:constraint|policy|budget)://[^\\s]{1,500}$"}},"acceptance_criteria_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:rubric|gate|policy)://[^\\s]{1,500}$"}},"stop_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"visibility_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"participation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"privacy_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"cooperation_surplus_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"collaboration_terms_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"}},"artifact_license_rights_retention_and_export_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license)://[^\\s]{1,500}$"}},"coordination_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"ordering_and_merge_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"conflict_and_failover_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"ontology_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$"}},"scorecard_and_guardrail_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$"}},"verifier_path_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|verifier_path)://[^\\s]{1,500}$"}},"resource_and_budget_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-pool|resource_pool|budget|goal-budget|order)://[^\\s]{1,500}$"}},"settlement_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"multi_party_collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"member_goal_run_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^goal://gr_[A-Za-z0-9_-]{1,160}$"},"description":"The GoalRuns attached to this orchestration; a revision of this record on its exact head, never a reciprocal write into a GoalRun."},"composed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"status":{"enum":["open","paused","closed"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OrchestrationV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<OrchestrationV1SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            composed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"composed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"composed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            thread_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"thread_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"thread_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective: serde_json::from_value::<String>(
+                object
+                    .remove(r#"objective"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"objective_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mode: serde_json::from_value::<OrchestrationV1Mode>(
+                object
+                    .remove(r#"mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<OrchestrationV1CoordinationTopology>(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constraint_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"constraint_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constraint_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_criteria_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"acceptance_criteria_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"acceptance_criteria_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stop_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stop_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stop_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visibility_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"visibility_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"visibility_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participation_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participation_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participation_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"privacy_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"privacy_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contribution_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"contribution_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contribution_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cooperation_surplus_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cooperation_surplus_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"cooperation_surplus_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"collaboration_terms_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"collaboration_terms_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_license_rights_retention_and_export_policy_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"artifact_license_rights_retention_and_export_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"artifact_license_rights_retention_and_export_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"coordination_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_and_merge_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_and_merge_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ordering_and_merge_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conflict_and_failover_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"conflict_and_failover_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conflict_and_failover_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scorecard_and_guardrail_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"scorecard_and_guardrail_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"scorecard_and_guardrail_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_path_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_path_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_path_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_and_budget_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resource_and_budget_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resource_and_budget_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            settlement_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"settlement_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"settlement_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            multi_party_collaboration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"multi_party_collaboration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"multi_party_collaboration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            member_goal_run_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"member_goal_run_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_goal_run_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            composed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"composed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"composed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OrchestrationV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationV1SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.orchestration.v1"#)]
+    IoiApplicationsIoiAiOrchestrationV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrchestrationV1SystemBinding {
+    pub schema_version: OrchestrationV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrchestrationV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OrchestrationV1SystemBindingSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationV1Mode {
+    #[serde(rename = r#"private_goal"#)]
+    PrivateGoal,
+    #[serde(rename = r#"permissioned_team"#)]
+    PermissionedTeam,
+    #[serde(rename = r#"cross_org"#)]
+    CrossOrg,
+    #[serde(rename = r#"open_challenge"#)]
+    OpenChallenge,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationV1CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrchestrationV1Status {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -171568,6 +171967,54 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/orchestration-discovery/v1",
         path: "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-open-hosted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-closed-with-member.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-scope-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration.scope.matches_binding_parent_scope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("orchestration.scope.names_its_own_id"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -191741,6 +192188,72 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-open-hosted.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-open-hosted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-closed-with-member.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-closed-with-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-scope-mismatch.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-scope-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/orchestration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -193483,6 +193996,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1","title":"AIIPExternalProtocolBindingEnvelope","description":"A versioned binding of an AIIP profile to an external protocol (A2A, MCP, directory, HTTP/RPC, chain/escrow): a TRANSPORT that preserves protocol-version drift and records what does not map. A remote task completion, tool response, registry entry, reputation record or evaluator decision never becomes an IOI verification, acceptance, authority grant, adjudication or settlement state (M11.3, R-176).","type":"object","additionalProperties":false,"required":["schema_version","binding_id","aiip_profile_ref","protocol_kind","protocol_name","protocol_version_or_commitment","specification_ref","identity_mapping_ref","lifecycle_and_status_mapping_ref","message_and_artifact_mapping_ref","error_and_retry_mapping_ref","extension_profile_refs","required_runtime_tool_contract_refs","required_authority_scope_refs","assurance_non_equivalences","conformance_profile_refs","compatibility_range","status"],"properties":{"schema_version":{"const":"ioi.aiip-external-protocol-binding.v1"},"binding_id":{"type":"string","pattern":"^aiip-binding://[^\\s]{1,500}$"},"aiip_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"protocol_kind":{"enum":["native_aiip","a2a","mcp","http_json_rpc","grpc","oasf_directory","erc_8004","erc_8183","other"]},"protocol_name":{"type":"string","minLength":1,"maxLength":200},"protocol_version_or_commitment":{"type":"string","minLength":1,"maxLength":200},"specification_ref":{"type":"string","pattern":"^(?:https://[^\\s]{1,500}|artifact://[^\\s]{1,500}|cid://[^\\s]{1,500})$"},"identity_mapping_ref":{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},"lifecycle_and_status_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"message_and_artifact_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"error_and_retry_mapping_ref":{"anyOf":[{"type":"string","pattern":"^schema://[^\\s]{1,500}$"},{"type":"null"}]},"extension_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_runtime_tool_contract_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_authority_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:scope:[^\\s]{1,200}|policy://[^\\s]{1,500})$"}},"assurance_non_equivalences":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":400},"description":"What this protocol's states do NOT mean in IOI terms — recorded explicitly, never implied. Every non-native binding names at least one."},"conformance_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatibility_range":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["draft","active","deprecated","revoked"]}}}"#),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room-discovery/v1","title":"OutcomeRoomDiscovery","description":"The policy-bound discovery PROJECTION of one OutcomeRoom (canonical owner: docs/architecture/domains/ioi-ai/collaborative-pursuit.md § OutcomeRoomDiscoveryEnvelope). Produced by the room's own plane from the admitted room record under the room's discovery policy — never authored by a caller and never a view of the room database: it carries the public objective, categories, declared requirements, topology, admission owner, the terms it answers to, and nothing private (the six excluded context classes are exact and private_context_included is always false). discovery_state_root commits the publication body; status is the lifecycle outside that root.","type":"object","additionalProperties":false,"required":["schema_version","room_discovery_id","outcome_room_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room-discovery.v1"},"room_discovery_id":{"type":"string","pattern":"^(?:room-discovery)://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^(?:outcome-room)://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"anyOf":[{"type":"string","pattern":"^(?:terms)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration-discovery/v1","title":"OrchestrationDiscovery","description":"A policy-bound discovery projection the ioi.ai application derives from an orchestration's records and its active collaboration terms; refs and public projections only, never database access (R-172 slice S3; successor of OutcomeRoomDiscovery v1).","type":"object","additionalProperties":false,"required":["schema_version","discovery_id","orchestration_ref","system_binding","publication_version","published_by_ref","public_goal_ref","public_objective","public_category_refs","coordination_topology","admission_owner_ref","participation_channel_ref","collaboration_terms_ref","collaboration_terms_root","semantic_and_action_profile_refs","required_capability_and_worker_profile_refs","eligibility_and_affiliation_policy_refs","visibility_and_privacy_policy_refs","public_frontier_and_context_projection_refs","budget_quote_and_capacity_refs","verifier_and_acceptance_posture_refs","settlement_dispute_and_contribution_policy_refs","license_retention_and_export_policy_refs","excluded_context_classes","private_context_included","published_at","updated_at","valid_until","discovery_state_root","signature","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration-discovery.v1"},"discovery_id":{"type":"string","pattern":"^discovery://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The composing application's own scope for the orchestration; equals system_binding.parent_scope_ref."},"system_binding":{"$ref":"#/$defs/systemBinding"},"publication_version":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9][A-Za-z0-9.:_-]{0,127}$"},"published_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service)://[^\\s]{1,500}$"},"public_goal_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"public_objective":{"type":"string","minLength":1,"maxLength":4000},"public_category_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"participation_channel_ref":{"type":"string","pattern":"^aiip://channel/[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"semantic_and_action_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$"}},"required_capability_and_worker_profile_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:capability|worker|package|verifier_path)://[^\\s]{1,500}$"}},"eligibility_and_affiliation_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"visibility_and_privacy_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|privacy_posture|restricted_view)://[^\\s]{1,500}$"}},"public_frontier_and_context_projection_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:projection|frontier|restricted_view|redacted_summary)://[^\\s]{1,500}$"}},"budget_quote_and_capacity_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:goal-budget|order|quote|resource-offer)://[^\\s]{1,500}$"}},"verifier_and_acceptance_posture_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate|policy)://[^\\s]{1,500}$"}},"settlement_dispute_and_contribution_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$"}},"license_retention_and_export_policy_refs":{"type":"array","maxItems":256,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_orchestration_state","non_opted_in_training_trace"]}},"private_context_included":{"const":false},"published_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"valid_until":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"discovery_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"object","additionalProperties":false,"required":["key_suite","signer_ref","signer_public_key","signed_material_hash","signature"],"properties":{"key_suite":{"enum":["ed25519"]},"signer_ref":{"type":"string","pattern":"^(?:system|domain|org|worker|service|wallet|provider)://[^\\s]{1,500}$"},"signer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"signed_material_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"status":{"enum":["draft","discoverable","paused","filled","expired","withdrawn","revoked"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/applications/ioi-ai/orchestration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/orchestration/v1","title":"Orchestration","description":"An orchestration the ioi.ai application composed from thread orchestration primitives, recorded under its bounded System through the System-record seam: the coordinating thread it is rooted at, the objective, the mode and the governance refs the application declared, and the GoalRuns attached to it (R-172 slice S4c, register R-185; successor of OutcomeRoom v2). The record is the S2 orchestration handle made durable — the platform composes nothing from it and mints nothing for it.","type":"object","additionalProperties":false,"required":["schema_version","orchestration_id","orchestration_ref","system_binding","owner_ref","composed_by_ref","thread_ref","objective","objective_ref","mode","coordination_topology","constraint_refs","acceptance_criteria_refs","stop_policy_ref","visibility_policy_ref","participation_policy_ref","privacy_policy_ref","contribution_policy_ref","cooperation_surplus_policy_ref","collaboration_terms_refs","artifact_license_rights_retention_and_export_policy_refs","coordination_policy_ref","ordering_and_merge_policy_ref","conflict_and_failover_policy_ref","ontology_profile_refs","scorecard_and_guardrail_refs","verifier_path_refs","resource_and_budget_refs","settlement_policy_ref","multi_party_collaboration_ref","member_goal_run_refs","composed_at","status"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.orchestration.v1"},"orchestration_id":{"type":"string","pattern":"^orchestration://orc_[A-Za-z0-9_-]{1,160}$","description":"The record's own identity; the object id the seam admits it under."},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$","description":"The composition's scope: the parent scope every record of this orchestration is admitted under, and the seam derives into system_binding.parent_scope_ref. Its tail is the orchestration id's tail."},"system_binding":{"$ref":"#/$defs/systemBinding"},"owner_ref":{"type":"string","pattern":"^(?:org|project|user|domain|service|system)://[^\\s]{1,500}$","description":"The owner scope the seam chains this orchestration's records under (the resolved tenant, else the resolved principal)."},"composed_by_ref":{"type":"string","pattern":"^(?:user|service|system|domain)://[^\\s]{1,500}$"},"thread_ref":{"type":"string","pattern":"^thread://[A-Za-z0-9_-]{1,200}$","description":"The coordinating thread the kernel serves: the root of the orchestration's graph (ADR 0034)."},"objective":{"type":"string","minLength":1,"maxLength":4096},"objective_ref":{"anyOf":[{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},{"type":"null"}]},"mode":{"enum":["private_goal","permissioned_team","cross_org","open_challenge"]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:constraint|policy|budget)://[^\\s]{1,500}$"}},"acceptance_criteria_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:rubric|gate|policy)://[^\\s]{1,500}$"}},"stop_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"visibility_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"participation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"privacy_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"cooperation_surplus_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"collaboration_terms_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"}},"artifact_license_rights_retention_and_export_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license)://[^\\s]{1,500}$"}},"coordination_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"ordering_and_merge_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"conflict_and_failover_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"ontology_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$"}},"scorecard_and_guardrail_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$"}},"verifier_path_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|verifier_path)://[^\\s]{1,500}$"}},"resource_and_budget_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-pool|resource_pool|budget|goal-budget|order)://[^\\s]{1,500}$"}},"settlement_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"multi_party_collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"member_goal_run_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^goal://gr_[A-Za-z0-9_-]{1,160}$"},"description":"The GoalRuns attached to this orchestration; a revision of this record on its exact head, never a reciprocal write into a GoalRun."},"composed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"status":{"enum":["open","paused","closed"]}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -193816,6 +194330,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1", r#"[{"rule_id":"aiip_external_protocol_binding.non_native.records_non_equivalences","description":"A binding to any protocol but native AIIP names at least one assurance non-equivalence: what a remote completion, task state, tool response, registry entry or evaluator decision does NOT mean in IOI terms. A binding that records nothing as non-equivalent is claiming an equivalence the estate never grants.","expression":{"operator":"non_empty_when_in","path":"$.assurance_non_equivalences","when_path":"$.protocol_kind","values":["a2a","mcp","http_json_rpc","grpc","oasf_directory","erc_8004","erc_8183","other"]}},{"rule_id":"aiip_external_protocol_binding.active.declares_lifecycle_mapping","description":"An active binding declares how the protocol's lifecycle and status map (or explicitly that they do not): an active transport with an undeclared status mapping would let a remote state be read as an IOI state by default.","expression":{"operator":"non_empty_when_in","path":"$.lifecycle_and_status_mapping_ref","when_path":"$.status","values":["active"]}}]"#),
     ("schema://ioi/applications/ioi-ai/outcome-room-discovery/v1", r#"[{"rule_id":"outcome_room_discovery.state_root.commits_publication","description":"The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status and updated_at) under its domain; a publication whose root does not recompute is not the plane's projection.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.outcome-room-discovery-state-root-jcs-sha256.v1"},"room_discovery_id":{"path":"$.room_discovery_id"},"outcome_room_ref":{"path":"$.outcome_room_ref"},"system_binding":{"path":"$.system_binding"},"publication_version":{"path":"$.publication_version"},"published_by_ref":{"path":"$.published_by_ref"},"public_goal_ref":{"path":"$.public_goal_ref"},"public_objective":{"path":"$.public_objective"},"public_category_refs":{"path":"$.public_category_refs"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"participation_channel_ref":{"path":"$.participation_channel_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"semantic_and_action_profile_refs":{"path":"$.semantic_and_action_profile_refs"},"required_capability_and_worker_profile_refs":{"path":"$.required_capability_and_worker_profile_refs"},"eligibility_and_affiliation_policy_refs":{"path":"$.eligibility_and_affiliation_policy_refs"},"visibility_and_privacy_policy_refs":{"path":"$.visibility_and_privacy_policy_refs"},"public_frontier_and_context_projection_refs":{"path":"$.public_frontier_and_context_projection_refs"},"budget_quote_and_capacity_refs":{"path":"$.budget_quote_and_capacity_refs"},"verifier_and_acceptance_posture_refs":{"path":"$.verifier_and_acceptance_posture_refs"},"settlement_dispute_and_contribution_policy_refs":{"path":"$.settlement_dispute_and_contribution_policy_refs"},"license_retention_and_export_policy_refs":{"path":"$.license_retention_and_export_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"private_context_included":{"path":"$.private_context_included"},"published_at":{"path":"$.published_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.discovery_state_root","expected_encoding":"sha256_string"}},{"rule_id":"outcome_room_discovery.publication.names_its_objective","description":"A discoverable projection names a public objective and at least one category; discovery is a projection of declared public facts, never an empty advertisement.","expression":{"operator":"non_empty","path":"$.public_objective"}}]"#),
     ("schema://ioi/applications/ioi-ai/orchestration-discovery/v1", r#"[{"rule_id":"orchestration_discovery.state_root.commits_publication","description":"The discovery state root commits the publication body (every member but the root, the signature, the lifecycle status, updated_at and the seam-derived system_binding, whose payload root would otherwise contain this root) under its domain; a publication whose root does not recompute is not the application's projection.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.orchestration-discovery-state-root-jcs-sha256.v1"},"discovery_id":{"path":"$.discovery_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"publication_version":{"path":"$.publication_version"},"published_by_ref":{"path":"$.published_by_ref"},"public_goal_ref":{"path":"$.public_goal_ref"},"public_objective":{"path":"$.public_objective"},"public_category_refs":{"path":"$.public_category_refs"},"coordination_topology":{"path":"$.coordination_topology"},"admission_owner_ref":{"path":"$.admission_owner_ref"},"participation_channel_ref":{"path":"$.participation_channel_ref"},"collaboration_terms_ref":{"path":"$.collaboration_terms_ref"},"collaboration_terms_root":{"path":"$.collaboration_terms_root"},"semantic_and_action_profile_refs":{"path":"$.semantic_and_action_profile_refs"},"required_capability_and_worker_profile_refs":{"path":"$.required_capability_and_worker_profile_refs"},"eligibility_and_affiliation_policy_refs":{"path":"$.eligibility_and_affiliation_policy_refs"},"visibility_and_privacy_policy_refs":{"path":"$.visibility_and_privacy_policy_refs"},"public_frontier_and_context_projection_refs":{"path":"$.public_frontier_and_context_projection_refs"},"budget_quote_and_capacity_refs":{"path":"$.budget_quote_and_capacity_refs"},"verifier_and_acceptance_posture_refs":{"path":"$.verifier_and_acceptance_posture_refs"},"settlement_dispute_and_contribution_policy_refs":{"path":"$.settlement_dispute_and_contribution_policy_refs"},"license_retention_and_export_policy_refs":{"path":"$.license_retention_and_export_policy_refs"},"excluded_context_classes":{"path":"$.excluded_context_classes"},"private_context_included":{"path":"$.private_context_included"},"published_at":{"path":"$.published_at"},"valid_until":{"path":"$.valid_until"}},"expected_path":"$.discovery_state_root","expected_encoding":"sha256_string"}},{"rule_id":"orchestration_discovery.publication.names_its_objective","description":"A publication names the public objective it advertises.","expression":{"operator":"non_empty","path":"$.public_objective"}},{"rule_id":"orchestration_discovery.scope.matches_binding_parent_scope","description":"The orchestration the publication belongs to is exactly the parent scope the seam derived into its binding.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}}]"#),
+    ("schema://ioi/applications/ioi-ai/orchestration/v1", r#"[{"rule_id":"orchestration.scope.matches_binding_parent_scope","description":"The composition scope the record names is exactly the parent scope the seam derived into its binding: every record of this orchestration is admitted under that scope, so the orchestration's own record cannot name another.","expression":{"operator":"fields_equal","paths":["$.orchestration_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"orchestration.scope.names_its_own_id","description":"The composition scope is derived from the orchestration id and nothing else: its tail is the id's tail under the application's scope prefix, so an orchestration cannot be recorded under a scope that belongs to another.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.orchestration_id","delimiter":"://","target_path":"$.orchestration_ref","target_prefix":"app-scope://ioi-ai/orchestration/"}},{"rule_id":"orchestration.objective.named","description":"An orchestration names the objective its coordinating thread was created with.","expression":{"operator":"non_empty","path":"$.objective"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -194473,6 +194988,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:org|project|system|user|ioi)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:org|project|user|domain|service|system)://[^\s]{1,500}$"#,
+        r#"^(?:org|project|user|domain|service|system)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
         r#"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
@@ -194723,6 +195242,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:resource-pool|budget|goal-budget|order)://[^\s]{1,500}$"#,
         r#"^(?:resource-pool|budget|goal-budget|order)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:resource-pool|resource_pool|budget|goal-budget|order)://[^\s]{1,500}$"#,
+        r#"^(?:resource-pool|resource_pool|budget|goal-budget|order)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:resource|runtime|node)://[^\s]{1,500}$"#,
@@ -195005,6 +195528,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:user|org|worker|service|system|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^(?:user|service|system|domain)://[^\s]{1,500}$"#,
+        r#"^(?:user|service|system|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:user|wallet)://\S*$"#,
         r#"^(?:user|wallet)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
@@ -195035,6 +195562,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:verifier-path|verifier-challenge)://[^\s]{1,500}$"#,
         r#"^(?:verifier-path|verifier-challenge)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:verifier-path|verifier_path)://[^\s]{1,500}$"#,
+        r#"^(?:verifier-path|verifier_path)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:verifier-path|worker|gate|receipt)://[^\s]{1,500}$"#,
@@ -195527,6 +196058,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^api://[^\s]{1,248}$"#,
         r#"^api://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$"#,
+        r#"^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$"#,
     ),
     (
         r#"^appraisal://[^\s]{1,248}$"#,
@@ -196270,6 +196805,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^goal://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^goal://gr_[A-Za-z0-9_-]{1,160}$"#,
+        r#"^goal://gr_[A-Za-z0-9_-]{1,160}$"#,
+    ),
+    (
         r#"^grant://[A-Za-z0-9._~:/-]+$"#,
         r#"^grant://[A-Za-z0-9._~:/-]+$"#,
     ),
@@ -196835,6 +197374,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^oracle-evidence-profile://[^\s]{1,500}$"#,
         r#"^oracle-evidence-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^orchestration://orc_[A-Za-z0-9_-]{1,160}$"#,
+        r#"^orchestration://orc_[A-Za-z0-9_-]{1,160}$"#,
     ),
     (
         r#"^ordering-profile://[^\s]{1,248}$"#,
@@ -197665,6 +198208,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^terms://[^\s]{1,500}$"#,
         r#"^terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^thread://[A-Za-z0-9_-]{1,200}$"#,
+        r#"^thread://[A-Za-z0-9_-]{1,200}$"#,
     ),
     (
         r#"^tool://[A-Za-z0-9._~/-]{1,200}$"#,
@@ -200713,6 +201260,12 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-scope-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-private-context-included.json"))),
     ("docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-discovery-v1/negative-excluded-class-missing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-open-hosted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-open-hosted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-closed-with-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-v1/positive-closed-with-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-scope-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -202366,6 +202919,11 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/orchestration-discovery/v1" => {
             serde_json::from_value::<OrchestrationDiscoveryV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/orchestration/v1" => {
+            serde_json::from_value::<OrchestrationV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -204025,6 +204583,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/orchestration/v1" => {
+            let projection = serde_json::from_value::<OrchestrationV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -204161,8 +204724,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1686,
-            "the registered golden corpus must remain the explicit 1686-fixture bar",
+            1692,
+            "the registered golden corpus must remain the explicit 1692-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -204404,7 +204967,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1059,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1067,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -4,6 +4,7 @@ import { createHmac } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { mintPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../../../ioi-ai/plugins/chassis/src/portal-identity.ts";
+import { systemRecordSlug } from "../../../../../packages/agent-sdk/dist/index.js";
 
 interface Call {
   method: string;
@@ -21,6 +22,11 @@ const exchangeAudience = "daemon://hypervisor/goal-space-test";
 const exchangeTenant = "org://local";
 let refuseCachedSession = false;
 let refuseExchange = false;
+let threadCounter = 0;
+const seamChains = new Map<
+  string,
+  Array<{ record: Record<string, unknown>; head: string; admission: Record<string, unknown> }>
+>();
 const daemon = createServer((req: IncomingMessage, res) => {
   let raw = "";
   req.on("data", (chunk) => (raw += chunk));
@@ -71,7 +77,7 @@ const daemon = createServer((req: IncomingMessage, res) => {
         }),
       );
     }
-    if (req.url === "/v1/goal-orchestration/outcome-rooms/overview") {
+    if (req.url === "/v1/hypervisor/autonomous-systems/projection") {
       req.socket.destroy();
       return;
     }
@@ -82,6 +88,120 @@ const daemon = createServer((req: IncomingMessage, res) => {
       cookie: req.headers.cookie ?? "",
       authorization: req.headers.authorization ?? "",
     });
+    if (req.method === "POST" && req.url === "/v1/threads") {
+      threadCounter += 1;
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(
+        JSON.stringify({
+          thread_id: `thread_stub_${threadCounter}`,
+          status: "active",
+          title: (JSON.parse(raw) as { goal?: string }).goal ?? "",
+        }),
+      );
+    }
+    const thread = req.url?.match(/^\/v1\/threads\/([^/?]+)(\/subagents)?$/u);
+    if (req.method === "GET" && thread) {
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(
+        JSON.stringify(
+          thread[2] ? { subagents: [] } : { thread_id: decodeURIComponent(thread[1]!), status: "active", title: "" },
+        ),
+      );
+    }
+    const seam = req.url?.match(/^\/v1\/hypervisor\/autonomous-systems\/([^/?]+)\/records(?:\/([^/?]+)\/([^/?]+))?(?:\?.*)?$/u);
+    if (seam) {
+      const systemId = decodeURIComponent(seam[1]!);
+      if (seam[2]) {
+        const chain = seamChains.get(`${systemId}/${decodeURIComponent(seam[2])}/${decodeURIComponent(seam[3]!)}`);
+        if (!chain) {
+          res.writeHead(403, { "content-type": "application/json" });
+          return res.end(
+            JSON.stringify({
+              error: {
+                code: "request_resource_scope_required",
+                message: "the requested resource has no scope visible to the authenticated principal",
+              },
+            }),
+          );
+        }
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            ok: true,
+            current: chain.at(-1)!.record,
+            revisions: chain.map((entry) => entry.record),
+            admissions: chain.map((entry) => entry.admission),
+            head: chain.at(-1)!.head,
+          }),
+        );
+      }
+      if (req.method === "GET") {
+        const records = [...seamChains.entries()]
+          .filter(([key]) => key.startsWith(`${systemId}/`))
+          .map(([key, chain]) => ({
+            resource_ref: key,
+            contract_id: chain.at(-1)!.admission.contract_id,
+            current: chain.at(-1)!.record,
+            head: chain.at(-1)!.head,
+            revisions: chain.length,
+          }));
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ ok: true, system_id: systemId, records, count: records.length }));
+      }
+      const input = JSON.parse(raw) as {
+        contract_id: string;
+        object_id: string;
+        parent_scope_ref: string;
+        record: Record<string, unknown>;
+        expected_head: string | null;
+        idempotency_key: string;
+      };
+      const key = `${systemId}/${systemRecordSlug(input.contract_id)}/${systemRecordSlug(input.object_id)}`;
+      const chain = seamChains.get(key) ?? [];
+      const head = chain.at(-1)?.head ?? null;
+      if ((input.expected_head ?? null) !== head) {
+        res.writeHead(409, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: { code: "system_record_expected_head_conflict" } }));
+      }
+      const nextHead = `sha256:${createHmac("sha256", "seam").update(`${head ?? "genesis"}|${JSON.stringify(input.record)}`).digest("hex")}`;
+      const record = {
+        ...input.record,
+        system_binding: {
+          schema_version: "ioi.foundations.system-scoped-object-binding.v1",
+          system_id: systemId,
+          parent_scope_ref: input.parent_scope_ref,
+          proposed_or_issued_by_ref: "user://alice",
+          payload_root: `sha256:${"b".repeat(64)}`,
+          created_at: "2026-09-17T12:00:00Z",
+          updated_at: null,
+        },
+      };
+      const admission = {
+        seq: chain.length,
+        head: nextHead,
+        contract_id: input.contract_id,
+        idempotency_key: input.idempotency_key,
+        receipt_ref: `receipt://event-stream/system-records/${chain.length}`,
+        operation_ref: `agentgres://event-stream/system-records/${chain.length}`,
+      };
+      chain.push({ record, head: nextHead, admission });
+      seamChains.set(key, chain);
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(
+        JSON.stringify({
+          ok: true,
+          replayed: false,
+          system_id: systemId,
+          contract_id: input.contract_id,
+          resource_ref: key,
+          record,
+          admission,
+          expected_head_for_successor: nextHead,
+          receipt_ref: admission.receipt_ref,
+          operation_ref: admission.operation_ref,
+        }),
+      );
+    }
     if (req.method === "GET" && req.url === "/v1/goal-orchestration/goal-runs/gr_123") {
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(
@@ -127,7 +247,7 @@ process.env.CORE_API_URL = `http://127.0.0.1:${(core.address() as AddressInfo).p
 process.env.WEB_UI_PRINCIPALS = "alice";
 process.env.WEB_UI_PUBLIC_URL = "https://ioi.example";
 
-const { handler, goalRunMembershipRoot } = await import("../server/index.ts");
+const { handler } = await import("../server/index.ts");
 const surface = createServer((req, res) => void handler(req, res));
 await new Promise<void>((resolve) => surface.listen(0, resolve));
 const base = `http://127.0.0.1:${(surface.address() as AddressInfo).port}`;
@@ -152,17 +272,29 @@ test("production posture binds every Goal Space route to the same signed portal 
     headers: headers(),
   });
   await fetch(`${base}/api/ioi/goals/gr_123/events`, { headers: headers() });
-  await fetch(`${base}/api/ioi/rooms/or_456/replay`, { headers: headers() });
+  const absent = await fetch(
+    `${base}/api/ioi/orchestrations/orc_456/replay?system_id=${encodeURIComponent("system://estate/one")}`,
+    { headers: headers() },
+  );
   assert.equal(first.status, 200);
   assert.equal(first.headers.get("cache-control"), "no-store");
+  assert.equal(absent.status, 403);
+  assert.equal(absent.headers.get("cache-control"), "no-store");
+  assert.equal(((await absent.json()) as { error: { code: string } }).error.code, "request_resource_scope_required");
   assert.deepEqual(
-    calls.slice(-4).map((call) => [call.method, call.path]),
+    calls.slice(-4, -1).map((call) => [call.method, call.path]),
     [
       ["GET", "/v1/goal-orchestration/goal-runs"],
       ["GET", "/v1/goal-orchestration/goal-run-activations/gra_789"],
       ["GET", "/v1/goal-orchestration/goal-runs/gr_123/events"],
-      ["GET", "/v1/goal-orchestration/outcome-rooms/or_456/replay"],
     ],
+  );
+  assert.equal(calls.at(-1)?.method, "GET");
+  assert.equal(
+    calls.at(-1)?.path,
+    `/v1/hypervisor/autonomous-systems/${encodeURIComponent("system://estate/one")}/records/${encodeURIComponent(
+      systemRecordSlug("schema://ioi/applications/ioi-ai/orchestration/v1"),
+    )}/${encodeURIComponent(systemRecordSlug("orchestration://orc_456"))}`,
   );
   assert.ok(calls.slice(-4).every((call) => call.cookie === ""));
   assert.ok(calls.slice(-4).every((call) => call.authorization === "Bearer ioi_sess_goal_space_bff"));
@@ -303,7 +435,7 @@ test("all local IOI failures and upstream transport failures are non-cacheable",
     ["/api/ioi/goals", {}, 401],
     ["/api/ioi/goals/bad", { headers: headers() }, 400],
     ["/api/ioi/not-a-route", { headers: headers() }, 404],
-    ["/api/ioi/rooms/overview", { headers: headers() }, 502],
+    ["/api/ioi/orchestrations", { headers: headers() }, 502],
     [
       "/api/ioi/goal-activations",
       {
@@ -371,76 +503,166 @@ test("generic GoalRun create, start, and reconcile are closed relays with no ide
   });
 });
 
-test("OutcomeRoom materialization derives identity and selected profile while membership derives the GoalRun head", async () => {
+test("orchestration composition creates the coordinating thread, admits the record under the resolved owner scope, and revises membership only on the exact head", async () => {
   const governance = {
-    stop_policy_ref: "policy://room/stop",
-    visibility_policy_ref: "policy://room/visibility",
-    participation_policy_ref: "policy://room/participation",
-    privacy_policy_ref: "policy://room/privacy",
-    contribution_policy_ref: "policy://room/contribution",
-    cooperation_surplus_policy_ref: "policy://room/surplus",
-    coordination_policy_ref: "policy://room/coordination",
-    ordering_and_merge_policy_ref: "policy://room/ordering",
-    conflict_and_failover_policy_ref: "policy://room/failover",
+    stop_policy_ref: "policy://estate/stop",
+    visibility_policy_ref: "policy://estate/visibility",
+    participation_policy_ref: "policy://estate/participation",
+    privacy_policy_ref: "policy://estate/privacy",
+    contribution_policy_ref: "policy://estate/contribution",
+    cooperation_surplus_policy_ref: "policy://estate/surplus",
+    coordination_policy_ref: "policy://estate/coordination",
+    ordering_and_merge_policy_ref: "policy://estate/ordering",
+    conflict_and_failover_policy_ref: "policy://estate/failover",
   };
-  await fetch(`${base}/api/ioi/rooms`, {
+  const systemId = "system://estate/one";
+  const seamRoot = `/v1/hypervisor/autonomous-systems/${encodeURIComponent(systemId)}/records`;
+  const composed = await fetch(`${base}/api/ioi/orchestrations`, {
     method: "POST",
     headers: { ...headers(), "content-type": "application/json" },
     body: JSON.stringify({
-      system_id: "system://room/one",
-      goal_run_ref: "goal://gr_123",
+      system_id: systemId,
       objective: "Coordinate one bounded outcome",
-      room_mode: "permissioned_team",
+      objective_ref: "goal://gr_123",
+      mode: "permissioned_team",
       governance,
     }),
   });
-  assert.deepEqual(calls.at(-1)?.body, {
-    schema_version: "ioi.applications.ioi-ai.outcome-room.v2",
-    system_id: "system://room/one",
-    owner_or_sponsor_ref: "user://alice",
-    objective_ref: "goal://gr_123",
-    objective: "Coordinate one bounded outcome",
-    room_mode: "permissioned_team",
-    coordination_topology: "hosted_admission",
-    host_domain_ref: "system://room/one",
-    ...governance,
-    constraint_refs: [],
-    acceptance_criteria_refs: [],
-    collaboration_terms_refs: [],
-    artifact_license_rights_retention_and_export_policy_refs: [],
-    ontology_profile_refs: [],
-    scorecard_and_guardrail_refs: [],
-    verifier_path_refs: [],
-    resource_and_budget_refs: [],
-    discovery_and_external_admission_policy_refs: [],
-    multi_party_collaboration_ref: null,
-    settlement_policy_ref: null,
-  });
+  assert.equal(composed.status, 201);
+  const composedBody = (await composed.json()) as {
+    orchestration: Record<string, unknown>;
+    head: string;
+    thread_id: string;
+    admission: Record<string, unknown>;
+    replayed: boolean;
+  };
+  const [threadCall, admitCall] = calls.slice(-2);
+  assert.deepEqual([threadCall?.method, threadCall?.path], ["POST", "/v1/threads"]);
+  assert.equal(threadCall?.body.goal, "Coordinate one bounded outcome");
+  assert.deepEqual([admitCall?.method, admitCall?.path], ["POST", seamRoot]);
+  const tail = String(admitCall?.body.object_id).slice("orchestration://".length);
+  assert.match(tail, /^orc_[0-9a-f]{24}$/u);
+  assert.deepEqual(
+    {
+      owner_ref: admitCall?.body.owner_ref,
+      contract_id: admitCall?.body.contract_id,
+      parent_scope_ref: admitCall?.body.parent_scope_ref,
+      expected_head: admitCall?.body.expected_head,
+    },
+    {
+      owner_ref: "org://local",
+      contract_id: "schema://ioi/applications/ioi-ai/orchestration/v1",
+      parent_scope_ref: `app-scope://ioi-ai/orchestration/${tail}`,
+      expected_head: null,
+    },
+  );
+  const record = admitCall?.body.record as Record<string, unknown>;
+  assert.equal("system_binding" in record, false);
+  assert.deepEqual(
+    {
+      orchestration_id: record.orchestration_id,
+      orchestration_ref: record.orchestration_ref,
+      owner_ref: record.owner_ref,
+      composed_by_ref: record.composed_by_ref,
+      thread_ref: record.thread_ref,
+      objective_ref: record.objective_ref,
+      mode: record.mode,
+      coordination_topology: record.coordination_topology,
+      member_goal_run_refs: record.member_goal_run_refs,
+      status: record.status,
+      settlement_policy_ref: record.settlement_policy_ref,
+      constraint_refs: record.constraint_refs,
+      stop_policy_ref: record.stop_policy_ref,
+    },
+    {
+      orchestration_id: `orchestration://${tail}`,
+      orchestration_ref: `app-scope://ioi-ai/orchestration/${tail}`,
+      owner_ref: "org://local",
+      composed_by_ref: "user://alice",
+      thread_ref: "thread://thread_stub_1",
+      objective_ref: "goal://gr_123",
+      mode: "permissioned_team",
+      coordination_topology: "hosted_admission",
+      member_goal_run_refs: [],
+      status: "open",
+      settlement_policy_ref: null,
+      constraint_refs: [],
+      stop_policy_ref: "policy://estate/stop",
+    },
+  );
+  assert.equal(composedBody.thread_id, "thread_stub_1");
+  assert.equal(composedBody.replayed, false);
+  assert.equal(composedBody.admission.receipt_ref, "receipt://event-stream/system-records/0");
+  assert.match(composedBody.head, /^sha256:[0-9a-f]{64}$/u);
 
-  await fetch(`${base}/api/ioi/rooms/or_456/goal-runs/attach`, {
+  const attach = await fetch(`${base}/api/ioi/orchestrations/${tail}/goal-runs/attach`, {
     method: "POST",
     headers: { ...headers(), "content-type": "application/json" },
-    body: JSON.stringify({ goal_run_ref: "goal://gr_123", expected_revision: 7 }),
+    body: JSON.stringify({ system_id: systemId, goal_run_ref: "goal://gr_123", expected_head: composedBody.head }),
   });
-  const currentGoal = {
-    schema_version: "ioi.goal-run.v1",
-    goal_run_id: "gr_123",
-    goal_ref: "goal://gr_123",
-    owner_ref: "user://alice",
-    outcome_room_ref: null,
-    receipt_refs: ["receipt://goal-run/gr_123/admission"],
-    work_result_refs: [],
-    status: "draft",
+  assert.equal(attach.status, 200);
+  const attached = (await attach.json()) as {
+    head: string;
+    membership_transition: string;
+    orchestration: { member_goal_run_refs: string[] };
   };
+  assert.equal(attached.membership_transition, "attach");
+  assert.deepEqual(attached.orchestration.member_goal_run_refs, ["goal://gr_123"]);
+  assert.notEqual(attached.head, composedBody.head);
   assert.deepEqual(calls.slice(-2).map((call) => [call.method, call.path]), [
-    ["GET", "/v1/goal-orchestration/goal-runs/gr_123"],
-    ["POST", "/v1/goal-orchestration/outcome-rooms/or_456/attach-goal-run"],
+    ["GET", `${seamRoot}/${encodeURIComponent(systemRecordSlug("schema://ioi/applications/ioi-ai/orchestration/v1"))}/${encodeURIComponent(systemRecordSlug(`orchestration://${tail}`))}`],
+    ["POST", seamRoot],
   ]);
-  assert.deepEqual(calls.at(-1)?.body, {
-    goal_run_ref: "goal://gr_123",
-    expected_revision: 7,
-    expected_goal_run_record_root: goalRunMembershipRoot(currentGoal),
+  assert.equal(calls.at(-1)?.body.expected_head, composedBody.head);
+  assert.equal("system_binding" in (calls.at(-1)?.body.record as Record<string, unknown>), false);
+
+  const stale = await fetch(`${base}/api/ioi/orchestrations/${tail}/goal-runs/detach`, {
+    method: "POST",
+    headers: { ...headers(), "content-type": "application/json" },
+    body: JSON.stringify({ system_id: systemId, goal_run_ref: "goal://gr_123", expected_head: composedBody.head }),
   });
+  assert.equal(stale.status, 409);
+  assert.equal(((await stale.json()) as { error: { code: string } }).error.code, "system_record_expected_head_conflict");
+
+  const twice = await fetch(`${base}/api/ioi/orchestrations/${tail}/goal-runs/attach`, {
+    method: "POST",
+    headers: { ...headers(), "content-type": "application/json" },
+    body: JSON.stringify({ system_id: systemId, goal_run_ref: "goal://gr_123", expected_head: attached.head }),
+  });
+  assert.equal(twice.status, 409);
+  assert.equal(((await twice.json()) as { error: string }).error, "orchestration_goal_run_already_attached");
+
+  const detach = await fetch(`${base}/api/ioi/orchestrations/${tail}/goal-runs/detach`, {
+    method: "POST",
+    headers: { ...headers(), "content-type": "application/json" },
+    body: JSON.stringify({ system_id: systemId, goal_run_ref: "goal://gr_123", expected_head: attached.head }),
+  });
+  assert.equal(detach.status, 200);
+  const detached = (await detach.json()) as { orchestration: { member_goal_run_refs: string[] } };
+  assert.deepEqual(detached.orchestration.member_goal_run_refs, []);
+
+  const listed = await fetch(`${base}/api/ioi/orchestrations?system_id=${encodeURIComponent(systemId)}`, { headers: headers() });
+  assert.equal(listed.status, 200);
+  const listBody = (await listed.json()) as { orchestrations: Array<{ revisions: number; system_id: string }> };
+  assert.deepEqual(
+    listBody.orchestrations.map((entry) => [entry.system_id, entry.revisions]),
+    [[systemId, 3]],
+  );
+
+  const replay = await fetch(`${base}/api/ioi/orchestrations/${tail}/replay?system_id=${encodeURIComponent(systemId)}`, { headers: headers() });
+  assert.equal(replay.status, 200);
+  const replayBody = (await replay.json()) as { revisions: unknown[]; admissions: unknown[] };
+  assert.equal(replayBody.revisions.length, 3);
+  assert.equal(replayBody.admissions.length, 3);
+
+  const graph = await fetch(`${base}/api/ioi/orchestrations/${tail}/graph?system_id=${encodeURIComponent(systemId)}`, { headers: headers() });
+  assert.equal(graph.status, 200);
+  const graphBody = (await graph.json()) as { graph: { root: string; nodes: Array<{ kind: string }> } };
+  assert.equal(graphBody.graph.root, "thread:thread_stub_1");
+  assert.deepEqual(
+    graphBody.graph.nodes.map((node) => node.kind).sort(),
+    ["record", "system", "thread"],
+  );
 });
 
 test("malformed canonical ids refuse before reaching the daemon", async () => {

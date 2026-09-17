@@ -24,9 +24,9 @@ import {
   kernelOwnerBindings,
   listAt,
   numberAt,
-  outcomeRoomId,
+  orchestrationId,
+  orchestrationTitle,
   requiredKernelBindingsComplete,
-  roomTitle,
   shortRef,
   textAt,
   type GoalSpaceTab,
@@ -49,20 +49,21 @@ import {
   isCanonicalWorkResultRef,
   validateActivationResponse,
   validateAdmittedActivationResponse,
-  validateCollaborativeWorkGraph,
-  validateDiscussionProjection,
   validateGoalDetail,
   validateGoalEvents,
   validateGoalRunCreate,
   validateGoalRunList,
   validateGoalRunReconcile,
   validateGoalRunStart,
-  validateOutcomeRoomCreate,
-  validateOutcomeRoomDetail,
-  validateOutcomeRoomList,
-  validateOutcomeRoomMembership,
-  validateProductProjection,
-  validateRoomReplay,
+  validateOrchestrationCompose,
+  validateOrchestrationDelegations,
+  validateOrchestrationDetail,
+  validateOrchestrationGraph,
+  validateOrchestrationList,
+  validateOrchestrationMembership,
+  validateOrchestrationReplay,
+  type OrchestrationDetailResponse,
+  type OrchestrationListEntry,
   type ValidatedActivationResponse,
 } from "./goal-space-response";
 
@@ -96,18 +97,17 @@ interface GoalMutation {
   error: RequestFailure | null;
 }
 
-interface RoomDetail {
-  room: JsonRecord;
+interface OrchestrationDetail {
+  entry: OrchestrationDetailResponse;
   graph: unknown;
-  discussion: unknown;
-  product: unknown;
   replay: unknown;
+  delegations: unknown;
   loading: boolean;
   errors: string[];
-  mutation: RoomMutation | null;
+  mutation: OrchestrationMutation | null;
 }
 
-interface RoomMutation {
+interface OrchestrationMutation {
   action: "attach" | "detach";
   submitting: boolean;
   uncertain: boolean;
@@ -117,21 +117,22 @@ interface RoomMutation {
 const state = {
   tab: "goals" as GoalSpaceTab,
   goals: [] as JsonRecord[],
-  rooms: [] as JsonRecord[],
+  orchestrations: [] as OrchestrationListEntry[],
+  systemId: null as string | null,
   loading: false,
   listErrors: [] as string[],
   detailGoal: null as GoalDetail | null,
-  detailRoom: null as RoomDetail | null,
+  detailOrchestration: null as OrchestrationDetail | null,
   activation: null as ActivationReview | null,
   activationRecoveryId: null as string | null,
   activating: false,
   composerOpen: false,
   runComposerOpen: false,
-  roomComposerOpen: false,
+  orchestrationComposerOpen: false,
   creatingRun: false,
-  creatingRoom: false,
+  composingOrchestration: false,
   runCreateError: null as RequestFailure | null,
-  roomCreateError: null as RequestFailure | null,
+  orchestrationComposeError: null as RequestFailure | null,
   notice: "",
   principal: null as string | null,
   requestSequence: 0,
@@ -141,17 +142,17 @@ const state = {
   navigationSequence: 0,
 };
 
-const ROOM_GOVERNANCE_EXAMPLE = JSON.stringify(
+const ORCHESTRATION_GOVERNANCE_EXAMPLE = JSON.stringify(
   {
-    stop_policy_ref: "policy://your-room/stop",
-    visibility_policy_ref: "policy://your-room/visibility",
-    participation_policy_ref: "policy://your-room/participation",
-    privacy_policy_ref: "policy://your-room/privacy",
-    contribution_policy_ref: "policy://your-room/contribution",
-    cooperation_surplus_policy_ref: "policy://your-room/cooperation-surplus",
-    coordination_policy_ref: "policy://your-room/coordination",
-    ordering_and_merge_policy_ref: "policy://your-room/ordering",
-    conflict_and_failover_policy_ref: "policy://your-room/failover",
+    stop_policy_ref: "policy://your-orchestration/stop",
+    visibility_policy_ref: "policy://your-orchestration/visibility",
+    participation_policy_ref: "policy://your-orchestration/participation",
+    privacy_policy_ref: "policy://your-orchestration/privacy",
+    contribution_policy_ref: "policy://your-orchestration/contribution",
+    cooperation_surplus_policy_ref: "policy://your-orchestration/cooperation-surplus",
+    coordination_policy_ref: "policy://your-orchestration/coordination",
+    ordering_and_merge_policy_ref: "policy://your-orchestration/ordering",
+    conflict_and_failover_policy_ref: "policy://your-orchestration/failover",
     constraint_refs: [],
     acceptance_criteria_refs: [],
     collaboration_terms_refs: [],
@@ -274,11 +275,27 @@ function dateLabel(value: unknown): string {
   return Number.isNaN(parsed.valueOf()) ? raw : parsed.toLocaleString();
 }
 
+function orchestrationDateLabel(orchestration: JsonRecord): string {
+  return dateLabel({
+    updated_at: textAt(orchestration, "system_binding", "updated_at"),
+    created_at: textAt(orchestration, "composed_at"),
+  });
+}
+
+function systemQuery(): string {
+  return state.systemId ? `?system=${encodeURIComponent(state.systemId)}` : "";
+}
+
 function updateLocation(item: string | null, replace = false): void {
-  const next = deepLinkPath(UI_BASE, "goals", null, null, item);
+  const next = `${deepLinkPath(UI_BASE, "goals", null, null, item)}${item?.startsWith("orchestration:") ? systemQuery() : ""}`;
   if (`${location.pathname}${location.search}` === next) return;
   if (replace) history.replaceState(null, "", next);
   else history.pushState(null, "", next);
+}
+
+function systemFromLocation(): string | null {
+  const system = new URLSearchParams(location.search).get("system");
+  return system && system.startsWith("system://") ? system : null;
 }
 
 function onGoalTabKeydown(event: KeyboardEvent): void {
@@ -351,21 +368,22 @@ function goalRow(run: JsonRecord): TemplateResult {
   `;
 }
 
-function roomRow(room: JsonRecord): TemplateResult {
-  const id = outcomeRoomId(room);
-  const status = statusOf(room);
+function orchestrationRow(entry: OrchestrationListEntry): TemplateResult {
+  const orchestration = entry.orchestration;
+  const id = orchestrationId(orchestration);
+  const status = statusOf(orchestration);
   return html`
     <button
       class="goal-list-row"
       type="button"
-      data-focus-key=${id ? `room-row-${id}` : ""}
+      data-focus-key=${id ? `orchestration-row-${id}` : ""}
       ?disabled=${!id}
-      @click=${() => id && void openRoom(id)}
+      @click=${() => id && void openOrchestration(id, entry.system_id)}
     >
-      <span class="goal-list-icon room">${icon(Users, 18)}</span>
+      <span class="goal-list-icon orchestration">${icon(Network, 18)}</span>
       <span class="goal-list-copy">
-        <strong>${roomTitle(room)}</strong>
-        <small>${shortRef(textAt(room, "outcome_room_id") ?? id)} · ${dateLabel(room)}</small>
+        <strong>${orchestrationTitle(orchestration)}</strong>
+        <small>${shortRef(entry.system_id)} · ${entry.revisions} revision${entry.revisions === 1 ? "" : "s"} · ${orchestrationDateLabel(orchestration)}</small>
       </span>
       ${statusBadge(status)} ${icon(ChevronRight, 16)}
     </button>
@@ -476,58 +494,58 @@ function runnableGoalForm(): TemplateResult {
   `;
 }
 
-function roomMaterializationForm(): TemplateResult {
+function orchestrationComposerForm(): TemplateResult {
   return html`
-    <form class="goal-activation-form goal-room-form" @submit=${materializeRoom}>
+    <form class="goal-activation-form goal-orchestration-form" @submit=${composeOrchestration}>
       <div class="goal-composer-heading">
         <div>
-          <span class="goal-eyebrow">Bounded System materialization</span>
-          <h2>Materialize an OutcomeRoom</h2>
-          <p>The System and collective GoalRun must already share the daemon-admitted system-bound path.</p>
+          <span class="goal-eyebrow">Composed from thread primitives</span>
+          <h2>Compose an orchestration</h2>
+          <p>A coordinating thread is created first; the record that makes it durable is admitted under the bounded System.</p>
         </div>
-        <button class="icon-btn subtle" type="button" aria-label="Close OutcomeRoom materialization" @click=${closeRoomComposer}>
+        <button class="icon-btn subtle" type="button" aria-label="Close orchestration composer" @click=${closeOrchestrationComposer}>
           ${icon(CircleOff, 17)}
         </button>
       </div>
       <div class="goal-form-grid">
-        <label for="outcome-room-system">
-          <span>Active OutcomeRoom System</span>
+        <label for="orchestration-system">
+          <span>Active bounded System</span>
           <input
-            id="outcome-room-system"
-            data-focus-key="outcome-room-system"
+            id="orchestration-system"
+            data-focus-key="orchestration-system"
             name="system_id"
             required
             maxlength="500"
             placeholder="system://…"
+            value=${state.systemId ?? ""}
           />
         </label>
-        <label for="outcome-room-goal">
-          <span>Collective GoalRun</span>
+        <label for="orchestration-goal">
+          <span>Objective GoalRun (optional)</span>
           <input
-            id="outcome-room-goal"
-            data-focus-key="outcome-room-goal"
-            name="goal_run_ref"
-            required
+            id="orchestration-goal"
+            data-focus-key="orchestration-goal"
+            name="objective_ref"
             maxlength="500"
             placeholder="goal://gr_…"
           />
         </label>
       </div>
-      <label for="outcome-room-objective">Shared objective</label>
+      <label for="orchestration-objective">Objective</label>
       <textarea
-        id="outcome-room-objective"
-        data-focus-key="outcome-room-objective"
+        id="orchestration-objective"
+        data-focus-key="orchestration-objective"
         name="objective"
         required
         maxlength="4096"
-        placeholder="Coordinate the bounded work and preserve a replayable outcome."
+        placeholder="Coordinate the bounded work and keep every step re-readable from the daemon."
       ></textarea>
-      <label for="outcome-room-mode">Room mode</label>
+      <label for="orchestration-mode">Mode</label>
       ${fieldSelect({
-        id: "outcome-room-mode",
-        name: "room_mode",
-        focusKey: "outcome-room-mode",
-        className: "goal-room-mode",
+        id: "orchestration-mode",
+        name: "mode",
+        focusKey: "orchestration-mode",
+        className: "goal-orchestration-mode",
         value: "private_goal",
         onChange: () => undefined,
         options: [
@@ -535,31 +553,31 @@ function roomMaterializationForm(): TemplateResult {
           html`<option value="permissioned_team">Permissioned team</option>`,
         ],
       })}
-      <label for="outcome-room-governance">
+      <label for="orchestration-governance">
         Governance coordinates
         <span>closed JSON · policy refs are declared, never minted by this client</span>
       </label>
       <textarea
-        id="outcome-room-governance"
-        data-focus-key="outcome-room-governance"
+        id="orchestration-governance"
+        data-focus-key="orchestration-governance"
         class="goal-governance"
         name="governance"
         required
         spellcheck="false"
-        placeholder=${ROOM_GOVERNANCE_EXAMPLE}
+        placeholder=${ORCHESTRATION_GOVERNANCE_EXAMPLE}
       ></textarea>
-      ${state.roomCreateError
+      ${state.orchestrationComposeError
         ? errorPanel(
-            state.roomCreateError,
-            uncertainFailure(state.roomCreateError)
-              ? "OutcomeRoom materialization result is uncertain"
-              : "OutcomeRoom was not materialized",
+            state.orchestrationComposeError,
+            uncertainFailure(state.orchestrationComposeError)
+              ? "Orchestration composition result is uncertain"
+              : "The orchestration was not composed",
           )
         : nothing}
       <div class="goal-form-foot">
-        <span>${icon(ShieldCheck, 15)} The daemon derives identity, owner, package, System heads, and Agentgres receipt.</span>
-        <button class="btn primary" type="submit" data-focus-key="outcome-room-create" ?disabled=${state.creatingRoom}>
-          ${state.creatingRoom ? "Admitting bounded room…" : "Materialize OutcomeRoom"}
+        <span>${icon(ShieldCheck, 15)} The kernel owns the thread; the seam derives the binding, the head and the receipt.</span>
+        <button class="btn primary" type="submit" data-focus-key="orchestration-compose" ?disabled=${state.composingOrchestration}>
+          ${state.composingOrchestration ? "Composing…" : "Compose orchestration"}
         </button>
       </div>
     </form>
@@ -675,12 +693,12 @@ function activationReview() {
 }
 
 function homePane(): TemplateResult {
-  const items = state.tab === "goals" ? state.goals : state.rooms;
+  const items = state.tab === "goals" ? state.goals : state.orchestrations;
   const unavailable = state.listErrors.find((message) =>
-    message.startsWith(state.tab === "goals" ? "GoalRuns unavailable:" : "OutcomeRooms unavailable:"),
+    message.startsWith(state.tab === "goals" ? "GoalRuns unavailable:" : "Orchestrations unavailable:"),
   );
   let rows: unknown;
-  if (items.length) rows = state.tab === "goals" ? state.goals.map(goalRow) : state.rooms.map(roomRow);
+  if (items.length) rows = state.tab === "goals" ? state.goals.map(goalRow) : state.orchestrations.map(orchestrationRow);
   else if (state.loading) {
     rows = html`<div class="goal-loading" role="status">
       <span class="spinner"></span><span>Loading owner truth…</span>
@@ -688,13 +706,13 @@ function homePane(): TemplateResult {
   } else if (unavailable) {
     rows = html`<div class="goal-empty" role="alert">
       ${icon(AlertTriangle, 25)}
-      <strong>${state.tab === "goals" ? "GoalRuns could not be loaded" : "OutcomeRooms could not be loaded"}</strong>
+      <strong>${state.tab === "goals" ? "GoalRuns could not be loaded" : "Orchestrations could not be loaded"}</strong>
       <span>${unavailable}</span>
     </div>`;
   } else {
     rows = html`<div class="goal-empty">
-      ${icon(state.tab === "goals" ? Target : Users, 25)}
-      <strong>${state.tab === "goals" ? "No visible GoalRuns" : "No visible OutcomeRooms"}</strong>
+      ${icon(state.tab === "goals" ? Target : Network, 25)}
+      <strong>${state.tab === "goals" ? "No visible GoalRuns" : "No visible orchestrations"}</strong>
       <span>The daemon returned an honest empty projection for this principal.</span>
     </div>`;
   }
@@ -704,8 +722,8 @@ function homePane(): TemplateResult {
         <span class="goal-eyebrow">ioi.ai · Goal Space</span>
         <h1>Intent becomes governed work.</h1>
         <p>
-          GoalRun and OutcomeRoom semantics live here. Threads, forks, Sessions, launch recipes, and harness bindings
-          remain Hypervisor truth.
+          GoalRuns and orchestrations are ioi.ai compositions over thread primitives. Threads, forks, Sessions,
+          launch recipes, and harness bindings remain Hypervisor truth.
         </p>
       </div>
       <div class="goal-hero-actions">
@@ -715,8 +733,8 @@ function homePane(): TemplateResult {
         <button class="goal-activate" type="button" data-focus-key="goal-activate" @click=${openComposer}>
           ${icon(Target, 18)}<span>Activate goal</span>
         </button>
-        <button class="goal-activate secondary" type="button" data-focus-key="room-materialize" @click=${openRoomComposer}>
-          ${icon(Users, 18)}<span>Materialize room</span>
+        <button class="goal-activate secondary" type="button" data-focus-key="orchestration-compose-open" @click=${openOrchestrationComposer}>
+          ${icon(Users, 18)}<span>Compose orchestration</span>
         </button>
       </div>
     </div>
@@ -726,7 +744,7 @@ function homePane(): TemplateResult {
     </div>
     ${state.composerOpen ? activationForm() : nothing}
     ${state.runComposerOpen ? runnableGoalForm() : nothing}
-    ${state.roomComposerOpen ? roomMaterializationForm() : nothing}
+    ${state.orchestrationComposerOpen ? orchestrationComposerForm() : nothing}
     ${state.activation ? activationReview() : nothing}
     <div class="goal-tabs" role="tablist" aria-label="Goal Space objects">
       <button
@@ -744,18 +762,18 @@ function homePane(): TemplateResult {
         Goals <span>${state.goals.length}</span>
       </button>
       <button
-        id="goal-tab-rooms"
+        id="goal-tab-orchestrations"
         type="button"
         role="tab"
-        aria-selected=${state.tab === "rooms" ? "true" : "false"}
-        aria-controls="goal-panel-rooms"
-        tabindex=${state.tab === "rooms" ? "0" : "-1"}
-        data-focus-key="goal-tab-rooms"
-        class=${state.tab === "rooms" ? "active" : ""}
-        @click=${() => selectTab("rooms")}
+        aria-selected=${state.tab === "orchestrations" ? "true" : "false"}
+        aria-controls="goal-panel-orchestrations"
+        tabindex=${state.tab === "orchestrations" ? "0" : "-1"}
+        data-focus-key="goal-tab-orchestrations"
+        class=${state.tab === "orchestrations" ? "active" : ""}
+        @click=${() => selectTab("orchestrations")}
         @keydown=${onGoalTabKeydown}
       >
-        Outcome rooms <span>${state.rooms.length}</span>
+        Orchestrations <span>${state.orchestrations.length}</span>
       </button>
     </div>
     <section
@@ -993,48 +1011,54 @@ function goalDetailPane(detail: GoalDetail): TemplateResult {
   `;
 }
 
-function projectionCount(value: unknown): number {
-  if (Array.isArray(value)) return value.length;
-  if (value === null || typeof value !== "object") return 0;
-  return Object.values(value as JsonRecord).reduce<number>(
-    (sum, item) => sum + (Array.isArray(item) ? item.length : 0),
-    0,
+function orchestrationDetailPane(detail: OrchestrationDetail): TemplateResult {
+  const orchestration = detail.entry.orchestration;
+  const systemId = detail.entry.system_id;
+  const id = orchestrationId(orchestration);
+  const goalRef = textAt(orchestration, "objective_ref");
+  const members = listAt(orchestration, "member_goal_run_refs").filter(
+    (value): value is string => typeof value === "string",
   );
-}
-
-function roomDetailPane(detail: RoomDetail): TemplateResult {
-  const room = detail.room;
-  const id = outcomeRoomId(room);
-  const goalRef = textAt(room, "objective_ref");
-  const members = listAt(room, "member_goal_run_refs").filter((value): value is string => typeof value === "string");
   const memberAction = goalRef && members.includes(goalRef) ? "detach" : "attach";
+  const closed = statusOf(orchestration) === "closed";
+  const nodes = listAt(detail.graph, "nodes").map(asRecord);
+  const kindCount = (kind: string): number => nodes.filter((node) => node.kind === kind).length;
   return html`
     <button class="goal-back" type="button" data-focus-key="goal-back" @click=${closeDetail}>
       ${icon(ArrowLeft, 16)} All Goal Spaces
     </button>
-    <header class="goal-detail-head room">
+    <header class="goal-detail-head orchestration">
       <div>
-        <span class="goal-eyebrow">OutcomeRoom · bounded System</span>
-        <h1 tabindex="-1" data-focus-key="room-detail-heading">${roomTitle(room)}</h1>
+        <span class="goal-eyebrow">Orchestration · composed over thread primitives</span>
+        <h1 tabindex="-1" data-focus-key="orchestration-detail-heading">${orchestrationTitle(orchestration)}</h1>
         <p>
-          <code>${textAt(room, "outcome_room_id") ?? id ?? "unknown"}</code>
+          <code>${textAt(orchestration, "orchestration_id") ?? id ?? "unknown"}</code>
         </p>
       </div>
-      ${statusBadge(statusOf(room))}
+      ${statusBadge(statusOf(orchestration))}
     </header>
     <div class="goal-detail-actions">
-      <button class="btn" type="button" data-focus-key="room-reload" @click=${() => id && void openRoom(id, true)}>
-        ${icon(RefreshCw, 15)} Reload owner truth
+      <button
+        class="btn"
+        type="button"
+        data-focus-key="orchestration-reload"
+        @click=${() => id && void openOrchestration(id, systemId, true)}
+      >
+        ${icon(RefreshCw, 15)} Reload from the daemon
       </button>
       <button
         class="btn primary"
         type="button"
-        data-focus-key="room-membership"
-        ?disabled=${!id || !goalRef || detail.mutation?.submitting === true || detail.mutation?.uncertain === true}
-        @click=${() => id && goalRef && void mutateRoomMembership(detail, id, goalRef, memberAction)}
+        data-focus-key="orchestration-membership"
+        ?disabled=${!id ||
+        !goalRef ||
+        closed ||
+        detail.mutation?.submitting === true ||
+        detail.mutation?.uncertain === true}
+        @click=${() => id && goalRef && void mutateOrchestrationMembership(detail, id, goalRef, memberAction)}
       >
         ${detail.mutation?.submitting
-          ? "Submitting exact heads…"
+          ? "Admitting the revision…"
           : memberAction === "attach"
             ? "Attach objective GoalRun"
             : "Detach objective GoalRun"}
@@ -1042,7 +1066,7 @@ function roomDetailPane(detail: RoomDetail): TemplateResult {
     </div>
     ${detail.loading
       ? html`<div class="goal-loading" role="status">
-          <span class="spinner"></span><span>Loading OutcomeRoom projections…</span>
+          <span class="spinner"></span><span>Loading orchestration projections…</span>
         </div>`
       : nothing}
     ${detail.errors.length
@@ -1054,81 +1078,76 @@ function roomDetailPane(detail: RoomDetail): TemplateResult {
       ? errorPanel(
           detail.mutation.error,
           detail.mutation.uncertain
-            ? "Room membership result is uncertain"
-            : "Room membership mutation was refused",
+            ? "Orchestration membership result is uncertain"
+            : "Orchestration membership revision was refused",
         )
       : nothing}
-    <div class="goal-room-spine" aria-label="OutcomeRoom admission spine">
+    <div class="goal-orchestration-spine" aria-label="Orchestration composition">
       <div>
-        ${icon(Users, 18)}<strong>ioi.ai room semantics</strong
-        ><span>${shortRef(textAt(room, "outcome_room_id"))}</span>
+        ${icon(Network, 18)}<strong>Coordinating thread</strong
+        ><span>${shortRef(textAt(orchestration, "thread_ref"))}</span>
       </div>
       <span>${icon(ChevronRight, 15)}</span>
-      <div>${icon(Network, 18)}<strong>Bounded System</strong><span>${shortRef(textAt(room, "system_id"))}</span></div>
+      <div>${icon(GitFork, 18)}<strong>Bounded System</strong><span>${shortRef(systemId)}</span></div>
       <span>${icon(ChevronRight, 15)}</span>
-      <div>
-        ${icon(ShieldCheck, 18)}<strong>Agentgres truth</strong
-        ><span>${shortRef(textAt(room, "latest_operation_ref") ?? textAt(room, "room_receipt_root"))}</span>
-      </div>
+      <div>${icon(ShieldCheck, 18)}<strong>Seam head</strong><span>${shortRef(detail.entry.head)}</span></div>
     </div>
     <div class="goal-detail-grid">
       <section class="goal-card">
-        ${sectionTitle("System binding")} ${refLine("System", textAt(room, "system_id"))}
-        ${refLine("Package", textAt(room, "package_id"))} ${refLine("Genesis", textAt(room, "genesis_ref"))}
-        ${refLine("Constitution", textAt(room, "constitution_ref"))}
-        ${refLine("State root", textAt(room, "room_state_root"))}
-        ${refLine("Receipt root", textAt(room, "room_receipt_root"))}
+        ${sectionTitle("Record binding")} ${refLine("System", systemId)}
+        ${refLine("Scope", textAt(orchestration, "orchestration_ref"))}
+        ${refLine("Owner", textAt(orchestration, "owner_ref"))}
+        ${refLine("Composed by", textAt(orchestration, "composed_by_ref"))}
+        ${refLine("Payload root", textAt(orchestration, "system_binding", "payload_root"))}
+        ${refLine("Head", detail.entry.head)}
       </section>
       <section class="goal-card">
-        ${sectionTitle("Derived projections")}
+        ${sectionTitle("Composed graph")}
         <div class="goal-metric">
-          <span>${projectionCount(detail.graph)}</span><small>graph collection entries</small>
+          <span>${kindCount("subagent")}</span><small>delegations</small>
         </div>
         <div class="goal-metric">
-          <span>${projectionCount(detail.product)}</span><small>product collection entries</small>
+          <span>${kindCount("record")}</span><small>records in scope</small>
         </div>
         <div class="goal-metric">
-          <span>${projectionCount(detail.discussion)}</span><small>discussion collection entries</small>
+          <span>${detail.entry.revisions}</span><small>revisions on record</small>
         </div>
       </section>
       <section class="goal-card goal-card-wide">
-        ${sectionTitle("Collaboration plane", "Current generation")}
+        ${sectionTitle("Membership", "Exact-head revisions")}
         <div class="goal-blocker">
           ${icon(GitFork, 19)}
           <div>
-            <strong>Room genesis and reciprocal GoalRun membership are live; lifecycle transition is still unavailable.</strong>
+            <strong>
+              ${members.length ? `${members.length} GoalRun${members.length === 1 ? "" : "s"} attached` : "No GoalRun attached"}
+            </strong>
             <p>
-              The daemon exposes the plural lifecycle URI, but the selected v2 profile returns
-              <code>outcome_room_v2_lifecycle_transition_unavailable</code>. This client will not call the retired singular
-              predecessor URI or claim an unreceipted status change.
+              Attaching or detaching a GoalRun is a revision of this record on the head shown above; the seam refuses a
+              stale head by name. The GoalRun's own projection does not yet name its orchestration.
             </p>
-            <code>POST /v1/goal-orchestration/outcome-rooms/{id}/lifecycle/transitions</code>
+            ${members.map((member) => html`<code>${member}</code>`)}
           </div>
         </div>
       </section>
       <section class="goal-card goal-card-wide">
-        ${sectionTitle("Room replay", "Bounded System + Agentgres")}
+        ${sectionTitle("Replay", "The record's chain")}
         ${detail.replay
           ? html`<details class="goal-json">
-              <summary>Inspect reconstructed room truth</summary>
+              <summary>Inspect every revision and its admission</summary>
               <pre>${JSON.stringify(detail.replay, null, 2)}</pre>
             </details>`
-          : html`<p class="goal-muted">Replay is unavailable for this room projection.</p>`}
+          : html`<p class="goal-muted">Replay is unavailable for this orchestration.</p>`}
       </section>
       <section class="goal-card goal-card-wide">
         ${sectionTitle("Projection evidence")}
         <div class="goal-projection-jsons">
           <details class="goal-json">
-            <summary>Collaborative work graph</summary>
+            <summary>Composed graph</summary>
             <pre>${JSON.stringify(detail.graph, null, 2)}</pre>
           </details>
           <details class="goal-json">
-            <summary>Discussion</summary>
-            <pre>${JSON.stringify(detail.discussion, null, 2)}</pre>
-          </details>
-          <details class="goal-json">
-            <summary>Product</summary>
-            <pre>${JSON.stringify(detail.product, null, 2)}</pre>
+            <summary>Delegations</summary>
+            <pre>${JSON.stringify(detail.delegations, null, 2)}</pre>
           </details>
         </div>
       </section>
@@ -1142,7 +1161,7 @@ function draw(focusKey?: string): void {
   host.className = "pane goal-space-pane";
   let content: TemplateResult;
   if (state.detailGoal) content = goalDetailPane(state.detailGoal);
-  else if (state.detailRoom) content = roomDetailPane(state.detailRoom);
+  else if (state.detailOrchestration) content = orchestrationDetailPane(state.detailOrchestration);
   else content = homePane();
   render(
     html`${content}
@@ -1162,7 +1181,7 @@ function selectTab(tab: GoalSpaceTab): void {
 
 function openRunComposer(): void {
   state.composerOpen = false;
-  state.roomComposerOpen = false;
+  state.orchestrationComposerOpen = false;
   state.runComposerOpen = true;
   state.runCreateError = null;
   draw("goal-run-text");
@@ -1176,20 +1195,20 @@ function closeRunComposer(): void {
   draw("goal-create-runnable");
 }
 
-function openRoomComposer(): void {
+function openOrchestrationComposer(): void {
   state.composerOpen = false;
   state.runComposerOpen = false;
-  state.roomComposerOpen = true;
-  state.roomCreateError = null;
-  draw("outcome-room-system");
+  state.orchestrationComposerOpen = true;
+  state.orchestrationComposeError = null;
+  draw("orchestration-system");
 }
 
-function closeRoomComposer(): void {
+function closeOrchestrationComposer(): void {
   state.writeRequestSequence++;
-  state.roomComposerOpen = false;
-  state.creatingRoom = false;
-  state.roomCreateError = null;
-  draw("room-materialize");
+  state.orchestrationComposerOpen = false;
+  state.composingOrchestration = false;
+  state.orchestrationComposeError = null;
+  draw("orchestration-compose-open");
 }
 
 async function createRunnableGoal(event: SubmitEvent): Promise<void> {
@@ -1232,56 +1251,59 @@ async function createRunnableGoal(event: SubmitEvent): Promise<void> {
   }
 }
 
-async function materializeRoom(event: SubmitEvent): Promise<void> {
+async function composeOrchestration(event: SubmitEvent): Promise<void> {
   event.preventDefault();
-  if (state.creatingRoom || !state.principal) return;
+  if (state.composingOrchestration || !state.principal) return;
   const form = event.currentTarget as HTMLFormElement;
   const data = new FormData(form);
   let governance: unknown;
   try {
     governance = JSON.parse(String(data.get("governance") ?? ""));
   } catch {
-    state.roomCreateError = {
+    state.orchestrationComposeError = {
       status: 400,
       body: { error: "governance_invalid_json", message: "Governance coordinates must be valid JSON." },
     };
-    draw("outcome-room-governance");
+    draw("orchestration-governance");
     return;
   }
   const principal = state.principal;
   const sequence = ++state.writeRequestSequence;
-  state.creatingRoom = true;
-  state.roomCreateError = null;
-  state.notice = "Submitting exact System, collective goal, and governance coordinates.";
+  state.composingOrchestration = true;
+  state.orchestrationComposeError = null;
+  state.notice = "Composing: the coordinating thread first, then the record under the bounded System.";
   draw();
   try {
-    const room = await ioiApi("/api/ioi/rooms", validateOutcomeRoomCreate, {
+    const composed = await ioiApi("/api/ioi/orchestrations", validateOrchestrationCompose, {
       method: "POST",
       body: JSON.stringify({
         system_id: String(data.get("system_id") ?? "").trim(),
-        goal_run_ref: String(data.get("goal_run_ref") ?? "").trim(),
         objective: String(data.get("objective") ?? "").trim(),
-        room_mode: String(data.get("room_mode") ?? "private_goal"),
+        objective_ref: String(data.get("objective_ref") ?? "").trim() || null,
+        mode: String(data.get("mode") ?? "private_goal"),
         governance,
       }),
     });
     if (sequence !== state.writeRequestSequence || state.principal !== principal) return;
-    const id = outcomeRoomId(room);
+    const id = orchestrationId(composed.orchestration);
     if (!id) return;
-    state.roomComposerOpen = false;
-    state.notice = "OutcomeRoom materialized with Agentgres admission evidence.";
+    state.orchestrationComposerOpen = false;
+    state.systemId = composed.system_id;
+    state.notice = composed.admission
+      ? "Orchestration composed; the seam admitted its record with a receipt."
+      : "Orchestration record replayed: the seam already held this exact admission.";
     await refreshLists(false);
     if (sequence !== state.writeRequestSequence || state.principal !== principal) return;
-    await openRoom(id);
+    await openOrchestration(id, composed.system_id);
   } catch (error) {
     if (sequence !== state.writeRequestSequence || state.principal !== principal) return;
-    state.roomCreateError = failure(error);
-    state.notice = uncertainFailure(state.roomCreateError)
-      ? "OutcomeRoom materialization result is uncertain. Refresh room truth before retrying."
-      : "OutcomeRoom materialization was refused; no local room identity was invented.";
+    state.orchestrationComposeError = failure(error);
+    state.notice = uncertainFailure(state.orchestrationComposeError)
+      ? "Orchestration composition result is uncertain. Reload the list before retrying."
+      : "Orchestration composition was refused; no local identity was invented.";
   } finally {
     if (sequence === state.writeRequestSequence && state.principal === principal) {
-      state.creatingRoom = false;
+      state.composingOrchestration = false;
       draw();
     }
   }
@@ -1365,46 +1387,49 @@ async function mutateGoal(detail: GoalDetail, id: string, kind: "start" | "recon
   }
 }
 
-async function mutateRoomMembership(
-  detail: RoomDetail,
+async function mutateOrchestrationMembership(
+  detail: OrchestrationDetail,
   id: string,
   goalRunRef: string,
   action: "attach" | "detach",
 ): Promise<void> {
   const principal = state.principal;
-  const expectedRevision = numberAt(detail.room, "latest_sequence");
   const goalId = goalRunId({ goal_ref: goalRunRef });
-  if (!principal || expectedRevision === null || !goalId || detail.mutation?.submitting) return;
-  const mutation: RoomMutation = { action, submitting: true, uncertain: false, error: null };
+  if (!principal || !goalId || !detail.entry.head || detail.mutation?.submitting) return;
+  const mutation: OrchestrationMutation = { action, submitting: true, uncertain: false, error: null };
   detail.mutation = mutation;
   const sequence = ++state.writeRequestSequence;
-  state.notice = `${action === "attach" ? "Attaching" : "Detaching"} reciprocal room membership.`;
+  state.notice = `${action === "attach" ? "Attaching" : "Detaching"} the objective GoalRun as a revision on the exact head.`;
   draw();
   try {
     const result = await ioiApi(
-      `/api/ioi/rooms/${encodeURIComponent(id)}/goal-runs/${action}`,
-      (value) => validateOutcomeRoomMembership(value, id, goalId, action),
+      `/api/ioi/orchestrations/${encodeURIComponent(id)}/goal-runs/${action}`,
+      (value) => validateOrchestrationMembership(value, id, goalId, action),
       {
         method: "POST",
-        body: JSON.stringify({ goal_run_ref: goalRunRef, expected_revision: expectedRevision }),
+        body: JSON.stringify({
+          system_id: detail.entry.system_id,
+          goal_run_ref: goalRunRef,
+          expected_head: detail.entry.head,
+        }),
       },
     );
     if (
       sequence !== state.writeRequestSequence ||
       state.principal !== principal ||
-      state.detailRoom !== detail ||
+      state.detailOrchestration !== detail ||
       detail.mutation !== mutation
     )
       return;
-    detail.room = result.room;
+    detail.entry = { ...detail.entry, orchestration: result.orchestration, head: result.head };
     detail.mutation = null;
-    state.notice = `Objective GoalRun ${action === "attach" ? "attached to" : "detached from"} the OutcomeRoom with reciprocal evidence.`;
-    await openRoom(id, true);
+    state.notice = `Objective GoalRun ${action === "attach" ? "attached to" : "detached from"} the orchestration; the seam admitted the revision.`;
+    await openOrchestration(id, detail.entry.system_id, true);
   } catch (error) {
     if (
       sequence !== state.writeRequestSequence ||
       state.principal !== principal ||
-      state.detailRoom !== detail ||
+      state.detailOrchestration !== detail ||
       detail.mutation !== mutation
     )
       return;
@@ -1412,8 +1437,8 @@ async function mutateRoomMembership(
     mutation.uncertain = uncertainFailure(mutation.error);
     mutation.submitting = false;
     state.notice = mutation.uncertain
-      ? "Room membership result is uncertain. Reload owner truth before another membership action."
-      : "Room membership was refused; the loaded owner projection is unchanged.";
+      ? "Orchestration membership result is uncertain. Reload from the daemon before another revision."
+      : "Orchestration membership revision was refused; the loaded record is unchanged.";
     draw();
   }
 }
@@ -1430,7 +1455,7 @@ function openComposer(): void {
     return;
   }
   state.runComposerOpen = false;
-  state.roomComposerOpen = false;
+  state.orchestrationComposerOpen = false;
   state.composerOpen = true;
   draw("goal-text");
 }
@@ -1711,9 +1736,12 @@ async function refreshLists(showLoading = true): Promise<void> {
   state.loading = true;
   state.listErrors = [];
   if (showLoading) loadingPane("Loading daemon-owned Goal Spaces…");
-  const [goals, rooms] = await Promise.allSettled([
+  const [goals, orchestrations] = await Promise.allSettled([
     ioiApi("/api/ioi/goals", validateGoalRunList),
-    ioiApi("/api/ioi/rooms", validateOutcomeRoomList),
+    ioiApi(
+      `/api/ioi/orchestrations${state.systemId ? `?system_id=${encodeURIComponent(state.systemId)}` : ""}`,
+      validateOrchestrationList,
+    ),
   ]);
   if (sequence !== state.requestSequence) return;
   if (goals.status === "fulfilled") state.goals = goals.value;
@@ -1722,18 +1750,24 @@ async function refreshLists(showLoading = true): Promise<void> {
     state.listErrors.push(`GoalRuns unavailable: ${detail.message}`);
     state.goals = [];
   }
-  if (rooms.status === "fulfilled") state.rooms = rooms.value;
-  else {
-    const detail = errorDetail(failure(rooms.reason).body);
-    state.listErrors.push(`OutcomeRooms unavailable: ${detail.message}`);
-    state.rooms = [];
+  if (orchestrations.status === "fulfilled") {
+    state.orchestrations = orchestrations.value.orchestrations;
+    for (const unavailable of orchestrations.value.unavailable) {
+      state.listErrors.push(
+        `Orchestrations unavailable: ${shortRef(unavailable.system_id)} answered ${unavailable.status}: ${errorDetail(unavailable.error).message}`,
+      );
+    }
+  } else {
+    const detail = errorDetail(failure(orchestrations.reason).body);
+    state.listErrors.push(`Orchestrations unavailable: ${detail.message}`);
+    state.orchestrations = [];
   }
   state.loading = false;
 }
 
 export async function openGoal(id: string, replace = false, navigation = ++state.navigationSequence): Promise<void> {
   const sequence = ++state.detailRequestSequence;
-  state.detailRoom = null;
+  state.detailOrchestration = null;
   const detail: GoalDetail = {
     run: {},
     events: null,
@@ -1763,63 +1797,66 @@ export async function openGoal(id: string, replace = false, navigation = ++state
   draw();
 }
 
-export async function openRoom(id: string, replace = false, navigation = ++state.navigationSequence): Promise<void> {
+export async function openOrchestration(
+  id: string,
+  systemId: string,
+  replace = false,
+  navigation = ++state.navigationSequence,
+): Promise<void> {
   const sequence = ++state.detailRequestSequence;
   state.detailGoal = null;
-  const detail: RoomDetail = {
-    room: {},
+  state.systemId = systemId;
+  const detail: OrchestrationDetail = {
+    entry: { system_id: systemId, orchestration: {}, head: "", revisions: 0, thread_id: "" },
     graph: null,
-    discussion: null,
-    product: null,
     replay: null,
+    delegations: null,
     loading: true,
     errors: [],
     mutation: null,
   };
-  state.detailRoom = detail;
-  updateLocation(`room:${id}`, replace);
+  state.detailOrchestration = detail;
+  updateLocation(`orchestration:${id}`, replace);
   draw();
-  const roomPath = `/api/ioi/rooms/${encodeURIComponent(id)}`;
+  const base = `/api/ioi/orchestrations/${encodeURIComponent(id)}`;
+  const query = `?system_id=${encodeURIComponent(systemId)}`;
   const responses = await Promise.allSettled([
-    ioiApi(roomPath, (value) => validateOutcomeRoomDetail(value, id)),
-    ioiApi(`${roomPath}/collaborative-work-graph`, (value) => validateCollaborativeWorkGraph(value, id)),
-    ioiApi(`${roomPath}/discussion-projection`, (value) => validateDiscussionProjection(value, id)),
-    ioiApi(`${roomPath}/product-projection`, (value) => validateProductProjection(value, id)),
-    ioiApi(`${roomPath}/replay`, (value) => validateRoomReplay(value, id)),
+    ioiApi(`${base}${query}`, (value) => validateOrchestrationDetail(value, id)),
+    ioiApi(`${base}/graph${query}`, (value) => validateOrchestrationGraph(value, id)),
+    ioiApi(`${base}/replay${query}`, (value) => validateOrchestrationReplay(value, id)),
+    ioiApi(`${base}/delegations${query}`, validateOrchestrationDelegations),
   ]);
   if (
     sequence !== state.detailRequestSequence ||
     navigation !== state.navigationSequence ||
-    state.detailRoom !== detail
+    state.detailOrchestration !== detail
   )
     return;
-  const [room, graph, discussion, product, replay] = responses;
-  if (room.status === "fulfilled") detail.room = room.value;
-  else detail.errors.push(`Room unavailable: ${errorDetail(failure(room.reason).body).message}`);
+  const [entry, graph, replay, delegations] = responses;
+  if (entry.status === "fulfilled") detail.entry = entry.value;
+  else detail.errors.push(`Orchestration unavailable: ${errorDetail(failure(entry.reason).body).message}`);
   if (graph.status === "fulfilled") detail.graph = graph.value;
   else detail.errors.push(`Graph unavailable: ${errorDetail(failure(graph.reason).body).message}`);
-  if (discussion.status === "fulfilled") detail.discussion = discussion.value;
-  else detail.errors.push(`Discussion unavailable: ${errorDetail(failure(discussion.reason).body).message}`);
-  if (product.status === "fulfilled") detail.product = product.value;
-  else detail.errors.push(`Product unavailable: ${errorDetail(failure(product.reason).body).message}`);
   if (replay.status === "fulfilled") detail.replay = replay.value;
   else detail.errors.push(`Replay unavailable: ${errorDetail(failure(replay.reason).body).message}`);
+  if (delegations.status === "fulfilled") detail.delegations = delegations.value;
+  else detail.errors.push(`Delegations unavailable: ${errorDetail(failure(delegations.reason).body).message}`);
   detail.loading = false;
   draw();
 }
 
 function closeDetail(): void {
   const goalId = state.detailGoal ? goalRunId(state.detailGoal.run) : null;
-  const roomId = state.detailRoom ? outcomeRoomId(state.detailRoom.room) : null;
+  const orchestration = state.detailOrchestration ? orchestrationId(state.detailOrchestration.entry.orchestration) : null;
   state.detailRequestSequence++;
   state.writeRequestSequence++;
   state.navigationSequence++;
   state.detailGoal = null;
-  state.detailRoom = null;
+  state.detailOrchestration = null;
   updateLocation(null);
   let focusKey = "goal-tab-goals";
   if (goalId) focusKey = `goal-row-${goalId}`;
-  else if (roomId) focusKey = `room-row-${roomId}`;
+  else if (orchestration) focusKey = `orchestration-row-${orchestration}`;
   draw(focusKey);
 }
 
@@ -1830,7 +1867,7 @@ export function routeGoalSpaceHistory(item: string | null): void {
   state.writeRequestSequence++;
   if (!item) {
     state.detailGoal = null;
-    state.detailRoom = null;
+    state.detailOrchestration = null;
     if (state.activation) state.activation.grantText = "";
     state.activation = null;
     state.activationRecoveryId = null;
@@ -1838,9 +1875,21 @@ export function routeGoalSpaceHistory(item: string | null): void {
     draw("goal-tab-goals");
     return;
   }
-  if (item.startsWith("room:")) void openRoom(item.slice("room:".length), true, navigation);
-  else if (item.startsWith("activation:")) void recoverActivation(item.slice("activation:".length), true);
+  if (item.startsWith("orchestration:")) {
+    const systemId = systemFromLocation() ?? state.systemId;
+    if (systemId) void openOrchestration(item.slice("orchestration:".length), systemId, true, navigation);
+    else orchestrationLinkWithoutSystem();
+  } else if (item.startsWith("activation:")) void recoverActivation(item.slice("activation:".length), true);
   else void openGoal(item, true, navigation);
+}
+
+function orchestrationLinkWithoutSystem(): void {
+  state.detailGoal = null;
+  state.detailOrchestration = null;
+  state.tab = "orchestrations";
+  state.notice = "This orchestration link names no bounded System; choose it from the list.";
+  updateLocation(null, true);
+  draw("goal-tab-orchestrations");
 }
 
 export function suspendGoalSpaceRequests(): void {
@@ -1851,18 +1900,18 @@ export function suspendGoalSpaceRequests(): void {
   state.navigationSequence++;
   if (state.activation) state.activation.grantText = "";
   state.detailGoal = null;
-  state.detailRoom = null;
+  state.detailOrchestration = null;
   state.activation = null;
   state.activationRecoveryId = null;
   state.loading = false;
   state.activating = false;
   state.composerOpen = false;
   state.runComposerOpen = false;
-  state.roomComposerOpen = false;
+  state.orchestrationComposerOpen = false;
   state.creatingRun = false;
-  state.creatingRoom = false;
+  state.composingOrchestration = false;
   state.runCreateError = null;
-  state.roomCreateError = null;
+  state.orchestrationComposeError = null;
   state.notice = "";
 }
 
@@ -1877,11 +1926,14 @@ export async function renderGoalSpace(item: string | null = null): Promise<void>
   const navigation = ++state.navigationSequence;
   state.detailRequestSequence++;
   state.detailGoal = null;
-  state.detailRoom = null;
+  state.detailOrchestration = null;
+  if (item?.startsWith("orchestration:")) state.systemId = systemFromLocation() ?? state.systemId;
   await refreshLists(true);
   if (appState.currentView !== "goals" || navigation !== state.navigationSequence) return;
-  if (item?.startsWith("room:")) await openRoom(item.slice("room:".length), true, navigation);
-  else if (item?.startsWith("activation:")) await recoverActivation(item.slice("activation:".length), true);
+  if (item?.startsWith("orchestration:")) {
+    if (state.systemId) await openOrchestration(item.slice("orchestration:".length), state.systemId, true, navigation);
+    else orchestrationLinkWithoutSystem();
+  } else if (item?.startsWith("activation:")) await recoverActivation(item.slice("activation:".length), true);
   else if (item) await openGoal(item, true, navigation);
   else {
     const recovery = readRecovery(principal);
@@ -1900,21 +1952,22 @@ export function resetGoalSpaceState(principal: string | null = state.principal):
   state.navigationSequence++;
   state.tab = "goals";
   state.goals = [];
-  state.rooms = [];
+  state.orchestrations = [];
+  state.systemId = null;
   state.loading = false;
   state.listErrors = [];
   state.detailGoal = null;
-  state.detailRoom = null;
+  state.detailOrchestration = null;
   state.activation = null;
   state.activationRecoveryId = null;
   state.activating = false;
   state.composerOpen = false;
   state.runComposerOpen = false;
-  state.roomComposerOpen = false;
+  state.orchestrationComposerOpen = false;
   state.creatingRun = false;
-  state.creatingRoom = false;
+  state.composingOrchestration = false;
   state.runCreateError = null;
-  state.roomCreateError = null;
+  state.orchestrationComposeError = null;
   state.notice = "";
   state.principal = null;
 }

@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/orchestration/handle-is-the-record/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/orchestration/v1",
+  "rules": [
+    {
+      "rule_id": "orchestration.scope.matches_binding_parent_scope",
+      "description": "The composition scope the record names is exactly the parent scope the seam derived into its binding: every record of this orchestration is admitted under that scope, so the orchestration's own record cannot name another.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.orchestration_ref",
+          "$.system_binding.parent_scope_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "orchestration.scope.names_its_own_id",
+      "description": "The composition scope is derived from the orchestration id and nothing else: its tail is the id's tail under the application's scope prefix, so an orchestration cannot be recorded under a scope that belongs to another.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.orchestration_id",
+        "delimiter": "://",
+        "target_path": "$.orchestration_ref",
+        "target_prefix": "app-scope://ioi-ai/orchestration/"
+      }
+    },
+    {
+      "rule_id": "orchestration.objective.named",
+      "description": "An orchestration names the objective its coordinating thread was created with.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.objective"
+      }
+    }
+  ]
+}

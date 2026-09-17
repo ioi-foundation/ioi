@@ -77,6 +77,20 @@ composition mounts none of them. The hosted-v2 OutcomeRoom routes and the
 GoalRun routes remain mounted until slices S4c and S4d retire them into the
 same composition.
 
+**Re-pointed 2026-09-17 (R-185, slice S4c-1).** The ioi.ai web application's
+goal space — the one live consumer the hosted-v2 OutcomeRoom routes had — no
+longer calls them. It consumes `OrchestrationEnvelope`
+([`collaborative-pursuit.md`](./collaborative-pursuit.md)
+§ *OrchestrationEnvelope*, the successor of `OutcomeRoomEnvelope`) through
+`packages/ioi-ai-orchestration` over the S2 orchestration handle and the
+System-record seam: composing creates the coordinating thread and admits the
+record; listing, opening, the graph, replay and delegations are reads; GoalRun
+attach and detach and the status are revisions on the exact head. The daemon
+session the ioi.ai portal exchange mints is scoped to those primitives — the
+thread routes, the Systems projection and the record seam — beside this
+namespace. The hosted-v2 room routes below therefore have no consumer and are
+deleted in slice S4c-2.
+
 The `/v1/goal-orchestration/*` namespace is the ioi.ai orchestration
 application's route namespace (ADR 0022): the daemon hosts, admits, and
 receipts these routes exactly as it does any application domain's, and their

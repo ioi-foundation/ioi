@@ -3300,9 +3300,17 @@ records admitted through the System-scoped record seam and composed in
 `packages/ioi-ai-orchestration`
 ([`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md)
 § *Work objects v4*); the hosted-v2 OutcomeRoom and GoalRun families follow in
-slices S4c and S4d. Hypervisor keeps only what the platform owns: the record
-seam, threads and subagents, work-lifecycle reservations and System
-genesis/activation.
+slices S4c and S4d. On 2026-09-17 (R-185, slice S4c-1) the orchestration itself
+became such a record — `applications/ioi-ai/orchestration/v1`, the successor of
+OutcomeRoom v2, composed in `packages/ioi-ai-orchestration` — and the ioi.ai
+web application's goal space was re-pointed at that composition, so the
+hosted-v2 room routes have no consumer left. The short-lived session the ioi.ai
+portal exchange mints reaches exactly the primitives that composition drives
+(`/v1/threads`, a thread and its subagents, the Systems projection and the
+record seam under a System) beside `/v1/goal-orchestration/*`, and none of a
+System's genesis, activation or transition routes. Hypervisor keeps only what
+the platform owns: the record seam, threads and subagents, work-lifecycle
+reservations and System genesis/activation.
 
 ## Bounded Improvement Campaign APIs
 

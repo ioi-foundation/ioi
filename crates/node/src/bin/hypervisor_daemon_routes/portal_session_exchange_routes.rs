@@ -455,6 +455,38 @@ mod tests {
             &headers,
             "/v1/hypervisor/secrets"
         ));
+        // R-185 (S4c-1): the composition's primitives are in scope — the coordinating thread,
+        // its subagents, the Systems projection and the record seam under a System — and the
+        // System's own genesis/activation/transition routes, the work-lifecycle plane and
+        // everything else stay out. Patterns are per-segment, never prefixes.
+        for allowed in [
+            "/v1/threads",
+            "/v1/threads/thread_1",
+            "/v1/threads/thread_1/subagents",
+            "/v1/hypervisor/autonomous-systems/projection",
+            "/v1/hypervisor/autonomous-systems/system-tail/records",
+            "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug/object-slug",
+        ] {
+            assert!(
+                super::super::lifecycle_routes::session_allows_route(data_dir, &headers, allowed),
+                "{allowed} is a composition primitive the portal session reaches"
+            );
+        }
+        for denied in [
+            "/v1/threads/thread_1/turns",
+            "/v1/threads/thread_1/subagents/agent_1",
+            "/v1/hypervisor/autonomous-systems",
+            "/v1/hypervisor/autonomous-systems/system-tail",
+            "/v1/hypervisor/autonomous-systems/system-tail/activation",
+            "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug",
+            "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug/object-slug/extra",
+            "/v1/hypervisor/work-lifecycle/reservations",
+        ] {
+            assert!(
+                !super::super::lifecycle_routes::session_allows_route(data_dir, &headers, denied),
+                "{denied} is not in the portal session's scope"
+            );
+        }
         let stored = read_record_dir(data_dir, "sessions");
         assert_eq!(stored.len(), 1);
         assert!(stored[0].get("session_token").is_none());
@@ -464,6 +496,51 @@ mod tests {
             stored[0]["allowed_route_prefixes"],
             json!(["/v1/goal-orchestration/"])
         );
+        assert_eq!(
+            stored[0]["allowed_exact_routes"],
+            json!([
+                "/v1/hypervisor/auth/whoami",
+                "/v1/hypervisor/auth/logout",
+                "/v1/threads",
+                "/v1/hypervisor/autonomous-systems/projection"
+            ])
+        );
+        assert_eq!(
+            stored[0]["allowed_route_patterns"],
+            json!([
+                "/v1/threads/*",
+                "/v1/threads/*/subagents",
+                "/v1/hypervisor/autonomous-systems/*/records",
+                "/v1/hypervisor/autonomous-systems/*/records/*/*"
+            ])
+        );
+    }
+
+    #[test]
+    fn route_patterns_match_one_segment_per_star_and_never_widen_into_a_prefix() {
+        use super::super::lifecycle_routes::route_pattern_matches;
+        assert!(route_pattern_matches(
+            "/v1/threads/*",
+            "/v1/threads/thread_1"
+        ));
+        assert!(route_pattern_matches(
+            "/v1/hypervisor/autonomous-systems/*/records/*/*",
+            "/v1/hypervisor/autonomous-systems/sys/records/c/o"
+        ));
+        assert!(!route_pattern_matches("/v1/threads/*", "/v1/threads"));
+        assert!(!route_pattern_matches("/v1/threads/*", "/v1/threads/"));
+        assert!(!route_pattern_matches(
+            "/v1/threads/*",
+            "/v1/threads/thread_1/turns"
+        ));
+        assert!(!route_pattern_matches(
+            "/v1/threads/*",
+            "/v1/thread/thread_1"
+        ));
+        assert!(!route_pattern_matches(
+            "/v1/hypervisor/autonomous-systems/*/records",
+            "/v1/hypervisor/autonomous-systems/sys/activation"
+        ));
     }
 
     #[test]

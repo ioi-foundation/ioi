@@ -62,12 +62,18 @@ fn system_modes(system_id: &str) -> Vec<Value> {
         .collect()
 }
 
-/// Policy is decided per row from the request identity: a System is visible to the principal that
-/// proposed its genesis, or to a caller holding the tenant its genesis names as owner. Anything
-/// else is not in this caller's inventory — not hidden, not present.
+/// Policy is decided per row from the request identity, three ways. A System is visible to the
+/// principal that proposed its genesis, or to a caller holding the tenant its genesis names as
+/// owner — both read the genesis record. The third reads the seam's own scope discipline: a
+/// principal that holds records under a System through the System-record seam (its
+/// request-resource scopes name `<system_id>/…`) sees that System — the composition it admitted
+/// lives there, and hiding the System would hide its own records (register R-185, slice S4c-1).
+/// Anything else is not in this caller's inventory — not hidden, not present — and a principal
+/// with no scope under any System still gets `honest_empty`, never a fabricated row.
 fn row_visible_to(
     record: &Value,
     identity: &super::substrate_store::RequestIdentity,
+    hosted_record_refs: &std::collections::BTreeSet<String>,
 ) -> Option<&'static str> {
     if record.get("proposed_by_ref").and_then(Value::as_str)
         == Some(identity.principal_ref.as_str())
@@ -81,7 +87,26 @@ fn row_visible_to(
     {
         return Some("owner_ref in tenant_refs");
     }
+    if record
+        .get("system_id")
+        .and_then(Value::as_str)
+        .is_some_and(|system_id| hosts_records_under(hosted_record_refs, system_id))
+    {
+        return Some("principal holds System-record seam scopes under system_id");
+    }
     None
+}
+
+/// A seam resource ref is `<system_id>/<contract slug>/<object slug>`; a System id itself
+/// contains `/`, so the match is on the exact `<system_id>/` prefix, never on a split.
+fn hosts_records_under(
+    hosted_record_refs: &std::collections::BTreeSet<String>,
+    system_id: &str,
+) -> bool {
+    let prefix = format!("{system_id}/");
+    hosted_record_refs
+        .iter()
+        .any(|resource| resource.starts_with(&prefix))
 }
 
 fn project_one(data_dir: &str, record: &Value, view: &str, policy: &Value) -> Result<Value, VErr> {
@@ -205,6 +230,16 @@ pub(crate) async fn handle_get(
         Ok(identity) => identity,
         Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
     };
+    // The seam's own scope discipline, read once before any row: the System-record resources this
+    // identity holds, so a System that hosts the caller's records is visible to the caller.
+    let hosted_record_refs = match super::substrate_store::authorized_request_resource_refs(
+        &state.data_dir,
+        &identity,
+        super::system_record_routes::RESOURCE_KIND,
+    ) {
+        Ok(refs) => refs,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     match with_source_locks(|| {
         let mut records = super::system_genesis_routes::scan_records(&state.data_dir)
             .map_err(|message| verr("system_projection_source_unreadable", message))?;
@@ -245,7 +280,10 @@ pub(crate) async fn handle_get(
         }
         let visible: Vec<(&Value, &'static str)> = records
             .iter()
-            .filter_map(|record| row_visible_to(record, &identity).map(|filter| (record, filter)))
+            .filter_map(|record| {
+                row_visible_to(record, &identity, &hosted_record_refs)
+                    .map(|filter| (record, filter))
+            })
             .collect();
         let systems = visible
             .iter()
@@ -268,5 +306,60 @@ pub(crate) async fn handle_get(
     }) {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use serde_json::json;
+
+    use super::super::substrate_store::RequestIdentity;
+    use super::{hosts_records_under, row_visible_to};
+
+    fn refs(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|item| (*item).to_string()).collect()
+    }
+
+    #[test]
+    fn a_system_is_visible_to_the_principal_that_holds_seam_records_under_it_and_to_nobody_else() {
+        let identity = RequestIdentity::local_development_operator("user://alice");
+        let system = json!({ "system_id": "system://ioi/orchestration/demo", "proposed_by_ref": "project://ioi/orchestration" });
+        let hosted = refs(&["system://ioi/orchestration/demo/orchestration-v1/orc-one"]);
+        assert_eq!(
+            row_visible_to(&system, &identity, &hosted),
+            Some("principal holds System-record seam scopes under system_id")
+        );
+        assert_eq!(row_visible_to(&system, &identity, &BTreeSet::new()), None);
+        let other = json!({ "system_id": "system://ioi/orchestration/demo-two", "proposed_by_ref": "project://ioi/orchestration" });
+        assert_eq!(row_visible_to(&other, &identity, &hosted), None);
+    }
+
+    #[test]
+    fn the_prefix_match_is_exact_so_a_system_whose_id_extends_another_is_not_confused_with_it() {
+        let hosted = refs(&["system://ioi/orchestration/demo-two/orchestration-v1/orc-one"]);
+        assert!(hosts_records_under(
+            &hosted,
+            "system://ioi/orchestration/demo-two"
+        ));
+        assert!(!hosts_records_under(
+            &hosted,
+            "system://ioi/orchestration/demo"
+        ));
+        assert!(!hosts_records_under(
+            &hosted,
+            "system://ioi/orchestration/demo-tw"
+        ));
+    }
+
+    #[test]
+    fn the_genesis_clauses_still_decide_first() {
+        let identity = RequestIdentity::local_development_operator("user://alice");
+        let proposed = json!({ "system_id": "system://x", "proposed_by_ref": "user://alice" });
+        assert_eq!(
+            row_visible_to(&proposed, &identity, &BTreeSet::new()),
+            Some("proposed_by_ref == principal_ref")
+        );
     }
 }

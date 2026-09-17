@@ -1,11 +1,11 @@
 export type JsonRecord = Record<string, unknown>;
-export type GoalSpaceTab = "goals" | "rooms";
+export type GoalSpaceTab = "goals" | "orchestrations";
 
 export function goalSpaceTabForKey(current: GoalSpaceTab, key: string): GoalSpaceTab | null {
   if (key === "Home") return "goals";
-  if (key === "End") return "rooms";
+  if (key === "End") return "orchestrations";
   if (key === "ArrowLeft" || key === "ArrowUp" || key === "ArrowRight" || key === "ArrowDown") {
-    return current === "goals" ? "rooms" : "goals";
+    return current === "goals" ? "orchestrations" : "goals";
   }
   return null;
 }
@@ -110,9 +110,9 @@ export function goalRunId(value: unknown): string | null {
   return canonicalTail(object?.goal_run_id ?? object?.goal_ref ?? object?.id, "goal", "gr_");
 }
 
-export function outcomeRoomId(value: unknown): string | null {
+export function orchestrationId(value: unknown): string | null {
   const object = record(value);
-  return canonicalTail(object?.outcome_room_id ?? object?.outcome_room_ref ?? object?.id, "outcome-room", "or_");
+  return canonicalTail(object?.orchestration_id ?? object?.id, "orchestration", "orc_");
 }
 
 export function activationId(value: unknown): string | null {
@@ -170,13 +170,6 @@ export function goalTitle(value: unknown): string {
   );
 }
 
-export function roomTitle(value: unknown): string {
-  return (
-    textAt(value, "display_name") ??
-    textAt(value, "name") ??
-    textAt(value, "objective") ??
-    textAt(value, "objective_ref") ??
-    textAt(value, "outcome_room_id") ??
-    "Outcome room"
-  );
+export function orchestrationTitle(value: unknown): string {
+  return textAt(value, "objective") ?? textAt(value, "objective_ref") ?? textAt(value, "orchestration_id") ?? "Orchestration";
 }

@@ -15,8 +15,8 @@ export function deepLinkPath(
     if (itemId) throw new Error("the contexts view is addressed by scope, not by item id");
     return `${b}/contexts?scope=${encodeURIComponent(contextScope)}`;
   }
-  if (view === "goals" && itemId?.startsWith("room:")) {
-    return `${b}/rooms/${encodeURIComponent(itemId.slice("room:".length))}`;
+  if (view === "goals" && itemId?.startsWith("orchestration:")) {
+    return `${b}/orchestrations/${encodeURIComponent(itemId.slice("orchestration:".length))}`;
   }
   if (view === "goals" && itemId?.startsWith("activation:")) {
     return `${b}/goal-activations/${encodeURIComponent(itemId.slice("activation:".length))}`;
@@ -53,13 +53,13 @@ export function parseDeepLink(
   const requestedView = params.get("view") ?? (pathView === "projects" ? "contexts" : pathView);
   let view = requestedView;
   if (requestedView === "connectors") view = "keychain";
-  if (requestedView === "rooms") view = "goals";
+  if (requestedView === "orchestrations") view = "goals";
   if (requestedView === "goal-activations") view = "goals";
   let item = projectItem ?? decodeSegment(segments[1] ?? "");
   if (pathView === "projects" && projectKind && projectItem) item = `${projectKind}:${projectItem}`;
-  if (pathView === "rooms") {
-    const room = decodeSegment(segments[1] ?? "");
-    item = room ? `room:${room}` : null;
+  if (pathView === "orchestrations") {
+    const orchestration = decodeSegment(segments[1] ?? "");
+    item = orchestration ? `orchestration:${orchestration}` : null;
   }
   if (pathView === "goal-activations") {
     const activation = decodeSegment(segments[1] ?? "");
