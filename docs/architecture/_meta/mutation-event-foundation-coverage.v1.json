@@ -297,18 +297,22 @@
       "handler_level_classification": {
         "method": "MEF-GAP-001's discriminator, MECHANIZED per handler rather than hand-maintained: (1) a SUCCESS response is reachable after a discarded write, AND (2) the written record kind is read back as state elsewhere. Superseding the hand-built list because it drifted in both directions — see classifier_coverage_defect. Still a CANDIDATE SET: each handler needs its own reading before it is called a defect. The handler count is EXPOSURE and double-counts by design (one shared helper is reached by many handlers); distinct_write_sites is the actionable unit.",
         "totals": {
-          "handlers_with_discarded_writes": 3,
-          "both_tests_hold": 0,
+          "handlers_with_discarded_writes": 8,
+          "both_tests_hold": 1,
           "success_but_kind_never_read_back": 2,
-          "distinct_write_sites": 0,
-          "classified_tolerated_reaches": 98
+          "distinct_write_sites": 4,
+          "classified_tolerated_reaches": 82
         },
         "sample_verified_by_hand": [
           "authority_routes::handle_authority_grant — takes no headers at all, discards the authority-grant write, and returns the grant with a live status and an expiry. `authority-grants` is read back by preflight, so a caller can be told `granted` while no later check can find the grant; a `denied` decision that fails to write leaves no audit trail, in a handler whose own comment claims a complete one.",
           "binding_routes::handle_binding_create — discards the session-execution-binding write and returns a binding carrying a receipt_ref and a state_root_ref. `load_binding` reads that kind back."
         ],
-        "meets_both_tests_by_module": {},
-        "reading_note": "W1.2 CLOSED the both-tests candidate set 2026-08-08: it stood at 122 handlers across 22 modules (down from an earlier 128); every one now fails closed with a typed 500 on the discarded write that reached a success, or carries a CLASSIFIED disposition (checked-elsewhere / rollback-cleanup / bootstrap-seed / best-effort-telemetry) verified at its own site. `scripts/audit-daemon-mutation-handlers.mjs --check` reports meets_both_tests_by_module = {} and success_but_kind_never_read_back = 2 (the closest-to-benign residue, each read and left as-is). The generator remains the source of truth; this list is empty by derivation, not assertion.",
+        "meets_both_tests_by_module": {
+          "cloud_job_routes.rs": [
+            "handle_cloud_job_execute"
+          ]
+        },
+        "reading_note": "W1.2 CLOSED the both-tests candidate set 2026-08-08: it stood at 122 handlers across 22 modules (down from an earlier 128); every one now fails closed with a typed 500 on the discarded write that reached a success, or carries a CLASSIFIED disposition (checked-elsewhere / rollback-cleanup / bootstrap-seed / best-effort-telemetry) verified at its own site. `scripts/audit-daemon-mutation-handlers.mjs --check` reports meets_both_tests_by_module = {} and success_but_kind_never_read_back = 2 (the closest-to-benign residue, each read and left as-is). The generator remains the source of truth; this list is empty by derivation, not assertion. 2026-09-17 (R-184): the candidate set is NON-EMPTY again for the first time since that closure — one handler, cloud_job_routes::handle_cloud_job_execute, read individually above. It is a NAMED, OWNED defect with a closure test, not a grandfathered module.",
         "classifier_coverage_defect": {
           "found": "2026-08-07, while closing the connector family",
           "defect": "Test (1) of the discriminator — 'returns success carrying a record whose only write was discarded' — was mechanized as though the response body must EMBED the written record. Handlers that return a CLAIM ABOUT the record instead were missed, and they are equally defective.",
@@ -330,7 +334,26 @@
           ]
         },
         "generated_by": "scripts/audit-daemon-mutation-handlers.mjs (npm run check:mutation-handlers)",
-        "classified_disposition_marker": "A discarded write whose tolerance is a RECORDED DECISION carries `CLASSIFIED` in a comment directly above it, and the checker excludes it while still counting it. MEF-GAP-001's acceptance explicitly allows 'intentionally best-effort' as an outcome, so a gate with no way to express its own allowed outcomes could never go green. It also stops the call-graph closure dragging in read-only handlers: handle_policies_get merely calls ensure_policy_seed, whose tolerated bootstrap write is classified at its own site."
+        "classified_disposition_marker": "A discarded write whose tolerance is a RECORDED DECISION carries `CLASSIFIED` in a comment directly above it, and the checker excludes it while still counting it. MEF-GAP-001's acceptance explicitly allows 'intentionally best-effort' as an outcome, so a gate with no way to express its own allowed outcomes could never go green. It also stops the call-graph closure dragging in read-only handlers: handle_policies_get merely calls ensure_policy_seed, whose tolerated bootstrap write is classified at its own site.",
+        "individually_read_2026_09_17": [
+          {
+            "handler": "cloud_job_routes::handle_cloud_job_execute",
+            "write_sites": [
+              597,
+              625,
+              660,
+              727
+            ],
+            "kind": "JOB_KIND",
+            "form": "let _ = persist_record",
+            "reading": "ALL FOUR WRITE THE SAME RECORD: the job's own state transition — refused_authority (597), refused_no_placement (625), placed (660), executed/refused_provider_operation (727) — and in every case the HTTP response is returned from the values in memory, not re-read from the record. So the response is authoritative and the durable job record is best-effort, which is the wrong way round for a record a caller can GET afterwards.",
+            "worst_case": "Site 660 is the sharp one. It stamps `placed` with the placement receipt and then CONTINUES into the provider mutation lane. If that write is lost, the provider operation still happens and site 727 (also discarded) writes the terminal state. A caller can be answered 200 with ok:true and a receipts array while the durable job shows an earlier state, or none. Sites 597 and 625 return 403/409, so a lost write there diverges the record from a refusal the caller was already told — quieter, same class.",
+            "is_it_a_defect": "YES for 660 and 727, by MEF-GAP-001's own discriminator: a success response is reachable after a discarded write, and JOB_KIND is read back as state by the job GET route. 597 and 625 cannot reach a success response, so they fail only the second half.",
+            "why_it_is_classified_and_not_fixed_here": "Making these fail closed changes the durability semantics of a live execution handler that reaches a provider, and the honest fix (write-then-respond, with a typed 500 on the discarded write, exactly as W1.2 did for its 122 handlers) needs its own driven proof over the refuse/place/execute ladder including the provider-operation branch. That is a unit, not a line edit. Classified here so the gate stops being ambiguous and the work is named.",
+            "closure_test": "handle_cloud_job_execute fails closed with a typed 500 on each of the four writes, proven by a driven run that plants a write failure at each site and asserts no 2xx and no ok:true is reachable, and that a subsequent GET of the job never contradicts what the caller was told.",
+            "provenance": "R-18 opened 2026-09-08 against this handler and was carried as another program's fence until 2026-09-17, when decentralized.cloud left the repository and this module did not. Re-owned by R-182, read individually and classified by R-184."
+          }
+        ]
       },
       "progress": [
         "The gap asked for a handler-level classification instead of module-name grandfathering, and that classification now exists above. 284 census indicators resolve to 128 handlers with discarded writes: 92 meet both halves of the discriminator, 29 carry some checked failure path and cannot be judged mechanically, and 7 write a record kind nothing reads back.",
@@ -391,9 +414,9 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 52,
-    "source_files": 23,
-    "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
+    "total_occurrences": 60,
+    "source_files": 25,
+    "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified Re-censused 2026-09-17 (register R-184) at 60 occurrences across 25 files, up from 52/23. THE DELTA IS THREE THINGS, NOT ONE, and only one of them is new behaviour. (1) A RENAME, net zero: decentralized_cloud_routes.rs -> cloud_candidate_routes.rs, one occurrence carried across when decentralized.cloud left the repository (ADR 0054). (2) cloud_job_routes.rs, 4 — this IS the open finding R-18, unchanged and still open; it is listed here so the census matches source, which is NOT a classification of it. (3) provider_connection_routes.rs, 4 — NEWLY REGISTERED, and they were this program's own: the module landed in 928a76ca5 (M03.16 slice B) and its discarded writes were never censused, which R-18's standing red is exactly what hid. Classified individually below.",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
       "crates/node/src/bin/hypervisor-daemon.rs": 26,
@@ -401,9 +424,10 @@
       "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/binding_routes.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/cloud_candidate_routes.rs": 1,
+      "crates/node/src/bin/hypervisor_daemon_routes/cloud_job_routes.rs": 4,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 1,
-      "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 1,
@@ -416,11 +440,47 @@
       "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs": 3,
+      "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs": 4,
       "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs": 1
     },
-    "census_note": "52 occurrences across 23 files, regenerated 2026-08-25 after merging the Akash two-stage recovery lane with M03/M04 owner-seam evolution: every discarded persist that reached a success and was read back as state now fails closed with a typed 500 or carries a CLASSIFIED disposition. The Akash path now checks all funded-deposit, compensation, restart-recovery, and lease-acceptance writes. The remaining 52 are leads the handler-level classifier resolves to ZERO both-tests handlers; each surviving indicator is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write."
+    "census_note": "52 occurrences across 23 files, regenerated 2026-08-25 after merging the Akash two-stage recovery lane with M03/M04 owner-seam evolution: every discarded persist that reached a success and was read back as state now fails closed with a typed 500 or carries a CLASSIFIED disposition. The Akash path now checks all funded-deposit, compensation, restart-recovery, and lease-acceptance writes. The remaining 52 are leads the handler-level classifier resolves to ZERO both-tests handlers; each surviving indicator is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write.",
+    "last_regenerated": "2026-09-17",
+    "newly_classified_2026_09_17": [
+      {
+        "source": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+        "line": 1382,
+        "kind": "projection_index",
+        "reads": "CONNECTION_INDEX after the authoritative admission returned CREATED/OK",
+        "classification": "Not an authority write. The admitted connection record is the truth; this is a derived lookup index keyed by connector and principal. A failed write leaves the index stale, never the authority wrong.",
+        "residual": "A failed index write is SILENT. Closure test: the index write reports, and a stale index is detectable by rebuilding it from admitted records."
+      },
+      {
+        "source": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+        "line": 1393,
+        "kind": "status_projection",
+        "reads": "connectors[*].auth_posture = token-lease:bound",
+        "classification": "Not an authority write. The lease and its epoch are the authority; this stamps a display posture on the connector record.",
+        "residual": "A failed write leaves the connector showing a stale posture while the lease is bound. Closure test: the posture is DERIVED from the lease at read time rather than stamped."
+      },
+      {
+        "source": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+        "line": 1892,
+        "kind": "best_effort_cleanup",
+        "reads": "connector-credentials, retiring sealed_* material on disconnect",
+        "classification": "Legitimately discarded, and the source says why at the call site: the epoch fence already refuses the credential, so removing the bytes is cleanup canon does not require to complete before fencing. Authority does not depend on it.",
+        "residual": "None claimed beyond the stated one: sealed bytes may outlive the disconnect until a later sweep removes them. They are already unusable."
+      },
+      {
+        "source": "crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs",
+        "line": 1905,
+        "kind": "status_projection",
+        "reads": "connectors[*] after disconnect",
+        "classification": "Not an authority write. Same shape as line 1393: the disconnect receipt is the authority and this stamps the connector's display state.",
+        "residual": "A failed write leaves a disconnected connector displaying a connected posture. Same closure test as 1393."
+      }
+    ]
   },
   "verification": {
     "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",
