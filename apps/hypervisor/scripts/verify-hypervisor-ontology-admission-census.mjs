@@ -1044,7 +1044,7 @@ const PINNED = {
   // system_record_routes.rs alone — `project()` now derives each revision's receipt_ref and
   // operation_ref through the two agentgres::refs derivations the admit reply already used, the
   // seam finding the S3 collaboration gate made reachable. Named by the pre-push sweep.
-  tokenMentions: 145431 /* 2026-09-17 (R-183, S4c): +59 over 145372 — the two neutral modules carry their own doc headers and the lock-order statement that three modules used to duplicate */,
+  tokenMentions: 145518 /* 2026-09-17 (R-186, S4c-1): +87 over 145431 — the portal-exchange session mint's exact routes and per-segment route patterns with route_pattern_matches and its tests, and the Systems projection's third visibility clause (System-record seam scopes under the System) with its tests; no module added; before that, 2026-09-17 (R-183, S4c): +59 over 145372 —the two neutral modules carry their own doc headers and the lock-order statement that three modules used to duplicate */,
   judgedTokenPositions: 282,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 258, runtimeParameter: 301 } /* 2026-09-16: S4a — the FAMILY bucket is unmoved (no admitter added or removed); the deleted modules' 6 non-ODK-literal and 10 runtime-parameter writer calls went with them */,
   productionFsCalls: 242,
