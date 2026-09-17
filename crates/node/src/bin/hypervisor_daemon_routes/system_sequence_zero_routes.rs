@@ -518,7 +518,7 @@ fn wallet_consumption_coordinates(
         "grant_hash": format!("sha256:{}", hex::encode(grant_hash)),
         "principal_authority": expected_principal_authority
     });
-    let consumption_hash = super::outcome_room_routes::record_output_hash(&material, &[]);
+    let consumption_hash = super::record_material::record_output_hash(&material, &[]);
     let consumption_id = hash_bytes_from_ref(&consumption_hash, "wallet consumption id")?;
     let consumption_ref = format!(
         "wallet.network://approval-effect-consumption/{}/{}",
@@ -768,7 +768,7 @@ fn build_receipt_for_version(
 ) -> Result<Value, VErr> {
     let receipt_ref = format!("receipt://{receipt_tail}");
     let materialization_output_hash =
-        super::outcome_room_routes::record_output_hash(materialization, &[]);
+        super::record_material::record_output_hash(materialization, &[]);
     let retained_grant: ApprovalGrant = serde_json::from_value(
         authorized.evidence.wallet_approval_grant.clone(),
     )
@@ -1180,7 +1180,7 @@ fn seal_intent(mut intent: Value, tail: &str, source: &SourcePlan) -> Value {
             &wallet_consumption_ref,
         )),
     );
-    let hash = super::outcome_room_routes::record_output_hash(&intent, &[]);
+    let hash = super::record_material::record_output_hash(&intent, &[]);
     intent
         .as_object_mut()
         .expect("intent object")
@@ -1195,11 +1195,8 @@ fn validate_intent_seal(intent: &Value, tail: &str) -> Result<(), String> {
             != Some(format!("system-sequence-zero-materialization-intent://{tail}").as_str())
         || intent.get("intent_hash").and_then(Value::as_str)
             != Some(
-                super::outcome_room_routes::record_output_hash(
-                    &without(intent, "intent_hash"),
-                    &[],
-                )
-                .as_str(),
+                super::record_material::record_output_hash(&without(intent, "intent_hash"), &[])
+                    .as_str(),
             )
     {
         return Err("intent storage-key/hash binding failed".to_owned());
@@ -2679,7 +2676,7 @@ mod system_sequence_zero_tests {
                 "system-sequence-zero-materialization-intent://{tail}"
             )
         });
-        let hash = crate::outcome_room_routes::record_output_hash(&intent, &[]);
+        let hash = crate::record_material::record_output_hash(&intent, &[]);
         intent["intent_hash"] = json!(hash);
 
         validate_intent_seal(&intent, &tail).expect("legacy sealed bytes remain readable");

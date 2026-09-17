@@ -122,15 +122,16 @@ const ORCHESTRATION_PLAN_UNCOMMITTED_FIELDS: [&str; 5] = [
     "revision_ref",
 ];
 
-/// GoalRun record mutation lock (#72 review round 2). LOCK ORDERING (fixed, documented):
-/// ROOM_MUTATION_LOCK — when held — is always acquired BEFORE this lock; no .await ever executes
-/// under it (update_goal_run_guarded's predicate and closure are synchronous).
+/// GoalRun record mutation lock (#72 review round 2). The acquisition order has ONE owner —
+/// see [`super::mutation_ordering`] — and this lock sits below the outer record-scope guard.
+/// No `.await` ever executes under it (`update_goal_run_guarded`'s predicate and closure are
+/// synchronous).
 pub(crate) static GOAL_RUN_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
-/// Room-owned WorkResult convergence acquires this lock while the caller already holds the
-/// OutcomeRoom mutation lock. It serializes the canonical HarnessInvocation backlink and keeps
-/// the fixed lock order `ROOM_MUTATION_LOCK -> INVOCATION_MUTATION_LOCK ->
-/// GOAL_RUN_MUTATION_LOCK`. No `.await` executes while it is held.
+/// WorkResult convergence acquires this lock while the caller already holds the outer
+/// record-scope guard. It serializes the canonical HarnessInvocation backlink; the order it
+/// participates in is stated once in [`super::mutation_ordering`]. No `.await` executes while
+/// it is held.
 static INVOCATION_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
 /// Serializes the two-record activation draft/activation intake and the submit/admit crossing
@@ -8884,7 +8885,7 @@ pub(crate) async fn handle_goal_runs_list(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -8919,7 +8920,7 @@ pub(crate) async fn handle_goal_run_get(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -14663,7 +14664,7 @@ pub(crate) async fn handle_goal_run_reconcile(
     // lifecycle successor under that same outer room lock or it can invalidate membership's
     // already-admitted dual-head CAS between room admission and the GoalRun stamp. Hold only for
     // this synchronous reservation; no await crosses the guard.
-    let room_guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let room_guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let run = match update_goal_run_guarded(
@@ -16296,7 +16297,7 @@ pub(crate) async fn handle_goal_run_events(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {

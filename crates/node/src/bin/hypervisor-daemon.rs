@@ -154,6 +154,8 @@ mod model_route_rights_routes;
 mod model_routes;
 #[path = "hypervisor_daemon_routes/mutation_event_foundation.rs"]
 mod mutation_event_foundation;
+#[path = "hypervisor_daemon_routes/mutation_ordering.rs"]
+mod mutation_ordering;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
 mod odk_routes;
 #[path = "hypervisor_daemon_routes/ontology_action_contract_routes.rs"]
@@ -198,6 +200,8 @@ mod provider_spend_reconciliation_routes;
 mod provider_transport;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
 mod recipe_routes;
+#[path = "hypervisor_daemon_routes/record_material.rs"]
+mod record_material;
 #[path = "hypervisor_daemon_routes/release_change_plan_routes.rs"]
 mod release_change_plan_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]

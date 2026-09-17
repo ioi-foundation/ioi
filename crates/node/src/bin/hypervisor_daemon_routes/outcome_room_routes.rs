@@ -41,6 +41,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
+use super::record_material::{record_output_hash, reject_sensitive_keys, verr, VErr};
 use super::{iso_now, read_record_dir, DaemonState};
 
 const ROOM_SCHEMA: &str = "ioi.hypervisor.outcome-room.v1";
@@ -186,23 +187,6 @@ fn backlink_ref_ok(value: &str, scheme: &str) -> bool {
     ref_scheme_ok(value, &[scheme])
 }
 
-const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
-    "password",
-    "secret",
-    "credential",
-    "authorization",
-    "privatekey",
-    "apikey",
-    "token",
-];
-
-/// Serializes every ROOM-SCOPE critical section (one daemon writer per data directory): room
-/// creation/transition/attach here, AND room-scoped WorkResult/OutcomeDelta admission in
-/// work_result_routes. LOCK ORDERING (fixed, documented): ROOM_MUTATION_LOCK is always acquired
-/// BEFORE DELTA_ADMISSION_LOCK; no .await executes under either lock. This closes the
-/// close-vs-admission TOCTOU (#72 review finding 3).
-pub(crate) static ROOM_MUTATION_LOCK: Mutex<()> = Mutex::new(());
-
 const REF_MAX: usize = 300;
 const LIST_MAX: usize = 64;
 const OBJECTIVE_MAX: usize = 4096;
@@ -216,11 +200,6 @@ fn nanos() -> u128 {
 }
 pub(crate) fn s(v: &Value, k: &str, d: &str) -> String {
     v.get(k).and_then(|x| x.as_str()).unwrap_or(d).to_string()
-}
-
-pub(crate) type VErr = (String, String);
-pub(crate) fn verr(code: &str, msg: impl Into<String>) -> VErr {
-    (code.into(), msg.into())
 }
 
 pub(crate) fn outcome_room_generation(room: &Value) -> Result<OutcomeRoomGeneration, VErr> {
@@ -245,36 +224,6 @@ fn generation_unreadable_response((code, message): VErr) -> (StatusCode, Json<Va
         StatusCode::SERVICE_UNAVAILABLE,
         Json(json!({"error":{"code":code,"message":message}})),
     )
-}
-
-pub(crate) fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
-    match v {
-        Value::Object(map) => {
-            for (k, child) in map {
-                let normalized: String = k
-                    .to_lowercase()
-                    .chars()
-                    .filter(|c| !matches!(c, '_' | '-' | ' ' | '.'))
-                    .collect();
-                if SENSITIVE_KEY_FRAGMENTS
-                    .iter()
-                    .any(|f| normalized.contains(f))
-                    && !child.is_null()
-                {
-                    return Err(verr("outcome_room_plaintext_secret_rejected", format!("sensitive key `{path}{k}` is never accepted anywhere in the body — rooms carry canonical refs; secrets stay in the daemon credential planes")));
-                }
-                reject_sensitive_keys(child, &format!("{path}{k}."))?;
-            }
-            Ok(())
-        }
-        Value::Array(items) => {
-            for (i, it) in items.iter().enumerate() {
-                reject_sensitive_keys(it, &format!("{path}{i}."))?;
-            }
-            Ok(())
-        }
-        _ => Ok(()),
-    }
 }
 
 pub(crate) fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>, VErr> {
@@ -443,19 +392,6 @@ fn plane_owned_list(body: &Value, key: &str, code: &str, why: &str) -> Result<()
             format!("`{key}` must be an array when present"),
         )),
     }
-}
-
-pub(crate) fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
-    let mut clone = record.clone();
-    if let Some(obj) = clone.as_object_mut() {
-        for k in excludes {
-            obj.remove(*k);
-        }
-    }
-    format!(
-        "sha256:{:x}",
-        Sha256::digest(serde_json::to_vec(&clone).unwrap_or_default())
-    )
 }
 
 /// ADMISSION hash scope: the admission receipt binds the DECLARED room shape — plane-owned
@@ -1406,7 +1342,7 @@ pub(crate) fn list_current_rooms_canonical_strict(data_dir: &str) -> Result<Vec<
 /// The room's LIVE participant leases (#74 review finding 2): admitted (`participant_lease_refs`)
 /// minus released (`released_participant_lease_refs`). A room refuses `close`/`archive` while
 /// this is non-empty, and the set only shrinks through the receipted `participant_lease_released`
-/// backlink — so the interlock is exact under ROOM_MUTATION_LOCK.
+/// backlink — so the interlock is exact under super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK.
 pub(crate) fn live_lease_refs(room: &Value) -> Vec<String> {
     let released: std::collections::HashSet<String> = room
         .get("released_participant_lease_refs")
@@ -1762,7 +1698,9 @@ fn finalize_room_mutation(
 /// (byte-exact when it already exists), then apply the sealed final room. Anything inconsistent
 /// is left in place for manual repair; nothing is manufactured, overwritten, or deleted.
 pub(crate) fn complete_room_intents(data_dir: &str) {
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     // Pending admissions live in the INTERNAL intent family (#72 round 11 finding 2); pending
     // transitions ride on their registry record. Both converge through the same sealed replay.
     // The TRUSTED storage key is the FILENAME STEM (#72 round 17 finding 1), never a content
@@ -1957,7 +1895,7 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
 /// with the intent retained, and `complete_attach_intents` finishes (or, if the run vanished
 /// because its stamp never became durable, rolls the intent back) at boot — no rollback path
 /// can ever produce room/stamp/receipt split-brain. Lock ordering holds: callers hold
-/// ROOM_MUTATION_LOCK; the seam takes GOAL_RUN_MUTATION_LOCK inside (room → GoalRun, always).
+/// super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK; the seam takes GOAL_RUN_MUTATION_LOCK inside (room → GoalRun, always).
 fn finalize_attach(
     data_dir: &str,
     room_tail: &str,
@@ -2062,7 +2000,9 @@ fn finalize_attach(
 /// terminal membership write — or, when the run cannot be stamped (its own record never became
 /// durable), rolls the intent back to the prior room. Exact reciprocal convergence either way.
 pub(crate) fn complete_attach_intents(data_dir: &str) {
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     // The TRUSTED storage key is the FILENAME STEM (#72 round 17 finding 1). A scan error is
     // NEVER a false-empty pass (#72 round 21 finding 3): log and retry next boot.
     let rooms = match read_dir_with_stems(data_dir, ROOM_DIR) {
@@ -2433,7 +2373,7 @@ pub(crate) async fn handle_outcome_rooms_list(
         Ok(principal_ref) => principal_ref,
         Err(response) => return response,
     };
-    let _guard = ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     // A scanner error is a TYPED 5xx, NEVER a false-empty 200 (#72 round 21 finding 3).
@@ -2488,7 +2428,7 @@ pub(crate) async fn handle_outcome_room_get(
         Ok(principal_ref) => principal_ref,
         Err(response) => return response,
     };
-    let _guard = ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(error) = list_current_rooms_canonical_strict(&st.data_dir) {
@@ -2581,7 +2521,7 @@ pub(crate) async fn handle_outcome_rooms_overview(
         Ok(principal_ref) => principal_ref,
         Err(response) => return response,
     };
-    let _guard = ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut rooms = match list_current_rooms_canonical_strict(&st.data_dir) {
@@ -2686,7 +2626,9 @@ async fn handle_legacy_outcome_room_create(
         Ok(r) => r,
         Err(e) => return err400(e),
     };
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let id_tail = format!("or_{:x}", nanos());
     let room_id = format!("outcome-room://{id_tail}");
     let now = iso_now();
@@ -2824,7 +2766,7 @@ fn mutate_room(
 }
 
 /// THE ROOM-OWNED BACKLINK SEAM (#74): the ONLY path by which a step-3 object plane reaches a
-/// room record. Internal (no client expected_revision — ROOM_MUTATION_LOCK serializes writers;
+/// room record. Internal (no client expected_revision — super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK serializes writers;
 /// the append is order-independent), receipted, and intent-transactional exactly like every
 /// other room mutation: OPEN room required, pending-intent exclusion, duplicate ref refused,
 /// revision bump, trail + history append, crash-convergent finalization.
@@ -2836,11 +2778,13 @@ pub(crate) fn bind_room_backlink(
     op: &str,
     bound_ref: &str,
 ) -> Result<(Value, Value), VErr> {
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     bind_room_backlink_room_locked(data_dir, room_ref, op, bound_ref)
 }
 
-/// Room-owned backlink seam for callers that already hold `ROOM_MUTATION_LOCK` across room
+/// Room-owned backlink seam for callers that already hold `super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK` across room
 /// validation and their whole room-scoped finalization. Keeping the unlocked core private to the
 /// crate makes close-vs-admit serialization explicit without recursively locking the mutex.
 pub(crate) fn bind_room_backlink_room_locked(
@@ -3268,7 +3212,9 @@ async fn handle_legacy_outcome_room_transition(
     // Fixed cross-plane order for terminal room lifecycle: frontier/claim -> room. The new plane
     // never writes this room file; this owner route asks its read-only blocker seam while both
     // aggregates are serialized.
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     if matches!(transition.as_str(), "close" | "archive") {}
     let result = mutate_room(&st.data_dir, &id, &body, &transition, |room| {
         let from = s(room, "status", "");
@@ -3281,7 +3227,7 @@ async fn handle_legacy_outcome_room_transition(
         // participant retirement/export on close is a NAMED GAP (arrives with WorkClaimLease
         // claim-release, #76); until then, close/archive refuses typed while live leases exist,
         // and every live lease must be revoked or retired first. The check is under
-        // ROOM_MUTATION_LOCK against the room's own released-set, so it is exact.
+        // super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK against the room's own released-set, so it is exact.
         if matches!(transition.as_str(), "close" | "archive") {
             let live = live_lease_refs(room);
             if !live.is_empty() {
@@ -3512,7 +3458,9 @@ async fn handle_legacy_outcome_room_attach_goal_run(
         .await;
     }
     // ROOM-SCOPE critical section: resolution through finalization under the one room lock.
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let Some(prior_run) = read_record_dir(&st.data_dir, GOAL_RUN_DIR)
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(|v| v.as_str()) == Some(run_file_id.as_str()))

@@ -32,7 +32,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-use super::outcome_room_routes::record_output_hash;
+use super::record_material::record_output_hash;
 
 const AUTHORITY_ADMISSION_INTENT_FAMILY: &str = "authority-admission-intents";
 const AUTHORITY_EFFECT_ADMISSION_V2_CONTRACT: &str =

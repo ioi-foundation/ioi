@@ -1266,7 +1266,7 @@ pub(crate) async fn handle_create(
     if let Err(error) = authorize_declared_owner(&state.data_dir, &headers, owner) {
         return classify(error);
     }
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(error) = refuse_while_any_intent_pending(&state.data_dir) {
@@ -2290,7 +2290,7 @@ pub(crate) fn admit_persisted_owner_record(
     owner_record: &Value,
     runtime_dependencies: Option<&Value>,
 ) -> Result<Value, VErr> {
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     refuse_while_any_intent_pending(data_dir)?;
@@ -2327,7 +2327,7 @@ pub(crate) fn admit_persisted_owner_record(
     let (candidate, operation, operation_key, expected_head) =
         build_composed_child_operation(data_dir, room_tail, &fresh, &contract_id, &prepared, &at)?;
     // ORA-8: this check is deliberately after canonical candidate construction but still inside
-    // ROOM_MUTATION_LOCK and before `finalize_composed_child` performs its first durable write. Two
+    // super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK and before `finalize_composed_child` performs its first durable write. Two
     // concurrent exact retries serialize here; a genuinely distinct semantic delta remains free
     // to receive its own plane-minted identity and room successor.
     refuse_terminal_outcome_delta_retry(data_dir, &prepared)?;
@@ -2913,7 +2913,7 @@ pub(crate) fn admit_room_native_child(
     proposed_or_issued_by_ref: &str,
     expected_prior_object_root: Option<&str>,
 ) -> Result<Value, VErr> {
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     refuse_while_any_intent_pending(data_dir)?;
@@ -3644,7 +3644,7 @@ async fn handle_goal_run_membership(
             "expected_revision does not match the room's exact Agentgres-backed head",
         ));
     }
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(error) = refuse_while_any_intent_pending(&state.data_dir) {
@@ -3899,7 +3899,7 @@ pub(crate) async fn handle_replay(
         Ok(principal_ref) => principal_ref,
         Err(error) => return classify(error),
     };
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let room_ref = format!("outcome-room://{id}");
@@ -5231,7 +5231,7 @@ pub(crate) async fn handle_collaborative_work_graph(
         Ok(principal_ref) => principal_ref,
         Err(error) => return classify(error),
     };
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let room_ref = format!("outcome-room://{id}");
@@ -5284,7 +5284,7 @@ pub(crate) async fn handle_discussion_projection(
         Ok(principal_ref) => principal_ref,
         Err(error) => return classify(error),
     };
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let room_ref = format!("outcome-room://{id}");
@@ -5389,7 +5389,7 @@ pub(crate) async fn handle_product_projection(
         Ok(principal_ref) => principal_ref,
         Err(error) => return classify(error),
     };
-    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _guard = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let room_ref = format!("outcome-room://{id}");
@@ -7446,7 +7446,7 @@ mod tests {
             seam.find(needle)
                 .unwrap_or_else(|| panic!("the room-native seam retains '{needle}'"))
         };
-        let lock = offset("ROOM_MUTATION_LOCK");
+        let lock = offset("super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK");
         let pending = offset("refuse_while_any_intent_pending(data_dir)");
         let census = offset("list_current_rooms_canonical_strict(data_dir)");
         let head = offset("require_expected_room_head(&fresh, expected_room_head)");
@@ -7921,7 +7921,7 @@ mod tests {
             .expect("owner admission seam exists");
         let admission = &source[admission..];
         let lock = admission
-            .find("ROOM_MUTATION_LOCK")
+            .find("super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK")
             .expect("owner admission takes the room mutation lock");
         let semantic_fence = admission
             .find("refuse_terminal_outcome_delta_retry")
@@ -8812,7 +8812,7 @@ mod tests {
             .and_then(|tail| tail.split("// lifecycle-recovery").next())
             .expect("reconcile handler remains source-addressable");
         let room_lock = reconcile
-            .find("ROOM_MUTATION_LOCK")
+            .find("super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK")
             .expect("reconcile acquires the shared room fence");
         let reservation = reconcile
             .find("let run = match update_goal_run_guarded(")
@@ -8856,7 +8856,7 @@ mod tests {
         let membership_data = data_dir.clone();
         let membership_goal_ref = goal_run_ref.clone();
         let membership_thread = std::thread::spawn(move || {
-            let _room_guard = super::super::outcome_room_routes::ROOM_MUTATION_LOCK
+            let _room_guard = super::super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             membership_holds_room_tx.send(()).unwrap();
@@ -8881,7 +8881,7 @@ mod tests {
         let reconcile_attempted_for_thread = reconcile_attempted.clone();
         let reconcile_thread = std::thread::spawn(move || {
             reconcile_attempted_for_thread.store(true, std::sync::atomic::Ordering::Release);
-            let _room_guard = super::super::outcome_room_routes::ROOM_MUTATION_LOCK
+            let _room_guard = super::super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             super::super::goalrun_routes::update_goal_run_guarded(

@@ -179,7 +179,7 @@ fn canonical_ref(value: &str, prefix: &str) -> bool {
 }
 
 fn deterministic_tail(prefix: &str, material: &Value) -> String {
-    let hash = super::outcome_room_routes::record_output_hash(material, &[]);
+    let hash = super::record_material::record_output_hash(material, &[]);
     format!("{prefix}{}", hash.strip_prefix("sha256:").unwrap_or(&hash))
 }
 
@@ -275,8 +275,7 @@ fn wallet_consumption_coordinates(
         "grant_hash": format!("sha256:{}", hex::encode(grant_hash)),
         "principal_authority": expected_principal_authority
     });
-    let consumption_hash =
-        super::outcome_room_routes::record_output_hash(&consumption_material, &[]);
+    let consumption_hash = super::record_material::record_output_hash(&consumption_material, &[]);
     let consumption_id = hash_bytes_from_ref(&consumption_hash, "wallet consumption id")?;
     let consumption_ref = format!(
         "wallet.network://approval-effect-consumption/{}/{}",
@@ -387,7 +386,7 @@ fn validate_top_level(body: &Value) -> Result<(&Value, &Value), VErr> {
 }
 
 fn reject_sensitive_body(body: &Value) -> Result<(), VErr> {
-    super::outcome_room_routes::reject_sensitive_keys(body, "").map_err(|(_, message)| {
+    super::record_material::reject_sensitive_keys(body, "").map_err(|(_, message)| {
         verr(
             "system_genesis_plaintext_secret_rejected",
             format!("genesis admission rejected sensitive request material ({message})"),
@@ -468,8 +467,8 @@ fn admission_effect(compiled: &CompiledAdmission) -> Value {
     let genesis = &compiled.proposed_genesis;
     json!({
         "operation": "admit_genesis",
-        "manifest_release_payload_hash": super::outcome_room_routes::record_output_hash(&compiled.release, &[]),
-        "proposed_instantiation_payload_hash": super::outcome_room_routes::record_output_hash(&compiled.proposed_instantiation, &[]),
+        "manifest_release_payload_hash": super::record_material::record_output_hash(&compiled.release, &[]),
+        "proposed_instantiation_payload_hash": super::record_material::record_output_hash(&compiled.proposed_instantiation, &[]),
         "system_id": genesis.get("system_id"),
         "genesis_ref": genesis.get("genesis_id"),
         "package_id": genesis.get("package_id"),
@@ -586,8 +585,8 @@ fn build_record(
         "package_id": proposed.get("package_id"),
         "manifest_ref": proposed.get("manifest_ref"),
         "admitted_manifest_root": proposed.get("admitted_manifest_root"),
-        "manifest_release_payload_hash": super::outcome_room_routes::record_output_hash(&compiled.release, &[]),
-        "proposed_instantiation_payload_hash": super::outcome_room_routes::record_output_hash(&compiled.proposed_instantiation, &[]),
+        "manifest_release_payload_hash": super::record_material::record_output_hash(&compiled.release, &[]),
+        "proposed_instantiation_payload_hash": super::record_material::record_output_hash(&compiled.proposed_instantiation, &[]),
         "proposal_root": compiled.proposal_root,
         "proposal_hash_profile": compiled.proposal_hash_profile,
         "initial_profile_bundle_root": compiled.bundle_root,
@@ -729,7 +728,7 @@ fn build_receipt(
             "activation_admitted": false,
             "runtime_effect_admitted": false
         },
-        "output_hash": super::outcome_room_routes::record_output_hash(record, &[]),
+        "output_hash": super::record_material::record_output_hash(record, &[]),
         "hash_scope_excludes": [],
         "assurance_posture": "genesis_admitted_not_activated",
         "assurance_note": "governed admission of one immutable genesis and stable System identity; profile materialization, activation, node membership, optional network services, and runtime effects remain unadmitted",
@@ -1329,7 +1328,7 @@ fn seal_intent(mut intent: Value, tail: &str) -> Value {
             &wallet_consumption_ref
         )),
     );
-    let hash = super::outcome_room_routes::record_output_hash(&intent, &[]);
+    let hash = super::record_material::record_output_hash(&intent, &[]);
     intent
         .as_object_mut()
         .unwrap()
@@ -1344,11 +1343,8 @@ fn validate_intent_seal(intent: &Value, tail: &str) -> Result<(), String> {
             != Some(format!("system-genesis-intent://{tail}").as_str())
         || intent.get("intent_hash").and_then(Value::as_str)
             != Some(
-                super::outcome_room_routes::record_output_hash(
-                    &without(intent, "intent_hash"),
-                    &[],
-                )
-                .as_str(),
+                super::record_material::record_output_hash(&without(intent, "intent_hash"), &[])
+                    .as_str(),
             )
     {
         return Err("intent storage-key/hash binding failed".to_string());
@@ -2620,7 +2616,7 @@ mod system_genesis_tests {
             .unwrap()
             .remove("intent_family_created_by_request");
         let hash =
-            crate::outcome_room_routes::record_output_hash(&without(&intent, "intent_hash"), &[]);
+            crate::record_material::record_output_hash(&without(&intent, "intent_hash"), &[]);
         intent["intent_hash"] = json!(hash);
 
         validate_intent_seal(&intent, &intent_tail).expect("legacy sealed bytes remain readable");
@@ -2953,7 +2949,7 @@ mod system_genesis_tests {
             &intent_tail,
         );
         intent["final_record"]["activation_state"] = json!("activated");
-        let hash = super::super::outcome_room_routes::record_output_hash(
+        let hash = super::super::record_material::record_output_hash(
             &without(&intent, "intent_hash"),
             &[],
         );

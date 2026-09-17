@@ -657,8 +657,7 @@ pub(crate) fn prepare_node_evidence_under(
         "grant_hash": format!("sha256:{}", hex::encode(grant_hash)),
         "principal_authority": expected_principal_authority,
     });
-    let consumption_hash =
-        super::outcome_room_routes::record_output_hash(&consumption_material, &[]);
+    let consumption_hash = super::record_material::record_output_hash(&consumption_material, &[]);
     let consumption_id = hash_bytes(&consumption_hash, "consumption_id")?;
     let wallet_consumption_ref = format!(
         "wallet.network://approval-effect-consumption/{}/{}",

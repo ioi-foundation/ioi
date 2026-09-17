@@ -1719,7 +1719,7 @@ pub(crate) async fn handle_work_results_list(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -1747,7 +1747,7 @@ pub(crate) async fn handle_work_result_get(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -1818,7 +1818,7 @@ pub(crate) async fn handle_work_results_overview(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -1901,9 +1901,9 @@ pub(crate) async fn handle_work_result_create(
     }
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE critical section (#72 review finding 3): room resolution through finalization
-    // holds ROOM_MUTATION_LOCK, so a room cannot close between the check and the persist.
-    // Lock ordering: ROOM_MUTATION_LOCK before DELTA_ADMISSION_LOCK, always.
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    // holds super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK, so a room cannot close between the check and the persist.
+    // Lock ordering: super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK before DELTA_ADMISSION_LOCK, always.
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
     if let Err(response) = fence_room_member_goal_result_lane(
@@ -1979,7 +1979,7 @@ pub(crate) async fn handle_outcome_deltas_list(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -2007,7 +2007,7 @@ pub(crate) async fn handle_outcome_delta_get(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Err(response) = fence_pending_room_projection(&st.data_dir) {
@@ -2109,10 +2109,10 @@ pub(crate) async fn handle_outcome_delta_create(
     }
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE + ADMISSION critical section (#71 round 2; #72 finding 3): the documented lock
-    // ordering is ROOM_MUTATION_LOCK first, DELTA_ADMISSION_LOCK second — room resolution through
+    // ordering is super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK first, DELTA_ADMISSION_LOCK second — room resolution through
     // finalization is serialized against room transitions, and concurrent delta admissions
     // against one WorkResult each see the previous backlink state. No .await under either lock.
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+    let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
     let _admission = DELTA_ADMISSION_LOCK
