@@ -154,7 +154,8 @@ environment-class provider eligibility, and preflight posture:
   with explicit `no_eligible_candidate` → `run_local` fallback. This file is that
   plane's canonical doctrine: the plane was renamed out of a product name on
   2026-09-17 when decentralized.cloud left the repository
-  ([`../../domains/decentralized/README.md`](../../domains/decentralized/README.md)),
+  (moved out 2026-09-17, ADR 0054 — an archived forwarding record:
+  [`../../domains/decentralized/README.md`](../../domains/decentralized/README.md)),
   and the source it declared was never live.
 - `GET /v1/hypervisor/placement/preview` — the pre-launch placement
   projection with `receipts_expected` named before launch.
@@ -200,7 +201,7 @@ restores onto a different provider class from daemon custody (or the
 storage-archive ladder), wallet-gated at every mutation, exposures
 closing/opening honestly — done-bar
 `verify-hypervisor-cross-provider-failover.mjs`; doctrine in
-[`cloud.md`](../../domains/decentralized/cloud.md).
+the archived forwarding record [`cloud.md`](../../domains/decentralized/cloud.md).
 
 The cut-by-cut adapter build narration is archived verbatim at
 [`../../_archive/implementation-logs/byo-provider-plane-adapter-build-log.md`](../../_archive/implementation-logs/byo-provider-plane-adapter-build-log.md).

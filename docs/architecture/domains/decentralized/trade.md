@@ -16,7 +16,7 @@ It was never a live engine in this estate: no external candidate API was called 
 no price was ever invented on its behalf.
 
 The decision, the substitution and the re-entry triggers are recorded once, in
-[`README.md`](./README.md). The short version: IOI holds off on building the
+the archived pack record [`README.md`](./README.md). The short version: IOI holds off on building the
 engine and uses the underlying providers directly, because a candidate engine only
 proposes while fees accrue where authority is exercised and where placement is
 decided — and both of those surfaces already exist.

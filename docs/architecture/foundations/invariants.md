@@ -61,8 +61,9 @@ Owner application: [`worker-training-lifecycle.md`](./worker-training-lifecycle.
 **INV-7 — Candidates propose; authority authorizes.** Candidate intelligence
 (routes, venues, resources, placements, quotes) is advisory evidence. It never
 executes, holds custody, or substitutes for a grant.
-Owner application: [`../domains/decentralized/README.md`](../domains/decentralized/README.md),
-[`../domains/decentralized/cloud.md`](../domains/decentralized/cloud.md).
+Owner application (moved out 2026-09-17, ADR 0054; these are archived forwarding
+records): [`../domains/decentralized/README.md`](../domains/decentralized/README.md),
+the archived [`../domains/decentralized/cloud.md`](../domains/decentralized/cloud.md).
 
 **INV-8 — Provider state is evidence; admission is truth.** Provider-native
 ids, statuses, snapshots, and bills are recorded as evidence. Restore truth

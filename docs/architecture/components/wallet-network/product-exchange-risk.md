@@ -1486,16 +1486,20 @@ commitments only when the declared enrollment and settlement profiles select it.
 
 ## Related Canon
 
+The four decentralized.* documents below MOVED OUT of this repository on 2026-09-17
+(ADR 0054) and are archived forwarding records; the specifications left with the
+product, and the boundaries they drew still bind whatever produces a candidate.
+
 - [`../../domains/decentralized/README.md`](../../domains/decentralized/README.md):
-  decentralized.exchange, decentralized.trade, and decentralized.cloud
+  archived — decentralized.exchange, decentralized.trade, and decentralized.cloud
   route/venue/resource-intelligence boundaries.
 - [`../../domains/decentralized/exchange.md`](../../domains/decentralized/exchange.md):
-  route-source and spot/cross-chain exchange doctrine.
+  archived — route-source and spot/cross-chain exchange doctrine.
 - [`../../domains/decentralized/trade.md`](../../domains/decentralized/trade.md):
-  advanced trading, exposure, perps, prediction markets, event contracts, and
+  archived — advanced trading, exposure, perps, prediction markets, event contracts, and
   position lifecycle doctrine.
 - [`../../domains/decentralized/cloud.md`](../../domains/decentralized/cloud.md):
-  cloud resource candidate, optimized-placement, custody-plan, failover-plan,
+  archived — cloud resource candidate, optimized-placement, custody-plan, failover-plan,
   and cloud-routing doctrine.
 - [`doctrine.md`](./doctrine.md): wallet.network authority doctrine.
 - [`api-authority-scopes.md`](./api-authority-scopes.md): low-level account,

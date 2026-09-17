@@ -534,7 +534,7 @@ namespace.
 | aiagent.xyz ontology-bound digital and embodied workers | [`worker-marketplace.md`](./domains/aiagent/worker-marketplace.md), [`digital-worker-ontology.md`](./domains/aiagent/digital-worker-ontology.md), [`vertical-ontology-packs.md`](./domains/aiagent/vertical-ontology-packs.md), [`integration-surface-taxonomy.md`](./domains/aiagent/integration-surface-taxonomy.md), [`managed-worker-instance-lifecycle.md`](./domains/aiagent/managed-worker-instance-lifecycle.md), [`managed-agent-console-contract.md`](./domains/aiagent/managed-agent-console-contract.md), [`worker-endpoints.md`](./domains/aiagent/worker-endpoints.md) |
 | sas.xyz | [`service-marketplace.md`](./domains/sas/service-marketplace.md), [`service-endpoints.md`](./domains/sas/service-endpoints.md) |
 | marketplace neutrality | [`marketplace-neutrality.md`](./domains/marketplace-neutrality.md) |
-| decentralized route intelligence | [`README.md`](./domains/decentralized/README.md), [`exchange.md`](./domains/decentralized/exchange.md), [`trade.md`](./domains/decentralized/trade.md), [`cloud.md`](./domains/decentralized/cloud.md) |
+| decentralized route intelligence — **moved out of this repository 2026-09-17 (ADR 0054); these are archived forwarding records, not the specifications** | [`README.md`](./domains/decentralized/README.md), [`exchange.md`](./domains/decentralized/exchange.md), [`trade.md`](./domains/decentralized/trade.md), [`cloud.md`](./domains/decentralized/cloud.md) |
 
 ## Runtime And Product Boundaries
 

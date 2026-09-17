@@ -10,7 +10,8 @@ Date: 2026-09-04
 ## Context
 
 `decentralized.cloud` canon
-([`cloud.md`](../architecture/domains/decentralized/cloud.md)) defines a
+([`cloud.md`](../architecture/domains/decentralized/cloud.md), now an archived
+forwarding record — the product moved out on 2026-09-17) defines a
 resource-intelligence engine that proposes infrastructure-capacity candidates
 and explicitly does not own provider accounts, authority, execution, restore
 truth, or settlement. The engine is built: intent/candidate/refresh/source/
