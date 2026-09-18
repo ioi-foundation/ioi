@@ -371,6 +371,7 @@ export {
   SYSTEM_RECORD_ROUTES,
   WORK_LIFECYCLE_ROUTES,
   GOAL_RUN_ROUTES,
+  GOAL_RUN_MEMBERSHIP_RETIRED_CODE,
   type GoalRunOrchestrationMembershipInput,
   type GoalRunOrchestrationMembershipResult,
   WORK_RESERVATION_SCHEMA_VERSION,

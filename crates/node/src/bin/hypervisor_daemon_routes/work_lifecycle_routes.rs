@@ -37,9 +37,12 @@
 //! Any composing application keeps a lifecycle for its own object through it —
 //! the GoalRun plane did so in-process until R-192 re-homed goal pursuit to
 //! ioi.ai, and a platform plane whose only writer is one application is not a
-//! platform plane. Holding a lifecycle for an object transfers no Session,
-//! launch, thread, HarnessInvocation, or other kernel truth to that object's
-//! owner, and no object owner is implied to be wired here.
+//! platform plane.
+//!
+//! WHAT HOLDING A LIFECYCLE DOES NOT BUY. The sentence below is kept on ONE line on purpose: a
+//! source pin in `scripts/test-populations/work-lifecycle-integrity.v1.json` matches it, and a
+//! claim split across a comment wrap is a claim the pin silently stops finding (R-192, S5-1).
+//! Holding a lifecycle for an object transfers no Session, launch, thread, HarnessInvocation, or other kernel truth to that object's owner, and no object owner is implied to be wired here.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

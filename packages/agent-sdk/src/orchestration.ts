@@ -48,10 +48,19 @@ export const SYSTEM_RECORD_ROUTES = {
 } as const;
 
 /** The work-lifecycle plane's reservation admission (M04.10). */
-/** R-178 slice S4d-2 (R-190): the GoalRun plane's one membership endpoint — the composer stamps the reciprocal member after the seam revision. */
-export const GOAL_RUN_ROUTES = {
-  orchestrationMembership: (goalRunId: string) => `/v1/goal-orchestration/goal-runs/${encode(goalRunId)}/orchestration-membership`,
-} as const;
+/**
+ * RETIRED 2026-09-18 (R-192, slice S5-1). This held the GoalRun plane's one membership endpoint,
+ * which the composer called to stamp the reciprocal member after its seam revision (R-190, S4d-2).
+ * The owner ruled goal runs and outcome rooms out of the Hypervisor — they are ioi.ai compositions
+ * over its thread orchestration primitives — and the whole `/v1/goal-orchestration/` namespace is
+ * gone. The route map is EMPTY rather than deleted so the retirement is a fact this file states,
+ * and `stampGoalRunOrchestrationMembership` refuses locally instead of issuing a request that
+ * would come back as an untyped 404 from the router's fallback.
+ */
+export const GOAL_RUN_ROUTES = {} as const;
+
+/** The typed refusal that replaced the retired membership call. */
+export const GOAL_RUN_MEMBERSHIP_RETIRED_CODE = "goal_run_membership_route_retired";
 
 export interface GoalRunOrchestrationMembershipInput {
   orchestration_ref: string | null;

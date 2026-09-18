@@ -14,7 +14,7 @@ import {
 import {
   SYSTEM_RECORD_ROUTES,
   WORK_LIFECYCLE_ROUTES,
-  GOAL_RUN_ROUTES,
+  GOAL_RUN_MEMBERSHIP_RETIRED_CODE,
   type GoalRunOrchestrationMembershipInput,
   type GoalRunOrchestrationMembershipResult,
   type SystemRecordAdmitInput,
@@ -2662,9 +2662,25 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("admitWorkReservation", "POST", WORK_LIFECYCLE_ROUTES.reservations, input);
   }
 
-  // ---- R-190 (S4d-2) — the GoalRun plane's reciprocal orchestration member ---------------------
-  async stampGoalRunOrchestrationMembership(goalRunId: string, input: GoalRunOrchestrationMembershipInput): Promise<GoalRunOrchestrationMembershipResult> {
-    return this.request("stampGoalRunOrchestrationMembership", "POST", GOAL_RUN_ROUTES.orchestrationMembership(goalRunId), input);
+  // ---- R-192 (S5-1) — the reciprocal member has no route; refuse locally, do not probe ---------
+  //
+  // R-190 added this as a POST to the GoalRun plane. That plane is retired: goal runs are ioi.ai
+  // compositions over the Hypervisor's thread orchestration primitives, and the daemon serves
+  // nothing under `/v1/goal-orchestration/`. Issuing the request anyway would return the router's
+  // untyped 404 fallback, which a caller cannot distinguish from "this goal run does not exist" —
+  // so the SDK states the retirement itself and never reaches the wire.
+  async stampGoalRunOrchestrationMembership(goalRunId: string, _input: GoalRunOrchestrationMembershipInput): Promise<GoalRunOrchestrationMembershipResult> {
+    throw new IoiAgentError({
+      code: "not_found",
+      status: 410,
+      retryable: false,
+      message: "The GoalRun membership route retired with goal pursuit (R-192): a goal run is an ioi.ai composition over the Hypervisor's thread orchestration primitives, and no daemon route stamps its orchestration member.",
+      details: {
+        method: "stampGoalRunOrchestrationMembership",
+        goal_run_id: goalRunId,
+        daemon: { error: { code: GOAL_RUN_MEMBERSHIP_RETIRED_CODE } },
+      },
+    });
   }
 
   // ---- M03.16 — external-account connections (connected is not authorized) ----------------------

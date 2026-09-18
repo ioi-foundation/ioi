@@ -3365,161 +3365,24 @@ pub(crate) async fn handle_improvement_apply(
             }
         }
         _ => {
-            // launch_policy_suggestion: NEVER mutates a protected seed — clone it, patch the clone;
-            // a non-protected target patches in place. Both through the ordinary policy lanes.
-            let target = text(&proposal, "target_ref")
-                .trim_start_matches("ioi-agent-policy://")
-                .to_string();
-            let client = reqwest::Client::new();
-            // A canary/cohort ReleaseControl bounds the audience: apply creates a rollout-bound
-            // VARIANT (clone + patch + rollout provenance) — the base policy is never replaced.
-            let rollout_mode = release
-                .as_ref()
-                .map(|r| text(r, "rollout_mode").to_string())
-                .unwrap_or_default();
-            if rollout_mode == "canary" || rollout_mode == "cohort" {
-                if target.is_empty() {
-                    return bad(
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                        "improvement_rollout_target_required",
-                        "A canary/cohort rollout needs a target base policy to bound against.",
-                    );
-                }
-                let base = load_policy_record(&st, &target).unwrap_or(Value::Null);
-                let cloned = client
-                    .post(format!("{}/v1/goal-orchestration/ioi-agent/launch-policies/{target}/clone", st.base_url))
-                    .json(&json!({ "display_name": format!("{} ({} rollout)", text(&base, "display_name"), rollout_mode) }))
-                    .send().await.ok();
-                let clone_body = match cloned {
-                    Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
-                    None => Value::Null,
-                };
-                let variant_id = clone_body
-                    .pointer("/policy/policy_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_string();
-                if variant_id.is_empty() {
-                    return bad(
-                        StatusCode::BAD_GATEWAY,
-                        "improvement_policy_clone_failed",
-                        "Could not clone the base policy for the rollout variant.",
-                    );
-                }
-                let patched = client
-                    .patch(format!(
-                        "{}/v1/goal-orchestration/ioi-agent/launch-policies/{variant_id}",
-                        st.base_url
-                    ))
-                    .json(&suggested)
-                    .send()
-                    .await
-                    .ok();
-                if !patched.map(|r| r.status().is_success()).unwrap_or(false) {
-                    return bad(
-                        StatusCode::BAD_GATEWAY,
-                        "improvement_policy_patch_failed",
-                        "Rollout variant patch was rejected.",
-                    );
-                }
-                // R-192 (S5-1): binding a rollout variant onto an IOI Agent launch policy
-                // reached into the IOI Agent plane, which retired with goal pursuit. The
-                // improvement proposal still records its decision; the launch-policy side is the
-                // composing application's to apply (S5-3).
-                return bad(
-                    StatusCode::GONE,
-                    "ioi_agent_launch_policy_retired",
-                    "The IOI Agent launch-policy plane retired with goal pursuit; a rollout variant is bound by the composing application.",
-                );
-            }
-            let patch_target: String;
-            if !target.is_empty() {
-                let existing = client
-                    .get(format!(
-                        "{}/v1/goal-orchestration/ioi-agent/launch-policies/{target}",
-                        st.base_url
-                    ))
-                    .send()
-                    .await
-                    .ok();
-                let policy = match existing {
-                    Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
-                    None => Value::Null,
-                };
-                let protected =
-                    policy.pointer("/policy/protected").and_then(Value::as_bool) == Some(true);
-                if protected {
-                    let cloned = client
-                        .post(format!("{}/v1/goal-orchestration/ioi-agent/launch-policies/{target}/clone", st.base_url))
-                        .json(&json!({ "display_name": format!("{} (learned)", policy.pointer("/policy/display_name").and_then(Value::as_str).unwrap_or("policy")) }))
-                        .send().await.ok();
-                    let clone_body = match cloned {
-                        Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
-                        None => Value::Null,
-                    };
-                    patch_target = clone_body
-                        .pointer("/policy/policy_id")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string();
-                    if patch_target.is_empty() {
-                        return bad(
-                            StatusCode::BAD_GATEWAY,
-                            "improvement_policy_clone_failed",
-                            "Could not clone the protected seed policy.",
-                        );
-                    }
-                } else {
-                    patch_target = target;
-                }
-            } else {
-                // No target: create a fresh policy from the suggestion.
-                let created = client
-                    .post(format!(
-                        "{}/v1/goal-orchestration/ioi-agent/launch-policies",
-                        st.base_url
-                    ))
-                    .json(&suggested)
-                    .send()
-                    .await
-                    .ok();
-                let created_body = match created {
-                    Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
-                    None => Value::Null,
-                };
-                let pid = created_body
-                    .pointer("/policy/policy_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_string();
-                if pid.is_empty() {
-                    return bad(
-                        StatusCode::BAD_GATEWAY,
-                        "improvement_policy_create_failed",
-                        "Could not create the suggested policy.",
-                    );
-                }
-                applied_ref = format!("ioi-agent-policy://{pid}");
-                return finish_apply(&st, proposal, applied_ref).await;
-            }
-            let patched = client
-                .patch(format!(
-                    "{}/v1/goal-orchestration/ioi-agent/launch-policies/{patch_target}",
-                    st.base_url
-                ))
-                .json(&suggested)
-                .send()
-                .await
-                .ok();
-            let ok_patch = patched.map(|r| r.status().is_success()).unwrap_or(false);
-            if !ok_patch {
-                return bad(
-                    StatusCode::BAD_GATEWAY,
-                    "improvement_policy_patch_failed",
-                    "Policy patch was rejected.",
-                );
-            }
-            applied_ref = format!("ioi-agent-policy://{patch_target}");
+            // RETIRED 2026-09-18 (R-192, S5-1). This arm applied a learned launch-policy
+            // suggestion by SELF-CALLING the daemon's own IOI-Agent launch-policy routes: clone a
+            // protected seed, patch the clone, patch a non-protected target in place, create one
+            // from scratch when there was no target, and bind a canary/cohort rollout variant.
+            // Every one of those routes is gone. A launch policy narrowed how a GOAL would be
+            // pursued — preferred and excluded harnesses, compare-before-write, minimum successful
+            // invocations — and goal pursuit is an ioi.ai composition over this daemon's thread
+            // orchestration primitives, not a Hypervisor surface.
+            //
+            // The proposal itself is untouched: this plane still admits, reviews and records the
+            // suggestion. What it no longer does is APPLY it, because applying it means writing an
+            // object this daemon does not own. Refused by name rather than relayed into a 404, and
+            // the improvement record keeps its decision rather than claiming an effect it had.
+            return bad(
+                StatusCode::GONE,
+                "ioi_agent_launch_policy_retired",
+                "The IOI Agent launch-policy plane retired with goal pursuit (R-192): a launch policy is the composing application's object, and this daemon serves no route that writes one. The proposal stands; its application belongs to the composer.",
+            );
         }
     }
     finish_apply(&st, proposal, applied_ref).await

@@ -83,9 +83,9 @@
       "expect": 0
     },
     {
-      "label": "the GoalRun binding stays bounded: composing this owner transfers no Session, launch, thread or HarnessInvocation truth, and no other object owner is implied to be wired here (ADR 0034 sub-ruling 1, INV-35)",
+      "label": "the binding stays bounded: holding a lifecycle for an object transfers no Session, launch, thread or HarnessInvocation truth to that object's owner, and no object owner is implied to be wired here (ADR 0034 sub-ruling 1, INV-35). RE-WORDED 2026-09-18 (R-192, S5-1): the pin read `does not transfer` inside a paragraph that named the GoalRun create route as the composer of this owner. That route is gone and the paragraph was rewritten around the generic writer, so the pin follows the CLAIM to its new sentence rather than holding a sentence the module no longer has a reason to carry.",
       "path": "crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs",
-      "pattern": "does not transfer Session, launch, thread, HarnessInvocation, or other kernel",
+      "pattern": "transfers no Session, launch, thread, HarnessInvocation, or other kernel",
       "expect": 1
     }
   ],
@@ -93,7 +93,7 @@
   "rule": "M04.6's done-bar. `npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app` already drives the isolated plane end to end; what it could not give was a FAIL-EMPTY pin over the module's own repair and convergence tests, because a raw filtered `cargo test` exits 0 when its filter selects nothing, so a renamed or deleted module reads as green. Both halves of the plane are pinned rather than only the routes: the module header says every mechanic — content commitment, exact-head CAS, object-scoped idempotency, chain reconstruction, the rebuildable projection, cancellation planning and archive/snapshot/resume continuity — lives in the kernel core, so pinning only the I/O half would leave the tests that actually prove convergence unpinned. ACC-5 clause 7's repair and convergence members are named here explicitly: `idempotent_replay_repairs_a_missing_projection_checkpoint`, `compaction_repairs_a_missing_snapshot_after_a_persisted_archive`, `compaction_then_resume_equals_full_replay`, `replaying_an_old_record_keeps_the_latest_projection_at_the_current_head`, `resume_plus_tail_equals_full_replay` and `chain_reconstructs_from_unordered_storage`. The live half is COMPOSED rather than cited: `check:m4-work-lifecycle-plane` runs as this population's supplementary, so one command answers both halves of the module doc's bar. NOT claimed: the per-dimension reservation/allocation transaction, which is M04.10's, and which no test here covers.",
   "supplementary": [
     {
-      "label": "the live GoalRun journey on an isolated plane (check:m4-work-lifecycle-plane) — the module doc requires this check to COMPOSE it with the fail-empty matrix, not to stand beside it: a name-pinned population proves the tests still exist and pass, and proves nothing about the plane answering over a real daemon",
+      "label": "the live lifecycle journey on an isolated plane, driven through the generic record writer since R-192 (S5-1) (check:m4-work-lifecycle-plane) — the module doc requires this check to COMPOSE it with the fail-empty matrix, not to stand beside it: a name-pinned population proves the tests still exist and pass, and proves nothing about the plane answering over a real daemon",
       "argv": [
         "npm",
         "run",

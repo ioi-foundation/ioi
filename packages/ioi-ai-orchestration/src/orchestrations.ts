@@ -369,9 +369,15 @@ export class Orchestrations {
   }
 
   /**
-   * The reciprocal member: the seam revision is authoritative and already durable; the GoalRun
-   * plane stores the ref the composer asserts (R-190). A refused stamp is reported, never hidden,
-   * and never rolls the seam back — the composer retries the stamp, not the membership.
+   * The reciprocal member: the seam revision is authoritative and already durable. R-190 had the
+   * GoalRun plane store the ref the composer asserts; R-192 (S5-1) retired that plane, so the SDK
+   * refuses the stamp locally — 410 `goal_run_membership_route_retired` — rather than probing a
+   * route the daemon does not serve.
+   *
+   * NOTHING ABOUT THIS METHOD'S CONTRACT CHANGES, and that is the point: a refused stamp was always
+   * reported rather than hidden, and never rolled the seam back. The membership lives on the seam
+   * revision, which is durable before this runs. Until slice S5-3 gives GoalRun a home in this
+   * composition, the reciprocal side has nowhere to be written, and the report says so by name.
    */
   private async stampMember(goalRunRef: string, orchestrationRef: string | null): Promise<OrchestrationMemberStamp> {
     const goalRunId = goalRunRef.slice("goal://".length);
