@@ -414,8 +414,8 @@
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 60,
-    "source_files": 25,
+    "total_occurrences": 57,
+    "source_files": 23,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified Re-censused 2026-09-17 (register R-184) at 60 occurrences across 25 files, up from 52/23. THE DELTA IS THREE THINGS, NOT ONE, and only one of them is new behaviour. (1) A RENAME, net zero: decentralized_cloud_routes.rs -> cloud_candidate_routes.rs, one occurrence carried across when decentralized.cloud left the repository (ADR 0054). (2) cloud_job_routes.rs, 4 — this IS the open finding R-18, unchanged and still open; it is listed here so the census matches source, which is NOT a classification of it. (3) provider_connection_routes.rs, 4 — NEWLY REGISTERED, and they were this program's own: the module landed in 928a76ca5 (M03.16 slice B) and its discarded writes were never censused, which R-18's standing red is exactly what hid. Classified individually below.",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
@@ -432,9 +432,7 @@
       "crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/gcp_candidate_source.rs": 1,
-      "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs": 2,
-      "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs": 2,
       "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs": 1,
@@ -480,7 +478,8 @@
         "classification": "Not an authority write. Same shape as line 1393: the disconnect receipt is the authority and this stamps the connector's display state.",
         "residual": "A failed write leaves a disconnected connector displaying a connected posture. Same closure test as 1393."
       }
-    ]
+    ],
+    "note": "2026-09-18 (register R-192, slice S5-1): 60 → 57 across 25 → 23 files. Both removals are DELETED FILES, not repaired indicators: goalrun_routes.rs (1) and ioi_agent_routes.rs (2) went with the GoalRun and IOI-Agent launch planes on the owner's ruling that goal runs and outcome rooms are ioi.ai compositions over the thread orchestration primitives. The one route ADDED in that slice, POST /v1/hypervisor/work-lifecycle/records, discards no persist result: it returns the store's error through a typed refusal."
   },
   "verification": {
     "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",

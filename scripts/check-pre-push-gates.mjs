@@ -81,6 +81,15 @@ const GATES = [
   // here, so AUTHORING A ROUTE moves this gate — and it was not in the sweep, so the only thing
   // that could catch it was CI, one push too late. That is exactly what happened.
   ["admission-evidence provenance", "npm", ["run", "check:admission-evidence", "--silent"]],
+  // SEVENTH TRIGGER, added 2026-09-18 (R-192, S5-1), and it is the same lesson the header already
+  // argues: a gate that moves on ordinary edits and is not enumerated here is caught by CI one
+  // push too late. These two pin a census over DAEMON ROUTE SOURCE FILES — how many discard a
+  // direct persist result, and in which files — so DELETING a route module moves them just as
+  // surely as writing one does. S5-1 deleted five and the census went stale by three occurrences
+  // across two files; the sweep was green and CI was red. Both are static source audits with no
+  // daemon and no browser, so they cost almost nothing to enumerate.
+  ["mutation-event foundation census", "npm", ["run", "check:mutation-foundation", "--silent"]],
+  ["mutation-event handler classification", "npm", ["run", "check:mutation-handlers", "--silent"]],
   // Brings up its OWN debug daemon on a free port and reaps it — never the shared dev daemon. It
   // reads `target/debug/hypervisor-daemon` without building it, so it refuses outright when that
   // binary is older than the sources it claims to measure rather than reporting on code that is
