@@ -42,10 +42,6 @@ const LIFECYCLE_SOURCE = fs.readFileSync(
   path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs"),
   "utf8",
 );
-const GOALRUN_SOURCE = fs.readFileSync(
-  path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs"),
-  "utf8",
-);
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -320,22 +316,23 @@ async function run() {
     hostLaneStart >= 0
       && hostLaneBlock.indexOf(".kill_on_drop(true)") >= 0
       && hostLaneBlock.indexOf(".kill_on_drop(true)") < hostLaneBlock.indexOf("command.spawn()"));
-  const goalInvocationStart = GOALRUN_SOURCE.indexOf("async fn run_invocation");
-  const goalInvocationEnd = GOALRUN_SOURCE.indexOf("pub(crate) async fn handle_goal_run_start", goalInvocationStart);
-  const goalInvocationBlock = goalInvocationStart >= 0 && goalInvocationEnd > goalInvocationStart
-    ? GOALRUN_SOURCE.slice(goalInvocationStart, goalInvocationEnd)
-    : "";
-  const goalLaunchCall = goalInvocationBlock.indexOf("admit_goal_run_invocation_launch(");
-  ok("M04.5 execution mount: GoalRun invocation admits the shared launch chain before adapter resolution and before any host spawn",
-    goalLaunchCall >= 0
-      && goalLaunchCall < goalInvocationBlock.indexOf("resolve_adapter_driver(")
-      && goalLaunchCall < goalInvocationBlock.indexOf("run_host_spawn_lane("));
-  ok("M04.5 owner composition: GoalRun and Session execution enter the same launch producer and reducer, while the GoalRun stores only invocation refs",
-    LIFECYCLE_SOURCE.includes("admit_goal_run_invocation_launch(")
-      && LIFECYCLE_SOURCE.includes("admit_session_execution_launch(")
-      && (LIFECYCLE_SOURCE.match(/admit_launch_chain_projection\(/gu) || []).length >= 3
-      && (LIFECYCLE_SOURCE.match(/reduce_launch_chain_binding\(/gu) || []).length >= 4
-      && GOALRUN_SOURCE.includes('object.insert("invocation_refs".into(), json!(invocation_refs))'));
+  // R-192 (S5-1). Two assertions stood here and both read `goalrun_routes.rs`, which is deleted.
+  // They pinned that a GoalRun invocation admitted THIS launch chain before adapter resolution and
+  // before any host spawn, and that GoalRun and Session execution entered the same producer and
+  // reducer while the GoalRun stored only invocation refs. That was the right claim while the
+  // daemon pursued goals; it no longer does, and `admit_goal_run_invocation_launch` had zero
+  // callers and is deleted with them.
+  //
+  // What the claim was PROTECTING survives and is asserted below on the lane that remains: no
+  // second execution spine may reach a harness beside this chain. The Session producer is the only
+  // producer now, and when slice S5-2's delegation primitive adds an internal-dispatch producer for
+  // delegated threads, its own mount assertion belongs here, written against code that exists.
+  ok("M04.5 owner composition: execution enters ONE launch producer and reducer, and the GoalRun producer that shared them is gone with its plane",
+    LIFECYCLE_SOURCE.includes("admit_session_execution_launch(")
+      && !LIFECYCLE_SOURCE.includes("pub(crate) async fn admit_goal_run_invocation_launch(")
+      && (LIFECYCLE_SOURCE.match(/admit_launch_chain_projection\(/gu) || []).length >= 2
+      && (LIFECYCLE_SOURCE.match(/reduce_launch_chain_binding\(/gu) || []).length >= 3,
+    `projection=${(LIFECYCLE_SOURCE.match(/admit_launch_chain_projection\(/gu) || []).length} binding=${(LIFECYCLE_SOURCE.match(/reduce_launch_chain_binding\(/gu) || []).length}`);
 
   // -- identity-first negatives (rule E): anon writes refuse BEFORE any record load -------------
   const anonProduce = await jd(LAUNCHES, { method: "POST", body: JSON.stringify({ session_ref: "session:does-not-exist" }) }, false);

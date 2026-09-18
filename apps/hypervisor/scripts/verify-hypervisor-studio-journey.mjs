@@ -188,10 +188,16 @@ async function run() {
       && stuLanding.text.includes("Solution Designer") && stuLanding.text.includes("Agent Studio") && stuLanding.text.includes('class="spl-row"'),
     `status ${stuLanding.status}`);
   const landing = await pageText("/__ioi/studio/workbench");
-  ok("the landing renders the agent-estate lens grammar (panes + labels)",
+  // R-192 (S5-1): "Launch policies" left this grammar with its plane. The IOI-Agent launch-policy
+  // registry narrowed how a GOAL would be pursued, and goal pursuit is an ioi.ai composition over
+  // the daemon's thread orchestration primitives, not a Hypervisor surface — so the pane is gone
+  // rather than left degrading against a route that answers nothing. The assertion now names its
+  // ABSENCE too, so the pane cannot quietly return without this gate saying so.
+  ok("the landing renders the agent-estate lens grammar (panes + labels), and no longer a Launch policies pane",
     landing.text.includes("the agent estate") && landing.text.includes("Agent estate")
       && landing.text.includes("System designs") && landing.text.includes("Composition pattern library")
-      && landing.text.includes("Model routes") && landing.text.includes("Launch policies") && landing.text.includes("Intelligence"),
+      && landing.text.includes("Model routes") && landing.text.includes("Intelligence")
+      && !landing.text.includes("Launch policies"),
     "");
   ok("vendor-authoring controls are disabled WITH a machine-readable reason",
     landing.text.includes('data-ioi-disabled-reason='), "");

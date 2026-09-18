@@ -93,9 +93,9 @@
       "id": "launch-chain",
       "npm_script": "check:launch-chain",
       "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
-      "runtime_assertions": 58,
-      "assertion_names_sha256": "a20d1a6f6cf72b851169f4eadc11ad5c666ebde298aded8b15459a7726c99f2d",
-      "note": "M04.5 shared execution mount: the live Session launch-chain proof remains intact and two source-bound assertions pin bounded GoalRun invocation ordering before adapter/spawn plus reuse of the same launch producer/reducer with invocation-ref-only GoalRun state."
+      "runtime_assertions": 57,
+      "assertion_names_sha256": "bba4f66a2f37f6ec3e980451c2a9ea5d8827a6fe21a4d531be651f12f1a9ec8b",
+      "note": "M04.5 shared execution mount: the live Session launch-chain proof remains intact and two source-bound assertions pin bounded GoalRun invocation ordering before adapter/spawn plus reuse of the same launch producer/reducer with invocation-ref-only GoalRun state. Re-pinned 2026-09-18 (R-192, S5-1): 58 -> 57 with a new name set. TWO assertions read `goalrun_routes.rs` \u2014 they pinned that a GoalRun invocation admitted this chain before adapter resolution and before any host spawn, and that GoalRun and Session entered the same producer and reducer \u2014 and the file is deleted, which made this verifier CRASH at import before emitting a census (CI run 21). They are replaced by ONE assertion on the lane that remains: execution enters one producer and one reducer, and the GoalRun producer that shared them is gone with its plane. `admit_goal_run_invocation_launch` had zero callers and was deleted in the same commit. The earlier claim in this program's own record that this verifier 'survives untouched' was true of its ROUTE CALLS and false of its SOURCE READS."
     },
     {
       "id": "m4-work-lifecycle-plane",

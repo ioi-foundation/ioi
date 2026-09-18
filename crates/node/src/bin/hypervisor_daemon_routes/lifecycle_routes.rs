@@ -15200,45 +15200,16 @@ fn reduce_launch_chain_primitive_facts(
     }))
 }
 
-/// The daemon's own per-boot dispatch identity. A GoalRun invocation worker runs with no caller
-/// `HeaderMap` in scope and creates its candidate Session through this same token (#240/#246), so
-/// the launch it then admits must resolve the IDENTICAL owner — otherwise the launch would be
-/// owner-refused against the very Session the daemon just created.
-fn internal_dispatch_headers(st: &DaemonState) -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    if let Ok(value) = axum::http::HeaderValue::from_str(&st.internal_dispatch_token) {
-        headers.insert("x-ioi-internal-dispatch", value);
-    }
-    headers
-}
-
-/// M04.5 — the GoalRun invocation lane's mount onto the SAME daemon-owned launch chain. An
-/// admitted bounded GoalRun invocation may not reach a harness effect beside the canonical chain:
-/// this admits (or idempotently replays) the candidate Session's launch, requires every exact
-/// predecessor ref, and requires the exact kernel-primitive facts the launch composed. The
-/// returned value is refs and derived status only — the authoritative records stay in their
-/// owning families.
-pub(crate) async fn admit_goal_run_invocation_launch(
-    st: &Arc<DaemonState>,
-    session_ref: &str,
-    idempotency_key: &str,
-) -> Result<Value, (StatusCode, Json<Value>)> {
-    let headers = internal_dispatch_headers(st);
-    let projection =
-        admit_launch_chain_projection(st, &headers, session_ref, idempotency_key, None).await?;
-    let mut binding = reduce_launch_chain_binding(session_ref, &projection)?;
-    let facts = reduce_launch_chain_primitive_facts(&projection)?;
-    if let (Some(object), Some(facts)) = (binding.as_object_mut(), facts.as_object()) {
-        for (key, value) in facts {
-            object.insert(key.clone(), value.clone());
-        }
-    }
-    if let Some(object) = binding.as_object_mut() {
-        object.insert("session_ref".into(), json!(session_ref));
-        object.insert("launch_replayed".into(), json!(projection.get("replayed")));
-    }
-    Ok(binding)
-}
+// R-192 (S5-1): `admit_goal_run_invocation_launch` and the `internal_dispatch_headers` helper it
+// was the only caller of stood here. They mounted a GoalRun invocation onto this same daemon-owned
+// launch chain under the daemon's per-boot dispatch identity, because a GoalRun invocation worker
+// runs with no caller `HeaderMap` in scope. The GoalRun plane is deleted, so both had zero callers.
+//
+// DELETED RATHER THAN KEPT FOR THE NEXT SLICE. Slice S5-2's delegation primitive will need an
+// internal-dispatch launch producer of exactly this shape, and it writes one then: retaining dead
+// code against a caller that does not exist is the retention this program rules against, and an
+// `#[allow(dead_code)]` would only annotate the problem. The Session lane's producer,
+// `admit_session_execution_launch`, is untouched and is the shape to copy.
 
 /// The connection in a session's closed profile whose ACTIVE standing lease covers
 /// `session_execute`, if any. Read from the durable session and connector records only.

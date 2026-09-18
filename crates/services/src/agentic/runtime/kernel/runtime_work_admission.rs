@@ -191,64 +191,12 @@ fn unique_refs(
     Ok(seen.into_iter().collect())
 }
 
-/// A canonical requirement reference. Requirement predicates are owned by many different
-/// families, so their only structural law is the canonical shape: either `scheme://tail`
-/// or the canonical primitive-capability form `prim:<capability>` used by the capability
-/// and gateway contracts.
-fn is_canonical_ref(value: &str) -> bool {
-    if value.is_empty() || value.len() > 500 || value.chars().any(char::is_whitespace) {
-        return false;
-    }
-    let (scheme, tail) = match value.split_once("://") {
-        Some((scheme, tail)) => (scheme, tail),
-        None => match value.split_once(':') {
-            // A schemeless `prim:` capability is canonical; every other bare `x:y` is not.
-            Some(("prim", tail)) => ("prim", tail),
-            _ => return false,
-        },
-    };
-    !tail.is_empty()
-        && scheme.starts_with(|character: char| character.is_ascii_lowercase())
-        && scheme.chars().all(|character| {
-            character.is_ascii_lowercase()
-                || character.is_ascii_digit()
-                || matches!(character, '+' | '.' | '_' | '-')
-        })
-}
-
-/// Read one optional requirement family as a deduplicated, canonically shaped set.
-/// An absent, null, or empty family is "nothing declared", never a silent default.
-fn requirement_refs(value: &Value, field: &str) -> AdmissionResult<Vec<String>> {
-    let Some(declared) = value.get(field).filter(|value| !value.is_null()) else {
-        return Ok(Vec::new());
-    };
-    let entries = declared.as_array().ok_or_else(|| {
-        WorkAdmissionError::new(
-            "goal_pursuit_refs_required",
-            format!("{field} must be an array"),
-        )
-    })?;
-    let mut seen = BTreeSet::new();
-    for entry in entries {
-        let reference = entry
-            .as_str()
-            .map(str::trim)
-            .filter(|reference| is_canonical_ref(reference))
-            .ok_or_else(|| {
-                WorkAdmissionError::new(
-                    "goal_pursuit_ref_invalid",
-                    format!("{field} contains an invalid canonical reference"),
-                )
-            })?;
-        if !seen.insert(reference.to_string()) {
-            return Err(WorkAdmissionError::new(
-                "goal_pursuit_ref_duplicate",
-                format!("{field} contains duplicate {reference}"),
-            ));
-        }
-    }
-    Ok(seen.into_iter().collect())
-}
+// R-192 (S5-1): `is_canonical_ref` and `requirement_refs` stood here. Both existed only to read a
+// GoalRunProfile's declared requirement families during definition resolution, which left this
+// module with `resolve_definitions`, so both had zero callers. Their refusal codes said so out
+// loud — `goal_pursuit_refs_required`, `goal_pursuit_ref_invalid` — which is the tell that they
+// were never platform helpers. Deleted rather than kept: slice S5-3 re-establishes requirement
+// resolution where the profile lives, in the composing application.
 
 #[derive(Debug, Clone, Default)]
 pub struct WorkAdmissionCore;
