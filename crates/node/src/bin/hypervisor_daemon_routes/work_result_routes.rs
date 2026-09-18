@@ -1506,17 +1506,6 @@ fn global_truth_reader(
     work_truth_visibility_reader(&st.data_dir, headers)
 }
 
-fn fence_pending_room_projection(data_dir: &str) -> Result<(), (StatusCode, Json<Value>)> {
-    super::outcome_room_system_routes::refuse_while_any_intent_pending(data_dir).map_err(
-        |(code, message)| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({ "error": { "code": code, "message": message } })),
-            )
-        },
-    )
-}
-
 fn authorize_goal_mutation(
     data_dir: &str,
     reader: Option<&str>,
@@ -1625,7 +1614,7 @@ fn fence_room_member_goal_result_lane(
             Json(json!({
                 "error": {
                     "code":"generic_work_truth_room_member_goal_refused",
-                    "message":"A room-member GoalRun may publish WorkResult and OutcomeDelta truth only through the private v3 OutcomeRoom Agentgres admission seam."
+                    "message":"This GoalRun still names a hosted OutcomeRoom; the generic WorkResult and OutcomeDelta routes never accepted room-bound truth, and the room lane itself retired on 2026-09-17 (R-178 slice S4c-2) — the GoalRun composition over the orchestration follows in slice S4d."
                 }
             })),
         ));
@@ -1649,7 +1638,7 @@ fn refuse_generic_system_binding(
                 Json(json!({
                     "error": {
                         "code": format!("generic_{object_kind}_room_binding_refused"),
-                        "message": format!("`{field}` is owned by the private v3 OutcomeRoom Agentgres admission seam; the generic mutation route cannot create room-associated truth.")
+                        "message": format!("`{field}` is not a member the generic mutation route admits: the hosted-room lane that owned it retired on 2026-09-17 (R-178 slice S4c-2), and System-scoped truth is admitted only through the System-record seam by its application owner.")
                     }
                 })),
             ));
@@ -1722,16 +1711,10 @@ pub(crate) async fn handle_work_results_list(
     let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     let results = match owner_filtered_results(&st.data_dir, reader.as_deref()) {
         Ok(results) => results,
         Err(error) => return registry_refusal("work_result", error),
     };
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     (
         StatusCode::OK,
         Json(work_result_collection_projection(results)),
@@ -1750,9 +1733,6 @@ pub(crate) async fn handle_work_result_get(
     let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     let result_ref = format!("work-result://{}", id.trim_start_matches('/'));
     let resolved = match load_work_result_strict(&st.data_dir, &result_ref) {
         Ok(value) => value,
@@ -1802,9 +1782,6 @@ pub(crate) async fn handle_work_result_get(
             Json(json!({ "error": { "code": "not_found", "work_result": id } })),
         ),
     };
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     response
 }
 
@@ -1821,9 +1798,6 @@ pub(crate) async fn handle_work_results_overview(
     let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     let results = match owner_filtered_results(&st.data_dir, reader.as_deref()) {
         Ok(results) => results,
         Err(error) => return registry_refusal("work_result", error),
@@ -1832,9 +1806,6 @@ pub(crate) async fn handle_work_results_overview(
         Ok(deltas) => deltas,
         Err(error) => return registry_refusal("outcome_delta", error),
     };
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     (
         StatusCode::OK,
         Json(json!({
@@ -1982,16 +1953,10 @@ pub(crate) async fn handle_outcome_deltas_list(
     let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     let deltas = match owner_filtered_deltas(&st.data_dir, reader.as_deref()) {
         Ok(deltas) => deltas,
         Err(error) => return registry_refusal("outcome_delta", error),
     };
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     (
         StatusCode::OK,
         Json(outcome_delta_collection_projection(deltas)),
@@ -2010,9 +1975,6 @@ pub(crate) async fn handle_outcome_delta_get(
     let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     let delta_ref = format!("outcome-delta://{}", id.trim_start_matches('/'));
     let resolved = match load_outcome_delta_strict(&st.data_dir, &delta_ref) {
         Ok(value) => value,
@@ -2062,9 +2024,6 @@ pub(crate) async fn handle_outcome_delta_get(
             Json(json!({ "error": { "code": "not_found", "outcome_delta": id } })),
         ),
     };
-    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
-        return response;
-    }
     response
 }
 

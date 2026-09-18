@@ -146,7 +146,6 @@
       ],
       "existing_daemon": {
         "routes": [
-          "GET /v1/goal-orchestration/outcome-rooms",
           "GET /v1/hypervisor/work-results"
         ],
         "actions": [],

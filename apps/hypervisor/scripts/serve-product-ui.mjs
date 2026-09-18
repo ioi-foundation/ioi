@@ -390,7 +390,6 @@ function internallyOwnedManagedRoute(req, pathname) {
     pathname.startsWith("/__ioi/invite/") ||
     pathname === "/__ioi/logout" ||
     (method === "GET" && (
-      pathname === "/__ioi/goal-space" ||
       pathname === "/__ioi/run-timeline" ||
       pathname.startsWith("/__ioi/run-timeline/") ||
       pathname === "/__ioi/run-replay" ||
@@ -1205,124 +1204,6 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
   return automationsShell("Governed Work Readout", inner);
 }
 
-// M4 minimum product/operator projection. This is deliberately a read-only readout inside the
-// existing owned shell: it does not create a new application, mutate room truth, or substitute
-// client state for an unavailable owner projection. Every graph/discussion fact below comes from
-// the daemon's reconstructable Agentgres-backed projections at the exact room head.
-function renderM4GoalSpaceProjection({
-  requestedRoom,
-  roomResponse,
-  graphResponse,
-  discussionResponse,
-  replayResponse,
-  productResponse,
-}) {
-  const payload = (response, key) => response?.ok ? response.body?.[key] : null;
-  const room = payload(roomResponse, "outcome_room");
-  const graph = payload(graphResponse, "collaborative_work_graph");
-  const discussion = payload(discussionResponse, "discussion_projection");
-  const replay = replayResponse?.ok ? replayResponse.body : null;
-  // This selected, principal-filtered projection is the only route allowed to supply GoalRun,
-  // WorkResult, or OutcomeDelta product state. Fetching global owner registries and filtering in
-  // the shell would disclose bytes before the client filter ran.
-  const selected = productResponse?.ok ? productResponse.body : null;
-  const memberRuns = selected?.member_goal_runs || [];
-  const results = selected?.work_results || [];
-  const deltas = selected?.outcome_deltas || [];
-  const status = (response, owner) => response?.ok
-    ? `<span class="pill ok">owner projection available</span>`
-    : `<span class="pill warn">${CX_ESC(owner)} unavailable · HTTP ${CX_ESC(String(response?.status || 0))} · ${CX_ESC(response?.body?.error?.code || "daemon_unavailable")}</span>`;
-  const refs = (values, empty = "honest empty") => Array.isArray(values) && values.length
-    ? values.map((value) => `<code>${CX_ESC(String(value))}</code>`).join(" ")
-    : `<span class="sub" style="margin:0">${CX_ESC(empty)}</span>`;
-  const sourceReceiptRefs = (values, owner) => Array.isArray(values) && values.length
-    ? values.map((value) => `<code data-source-owner="${CX_ESC(owner)}">${CX_ESC(String(value))}</code>`).join(" ")
-    : `<span class="sub" style="margin:0">honest empty — no source receipt resolved</span>`;
-  const exactRefs = (left, right) => Array.isArray(left) && Array.isArray(right) &&
-    left.length === right.length && left.every((value, index) => value === right[index]);
-  const json = (value) => `<pre>${CX_ESC(JSON.stringify(value, null, 2))}</pre>`;
-
-  if (!requestedRoom) {
-    return automationsShell("Goal Space proof projection", `<div id="m4-goal-space" class="empty">A room identity is required. Open <code>/__ioi/goal-space?room=&lt;outcome-room tail&gt;</code>. No room is inferred from client state.</div>`);
-  }
-  if (!room) {
-    return automationsShell("Goal Space proof projection", `<div id="m4-goal-space"><h1>Goal Space proof projection</h1><p class="sub">Read-only M4 selected-profile projection over daemon-owned room truth.</p><div class="empty">OutcomeRoom <code>${CX_ESC(requestedRoom)}</code> is unavailable: HTTP ${CX_ESC(String(roomResponse?.status || 0))} · ${CX_ESC(roomResponse?.body?.error?.code || "daemon_unavailable")}. No fixture, inferred head, or cached client completion is shown.</div></div>`);
-  }
-
-  const roomSourceReceiptRefs = room.admission_and_replay_refs || [];
-  const replaySourceReceiptRefs = replay?.operations?.map((operation) => operation.receipt_ref) || [];
-  const projectionAgreement = graph && discussion && replay &&
-    selected?.outcome_room &&
-    graph.source_room_revision === room.latest_sequence &&
-    discussion.source_room_revision === room.latest_sequence &&
-    selected.outcome_room.latest_sequence === room.latest_sequence &&
-    graph.source_room_state_root === room.room_state_root &&
-    discussion.source_room_state_root === room.room_state_root &&
-    selected.outcome_room.room_state_root === room.room_state_root &&
-    replay.latest_sequence === room.latest_sequence &&
-    replay.room_state_root === room.room_state_root &&
-    replay.room_receipt_root === room.room_receipt_root &&
-    selected.outcome_room.room_receipt_root === room.room_receipt_root &&
-    exactRefs(graph.source_admission_receipt_refs, roomSourceReceiptRefs) &&
-    exactRefs(discussion.source_admission_receipt_refs, roomSourceReceiptRefs) &&
-    exactRefs(selected.source_admission_receipt_refs, roomSourceReceiptRefs) &&
-    exactRefs(replaySourceReceiptRefs, roomSourceReceiptRefs) &&
-    selected.payload_refs_exported === false &&
-    selected.payload_bytes_exported === false;
-  const roomFacts = `<dl class="grid" id="m4-room-state" data-room-ref="${CX_ESC(room.outcome_room_id)}" data-room-state-root="${CX_ESC(room.room_state_root)}" data-room-receipt-root="${CX_ESC(room.room_receipt_root)}">
-    <dt>OutcomeRoom</dt><dd><code>${CX_ESC(room.outcome_room_id)}</code></dd>
-    <dt>Bounded System</dt><dd><code>${CX_ESC(room.system_id)}</code></dd>
-    <dt>Package · genesis</dt><dd><code>${CX_ESC(room.package_id)}</code><br><code>${CX_ESC(room.genesis_ref)}</code></dd>
-    <dt>Constitution · profile</dt><dd><code>${CX_ESC(room.constitution_ref)}</code><br><code>${CX_ESC(room.active_profile_refs?.deployment_profile_ref)}</code></dd>
-    <dt>Head</dt><dd>revision <b>${CX_ESC(String(room.latest_sequence))}</b> · <code>${CX_ESC(room.room_state_root)}</code></dd>
-    <dt>Receipt root</dt><dd><code>${CX_ESC(room.room_receipt_root)}</code></dd>
-    <dt>Topology</dt><dd><span class="pill ok">${CX_ESC(room.coordination_topology)}</span></dd>
-    <dt>Member GoalRuns</dt><dd>${memberRuns.length ? memberRuns.map((run) => `<code data-member-goal-run-ref="${CX_ESC(run.goal_run_ref || "")}">${CX_ESC(run.goal_run_ref || "")}</code> <span class="pill muted">${CX_ESC(run.status || "unknown")}</span>`).join(" ") : `<span class="sub" style="margin:0">honest empty</span>`}</dd>
-  </dl>`;
-  const directRows = results.map((result) => `<tr data-work-result-ref="${CX_ESC(result.work_result_id)}" data-admission-receipt="${result.admission_receipt_ref ? "present" : "absent"}"><td><code>${CX_ESC(result.work_result_id)}</code></td><td><span class="pill ${result.outcome_class === "positive" ? "ok" : "warn"}">${CX_ESC(result.outcome_class || result.status || "unknown")}</span></td><td>${CX_ESC(typeof result.uncertainty === "string" ? result.uncertainty : JSON.stringify(result.uncertainty ?? null))}</td><td>${refs([result.admission_receipt_ref].filter(Boolean), "receipt unavailable")}</td></tr>`).join("");
-  const deltaRows = deltas.map((delta) => `<tr data-outcome-delta-ref="${CX_ESC(delta.outcome_delta_id)}" data-admission-receipt="${delta.admission_receipt_ref ? "present" : "absent"}"><td><code>${CX_ESC(delta.outcome_delta_id)}</code></td><td>${CX_ESC(delta.delta_kind || "")}</td><td><code>${CX_ESC(delta.proposed_by_ref || "")}</code></td><td><span class="pill muted">${CX_ESC(delta.status || "proposed")}</span></td><td>${refs([delta.admission_receipt_ref].filter(Boolean), "receipt unavailable")}</td></tr>`).join("");
-  const graphFacts = graph ? `<dl class="grid" id="m4-graph-state" data-source-room-revision="${CX_ESC(String(graph.source_room_revision))}" data-source-room-state-root="${CX_ESC(graph.source_room_state_root)}">
-    <dt>Exact source head</dt><dd>revision <b>${CX_ESC(String(graph.source_room_revision))}</b> · <code>${CX_ESC(graph.source_room_state_root)}</code></dd>
-    <dt>GoalRuns</dt><dd>${refs(graph.member_goal_run_refs)}</dd>
-    <dt>Participants</dt><dd>${refs(graph.participant_refs)}</dd>
-    <dt>Frontier</dt><dd>${refs(graph.frontier_item_refs)}</dd>
-    <dt>Claims</dt><dd>${refs(graph.work_claim_refs)}</dd>
-    <dt>Attempts · findings</dt><dd>${refs([...(graph.attempt_refs || []), ...(graph.finding_refs || [])])}</dd>
-    <dt>Challenges</dt><dd>${refs(graph.verifier_challenge_refs)}</dd>
-    <dt>Results · deltas</dt><dd>${refs([...(graph.work_result_refs || []), ...(graph.outcome_delta_refs || [])])}</dd>
-    <dt>Source receipts</dt><dd>${sourceReceiptRefs(graph.source_admission_receipt_refs, "graph")}</dd>
-    <dt>Flow labels</dt><dd>${refs(graph.information_flow_label_refs, "honest empty — no label was admitted")}</dd>
-    <dt>Projection posture</dt><dd><span class="pill ${graph.authoritative === false && graph.client_writable === false ? "ok" : "warn"}">derived · non-authoritative · read-only</span></dd>
-  </dl>` : `<div id="m4-graph-state" class="empty">Collaborative graph ${status(graphResponse, "CollaborativeWorkGraph")}. No client reconstruction is shown.</div>`;
-  const discussionFacts = discussion ? `<dl class="grid" id="m4-discussion-state" data-source-room-revision="${CX_ESC(String(discussion.source_room_revision))}" data-source-room-state-root="${CX_ESC(discussion.source_room_state_root)}">
-    <dt>Exact source head</dt><dd>revision <b>${CX_ESC(String(discussion.source_room_revision))}</b> · <code>${CX_ESC(discussion.source_room_state_root)}</code></dd>
-    <dt>Visibility policy</dt><dd><code>${CX_ESC(discussion.visibility_policy_ref)}</code></dd>
-    <dt>Permitted subjects</dt><dd>${refs(discussion.permitted_subject_refs)}</dd>
-    <dt>Messages</dt><dd>${refs(discussion.message_refs, "honest empty — M4 admits no discussion messages")}</dd>
-    <dt>Redaction summaries</dt><dd>${refs(discussion.redaction_summary_refs, "honest empty — no redaction summary was admitted")}</dd>
-    <dt>Flow labels</dt><dd>${refs(discussion.information_flow_label_refs, "honest empty — no label was admitted")}</dd>
-    <dt>Replay cursor</dt><dd><code>${CX_ESC(discussion.replay_cursor)}</code></dd>
-    <dt>Source receipts</dt><dd>${sourceReceiptRefs(discussion.source_admission_receipt_refs, "discussion")}</dd>
-    <dt>Projection posture</dt><dd><span class="pill ${discussion.authoritative === false && discussion.client_writable === false ? "ok" : "warn"}">derived · non-authoritative · read-only</span></dd>
-  </dl>` : `<div id="m4-discussion-state" class="empty">Discussion ${status(discussionResponse, "OutcomeRoomDiscussionProjection")}. No placeholder transcript is shown.</div>`;
-  const inner = `<div id="m4-goal-space" data-owner-projection-state="${projectionAgreement ? "exact" : "unavailable"}"><h1>Goal Space · hosted OutcomeRoom proof</h1>
-    <p class="sub">Minimum M4 product/operator projection inside the restored product shell. The daemon and Agentgres own every object, head, receipt, and refusal; this page has no write path.</p>
-    <div class="row">${status(roomResponse, "OutcomeRoom")} ${status(graphResponse, "CollaborativeWorkGraph")} ${status(discussionResponse, "OutcomeRoomDiscussionProjection")} ${status(productResponse, "selected product projection")} <span id="m4-projection-agreement" data-room-ref="${CX_ESC(room.outcome_room_id)}" data-room-state-root="${CX_ESC(room.room_state_root)}" data-room-receipt-root="${CX_ESC(room.room_receipt_root)}" class="pill ${projectionAgreement ? "ok" : "warn"}">${projectionAgreement ? "all projections match the room head" : "projection head mismatch or unavailable"}</span></div>
-    <h2>Bounded-System context</h2>${roomFacts}
-    <h2>Admitted member GoalRun result and replay</h2>${directRows ? `<table id="m4-direct-results"><thead><tr><th>WorkResult</th><th>Outcome</th><th>Uncertainty</th><th>Admission receipt</th></tr></thead><tbody>${directRows}</tbody></table>` : `<div id="m4-direct-results" class="empty">No member GoalRun WorkResult is available. Completion is not inferred.</div>`}
-    ${deltaRows ? `<table id="m4-direct-deltas"><thead><tr><th>OutcomeDelta</th><th>Kind</th><th>Proposer</th><th>Posture</th><th>Admission receipt</th></tr></thead><tbody>${deltaRows}</tbody></table>` : `<div id="m4-direct-deltas" class="empty">No member GoalRun OutcomeDelta is available. Completion is not inferred.</div>`}
-    <h2>Collaborative Work graph</h2>${graphFacts}
-    <h2>Discussion projection</h2>${discussionFacts}
-    <h2>Replay and export boundary</h2>${replay ? json({ latest_sequence: replay.latest_sequence, room_state_root: replay.room_state_root, room_receipt_root: replay.room_receipt_root, latest_transition_commitment_ref: replay.latest_transition_commitment_ref, payload_bytes_exported: replay.payload_bytes_exported, operation_count: replay.operations?.length || 0 }) : `<div class="empty">Replay ${status(replayResponse, "Agentgres replay")}. No cached replay is shown.</div>`}
-    <h2>Explicit nonclaims</h2><div id="m4-nonclaims" data-product-posture="read-only-derived" data-payload-exported="false" data-room-admission-route-exposed="false" class="empty">Hosted admission only. No external participant, federation, cross-sovereign admission, AIIP discovery, wallet authority, settlement, P0, release closure, or complete M6 application journey is claimed.</div>
-  </div>`;
-  return automationsShell("Goal Space proof projection", inner);
-}
-
-// ---- Feedback & Annotations (native primitive, first slice over the NEW daemon plane).
-// The queue over durable FeedbackEntry records: status chips, consent pills from the
-// evidence-eligibility ladder, and the conversion lane that the daemon gates — a never_train
-// entry can NEVER convert, and the fail-closed error is surfaced verbatim, not softened.
 function renderFeedbackQueue(ov, entries, flash) {
   const enc = encodeURIComponent;
   const byStatus = (ov || {}).by_status || {};
@@ -12894,69 +12775,6 @@ async function handleEstateRequest(req, res, body) {
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderHome(homeOps, homeLedger, homeSessions, homeApprovals, homeFoRuns));
-      return;
-    }
-    // ---- M4 Goal Space proof projection — read-only, inside the existing shell. It consumes
-    // exact daemon projections and renders unavailable owner truth as unavailable; it never
-    // offers a room/graph/discussion mutation or becomes a second replay owner.
-    if (pathname === "/__ioi/goal-space" && req.method === "GET") {
-      const roomId = (new URL(req.url, "http://x").searchParams.get("room") || "").trim();
-      const tail = roomId.replace(/^outcome-room:\/\//, "");
-      const projectionHeaders = daemonRequestHeaders(req);
-      const projectionDeadlineAt = Date.now() + M4_OWNER_PROJECTION_TIMEOUT_MS;
-      const J = async (path) => {
-        if (!tail) return { ok: false, status: 422, body: { error: { code: "outcome_room_ref_required" } } };
-        try {
-          const remainingMs = Math.max(1, projectionDeadlineAt - Date.now());
-          const { response, payload } = await readJsonWithDeadline(
-            fetch,
-            `${DAEMON}${path}`,
-            remainingMs,
-            { headers: projectionHeaders },
-          );
-          return { ok: response.ok, status: response.status, body: payload };
-        } catch (error) {
-          return { ok: false, status: 503, body: { error: { code: error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable" } } };
-        }
-      };
-      const refuseUnavailable = (response, fallbackCode = "goal_space_owner_projection_unavailable") => {
-        const status = response?.status >= 400 ? response.status : 503;
-        const code = daemonProjectionCode(response, fallbackCode);
-        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(automationsShell("Goal Space unavailable", `<div id="m4-goal-space-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Goal Space unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No OutcomeRoom, graph, discussion, GoalRun, WorkResult, OutcomeDelta, receipt, or replay owner truth is shown.</div>`));
-      };
-      const base = `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(tail)}`;
-      // Serialize strict owner reads. These routes share the room mutation/recovery boundary and
-      // running them concurrently can starve the cheap room read behind four full censuses,
-      // causing the shell to render an unavailable branch despite healthy exact owner truth.
-      const roomResponse = await J(base);
-      if (!roomResponse.ok) {
-        refuseUnavailable(roomResponse);
-        return;
-      }
-      if (!roomResponse.body?.outcome_room) {
-        refuseUnavailable({ status: 502, body: { error: { code: "outcome_room_projection_invalid" } } });
-        return;
-      }
-      const graphResponse = await J(`${base}/collaborative-work-graph`);
-      const discussionResponse = await J(`${base}/discussion-projection`);
-      const replayResponse = await J(`${base}/replay`);
-      const productResponse = await J(`${base}/product-projection`);
-      const unavailable = [graphResponse, discussionResponse, replayResponse, productResponse]
-        .find((response) => !response.ok);
-      if (unavailable) {
-        refuseUnavailable(unavailable);
-        return;
-      }
-      if (!graphResponse.body?.collaborative_work_graph ||
-          !discussionResponse.body?.discussion_projection ||
-          !Array.isArray(replayResponse.body?.operations) ||
-          !productResponse.body?.outcome_room) {
-        refuseUnavailable({ status: 502, body: { error: { code: "goal_space_owner_projection_invalid" } } });
-        return;
-      }
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderM4GoalSpaceProjection({ requestedRoom: roomId, roomResponse, graphResponse, discussionResponse, replayResponse, productResponse }));
       return;
     }
     // ---- Work Ledger — the owned proof stream (estate surface #10).

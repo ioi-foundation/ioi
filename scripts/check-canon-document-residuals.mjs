@@ -252,7 +252,11 @@ try {
   // this basis and an annotation that names the owner is what the gate's own unit did for its nine.
   // THREE profile routes were added to the document AND registered in the same commit, so they
   // enter and leave the population at once (net zero). 26 + 6 = 32.
-  const ENDPOINT_RATCHET = 135;
+  // 135 -> 129 (2026-09-17, R-187 / S4c-2): the ten hosted-v2 OutcomeRoom routes the daemon
+  // deleted with the room plane are now annotated "no registered route — deleted" where
+  // orchestration-api.md lists them (the audited block and the target block), and the ratchet
+  // follows the population down rather than absorbing it.
+  const ENDPOINT_RATCHET = 129;
   const byFile = {};
   for (const entry of undocumented) {
     const file = entry.split(":")[0];

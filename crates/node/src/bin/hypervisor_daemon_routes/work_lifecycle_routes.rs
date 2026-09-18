@@ -354,14 +354,17 @@ impl WorkLifecycleStore {
 
     // --- append ----------------------------------------------------------
 
-    /// Append one record under the kernel's admission, then persist it and the
-    /// rebuilt projection. A refusal never writes.
+    /// Test-only ungated append: the kernel's admission without a caller's
+    /// [`LegalEdgeGate`]. Production has no ungated append — the one caller
+    /// that had it was the room plane, deleted under R-187.
+    #[cfg(test)]
     pub(crate) fn append(&self, candidate: &Value) -> StoreResult<AppendReport> {
         self.append_inner(candidate, None)
     }
 
-    /// As [`append`](Self::append), additionally authorizing the transition
-    /// through the caller's kind-specific [`LegalEdgeGate`]. The caller owns the
+    /// Append one record under the kernel's admission, authorizing the transition
+    /// through the caller's kind-specific [`LegalEdgeGate`], then persist it and
+    /// the rebuilt projection. A refusal never writes. The caller owns the
     /// legal-edge/authority table; the shared kernel never acquires it.
     pub(crate) fn append_gated(
         &self,
@@ -748,13 +751,8 @@ impl WorkLifecycleStore {
                 "route": "POST /v1/goal-orchestration/goal-runs",
                 "admission_paths": ["direct_non_system", "system_activation"],
                 "owned_scope": ["application_plan", "context_cell_ref", "goal_run_lifecycle"],
-            }, {
-                "object_kind": "outcome_room",
-                "route": "POST /v1/goal-orchestration/outcome-rooms",
-                "admission_paths": ["hosted_system_genesis"],
-                "owned_scope": ["outcome_room_application_lifecycle"],
             }],
-            "nonclaim": "GoalRun creation is bound only for GoalRun-owned application plan/state and invocation references. Hosted OutcomeRoom creation is bound only for its proposed-to-open application lifecycle after the room System Agentgres genesis; room shared state and child lifecycles remain on the room System owner. Session, launch, thread, HarnessInvocation, and child-owner runtime truth remain with their kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle, and external-handle owners are not generalized by these bindings. Cancellation plans claim no child completion. Hot record logs are never pruned; snapshots are checkpoints, never a license to discard the archive.",
+            "nonclaim": "GoalRun creation is bound only for GoalRun-owned application plan/state and invocation references. The hosted OutcomeRoom binding that stood beside it retired with the room plane on 2026-09-17 (R-178 slice S4c-2): an orchestration is an ioi.ai record admitted through the System-record seam, not a route this plane binds. Session, launch, thread, HarnessInvocation, and child-owner runtime truth remain with their kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle, and external-handle owners are not generalized by these bindings. Cancellation plans claim no child completion. Hot record logs are never pruned; snapshots are checkpoints, never a license to discard the archive.",
         }))
     }
 
@@ -1755,8 +1753,11 @@ mod tests {
             Some(&json!("goal_run"))
         );
         assert_eq!(
-            summary.pointer("/live_owner_route_bindings/1/object_kind"),
-            Some(&json!("outcome_room"))
+            summary["live_owner_route_bindings"]
+                .as_array()
+                .map(Vec::len),
+            Some(1),
+            "the hosted-room binding retired with the room plane (R-178 slice S4c-2)"
         );
         let kinds = summary["per_kind_lifecycle_counts"].as_array().unwrap();
         assert_eq!(kinds.len(), 1);

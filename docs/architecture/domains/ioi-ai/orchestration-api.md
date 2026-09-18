@@ -19,8 +19,8 @@ these routes are application handlers hosted in the daemon, admitted through the
 same effect boundary as any other application — hosting is not ownership).
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs`
-  - `crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs`
-  - `crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs`
+  - `packages/ioi-ai-orchestration/src/orchestrations.ts` (the orchestration composition that replaced the hosted-v2 room routes, deleted 2026-09-17 under R-187)
+  - `crates/node/src/bin/hypervisor_daemon_routes/system_record_routes.rs`
 Last implementation audit: 2026-07-30
 
 ## Scope
@@ -114,23 +114,32 @@ POST /v1/goal-orchestration/goal-runs/{goal_ref}/lifecycle-recovery
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}/events
 ```
 
-Selected hosted-v2 OutcomeRoom routes in the audited M4 slice:
+The hosted-v2 OutcomeRoom routes the audited M4 slice served — **deleted
+2026-09-17 (R-178 slice S4c-2, R-187)** with `outcome_room_routes.rs`,
+`outcome_room_system_routes.rs`, the startup convergence of their intent
+families and the pending-intent fence (R-183); no registered route serves any
+of them, and the ioi.ai composition (§ *OrchestrationEnvelope* in
+[`collaborative-pursuit.md`](./collaborative-pursuit.md)) is their successor:
 
 ```http
-GET  /v1/goal-orchestration/outcome-rooms
-POST /v1/goal-orchestration/outcome-rooms
-GET  /v1/goal-orchestration/outcome-rooms/overview
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/collaborative-work-graph
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/discussion-projection
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/product-projection
+GET  /v1/goal-orchestration/outcome-rooms                                          # no registered route — deleted 2026-09-17 (S4c-2)
+POST /v1/goal-orchestration/outcome-rooms                                          # no registered route — deleted 2026-09-17 (S4c-2)
+GET  /v1/goal-orchestration/outcome-rooms/overview                                 # no registered route — deleted 2026-09-17 (S4c-2)
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}                               # no registered route — deleted 2026-09-17 (S4c-2)
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run               # no registered route — deleted 2026-09-17 (S4c-2)
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run               # no registered route — deleted 2026-09-17 (S4c-2)
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay                        # no registered route — deleted 2026-09-17 (S4c-2)
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/collaborative-work-graph      # no registered route — deleted 2026-09-17 (S4c-2)
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/discussion-projection         # no registered route — deleted 2026-09-17 (S4c-2)
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/product-projection            # no registered route — deleted 2026-09-17 (S4c-2)
 ```
 
-The mounted lifecycle-transition URIs are typed unavailable or retired in this
-profile; registration does not make their target lifecycle live.
+The lifecycle-transition URIs that were mounted beside them (typed unavailable
+or retired in that profile) were deleted in the same cut. A GoalRun record that
+still names an `outcome_room_ref` admits no result or delta through
+`/goal-runs/{goal_ref}/results` or `/outcome-deltas` — refused by name
+(`goal_run_outcome_room_ref_retired`, 410) until the GoalRun composition over
+the orchestration lands in slice S4d.
 
 Target pursuit-profile discovery and nonbinding validation routes:
 
@@ -245,13 +254,13 @@ scoped Hypervisor MCP/tool gateway and lease contracts as any other participant.
 Target OutcomeRoom / CollaborativeWorkGraph routes:
 
 ```http
-POST  /v1/goal-orchestration/outcome-rooms
-GET   /v1/goal-orchestration/outcome-rooms
-GET   /v1/goal-orchestration/outcome-rooms/{room_ref}
-POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run
-POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run
+POST  /v1/goal-orchestration/outcome-rooms                                    # no registered route — deleted 2026-09-17 (S4c-2)
+GET   /v1/goal-orchestration/outcome-rooms                                    # no registered route — deleted 2026-09-17 (S4c-2)
+GET   /v1/goal-orchestration/outcome-rooms/{room_ref}                         # no registered route — deleted 2026-09-17 (S4c-2)
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run         # no registered route — deleted 2026-09-17 (S4c-2)
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run         # no registered route — deleted 2026-09-17 (S4c-2)
 POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/upgrade-proposals
-POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/lifecycle/transitions
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/lifecycle/transitions   # no registered route — deleted 2026-09-17 (S4c-2)
 
 POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery
 POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/pause
@@ -297,7 +306,7 @@ POST /v1/goal-orchestration/outcome-rooms/{room_ref}/findings
 POST /v1/goal-orchestration/outcome-rooms/{room_ref}/verifier-challenges
 POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals
 POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay                       # no registered route — deleted 2026-09-17 (S4c-2)
 ```
 
 The canonical `outcome-rooms` family admits and projects the bounded-System

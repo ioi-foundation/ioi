@@ -20,7 +20,6 @@
 //! ```text
 //! RECORD_SCOPE_MUTATION_LOCK
 //!   -> DELTA_ADMISSION_LOCK        (work_result_routes)
-//!   -> INVOCATION_MUTATION_LOCK    (goalrun_routes)
 //!     -> GOAL_RUN_MUTATION_LOCK    (goalrun_routes)
 //! ```
 //!

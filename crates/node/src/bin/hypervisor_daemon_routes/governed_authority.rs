@@ -87,9 +87,6 @@ pub(crate) const LIVE_ROUTE_AUTHORITY: AuthorityContract = AuthorityContract {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AuthorityPolicyContext<'a> {
-    OutcomeRoom {
-        outcome_room_ref: &'a str,
-    },
     SystemGenesis {
         system_id: &'a str,
         genesis_id: &'a str,
@@ -2392,28 +2389,8 @@ fn nonce_nanos() -> u128 {
         .unwrap_or(0)
 }
 
-pub(crate) fn decision_policy_hash(
-    contract: AuthorityContract,
-    governance: Governance,
-    room_ref: &str,
-    required_authority: &str,
-    op: &str,
-) -> String {
-    decision_policy_hash_for_context(
-        contract,
-        governance,
-        AuthorityPolicyContext::OutcomeRoom {
-            outcome_room_ref: room_ref,
-        },
-        required_authority,
-        op,
-    )
-}
-
-/// Context-neutral policy commitment for governed planes that are not room-owned.
-///
-/// Existing room planes stay on `decision_policy_hash`, which delegates here with the original
-/// `outcome_room_ref` key and therefore preserves their policy hashes byte-for-byte.
+/// Context-bound policy commitment for every governed plane; the room-keyed wrapper it once
+/// served was deleted with the room plane (R-187).
 pub(crate) fn decision_policy_hash_for_context(
     contract: AuthorityContract,
     governance: Governance,
@@ -2428,9 +2405,6 @@ pub(crate) fn decision_policy_hash_for_context(
         json!(contract.governance_label(governance)),
     );
     match context {
-        AuthorityPolicyContext::OutcomeRoom { outcome_room_ref } => {
-            material.insert("outcome_room_ref".into(), json!(outcome_room_ref));
-        }
         AuthorityPolicyContext::SystemGenesis {
             system_id,
             genesis_id,
@@ -3553,35 +3527,6 @@ pub(crate) async fn authorize_deployment_grant_for_idempotent_recovery(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn authorize_decision_for_resolution(
-    contract: AuthorityContract,
-    body: &Value,
-    governance: Governance,
-    room_ref: &str,
-    required_authority: &str,
-    verified_resolution: &VerifiedAuthorityResolution,
-    subject_ref: &str,
-    op: &str,
-    revision: u64,
-    effect: &Value,
-) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
-    authorize_decision_for_resolution_with_context(
-        contract,
-        body,
-        governance,
-        AuthorityPolicyContext::OutcomeRoom {
-            outcome_room_ref: room_ref,
-        },
-        required_authority,
-        verified_resolution,
-        subject_ref,
-        op,
-        revision,
-        effect,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn authorize_decision_for_resolution_with_context(
     contract: AuthorityContract,
     body: &Value,
@@ -3669,58 +3614,6 @@ pub(crate) fn authorize_decision_for_resolution_with_context(
             })),
         )),
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn authorize_decision(
-    contract: AuthorityContract,
-    data_dir: &str,
-    body: &Value,
-    governance: Governance,
-    room_ref: &str,
-    required_authority: &str,
-    subject_ref: &str,
-    op: &str,
-    revision: u64,
-    effect: &Value,
-) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
-    let authorized = authorize_decision_with_context(
-        contract,
-        body,
-        governance,
-        AuthorityPolicyContext::OutcomeRoom {
-            outcome_room_ref: room_ref,
-        },
-        required_authority,
-        subject_ref,
-        op,
-        revision,
-        effect,
-    )
-    .await?;
-    let required_scope = contract.operation_scope(op);
-    let admission_intent_ref = consume_authorized_decision(
-        data_dir,
-        contract,
-        &required_scope,
-        subject_ref,
-        op,
-        revision,
-        &authorized,
-        false,
-    )
-    .await?;
-    revalidate_authoritative_admission(data_dir, &admission_intent_ref, &authorized)
-        .await
-        .map_err(|message| {
-            authority_consumption_challenge(
-                contract,
-                StatusCode::SERVICE_UNAVAILABLE,
-                "authority_consumption_receipt_unavailable",
-                message,
-            )
-        })?;
-    Ok(authorized)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3851,36 +3744,6 @@ pub(crate) fn append_evidence(receipt: &mut Value, authorized: &AuthorizedDecisi
             json!(authorized.resolved_at_ms),
         );
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn reauthorize_sealed_receipt(
-    contract: AuthorityContract,
-    data_dir: &str,
-    receipt: &Value,
-    governance: Governance,
-    room_ref: &str,
-    required_authority: &str,
-    subject_ref: &str,
-    op: &str,
-    revision: u64,
-    effect: &Value,
-) -> Result<u64, String> {
-    reauthorize_sealed_receipt_with_context(
-        contract,
-        data_dir,
-        receipt,
-        governance,
-        AuthorityPolicyContext::OutcomeRoom {
-            outcome_room_ref: room_ref,
-        },
-        required_authority,
-        subject_ref,
-        op,
-        revision,
-        effect,
-    )
-    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -4051,7 +3914,6 @@ mod scm_publication_scope_tests {
         "scope:autonomous_system.network_enrollment",
         "scope:hypervisoros.node",
         "scope:hypervisor_environment",
-        "scope:outcome_room",
     ];
 
     #[test]

@@ -364,12 +364,15 @@ and none of a System's own genesis, activation or transition routes.
 
 ## OutcomeRoomEnvelope
 
-**Retiring (R-172 slices S4c-1 and S4c-2).** This envelope and the hosted-v2
-room routes that serve it are migration input: its successor is
-`OrchestrationEnvelope` above, recorded through the generic seam, and the
-ioi.ai web application no longer calls the room routes. The shape below stays
-registered for retained chains until the routes are deleted with
-`outcome_room_routes.rs`.
+**Retired (R-172 slices S4c-1 and S4c-2, 2026-09-17).** This envelope is
+migration input: its successor is `OrchestrationEnvelope` above, recorded
+through the generic seam, and the ioi.ai web application consumes that
+composition. The daemon no longer hosts the hosted-v2 room routes — the eleven
+routes, `outcome_room_routes.rs`, `outcome_room_system_routes.rs`, the startup
+convergence of their intent families and the pending-intent fence were deleted
+under R-187 — so nothing can mint a record of this shape. The shape below stays
+registered only for retained chains until slice S4c-3 retires the contract
+itself.
 
 `OutcomeRoomEnvelope` is the shared collaborative-pursuit profile above one or
 more GoalRuns. It binds a durable objective to a work frontier, participants,

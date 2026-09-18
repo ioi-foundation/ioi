@@ -2694,44 +2694,16 @@ mod system_genesis_tests {
     }
 
     #[test]
-    fn room_policy_hash_is_byte_stable_and_system_context_is_explicit() {
+    fn system_context_policy_hash_is_explicit() {
         let contract = AuthorityContract {
-            scope_prefix: "verifier_challenge",
-            policy_domain: "hypervisor.verifier-challenge.decision.policy.v1",
-            request_domain: "hypervisor.verifier-challenge.decision.request.v1",
-            resolution_domain: "hypervisor.verifier-challenge.authority-resolution.v1",
-            code_prefix: "verifier_challenge",
-            host_label: "room_host",
-            participant_label: "participant_challenger",
+            scope_prefix: "scope:authority_test",
+            policy_domain: "hypervisor.authority-test.decision.policy.v1",
+            request_domain: "hypervisor.authority-test.decision.request.v1",
+            resolution_domain: "hypervisor.authority-test.authority-resolution.v1",
+            code_prefix: "authority_test",
+            host_label: "host",
+            participant_label: "participant",
         };
-        assert_eq!(
-            governed::decision_policy_hash(
-                contract,
-                Governance::Host,
-                "outcome-room://or_test",
-                "domain://host",
-                "create",
-            ),
-            "sha256:19277f17f3285d360be9cdb0a25f754b8bfd7099d7ddbfe6fc892841a9e6f095"
-        );
-        assert_eq!(
-            governed::decision_policy_hash_for_context(
-                contract,
-                Governance::Host,
-                AuthorityPolicyContext::OutcomeRoom {
-                    outcome_room_ref: "outcome-room://or_test",
-                },
-                "domain://host",
-                "create",
-            ),
-            governed::decision_policy_hash(
-                contract,
-                Governance::Host,
-                "outcome-room://or_test",
-                "domain://host",
-                "create",
-            ),
-        );
         let genesis_policy = |system_id, genesis_id| {
             governed::decision_policy_hash_for_context(
                 contract,

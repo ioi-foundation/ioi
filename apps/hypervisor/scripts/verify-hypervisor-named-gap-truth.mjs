@@ -279,10 +279,10 @@ const PINNED = {
   // and one record's chain by contract and object (GET). 948 `.route(` occurrences, 948 with a path
   // literal, 947 distinct paths: the reconciliation route still accounts for the single difference.
   // Moved in the SAME COMMIT as the routes.
-  registeredRoutes: 904 /* 2026-09-16: R-178 S4a / R-179 — 43 `/v1/goal-orchestration/*` routes deleted with the room-hosted work-object, participation, lease, collaboration-terms and pairing modules (947 → 904) */,
+  registeredRoutes: 893 /* 2026-09-17 (R-187, S4c-2): −11 — the hosted-v2 OutcomeRoom routes deleted with outcome_room_routes.rs and outcome_room_system_routes.rs; before that, 2026-09-16: R-178 S4a / R-179 — 43 `/v1/goal-orchestration/*` routes deleted with the room-hosted work-object, participation, lease, collaboration-terms and pairing modules (947 → 904) */,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
-  atlasRouteMentions: { decided: 225, unchecked: 49 } /* 2026-09-16: S4a — the missions app's ten deleted `existing_daemon.routes` claims removed (235 → 225) */,
+  atlasRouteMentions: { decided: 224, unchecked: 49 } /* 2026-09-17 (R-187, S4c-2): the missions app's `existing_daemon.routes` claim on GET /v1/goal-orchestration/outcome-rooms removed with the route (225 → 224); before that, 2026-09-16: S4a — the missions app's ten deleted `existing_daemon.routes` claims removed (235 →225) */,
   surfaceStringsNamingARoute: 8,
   // The pin includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed

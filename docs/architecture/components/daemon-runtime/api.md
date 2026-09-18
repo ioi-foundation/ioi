@@ -3308,9 +3308,14 @@ hosted-v2 room routes have no consumer left. The short-lived session the ioi.ai
 portal exchange mints reaches exactly the primitives that composition drives
 (`/v1/threads`, a thread and its subagents, the Systems projection and the
 record seam under a System) beside `/v1/goal-orchestration/*`, and none of a
-System's genesis, activation or transition routes. Hypervisor keeps only what
-the platform owns: the record seam, threads and subagents, work-lifecycle
-reservations and System genesis/activation.
+System's genesis, activation or transition routes. Later the same day
+(R-187, slice S4c-2) the daemon stopped hosting the hosted-v2 OutcomeRoom
+family: its eleven routes, the two modules that served them, the startup
+convergence of their intent families and the pending-intent fence were deleted;
+a GoalRun record that still names an `outcome_room_ref` is refused by name on
+the result and delta routes until the GoalRun family follows in S4d. Hypervisor
+keeps only what the platform owns: the record seam, threads and subagents,
+work-lifecycle reservations and System genesis/activation.
 
 ## Bounded Improvement Campaign APIs
 

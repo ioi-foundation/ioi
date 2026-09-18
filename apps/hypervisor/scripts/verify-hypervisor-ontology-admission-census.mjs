@@ -995,7 +995,7 @@ const PINNED = {
   // the question to ask. The mutation battery is what caught it — it refuses to SCORE while the
   // unmutated tree is red, so a stale pin blocks the battery rather than quietly degrading it,
   // and that is the only reason this moved in the same commit as the change rather than in CI.
-  modules: 124 /* 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration). 2026-09-17 (R-183, S4c): +2, record_material and mutation_ordering — the platform helpers and the outer writer lock given neutral owners BEFORE the room modules are deleted, so the deletion cannot take them along */,
+  modules: 122 /* 2026-09-17 (R-187, S4c-2): −2 — outcome_room_routes and outcome_room_system_routes deleted with the room plane, the last two room-hosted modules; before that, 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding,verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration). 2026-09-17 (R-183, S4c): +2, record_material and mutation_ordering — the platform helpers and the outer writer lock given neutral owners BEFORE the room modules are deleted, so the deletion cannot take them along */,
   familyMentions: 286,
   //
   // Re-pinned 2026-09-12 (leg 0, R-60's diagnostic) from 148021, +4. The only daemon-source change
@@ -1044,10 +1044,10 @@ const PINNED = {
   // system_record_routes.rs alone — `project()` now derives each revision's receipt_ref and
   // operation_ref through the two agentgres::refs derivations the admit reply already used, the
   // seam finding the S3 collaboration gate made reachable. Named by the pre-push sweep.
-  tokenMentions: 145518 /* 2026-09-17 (R-186, S4c-1): +87 over 145431 — the portal-exchange session mint's exact routes and per-segment route patterns with route_pattern_matches and its tests, and the Systems projection's third visibility clause (System-record seam scopes under the System) with its tests; no module added; before that, 2026-09-17 (R-183, S4c): +59 over 145372 —the two neutral modules carry their own doc headers and the lock-order statement that three modules used to duplicate */,
+  tokenMentions: 137142 /* 2026-09-18 (R-187, S4c-2 dead-code closure): −95 over 137237 — the room constants, structs and resolver the deletions orphaned in goalrun_routes, the OutcomeRoom policy context and its three wrappers in governed_authority, the room operation domain and helpers in substrate_store, the invocation lock and the ungated append (now cfg(test)); before that, 2026-09-17 (R-187, S4c-2): −8281 over 145518 — the two room modules (14,490 lines), the GoalRun routes' room-only helper closure (52 fns) and room-bound tests, both pending-intent fences, the substrate's room operation family with its test, the dead room authority wrapper and the room owner-binding entry deleted with the room plane; judged positions unmoved at 282; before that, 2026-09-17 (R-186, S4c-1): +87 over 145431 —the portal-exchange session mint's exact routes and per-segment route patterns with route_pattern_matches and its tests, and the Systems projection's third visibility clause (System-record seam scopes under the System) with its tests; no module added; before that, 2026-09-17 (R-183, S4c): +59 over 145372 —the two neutral modules carry their own doc headers and the lock-order statement that three modules used to duplicate */,
   judgedTokenPositions: 282,
-  productionWriterCalls: { family: 57, nonFamilyLiteral: 258, runtimeParameter: 301 } /* 2026-09-16: S4a — the FAMILY bucket is unmoved (no admitter added or removed); the deleted modules' 6 non-ODK-literal and 10 runtime-parameter writer calls went with them */,
-  productionFsCalls: 242,
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 256, runtimeParameter: 296 } /* 2026-09-17 (R-187, S4c-2): the FAMILY bucket is unmoved at 57 (no admitter added or removed — the room modules admitted through the substrate's room operation family, which went with them); non-family literal −2 and runtime-parameter −5 are the deleted room modules' own writer calls; before that, 2026-09-16: S4a — the FAMILY bucket is unmoved (no admitter added or removed); the deleted modules' 6 non-ODK-literal and 10 runtime-parameter writer calls went with them */,
+  productionFsCalls: 239 /* 2026-09-17 (R-187, S4c-2): −3 — the room modules' raw filesystem calls went with them */,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -1065,17 +1065,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4946 /* 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration) */,
-    "opaque-initialiser": 3000 /* 2026-09-16: R-178 S4a / R-179 — the deleted room-hosted modules' share */,
-    "bare-undeclared": 539 /* 2026-09-16: R-178 S4a / R-179 — the deleted room-hosted modules' share */,
+    "foreign-qualified": 4861 /* 2026-09-18 (R-187, S4c-2 dead-code closure): −1, `std::time::UNIX_EPOCH` in the deleted room-keyed wrapper; before that, 2026-09-17 (R-187, S4c-2): −84 — the two room modules' share; before that, 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration) */,
+    "opaque-initialiser": 2827 /* 2026-09-18 (R-187, S4c-2 dead-code closure): −1, `INVOCATION_MUTATION_LOCK` deleted; before that, 2026-09-17 (R-187, S4c-2): −172, the two room modules' share; before that, 2026-09-16: R-178 S4a / R-179 — the deleted room-hosted modules' share */,
+    "bare-undeclared": 537 /* 2026-09-17 (R-187, S4c-2): −2, the two room modules' share; before that, 2026-09-16: R-178 S4a / R-179 — the deleted room-hosted modules' share */,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 88, dataBytes: 0, dataOpaqueArg: 22 } /* 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration) */,
+  includes: { splicedCode: 0, dataStr: 73, dataBytes: 0, dataOpaqueArg: 13 } /* 2026-09-17 (R-187, S4c-2): −15 include_str! forms and −9 opaque arguments, the two room modules' share; before that, 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration) */,
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 24 } /* 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration) */,
+  compileAssembly: { production: 0, test: 15 } /* 2026-09-17 (R-187, S4c-2): −9 test-region assemblies, the two room modules' share; before that, 2026-09-16: R-178 S4a / R-179 — six room-hosted modules deleted (attempt_finding, verifier_challenge, resource_capability_offer, work_frontier_claim, room_participation, m048_collaboration) */,
 };
 
 /**

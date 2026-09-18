@@ -172,10 +172,6 @@ mod operability_routes;
 mod operations_support_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
 mod orchestration_routes;
-#[path = "hypervisor_daemon_routes/outcome_room_routes.rs"]
-mod outcome_room_routes;
-#[path = "hypervisor_daemon_routes/outcome_room_system_routes.rs"]
-mod outcome_room_system_routes;
 #[path = "hypervisor_daemon_routes/package_registry_routes.rs"]
 mod package_registry_routes;
 #[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
@@ -690,14 +686,6 @@ async fn async_main() -> anyhow::Result<()> {
             "akash restart recovery: stranded deployment(s) marked reconciliation_required"
         );
     }
-    // A retained M4 child intent makes its owner registry part of recovery truth. Census that
-    // complete registry before recovery so malformed, relocated, or ambiguous owner bytes fence
-    // the pending intent. Superseded WorkResult compatibility folds were deleted under ADR 0022.
-    if let Err((code, message)) =
-        outcome_room_system_routes::preflight_pending_owner_registry_census(&data_dir)
-    {
-        anyhow::bail!("OutcomeRoom recovery blocks readiness ({code}: {message})");
-    }
     // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
     // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.
     let _ = editor_host::reconcile_editor_services(&data_dir);
@@ -705,16 +693,9 @@ async fn async_main() -> anyhow::Result<()> {
     // durable recovery intent seals the receipt and release facts, so restart completes it
     // FORWARD deterministically (receipt, then release) instead of guessing.
     goalrun_routes::complete_recovery_intents(&data_dir);
-    // #72 round 9 — converge any attach intent a crash interrupted: re-stamp, re-persist the
-    // sealed receipt (byte-exact), terminal membership — or roll back if the run vanished.
-    outcome_room_routes::complete_attach_intents(&data_dir);
-    // #72 round 10 — converge interrupted room admissions and transitions the same way.
-    outcome_room_routes::complete_room_intents(&data_dir);
-    // M4 — current-contract room recovery crosses the active bounded-System and required
-    // Agentgres admission boundaries before restoring any local room projection.
-    if let Err((code, message)) = outcome_room_system_routes::complete_pending(&data_dir) {
-        anyhow::bail!("OutcomeRoom recovery blocks readiness ({code}: {message})");
-    }
+    // The hosted-room intent convergence that ran here (owner-registry census, attach and room
+    // intents, current-contract room recovery) retired with the room plane on 2026-09-17
+    // (R-178 slice S4c-2, R-183): the intent families it converged can no longer be minted.
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
@@ -3665,53 +3646,6 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/subscriptions/:owner_namespace/:lease_tail/delivery",
             get(event_stream_routes::handle_subscription_delivery),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms",
-            get(outcome_room_routes::handle_outcome_rooms_list)
-                .post(outcome_room_routes::handle_outcome_room_create),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/overview",
-            get(outcome_room_routes::handle_outcome_rooms_overview),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id",
-            get(outcome_room_routes::handle_outcome_room_get),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/transition",
-            axum::routing::post(
-                outcome_room_routes::handle_outcome_room_transition_route_retired,
-            ),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions",
-            axum::routing::post(outcome_room_routes::handle_outcome_room_transition),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
-            axum::routing::post(outcome_room_routes::handle_outcome_room_attach_goal_run),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/detach-goal-run",
-            axum::routing::post(outcome_room_routes::handle_outcome_room_detach_goal_run),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/replay",
-            get(outcome_room_system_routes::handle_replay),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
-            get(outcome_room_system_routes::handle_collaborative_work_graph),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
-            get(outcome_room_system_routes::handle_discussion_projection),
-        )
-        .route(
-            "/v1/goal-orchestration/outcome-rooms/:id/product-projection",
-            get(outcome_room_system_routes::handle_product_projection),
         )
         // M04.8 — the hosted pre-admission lane. Pairing and collaboration terms are owner-local
         // producers; the participation request itself is an Agentgres room child.

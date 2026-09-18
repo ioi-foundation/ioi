@@ -273,10 +273,12 @@ check("R1_DERIVED_CLOSED_WORLD",
   // evidence that only the registered-handler bucket moved. The Systems projection route already
   // existed and gained identity policy in place, so it adds no handler. Moved in the SAME commit as
   // the route, together with `check:named-gap-truth` (878 -> 879 distinct paths).
-  // 2026-09-16 (R-178 S4a / R-179): 54 handlers over the 43 deleted `/v1/goal-orchestration/*`
-  // routes went with the room-hosted work-object, participation, lease, terms and pairing modules
-  // (1219 → 1165); the workspace population is unmoved.
-  census.registered_route_handlers === 1165 && census.workspace_route_handlers === 40
+  // 2026-09-17 (R-187, S4c-2): 12 handlers over the 11 deleted hosted-v2 OutcomeRoom routes went
+  // with outcome_room_routes.rs and outcome_room_system_routes.rs (1165 → 1153); the workspace
+  // population is unmoved. Before that, 2026-09-16 (R-178 S4a / R-179): 54 handlers over the 43
+  // deleted `/v1/goal-orchestration/*` routes went with the room-hosted work-object,
+  // participation, lease, terms and pairing modules (1219 → 1165).
+  census.registered_route_handlers === 1153 && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
