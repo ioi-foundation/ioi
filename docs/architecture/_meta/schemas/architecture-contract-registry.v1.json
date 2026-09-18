@@ -1071,7 +1071,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration/v1",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1125,7 +1125,7 @@
         "successor_contract_id": "schema://ioi/applications/ioi-ai/orchestration/v1",
         "compatibility": "initial",
         "migration_policy": "none",
-        "predecessor_remains_valid": true,
+        "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },

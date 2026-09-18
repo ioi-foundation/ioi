@@ -251,6 +251,8 @@ adjudication, and settlement path. Pairing is pre-AIIP first-mile
 authentication. After admission, cross-domain work uses AIIP and the same
 scoped Hypervisor MCP/tool gateway and lease contracts as any other participant.
 
+**Retired (R-188, slice S4c-3, 2026-09-18).** The target room family below was never registered and no longer has an owner in the daemon: discovery, participation, budget, offers, frontier, claims, attempts, findings, verifier challenges and admission proposals are the ioi.ai composition's records (`OrchestrationDiscovery`, `OrchestrationParticipationRequest`, the six v4 work objects) admitted through the System-record seam, and the collaborative graph and discussion lenses are read models the composer derives from the thread and the seam (`Orchestrations.graph`). The block is kept as the history of the target; every route in it is annotated on its own line.
+
 Target OutcomeRoom / CollaborativeWorkGraph routes:
 
 ```http
@@ -259,55 +261,57 @@ GET   /v1/goal-orchestration/outcome-rooms                                    # 
 GET   /v1/goal-orchestration/outcome-rooms/{room_ref}                         # no registered route — deleted 2026-09-17 (S4c-2)
 POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run         # no registered route — deleted 2026-09-17 (S4c-2)
 POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run         # no registered route — deleted 2026-09-17 (S4c-2)
-POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/upgrade-proposals
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/upgrade-proposals   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
 POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/lifecycle/transitions   # no registered route — deleted 2026-09-17 (S4c-2)
 
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/pause
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/withdraw
-GET  /v1/hypervisor/outcome-room-discoveries
-GET  /v1/hypervisor/outcome-room-discoveries/{discovery_ref}
-POST /v1/hypervisor/outcome-room-discoveries/{discovery_ref}/participation-requests
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/pause   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/withdraw   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/hypervisor/outcome-room-discoveries   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/hypervisor/outcome-room-discoveries/{discovery_ref}   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/hypervisor/outcome-room-discoveries/{discovery_ref}/participation-requests   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
 
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/join
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/retire
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/join   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/retire   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
 
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/quote
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reserve
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/adjust
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reconcile
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/quote   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reserve   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/adjust   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reconcile   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
 
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw
-GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/renew
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/release
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/renew   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/release   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
 
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attempts
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/findings
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/verifier-challenges
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals
-POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attempts   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/findings   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/verifier-challenges   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide   # no registered route — retired target 2026-09-18 (S4c-3): the composition owns this
 GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay                       # no registered route — deleted 2026-09-17 (S4c-2)
 ```
+
+**History (retired 2026-09-18, R-188 S4c-3; the routes above are gone).** The paragraphs from here to the GoalRun routes describe the deleted hosted-v2 room plane and its target discovery/participation lanes; they bind nothing now. The living semantics are in `collaborative-pursuit.md` § *OrchestrationEnvelope* and § *OrchestrationDiscoveryEnvelope and OrchestrationParticipationRequestEnvelope*.
 
 The canonical `outcome-rooms` family admits and projects the bounded-System
 `OutcomeRoom` contract only. The predecessor v1 free-form aggregate is not a

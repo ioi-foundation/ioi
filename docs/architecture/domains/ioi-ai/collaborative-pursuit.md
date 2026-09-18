@@ -30,6 +30,8 @@ Doctrine and lifecycle semantics are owned by
 
 ## OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope
 
+**Retired (R-188, slice S4c-3, 2026-09-18; successor pointers set 2026-09-16 under R-172 S3).** `OutcomeRoomDiscovery` v1 and `RoomParticipationRequest` v3 are migration input for `OrchestrationDiscovery` v1 and `OrchestrationParticipationRequest` v1/v2 below; the registry marks neither predecessor valid, no daemon route serves them, and nothing mints a record of either shape. The text below is the history of the shapes.
+
 Cross-domain and Network/Open participation begins with a policy-bound
 discovery projection, not access to the room database. An independently
 operated Worker can discover the public objective/category and declared
@@ -553,6 +555,8 @@ zero and not best-effort (moved here from `projection-system-reference.md`
 § 7.1 on 2026-09-12, ADR 0052 Decision 4; the generic CSPS rule those MUSTs
 instantiate stays with
 [`../../components/agentgres/projection-system-reference.md`](../../components/agentgres/projection-system-reference.md#71-projection-native-does-not-mean-caller-writable)).
+
+**Retired (R-188, slice S4c-3, 2026-09-18).** `OutcomeRoomDiscussionProjection` v1 and `CollaborativeWorkGraph` have no durable successor: the composition's graph, delegation list and replay lenses are read models the composer derives at read time from the coordinating thread, the reservation stream and the System-record seam (`Orchestrations.graph`, declared `authoritative: false` and `client_writable: false`), and the registry points the projection contract at `applications/ioi-ai/orchestration/v1` with the predecessor no longer valid. The paragraph below is history.
 
 `OutcomeRoomDiscussionProjectionEnvelope` is the durable form for a room's
 messages, board, inbox, digest, feed, or replay discussion lens. It contains
@@ -1316,6 +1320,8 @@ claim, finding, challenge, and room lifecycle states remain owned by their
 envelope sections in this file.
 
 ## Agentgres persistence of the room graph
+
+**History (retired 2026-09-18, R-188 S4c-3).** No room graph is persisted any more: the daemon's `admit_outcome_room_system_operation` family went with the room modules (S4c-2) and the agentgres `outcome_room_system_*_ref` constructors went with this slice. An orchestration's durable state is the coordinating thread's own records and the records admitted under the bounded System through the seam. The relation graph below is the history of the deleted plane.
 
 > Moved here from `api-object-model.md` § *OutcomeRoom And Collaborative Work
 > Graph Shapes* on 2026-09-12 (ADR 0052 Decision 4): the persisted shapes are

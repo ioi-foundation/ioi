@@ -256,7 +256,7 @@ try {
   // deleted with the room plane are now annotated "no registered route — deleted" where
   // orchestration-api.md lists them (the audited block and the target block), and the ratchet
   // follows the population down rather than absorbing it.
-  const ENDPOINT_RATCHET = 129;
+  const ENDPOINT_RATCHET = 94; // 2026-09-18 (R-188, S4c-3): −35 over 129 — the 41 never-registered target room routes in orchestration-api.md annotated retired on their own lines (the composition owns them)
   const byFile = {};
   for (const entry of undocumented) {
     const file = entry.split(":")[0];
